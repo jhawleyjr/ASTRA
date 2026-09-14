@@ -1,14 +1,17 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines)
 
 ## In flight
-M0 PR 1 on branch `m0`: bootstrap files, ADR-0001…0011, PLAN/STATE, oracle-guard hook. PR open, awaiting
-Joe's squash-merge.
+M0 PR 1 on branch `m0` (PR #1): bootstrap files, ADR-0001…0011, PLAN/STATE, oracle-guard hook. Review fixes
+pushed (guard Bash matcher, attribution, SessionStart hook). Awaiting Joe's squash-merge.
 
 ## Last verified result
 - Eleven ADRs exist with Context / Decision / Rejected alternatives / Consequences; every §17 alternative
   named (grep-checked).
-- `.claude/hooks/guard-oracle.sh` blocks Edit/Write on `docs/decisions/**`, `tests/golden/**`, and
-  `*tolerance*` files (exit 2) and passes other paths (exit 0); override honoured. Tested by piping JSON.
+- `.claude/hooks/guard-oracle.sh`: Edit/Write on decision records, goldens, and `*tolerance*` files exit 2,
+  other paths exit 0; Bash blocks only when a guarded path is a write target (redirect, tee, sed -i,
+  rm/mv/cp/touch/truncate, git rm/mv/checkout/restore) and passes reads and mere mentions; override honoured.
+  15-case probe (plus override) all pass; the probe fires live too, so run it from a script by path.
+- `.claude/settings.json`: `attribution.sessionUrl` is `false`; SessionStart removes `.claude/touch-goldens`.
 - No build exists yet; `just check` cannot run until PR 2.
 
 ## Next step

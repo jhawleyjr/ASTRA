@@ -24,8 +24,12 @@ case "$tool" in
   Bash)
     cmd=$(printf '%s' "$input" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("tool_input",{}).get("command",""))' 2>/dev/null)
     [ -z "$cmd" ] && exit 0
-    if printf '%s' "$cmd" | grep -Eq "$guarded" && printf '%s' "$cmd" | grep -Eq '(>|\btee\b|\bsed\b[^|;&]*-i|\brm\b|\bmv\b|\bcp\b|\btouch\b|\btruncate\b|\bgit\b[^|;&]*\b(rm|mv|checkout|restore)\b)'; then
-      block "a path named in this command"
+    # Block only when a guarded path is the TARGET of a write: after a redirect, tee, sed -i,
+    # rm/mv/cp/touch/truncate, or git rm/mv/checkout/restore. Merely naming the path (ls, cat, grep,
+    # a commit message, `2>/dev/null`) is fine. Writes hidden inside scripts are caught by the Edit/Write matcher or by review.
+    g='(docs/decisions/|tests/golden/|tolerance)'
+    if printf '%s' "$cmd" | grep -Eq "(>>?[[:space:]]*[^[:space:]|;&]*$g|\btee\b([[:space:]]+-[a-z]+)*[[:space:]]+[^[:space:]|;&]*$g|\bsed\b[^|;&]*[[:space:]]-[a-zA-Z]*i[^|;&]*$g|\b(rm|mv|cp|touch|truncate)\b[^|;&]*$g|\bgit\b[^|;&]*\b(rm|mv|checkout|restore)\b[^|;&]*$g)"; then
+      block "a write target in this command"
     fi
     ;;
 esac
