@@ -26,7 +26,7 @@ echo; echo "--- git log -10 ---"; g log --oneline -10
 echo; echo "--- STATE.md ---"; cat STATE.md 2>/dev/null || echo "(no STATE.md)"
 echo; echo "--- PLAN.md: unchecked items ---"; grep -E '^\s*- \[ \]' PLAN.md 2>/dev/null || echo "(none)"
 echo; echo "--- gate ---"
-if [ -f justfile ]; then echo "justfile present: 'just check' is the gate. /task runs it first."
+if [ -f justfile ]; then echo "justfile present: 'just check' is the gate; it runs once, after the work."
 else echo "No justfile yet (pre-PR 2): there is nothing to run."; fi
 [ -e .claude/touch-goldens ] && echo "Oracle guard LIFTED for this session (.claude/touch-goldens present)."
 echo "Read CLAUDE.md conventions before writing code; ADRs in docs/decisions/ are immutable."

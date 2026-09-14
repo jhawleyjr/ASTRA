@@ -20,7 +20,7 @@ Across Anthropic's current docs, OpenAI's harness-engineering write-up, the mart
 ```
   Joe + Claude (Cowork or Claude Code)         Claude Code, one session per task
   ────────────────────────────────────          ─────────────────────────────────────────────
-  PLAN.md: milestones as checkboxes    ──►     /task  → STATE.md + git log already in context (hook)
+  PLAN.md: milestones as checkboxes    ──►     opener → STATE.md + git log already in context (hook)
   ADRs when a decision is made                        → plan mode: recon + 5-line approach, Joe OKs
                                                       → worktree branch from fresh main
                                                       → implement against the acceptance check
@@ -61,7 +61,7 @@ One command, **`just check`** (`just` from apt, with CMake presets underneath fo
 Wiring, all deterministic and cheap:
 
 - **Stop hook** runs the fast subset (build + unit tests) and blocks the turn from ending until it passes. Claude Code caps this at 8 consecutive blocks, which is the right amount of stubbornness.
-- **PreToolUse hook** denies edits to `tests/golden/**`, tolerance files, and `docs/decisions/**` unless the session was started with `/task --touch-goldens`. This is the one hard precondition in the whole design, and it tests the thing that actually matters: *the oracle does not move without a human deciding it should.* Widened tolerance, narrowed comparison, regenerated golden, or a deleted/weakened test is always a blocking review finding.
+- **PreToolUse hook** denies edits to `tests/golden/**`, tolerance files, and `docs/decisions/**` unless Joe ran `touch .claude/touch-goldens` before opening the session. This is the one hard precondition in the whole design, and it tests the thing that actually matters: *the oracle does not move without a human deciding it should.* Widened tolerance, narrowed comparison, regenerated golden, or a deleted/weakened test is always a blocking review finding.
 - **`/goal`** for unattended runs: "all tests in `tests/physics/` pass and `just check` exits 0, or stop after 20 turns."
 - **CI**: GitHub Actions runs `just check` on every pull request on an `ubuntu-24.04` runner; `main` is protected and requires it.
 
@@ -81,16 +81,15 @@ Wiring, all deterministic and cheap:
 
 Cowork sessions are for **thinking that produces documents**: architecture, ADRs, research, milestone planning, and occasional fresh-eyes review of a PR when Joe wants a second opinion untainted by having written the code. Their outputs land in the Project and in `docs/`. They are never a required step between two Claude Code sessions. Dispatch can route a "go build M2" from Cowork to a Claude Code session when that's convenient, but it is a convenience, not the process.
 
-## Skills (three, small)
+## Skills (two, small)
 
-- **`/task`** — start of session: `STATE.md`, `git log`, and the open PLAN.md items arrive via the SessionStart hook; no gate run before work; enter plan mode with the task line (`--no-plan` skips it); produce a ≤5-line approach and the acceptance command. `--touch-goldens` lifts the oracle guard for the session.
 - **`/wrap`** — end of session: rewrite `STATE.md`, append to `docs/lessons.md` if anything bit, ensure the branch is pushed and the PR is open, print the one-line opener for next time.
 - **`/retro`** — at each milestone: list rules that have not fired since the last retro and propose deleting them; list things that bit twice and propose one rule. Must be run by Joe; produces a diff or nothing.
 
 ## Model and effort (decided 2026-09-14, from code.claude.com/docs/en/model-config)
 
 - **Standing default: `fable` at `high`**, pinned in `.claude/settings.json` (`"model": "fable"`, `"effortLevel": "high"`) because Fable 5.1 does not hold an effort level across sessions. Anthropic's Fable guidance — describe the outcome not the steps, skip verification reminders, size up larger tasks — matches the 3–10-line task shape here.
-- **Physics-touching tasks and M0 run at `xhigh`.** `/task --physics` sets `effort: xhigh` via skill frontmatter so nobody has to remember `/effort`. Physics-touching = `core/kernel/`, `core/util/` (frames, quaternions, geodesy), `plugins/physical/`, transports, anything that writes a golden.
+- **Physics-touching tasks and M0 run at `xhigh`.** Open those sessions with `--effort xhigh` on the command line (the opener `/wrap` prints carries it). Physics-touching = `core/kernel/`, `core/util/` (frames, quaternions, geodesy), `plugins/physical/`, transports, anything that writes a golden.
 - **Mechanical work may drop to `sonnet` at `high`** (CMake plumbing, logging, Python tooling, packet packers). `opusplan` is the hands-off middle path.
 - **`max` is not a default.** Use it only when a task stalls at `xhigh`; the docs warn of diminishing returns and overthinking, which is a real failure mode in numerical code. `ultrathink` in a single prompt is the one-off alternative.
 - **`/code-review` runs on the session's model** for physics diffs; a weaker reviewer of a stronger writer is not a check.
