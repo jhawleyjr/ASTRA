@@ -1,0 +1,8 @@
+# One case per line: <expected exit>\t<JSON piped to no-main.sh on stdin>. $ROOT is the repo root; the runner must
+# execute these with HEAD on main for the "on main" cases (use a throwaway clone or `git -C` a temp repo).
+0	{"cwd":"$ROOT","tool_input":{"command":"git push -u origin worktree-m0"}}
+0	{"cwd":"$ROOT","tool_input":{"command":"git status"}}
+0	{"cwd":"$ROOT","tool_input":{"command":"just check"}}
+2	{"cwd":"$ROOT","tool_input":{"command":"git push origin main"}}
+2	{"cwd":"$ROOT","tool_input":{"command":"git push -u origin HEAD:main"}}
+2	{"cwd":"$ROOT_ON_MAIN","tool_input":{"command":"git commit -m x"}}
