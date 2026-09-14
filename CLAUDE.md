@@ -20,17 +20,19 @@ anything it decides; §17 lists the ADRs that must exist before other code is wr
 `just check` is the single gate and the definition of done (CMake presets underneath; `just` from apt).
 
 - `just check` — every preset (`debug`, `release`, `asan`, `static-plugins`) configures, builds with clang-18
-  `-Werror`, and runs ctest; then `clang-tidy`, `clang-format --dry-run --Werror`, and the hook test cases.
-  Later milestones add pytest, physics oracle tests, and golden-trajectory regression to the same recipe.
+  `-Werror`, and runs ctest; `just python` installs `astra._core` into `.venv` (editable, built in `build/python`,
+  `just venv` creates the venv if missing); then `clang-tidy`, `clang-format --dry-run --Werror`, the hook test
+  cases, `ruff`, `pyright` (strict on `python/astra/`), and `pytest`. Physics oracles and goldens join later.
 - `just build [preset]` / `just test [preset]` — one preset (default `asan`); `build/<preset>/` holds
   `lib/libastra_core.so` and `plugins/libastra_<path_with_underscores>.so`.
-- Single tests: `ctest --preset asan -R <name>` from the repo root; `pytest tests/scenarios -k <name>` (M5).
-- `just format` fixes formatting; `just hooks-test` runs `.claude/hooks/tests/*.cases`; `just tidy` is
-  clang-tidy alone. `just check` never runs `format`, only the dry run.
+- Single tests: `ctest --preset asan -R <name>` from the repo root; `.venv/bin/pytest tests/python -k <name>`.
+- `just format` fixes formatting (clang-format and ruff); `just hooks-test` runs `.claude/hooks/tests/*.cases`;
+  `just tidy` is clang-tidy alone. `just check` never runs `format`, only the dry run.
 
 Toolchain is apt-only on Ubuntu 24.04: clang-18, CMake 3.28, Eigen 3.4, HDF5 1.10 (C API), GoogleTest,
-yaml-cpp; nanobind 3 + scikit-build-core via pip in a Python 3.12 venv. No vcpkg/Conan, no HighFive, no mp-units.
-Every preset exports `compile_commands.json`, linked at the repo root, or clangd reports false errors on Eigen.
+yaml-cpp; the Python 3.12 venv holds the pinned dev group from `pyproject.toml` (nanobind 3, scikit-build-core,
+pytest, ruff, pyright). No vcpkg/Conan, no HighFive, no mp-units. Every build exports `compile_commands.json`;
+`just link-db` links it at the repo root and under `python/`, or clangd reports false errors on Eigen and nanobind.
 Prefer the clangd/pyright LSP tools over grep for symbol lookups; they are feedback, not the gate.
 
 ## Git and session rules

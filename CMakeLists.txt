@@ -4,6 +4,8 @@ project(ASTRA VERSION 0.1.0 LANGUAGES CXX)
 
 option(ASTRA_STATIC_PLUGINS "Link every plugin into libastra_core and never dlopen (real-time builds)" OFF)
 option(ASTRA_BUILD_TESTS "Build the GoogleTest suites and the test plugins" ON)
+option(ASTRA_BUILD_PYTHON
+  "Build the astra._core nanobind module (scikit-build-core turns this on; needs the venv Python)" OFF)
 set(ASTRA_SANITIZERS "" CACHE STRING
     "Comma-separated -fsanitize= list applied to every target, e.g. address,undefined (empty = none)")
 
@@ -38,6 +40,9 @@ find_package(Eigen3 3.4 REQUIRED CONFIG)
 include(AstraPlugin)
 add_subdirectory(icd)
 add_subdirectory(core)
+if(SKBUILD OR ASTRA_BUILD_PYTHON)
+  add_subdirectory(python)
+endif()
 astra_discover_plugins(plugins)
 astra_discover_plugins(aircraft)
 if(ASTRA_BUILD_TESTS)
