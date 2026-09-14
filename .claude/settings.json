@@ -32,6 +32,10 @@
           {
             "type": "command",
             "command": "rm -f \"$CLAUDE_PROJECT_DIR\"/.claude/touch-goldens"
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.sh"
           }
         ]
       }
