@@ -8,7 +8,10 @@ from pathlib import Path
 import astra
 from astra import _core
 
-UNIT_SUFFIXES = ("_m", "_ft", "_deg", "_rad", "_kg", "_s", "_n", "_pa", "_k")
+# Unit tokens only: frame letters (p_n, v_b, stability axes _s) are notation, not units (ADR-0001).
+UNIT_SUFFIXES = (
+    "_m", "_ft", "_deg", "_rad", "_kg", "_lb", "_lbf", "_kt", "_kts", "_mps", "_fps", "_pa",
+)  # fmt: skip
 
 
 def test_version_matches_the_installed_distribution() -> None:
@@ -23,10 +26,11 @@ def test_core_api_version_and_toolchain_string_come_from_libastra_core() -> None
 
 
 def test_no_bound_name_carries_a_unit_suffix_as_adr_0002_says() -> None:
-    names = [name for name in dir(_core) if not name.startswith("_")]
-    for cls in (_core.StepContext, _core.Model, _core.PluginDescriptor, _core.PluginLoader):
-        names += [name for name in dir(cls) if not name.startswith("_")]
-    assert names, "nothing bound?"
+    names = [name for name in vars(_core) if not name.startswith("_")]
+    for obj in list(vars(_core).values()):
+        if isinstance(obj, type):
+            names += [name for name in vars(obj) if not name.startswith("_")]
+    assert len(names) > 20, names
     assert [n for n in names if n.lower().endswith(UNIT_SUFFIXES)] == []
 
 

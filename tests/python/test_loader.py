@@ -40,6 +40,8 @@ def test_each_load_creates_its_own_model(loader: _core.PluginLoader) -> None:
 
 
 def test_a_model_outlives_the_loaded_plugin_it_came_from(loader: _core.PluginLoader) -> None:
+    # Documents the keep-alive contract (reference_internal). A freed model may still answer in an
+    # unsanitized build, so this cannot fail deterministically; a sanitized run would catch it.
     model = loader.load(DUMMY).model
     assert model.name() == "dummy"
 

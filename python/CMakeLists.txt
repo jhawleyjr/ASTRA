@@ -21,7 +21,9 @@ find_package(nanobind 3.0 CONFIG REQUIRED)
 
 # astra::core brings astra_build_flags (-Werror everywhere, §14). NB_SUPPRESS_WARNINGS makes the nanobind and
 # Python headers SYSTEM includes: Python.h is C-style casts throughout and -Wold-style-cast would reject it.
-nanobind_add_module(_core NB_STATIC NB_SUPPRESS_WARNINGS bindings/_core.cpp)
+# NB_DOMAIN keeps this module's type and exception-translator tables apart from any other nanobind extension in
+# the process, so a translator registered elsewhere cannot catch an astra::Error first.
+nanobind_add_module(_core NB_STATIC NB_SUPPRESS_WARNINGS NB_DOMAIN astra bindings/_core.cpp)
 target_link_libraries(_core PRIVATE astra::core)
 target_compile_definitions(_core PRIVATE
   "ASTRA_VERSION=\"${PROJECT_VERSION}\""
@@ -31,10 +33,17 @@ target_compile_definitions(_core PRIVATE
 set_target_properties(_core PROPERTIES INSTALL_RPATH "${CMAKE_BINARY_DIR}/lib")
 install(TARGETS _core LIBRARY DESTINATION astra)
 
-# The stub is generated into the source tree next to __init__.py (gitignored): that is where pyright and the LSP
-# resolve astra._core, since the compiled module itself lives in the venv.
+# The stub is generated in the build tree and copied next to __init__.py (gitignored) on every build, so a
+# cleaned build tree or a deleted copy is repaired by the next `just python`. That copy is where pyright and the
+# LSP resolve astra._core, since the compiled module itself lives in the venv.
+set(astra_stub "${CMAKE_CURRENT_BINARY_DIR}/_core.pyi")
 nanobind_add_stub(astra_core_stub
   MODULE _core
   PYTHON_PATH $<TARGET_FILE_DIR:_core>
   DEPENDS _core
-  OUTPUT "${ASTRA_SOURCE_DIR}/python/astra/_core.pyi")
+  OUTPUT "${astra_stub}")
+add_custom_target(astra_core_stub_in_tree ALL
+  COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${astra_stub}" "${ASTRA_SOURCE_DIR}/python/astra/_core.pyi"
+  DEPENDS "${astra_stub}"
+  COMMENT "Placing _core.pyi next to python/astra/__init__.py")
+add_dependencies(astra_core_stub_in_tree astra_core_stub)

@@ -27,7 +27,8 @@ anything it decides; §17 lists the ADRs that must exist before other code is wr
   `lib/libastra_core.so` and `plugins/libastra_<path_with_underscores>.so`.
 - Single tests: `ctest --preset asan -R <name>` from the repo root; `.venv/bin/pytest tests/python -k <name>`.
 - `just format` fixes formatting (clang-format and ruff); `just hooks-test` runs `.claude/hooks/tests/*.cases`;
-  `just tidy` is clang-tidy alone. `just check` never runs `format`, only the dry run.
+  `just tidy` is clang-tidy alone (it runs `just python` first for the binding TU's compile database).
+  `just check` never runs `format`, only the dry run.
 
 Toolchain is apt-only on Ubuntu 24.04: clang-18, CMake 3.28, Eigen 3.4, HDF5 1.10 (C API), GoogleTest,
 yaml-cpp; the Python 3.12 venv holds the pinned dev group from `pyproject.toml` (nanobind 3, scikit-build-core,

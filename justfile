@@ -26,9 +26,11 @@ test preset="asan": (build preset)
     ctest --preset {{preset}} --parallel {{jobs}}
 
 # The venv the gate uses. Created here when missing (a fresh worktree or CI has none) and filled from the pinned
-# dev group in pyproject.toml. The pip a fresh venv ships (24.0) predates --group, so it is upgraded once, then.
+# dev group in pyproject.toml. `pip install --group` needs pip 25.1; a venv's bundled pip (24.0) is upgraded
+# once, and both installs are offline once satisfied.
 venv:
-    if [ ! -x {{py}} ]; then python3 -m venv {{venv}} && {{py}} -m pip install -q --upgrade 'pip>=25.1'; fi
+    [ -x {{py}} ] || python3 -m venv {{venv}}
+    {{py}} -m pip install -q 'pip>=25.1'
     {{py}} -m pip install -q --group dev
 
 # Editable install of astra._core into the venv: scikit-build-core configures build/python (Release, clang-18,

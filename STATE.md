@@ -3,8 +3,8 @@
 ## In flight
 M0 PR 3 on branch `worktree-m0-python`: `pyproject.toml` (scikit-build-core + nanobind 3), `astra._core`
 (`python/bindings/_core.cpp`) with the generated stub, `pyrightconfig.json`, ruff, pytest scaffold
-(`tests/python/`), `.clangd`; `just check` grew `venv`, `python`, `ruff`, `pyright`, `pytest`. Pushed; PR open;
-awaiting Joe's squash-merge. PR 3 is ticked in `PLAN.md`.
+(`tests/python/`), `.clangd`; `just check` grew `venv`, `python`, `ruff`, `pyright`, `pytest`. Pushed; PR #6
+open; awaiting Joe's squash-merge. PR 3 is ticked in `PLAN.md`.
 
 ## Last verified result
 - `just check` exited 0 in this session on the branch rebased onto current `main`: 4 presets × 16 ctest cases,
@@ -17,6 +17,10 @@ awaiting Joe's squash-merge. PR 3 is ticked in `PLAN.md`.
 - Negative paths shown to fire: an unused import → `just ruff` exit 1 (F401); an un-annotated function in
   `python/astra/` → `just pyright` exit 1; CMake version bumped without reinstalling → `test_package.py` fails.
 - clang-tidy over the binding TU is live: unnamed `nb::exception` temporaries failed the gate until named.
+- Review fixes verified: a stale editable install (build/python reconfigured as Debug, module not reinstalled)
+  fails `import astra._core` with an ImportError naming both toolchains; a deleted `_core.pyi` regenerates.
+- CI: workflow `check` passed on PR #6's first run (about three and a half minutes), creating the venv from
+  scratch on the runner.
 
 ## Next step
 M0 PR 4 in a fresh session: `claude --worktree m0-hooks --effort xhigh --permission-mode plan`. Scope per
@@ -30,8 +34,7 @@ Joe's machine: none beyond `gh auth`. After PR 4, M0 closes; M1 (rigid body) sta
   (ours sits on `astra_build_flags`). The module is built once, unsanitized, by scikit-build-core.
 - Tried exposing `__version__` from the module: nanobind's stub generator never emits that name, so pyright
   strict failed. The module exposes `VERSION`; `astra/__init__.py` re-exports it as `__version__`.
-- The pyright LSP plugin in this session did not pick up the new `pyrightconfig.json` (it reported
-  `astra._core` unresolved while the CLI passed); expected to clear on the next session start.
+- The pyright LSP plugin did not pick up the new `pyrightconfig.json` mid-session (the CLI passed); recheck next start.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.

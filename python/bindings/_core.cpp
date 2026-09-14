@@ -11,6 +11,8 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <string>
+#include <string_view>
 
 #include "astra/core_api.hpp"
 #include "astra/errors.hpp"
@@ -34,9 +36,28 @@ astra::StateVector identity_state() {
 
 const char* default_plugin_dir() { return ASTRA_PLUGIN_DIR; }
 
+// The check the loader applies to every plugin (ADR-0009), applied to this module: the copy pip
+// installed into the venv must have been compiled against the libastra_core it just loaded, which
+// is the one shared object the loader never sees. A rebuilt build/python without `just python` is
+// how they drift apart. nanobind turns the exception into ImportError with this message.
+void check_built_against_this_core() {
+  if (astra::kCoreApiVersion == astra::core_api_version() &&
+      std::string_view{astra::kBuiltWith} == astra::built_with()) {
+    return;
+  }
+  std::string message = "astra._core was compiled against libastra_core '";
+  message += astra::kBuiltWith;
+  message += "' (core API " + std::to_string(astra::kCoreApiVersion) + ") but loaded '";
+  message += astra::built_with();
+  message += "' (core API " + std::to_string(astra::core_api_version()) +
+             "): stale editable install, run `just python`";
+  throw nb::import_error(message.c_str());
+}
+
 }  // namespace
 
 NB_MODULE(_core, m) {
+  check_built_against_this_core();
   m.doc() =
       "ASTRA core bindings: state layout (ADR-0003), plugin loader (ADR-0009), SI throughout "
       "(ADR-0002).";
