@@ -1,0 +1,121 @@
+# ASTRA Development Workflow (v2, 2026-09-14)
+
+Status: **accepted** 2026-09-14. Replaces the 6DoF-Digital phase/task process without copying it.
+
+## What the research said, in one paragraph
+
+Across Anthropic's current docs, OpenAI's harness-engineering write-up, the martinfowler.com spec-driven-development critiques, and the practitioners who aren't selling a framework (Cherny, Willison, Reed, Osmani), the same shape emerges: **short standing instructions, executable checks, fresh contexts, tiny durable state files.** What consistently rots is ceremony — long specs written before code exists ("writing the program twice"), mandated artifacts per step, and hard preconditions. Anthropic's best-practices page now leads with verification, not planning: "Give Claude a check it can run… It's the difference between a session you watch and one you walk away from," and adds "If you could describe the diff in one sentence, skip the plan." The frameworks that went heavy (BMAD, spec-kit, Superpowers) have all since shipped "lite" modes, which is the tell. Two empirical results matter for us: repository instruction files mostly don't improve task success but do raise cost, *except* for non-standard conventions (ETH, Feb 2026); and agent-written tests are mostly observational rather than verifying (Feb 2026), so **the human owns the oracle**.
+
+## Why the old process was slow — and the design response
+
+| Old 6DoF-Digital | Why it hurt | v2 response |
+|---|---|---|
+| Task brief = "the entire brief… if it's not in here, it does not exist": verbatim spec excerpts, exact interfaces, complete file list → `scope.json`, named tests with values, wrong-implementations table, gate list, plus 1–2 adversarial review passes — all written in Cowork with no compiler | Front-loaded the hardest thinking to the point of least information. Opus-hours spent on paperwork; a short brief was treated as a defect | A task is **3–10 lines**: intent, acceptance check as a command, pointers to the ADRs that bind it. The agent does its own recon in the repo with plan mode. Detail emerges from code and tests, not prose |
+| Seven mandated hops per task across Cowork and Claude Code, each ending in a handoff ritual | Every hop = context rebuild + a `STATE.md` rewrite + a doc sweep | **One surface.** Claude Code on Joe's machine plans, builds, tests, reviews, and commits. Cowork is for design conversations and research, never a gate in the loop |
+| Task pinned to a commit SHA; `scope.json` hook; `.claude/current-task.json` arming; amend-only revise rounds; `--no-optional-locks` everywhere | Preconditions that tested *state* instead of *outcomes*. A push to origin broke the run | **Precondition: `check` passes on current HEAD. Postcondition: `check` passes and the task's acceptance command passes.** Nothing is pinned by hash except reference data and goldens (which are not allowed to change silently — see rules) |
+| Retrospective must produce a diff to skills/rules | Rules accumulated faster than they were tested; drift between tree copy and account copy of skills had to be token-diffed | Rules are added only after something bites, in one place (`CLAUDE.md` or `.claude/rules/`), and reviewed for deletion each milestone |
+
+## The loop
+
+```
+  Joe + Claude (Cowork or Claude Code)         Claude Code, one session per task
+  ────────────────────────────────────          ─────────────────────────────────────────────
+  PLAN.md: milestones as checkboxes    ──►     /task  → read STATE.md + git log, run check
+  ADRs when a decision is made                        → plan mode: recon + 5-line approach, Joe OKs
+                                                      → worktree branch from fresh main
+                                                      → implement against the acceptance check
+                                                      → Stop hook: fast check must pass
+                                                      → /code-review subagent vs intent + ADRs
+                                                      → commit, push branch, open PR
+                                               /wrap  → STATE.md rewritten, lessons appended
+  Joe merges (skim physics; trust the gate)   ◄──     
+```
+
+**Task size:** one PR, one verifiable outcome, one context window. Examples: "quaternion attitude propagation; torque-free spin keeps |q| and angular momentum within 1e-9 over 1000 s"; "lockstep shared-memory transport; autopilot process steps in lockstep for 10k frames with zero missed frames." If the diff can be described in one sentence, skip plan mode and just do it.
+
+**Fresh context per task.** After two failed corrections in a session, `/clear` and rewrite the opening prompt instead of arguing.
+
+## Files that carry state (the whole set)
+
+| File | Size | Rule |
+|---|---|---|
+| `CLAUDE.md` | < 100 lines | Build/test commands, the conventions that are *non-standard* (frame/axis/quaternion conventions, units), pointers to the rest. Anything an agent would get right without being told is deleted |
+| `PLAN.md` | one screen | Milestones as checkboxes with a one-line acceptance each. Edited in place; no task IDs, no phase files |
+| `STATE.md` | ≤ 40 lines, rewritten never appended | What's in flight, last verified result, next step, "tried X, failed because Y" |
+| `docs/decisions/NNNN-*.md` | one screen each | ADRs: context, decision, **rejected alternatives**, consequences. Immutable once accepted; supersede, don't edit. The rejected options are what stop an agent relitigating settled choices |
+| `docs/lessons.md` | append-only | Numerical/build gotchas that bit us. Compound-engineering's "each unit of work makes the next easier" |
+| Auto-memory | automatic | Claude Code's own; corrections land here without ceremony |
+
+Kept from the old process because it earned its place: `STATE.md` with the honesty rules ("a trace matched" ≠ "verified"), decision records, acceptance-as-command, and the append-only lessons log. Dropped: `PHASE.md`, per-task `.md` briefs, `runs/<Tid>/{REPORT,REVIEW}.md`, `gates.json`, `scope.json`, `CLOSEOUT.md`, `LOG.md`, and the account-vs-tree skill diffing.
+
+## Verification: the gate, not the spec
+
+One command, **`just check`** (`just` from apt, with CMake presets underneath for the build configurations), is the definition of done and the only thing anyone argues about:
+
+1. Configure + build with clang-18, `-Werror`, ASan/UBSan preset.
+2. Unit tests (GoogleTest) and Python tests (pytest).
+3. **Physics oracle tests** — the human-owned part. Conservation laws (energy and angular momentum in torque-free motion, quaternion norm), analytic solutions (symmetric-top precession, ballistic arc in vacuum, phugoid period of the linearized notional transport), trim residual, and the NASA 6-DoF check cases (NASA/TM-2015-218675) once the core exists, with JSBSim as a cross-check.
+4. Golden-trajectory regression with per-channel absolute + relative tolerances, stored as data.
+5. `clang-tidy` and `clang-format --dry-run --Werror`.
+
+Wiring, all deterministic and cheap:
+
+- **Stop hook** runs the fast subset (build + unit tests) and blocks the turn from ending until it passes. Claude Code caps this at 8 consecutive blocks, which is the right amount of stubbornness.
+- **PreToolUse hook** denies edits to `tests/golden/**`, tolerance files, and `docs/decisions/**` unless the session was started with `/task --touch-goldens`. This is the one hard precondition in the whole design, and it tests the thing that actually matters: *the oracle does not move without a human deciding it should.* Widened tolerance, narrowed comparison, regenerated golden, or a deleted/weakened test is always a blocking review finding.
+- **`/goal`** for unattended runs: "all tests in `tests/physics/` pass and `just check` exits 0, or stop after 20 turns."
+- **CI**: GitHub Actions runs `just check` on every pull request on an `ubuntu-24.04` runner; `main` is protected and requires it.
+
+**Editor-grade feedback between gate runs (not part of the gate):** the `clangd-lsp` and `pyright-lsp` plugins give Claude diagnostics after every edit and semantic navigation (go-to-definition, find-references, call hierarchy) instead of grep. They shorten the loop but never replace `just check` — clangd's diagnostics are not a `-Werror` sanitizer build. Setup lives in M0: `apt install clangd-18` (aliased so the plugin finds `clangd`), `CMAKE_EXPORT_COMPILE_COMMANDS=ON` in every preset with `compile_commands.json` linked at the repo root (without it clangd reports false errors on every Eigen include), `pyright` pointed at the venv via `pyrightconfig.json`, and nanobind `.pyi` stubs generated at build so pyright sees the compiled module's types. One line in `CLAUDE.md` telling Claude to prefer the LSP tools over grep for symbol lookups.
+
+## Review
+
+`/code-review` in a subagent, prompted with the task's intent line and the relevant ADRs, told to "report only gaps that affect correctness or violate a decision record" (Anthropic's own warning: a reviewer asked to find gaps will find some even when the work is sound). For **physics-touching** changes — anything under `core/kernel/`, `core/util/` (frames, quaternions, geodesy), `plugins/physical/`, or `tests/golden/` — Joe reads the diff. For everything else, the gate is the review. No separate review session, no `REVIEW.md`, no ACCEPT/REVISE state machine; a review finding is either fixed in the same session or becomes a line in `PLAN.md`.
+
+## Git
+
+- Branch per task via `claude --worktree <name>` (branches from the current remote default, so "start from fresh main" is automatic; edits to the main checkout are blocked by the tool).
+- Claude commits, pushes the branch, and opens the PR itself (GitHub is integrated); Joe squash-merges. Commit attribution via `attribution.commit` settings. `main` is protected so nothing lands without the PR.
+- No SHAs anywhere in process files. If two worktrees collide, rebase onto main one at a time; git catches textual conflicts, the gate catches semantic ones.
+
+## Where Cowork fits
+
+Cowork sessions are for **thinking that produces documents**: architecture, ADRs, research, milestone planning, and occasional fresh-eyes review of a PR when Joe wants a second opinion untainted by having written the code. Their outputs land in the Project and in `docs/`. They are never a required step between two Claude Code sessions. Dispatch can route a "go build M2" from Cowork to a Claude Code session when that's convenient, but it is a convenience, not the process.
+
+## Skills (three, small)
+
+- **`/task`** — start of session: read `STATE.md`, `git log -10`, run `just check`; enter plan mode with the task line; produce a ≤5-line approach and the acceptance command; create the worktree. `--touch-goldens` lifts the oracle guard for the session.
+- **`/wrap`** — end of session: rewrite `STATE.md`, append to `docs/lessons.md` if anything bit, ensure the branch is pushed and the PR is open, print the one-line opener for next time.
+- **`/retro`** — at each milestone: list rules that have not fired since the last retro and propose deleting them; list things that bit twice and propose one rule. Must be run by Joe; produces a diff or nothing.
+
+Model choice is not part of the process. Use the default; reach for a stronger effort setting when a task is physics-touching, and don't write that down as a rule until it's been needed.
+
+## Milestones for v1 (seed for `PLAN.md`)
+
+The authoritative acceptance criteria are in `docs/architecture.md` §16.
+
+- **M0 Bootstrap** — repo skeleton, CMake presets with `compile_commands.json` exported, `justfile`, `just check` green on an empty core plus one dummy plugin, hooks installed, CI on PRs, `clangd-lsp` + `pyright-lsp` working (nanobind stubs, pyright on the venv), ADR-0001…0011.
+- **M1 Rigid body** — EOM + integrators + mass properties + flat Earth; torque-free and ballistic oracles pass; health monitor halts on injected faults.
+- **M2 Environment** — ISA atmosphere, gravity, wind/turbulence, selectable Earth (flat/round/WGS-84); NASA check cases 1–10.
+- **M3 Notional transport** — aero + propulsion plugins and the notional narrow-body; trim and linearize at cruise; phugoid/short-period match the linear model.
+- **M4 Lockstep** — shared-memory transport, straight-and-level autopilot as a separate process outside the sim tree; 10k-frame lockstep with zero missed frames; transport-health halt when the peer dies.
+- **M5 Tooling** — HDF5 logging + replay, scenario harness, FlightGear bridge, Monte Carlo runner.
+
+## Decisions on the open items (all decided 2026-09-14)
+
+1. **`just check`** is the single entry point; CMake presets underneath.
+2. **Claude pushes branches and opens PRs itself**; Joe merges. GitHub is integrated.
+3. **M0 starts directly in Claude Code**, with the architecture doc as its only input.
+4. **LSP plugins: yes**, `clangd-lsp` and `pyright-lsp`, set up as part of M0. They are feedback, not the gate.
+5. **CI from M0**, GitHub Actions on `ubuntu-24.04`.
+
+## Sources
+
+- Anthropic best practices, `/goal`, hooks, worktrees, memory, code review: https://code.claude.com/docs/en/best-practices · https://code.claude.com/docs/en/goal · https://code.claude.com/docs/en/hooks-guide · https://code.claude.com/docs/en/worktrees · https://code.claude.com/docs/en/memory · https://code.claude.com/docs/en/code-review · https://code.claude.com/docs/en/desktop
+- LSP plugins: https://claude.com/plugins/clangd-lsp · https://claude.com/plugins/pyright-lsp · https://karanbansal.in/blog/claude-code-lsp/ · https://www.amazingcto.com/lsp-in-claude/
+- Anthropic engineering: https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents · https://www.anthropic.com/engineering/harness-design-long-running-apps · https://www.anthropic.com/engineering/building-c-compiler · https://claude.com/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models
+- OpenAI harness engineering: https://openai.com/index/harness-engineering/
+- Spec-driven development critiques: https://www.martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html · https://ranthebuilder.cloud/blog/i-tested-three-spec-driven-ai-tools-here-s-my-honest-take/ · https://addyosmani.com/blog/agentic-engineering/
+- Framework pain reports: https://github.com/obra/superpowers/issues/1260 · https://dev.to/arch4g/my-experience-using-the-bmad-framework-on-a-personal-project-patience-required-28aa · https://www.pulumi.com/blog/claude-code-orchestration-frameworks/ · https://ralphloop.sh/blog/ralph-loop-failure-modes
+- Practitioners: https://infoq.com/news/2026/01/claude-code-creator-workflow/ · https://harper.blog/2025/05/08/basic-claude-code/ · https://simonwillison.net/2025/Oct/7/vibe-engineering/ · https://every.to/chain-of-thought/compound-engineering-how-every-codes-with-agents · https://towardsdatascience.com/governed-context-managing-context-rot-in-claude-code/
+- Evidence on instruction files and agent-written tests: https://arxiv.org/abs/2602.11988 · https://arxiv.org/html/2602.07900v1 · https://htek.dev/articles/vibe-testing-when-ai-agents-goodhart-your-test-suite
+- Numerical validation: https://arxiv.org/html/2605.09360v1 · https://arxiv.org/html/2512.21373 · https://ntrs.nasa.gov/citations/20150001263 · https://github.com/JSBSim-Team/jsbsim · https://github.com/mpusz/mp-units
