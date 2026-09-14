@@ -87,7 +87,13 @@ Cowork sessions are for **thinking that produces documents**: architecture, ADRs
 - **`/wrap`** — end of session: rewrite `STATE.md`, append to `docs/lessons.md` if anything bit, ensure the branch is pushed and the PR is open, print the one-line opener for next time.
 - **`/retro`** — at each milestone: list rules that have not fired since the last retro and propose deleting them; list things that bit twice and propose one rule. Must be run by Joe; produces a diff or nothing.
 
-Model choice is not part of the process. Use the default; reach for a stronger effort setting when a task is physics-touching, and don't write that down as a rule until it's been needed.
+## Model and effort (decided 2026-09-14, from code.claude.com/docs/en/model-config)
+
+- **Standing default: `fable` at `high`**, pinned in `.claude/settings.json` (`"model": "fable"`, `"effortLevel": "high"`) because Fable 5.1 does not hold an effort level across sessions. Anthropic's Fable guidance — describe the outcome not the steps, skip verification reminders, size up larger tasks — matches the 3–10-line task shape here.
+- **Physics-touching tasks and M0 run at `xhigh`.** `/task --physics` sets `effort: xhigh` via skill frontmatter so nobody has to remember `/effort`. Physics-touching = `core/kernel/`, `core/util/` (frames, quaternions, geodesy), `plugins/physical/`, transports, anything that writes a golden.
+- **Mechanical work may drop to `sonnet` at `high`** (CMake plumbing, logging, Python tooling, packet packers). `opusplan` is the hands-off middle path.
+- **`max` is not a default.** Use it only when a task stalls at `xhigh`; the docs warn of diminishing returns and overthinking, which is a real failure mode in numerical code. `ultrathink` in a single prompt is the one-off alternative.
+- **`/code-review` runs on the session's model** for physics diffs; a weaker reviewer of a stronger writer is not a check.
 
 ## Milestones for v1 (seed for `PLAN.md`)
 
