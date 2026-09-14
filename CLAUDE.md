@@ -67,6 +67,8 @@ Prefer the clangd/pyright LSP tools over grep for symbol lookups; they are feedb
 - **Style**: Google C++ via `.clang-format`; `snake_case` functions/vars, `CamelCase` types, trailing-underscore
   members, `.hpp`/`.cpp`. clang-tidy `bugprone-*, performance-*, modernize-*, readability-*` minus
   `readability-identifier-length`. Python: `ruff` lint+format, `pyright` strict on `python/astra/`.
+- **Prose**: American English everywhere (comments, docs, ADRs, commit messages, PR bodies): honor, behavior,
+  normalize, center, license. Never British spellings.
 - **Embedded example** (`embedded/autopilot/`) is C++17 on purpose and links only `icd/` + `embedded/hal/`, never
   `astra_core`.
 

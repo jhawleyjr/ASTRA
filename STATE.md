@@ -9,7 +9,7 @@ pushed (guard Bash matcher, attribution, SessionStart hook). Awaiting Joe's squa
   named (grep-checked).
 - `.claude/hooks/guard-oracle.sh`: Edit/Write on decision records, goldens, and `*tolerance*` files exit 2,
   other paths exit 0; Bash blocks only when a guarded path is a write target (redirect, tee, sed -i,
-  rm/mv/cp/touch/truncate, git rm/mv/checkout/restore) and passes reads and mere mentions; override honoured.
+  rm/mv/cp/touch/truncate, git rm/mv/checkout/restore) and passes reads and mere mentions; override honored.
   15-case probe (plus override) all pass; the probe fires live too, so run it from a script by path.
 - `.claude/settings.json`: `attribution.sessionUrl` is `false`; SessionStart removes `.claude/touch-goldens`.
 - No build exists yet; `just check` cannot run until PR 2.
