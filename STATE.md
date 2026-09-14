@@ -1,40 +1,38 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines)
 
 ## In flight
-M0 PR 3 on branch `worktree-m0-python`: `pyproject.toml` (scikit-build-core + nanobind 3), `astra._core`
-(`python/bindings/_core.cpp`) with the generated stub, `pyrightconfig.json`, ruff, pytest scaffold
-(`tests/python/`), `.clangd`; `just check` grew `venv`, `python`, `ruff`, `pyright`, `pytest`. Rebased onto
-`main` after PR #7; PR #6 open. Awaiting Joe: `/codex:review --base origin/main --wait` (user-invoked only; the
-built-in `/code-review` subagent ran before that rule landed, its findings are fixed), then squash-merge.
+M0 PR 4 on branch `worktree-m0-hooks`, PR #9 open, rebased onto `main` after #8: Stop hook
+(`.claude/hooks/stop-check.sh`, wired in `.claude/settings.json`), 7 hook cases in `just hooks-test`, `check`
+required on `main` (ruleset applied), `/retro` wording fix, docs in the present tense. Codex review ran
+(`--base origin/main --wait`); its one finding (the guard compared a logical path with `/proc` physical paths)
+is fixed. Awaiting Joe: squash-merge (CI `check` must pass; strict, so the branch must be current), then `/retro`.
 
 ## Last verified result
-- `just check` exited 0 in this session on the branch rebased onto current `main`: 4 presets × 16 ctest cases,
-  `run-clang-tidy-18` clean over `build/asan` and over the binding TU from `build/python`, clang-format clean,
-  hooks 25/25, `ruff check` + `ruff format --check` clean, `pyright` strict 0 errors, pytest 26 passed.
-- Acceptance: `.venv/bin/python -c "import astra._core"` exited 0 from the worktree root (the worktree had no
-  `.venv`; `just venv` created it from the pinned dev group and `just python` installed the module editable).
-- `LD_DEBUG=libs` shows exactly one `libastra_core.so` in the process (`build/python/lib`), and the dummy plugin
-  dlopened from `build/python/plugins` resolves against it by SONAME.
-- Negative paths shown to fire: an unused import → `just ruff` exit 1 (F401); an un-annotated function in
-  `python/astra/` → `just pyright` exit 1; CMake version bumped without reinstalling → `test_package.py` fails.
-- clang-tidy over the binding TU is live: unnamed `nb::exception` temporaries failed the gate until named.
-- Review fixes verified: a stale editable install (build/python reconfigured as Debug, module not reinstalled)
-  fails `import astra._core` with an ImportError naming both toolchains; a deleted `_core.pyi` regenerates.
-- CI: workflow `check` passed on PR #6's first run (about three and a half minutes), venv built on the runner.
+- `just check` exited 0 (`check: OK`) on the tree rebased onto `main` after #8: 4 presets × 16 ctest cases,
+  clang-tidy, clang-format, hooks 32/32, ruff, pyright strict, pytest 26 passed.
+- Stop hook: with `EXPECT_EQ(kVelocity, 3)` changed to 4, the hook exited 2 naming
+  `StateVector.LayoutPartitionsThirteenStatesAsAdr0003Says`, both with a Stop JSON piped in directly and as
+  the live Stop event when a turn ended (the block text came back as the next prompt); reverted, exit 0.
+- Busy-tree guard: with a `just` process held in the worktree, exit 2 naming its pid; quiet tree, exit 0.
+- Ruleset: `gh api repos/jhawleyjr/ASTRA/rules/branches/main` lists `required_status_checks`, context
+  `check`, integration 15368, strict. PR #9 shows it as required.
+- `/codex:setup`: Codex ready, logged in, review gate off. LSPs: clangd resolved `kVelocity` to
+  `core/include/astra/kernel/state.hpp`; pyright found `__version__`.
+- Not exercised: the hook's 840 s budget branch (exit 124) and the eight-block cap. CI on PR #9 pending at wrap.
 
 ## Next step
-M0 PR 4 in a fresh session: `claude --worktree m0-hooks --effort xhigh --permission-mode plan`. Scope per
-`PLAN.md`: Stop hook running the fast check (build + unit tests), `/wrap` `/retro` skills, and `check` added as a
-required status check to the `main` ruleset (`.github/rulesets/main.json`, then `gh api -X PUT`). Precondition on
-Joe's machine: none beyond `gh auth`. After PR 4, M0 closes; M1 (rigid body) starts at `xhigh`.
+M0 closes when PR #9 merges; Joe runs `/retro`. Then M1 in a fresh session:
+`claude --worktree m1-rigid-body --permission-mode plan` (model and effort per CLAUDE.md: `opusplan` at
+`high`; Joe escalates) with the M1 line from PLAN.md and architecture §16 row M1. Follow-up for M1: when
+physics tests join ctest, label the unit suite and have the Stop hook run `ctest -L unit` (architecture §5
+says the Stop hook runs `tests/unit/`), so the fast check stays fast.
 
 ## Tried / failed
-- Tried building `astra._core` under the sanitizer presets: not viable. A sanitized extension needs
-  `LD_PRELOAD` in the interpreter, and nanobind's stub generator only detects `-fsanitize` one link level deep
-  (ours sits on `astra_build_flags`). The module is built once, unsanitized, by scikit-build-core.
-- Tried exposing `__version__` from the module: nanobind's stub generator never emits that name, so pyright
-  strict failed. The module exposes `VERSION`; `astra/__init__.py` re-exports it as `__version__`.
-- The pyright LSP plugin did not pick up the new `pyrightconfig.json` mid-session (the CLI passed); recheck next start.
+- Busy-tree probe with a build started in the background in the same response returned 0 once: the build had
+  not spawned when the hook scanned. Probe with a held `just --working-directory <tree> --justfile <stub> slow`.
+- The worktree session's Bash guard refused heredoc file writes, chained `git`, and `printf | hook`; used the
+  Write and Edit tools and a JSON file redirected into the hook (docs/lessons.md).
+- A CLAUDE.md line about the Stop hook: dropped, PR #8 took the file to its 100-line cap.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.
