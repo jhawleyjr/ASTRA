@@ -16,10 +16,9 @@ bind it. Flags may appear anywhere in it.
    - `--physics`: physics-touching task (`core/kernel/`, `core/util/`, `plugins/physical/`, transports, goldens).
      The session must have been opened with `--effort xhigh`; if the opener did not include it, say so and
      stop. Joe reads the diff; say that in the approach.
-3. **Gate first.** If `justfile` exists, run `just check` and report pass/fail in one line. It must pass on
-   the current HEAD before you start; if it fails, that is the task now, and Joe decides. If there is no
-   `justfile` yet, say there is nothing to run.
-4. **Plan.** If the diff fits in one sentence, skip plan mode and do it. Otherwise enter plan mode: recon in
+3. **No gate before work.** `main` is green by construction (CI runs `just check` on every PR and `main`
+   requires it) and this worktree was cut from it. Do not run `just check` now; it runs once, at the end.
+4. **Plan.** Skip plan mode only if the task text contains `--no-plan`. Otherwise enter plan mode: recon in
    the repo (prefer the clangd/pyright LSP tools over grep), then a five-line approach at most, the exact
    acceptance command, and the list of files you expect to touch. Wait for Joe to approve.
 5. **Build against the acceptance command.** The Stop hook runs the fast check. Postcondition is
