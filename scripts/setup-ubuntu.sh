@@ -17,19 +17,17 @@ sudo update-alternatives --install /usr/bin/clangd       clangd       /usr/bin/c
 sudo update-alternatives --install /usr/bin/clang-tidy   clang-tidy   /usr/bin/clang-tidy-18   100
 sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-18 100
 
-echo "== python venv =="
+echo "== python venv (just venv: creates .venv, installs the pinned dev group from pyproject.toml) =="
 # A sourced ROS setup.bash puts /opt/ros/.../site-packages on PYTHONPATH, which leaks into the venv
 # and makes pip warn about ROS packages. ASTRA never wants that path; the justfile clears it too.
 unset PYTHONPATH
-python3 -m venv .venv
-# shellcheck disable=SC1091
-source .venv/bin/activate
-pip install --upgrade pip
-pip install nanobind scikit-build-core pytest ruff pyright numpy scipy h5py pandas pyarrow pyyaml
+just venv
+# Analysis libraries for later milestones (trim, linearize, log replay); unpinned until a gate uses them.
+.venv/bin/pip install scipy h5py pandas pyarrow pyyaml
 
 echo "== versions =="
-clang --version | head -1; cmake --version | head -1; just --version; python --version
-echo "nanobind $(python -c 'import nanobind; print(nanobind.__version__)')"
+clang --version | head -1; cmake --version | head -1; just --version; .venv/bin/python --version
+echo "nanobind $(.venv/bin/python -c 'import nanobind; print(nanobind.__version__)')"
 
 cat <<'MSG'
 

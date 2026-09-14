@@ -1,0 +1,13 @@
+# clangd reads the compile_commands.json nearest to each file: the repo-root link (`just link-db`, asan preset) for
+# core/, plugins/, aircraft/, tests/, and python/compile_commands.json (the scikit-build-core build) for the nanobind
+# module. Without a database clangd reports false errors on every Eigen include (docs/process/workflow.md).
+Diagnostics:
+  UnusedIncludes: Strict
+Index:
+  Background: Build
+---
+# tests/icd/icd_c11.c is compiled by ctest under gcc and clang -std=c11, never by CMake, so it is in no database.
+If:
+  PathMatch: tests/icd/.*\.c
+CompileFlags:
+  Add: [-std=c11, -Wall, -Wextra, -Wpedantic, -I../..]
