@@ -1,0 +1,20 @@
+// Generated from core/include/astra/core_api.hpp.in by CMake; edit the template, not the generated copy.
+#pragma once
+
+#include <cstdint>
+
+namespace astra {
+
+// Bumped by hand whenever the plugin-facing ABI (Model, PluginDescriptor, StepContext) changes. A plugin
+// whose descriptor carries a different value is rejected at load with a typed error (ADR-0009).
+inline constexpr std::uint32_t kCoreApiVersion = 1;
+
+// The toolchain and configuration this tree was configured with. A plugin built by a different configure
+// carries a different string and is rejected at load; it can only come from a stale build directory.
+inline constexpr const char* kBuiltWith = "@ASTRA_BUILT_WITH@";
+
+// The values compiled into libastra_core itself, which is what the loader compares a descriptor against.
+[[nodiscard]] std::uint32_t core_api_version() noexcept;
+[[nodiscard]] const char* built_with() noexcept;
+
+}  // namespace astra

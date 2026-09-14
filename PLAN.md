@@ -7,7 +7,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       `gcc -std=c11`; hooks fire; LSPs resolve symbols; CI runs `just check` on PRs and `main` requires it;
       ADR-0001…0011 accepted.
   - [x] PR 1 — bootstrap files, ADR-0001…0011, oracle-guard hook
-  - [ ] PR 2 — CMake presets, `justfile` (exports empty `PYTHONPATH`), core skeleton, plugin loader + dummy plugin,
+  - [x] PR 2 — CMake presets, `justfile` (exports empty `PYTHONPATH`), core skeleton, plugin loader + dummy plugin,
         `icd/`, GitHub Actions (job named `check`); hook test runner over `.claude/hooks/tests/*.cases` wired into
         `just check` so "hooks fire" is verified by the gate, never by inline probes
   - [ ] PR 3 — Python package (`astra._core` via nanobind, stubs), pyright/ruff/pytest, clangd config

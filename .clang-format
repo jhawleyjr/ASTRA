@@ -1,0 +1,6 @@
+# Google C++ style (CLAUDE.md, ADR-0000 row "Style"). The one relaxed default is the column limit, which
+# matches the width the docs in this repo are written at.
+BasedOnStyle: Google
+ColumnLimit: 100
+DerivePointerAlignment: false
+PointerAlignment: Left

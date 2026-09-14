@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ASTRA is a vehicle-agnostic 6-DoF simulation framework (C++23 core, Python bindings) that runs the aircraft's
-real embedded software against the sim over a lockstep transport. **Status: pre-M0, no code yet.**
+real embedded software against the sim over a lockstep transport. **Status: M0 in progress** (see `PLAN.md`).
 `docs/architecture.md` is the design and the sole input to M0; treat it as authoritative. Do not re-decide
 anything it decides; §17 lists the ADRs that must exist before other code is written.
 
@@ -18,12 +18,15 @@ anything it decides; §17 lists the ADRs that must exist before other code is wr
 ## Commands
 
 `just check` is the single gate and the definition of done (CMake presets underneath; `just` from apt).
-Until the `justfile` exists (M0), there is nothing to run. Once it does, the planned shape is:
 
-- `just build` — one CMake configure+build; produces `libastra_core.so` and one `.so` per plugin.
-- `just check` — build with clang-18 `-Werror` under the ASan/UBSan preset, GoogleTest unit tests, pytest,
-  physics oracle tests, golden-trajectory regression, `clang-tidy`, `clang-format --dry-run --Werror`.
-- Single tests: `ctest -R <name>` from the build dir; `pytest tests/scenarios -k <name>` for Python.
+- `just check` — every preset (`debug`, `release`, `asan`, `static-plugins`) configures, builds with clang-18
+  `-Werror`, and runs ctest; then `clang-tidy`, `clang-format --dry-run --Werror`, and the hook test cases.
+  Later milestones add pytest, physics oracle tests, and golden-trajectory regression to the same recipe.
+- `just build [preset]` / `just test [preset]` — one preset (default `asan`); `build/<preset>/` holds
+  `lib/libastra_core.so` and `plugins/libastra_<path_with_underscores>.so`.
+- Single tests: `ctest --preset asan -R <name>` from the repo root; `pytest tests/scenarios -k <name>` (M5).
+- `just format` fixes formatting; `just hooks-test` runs `.claude/hooks/tests/*.cases`; `just tidy` is
+  clang-tidy alone. `just check` never runs `format`, only the dry run.
 
 Toolchain is apt-only on Ubuntu 24.04: clang-18, CMake 3.28, Eigen 3.4, HDF5 1.10 (C API), GoogleTest,
 yaml-cpp; nanobind 3 + scikit-build-core via pip in a Python 3.12 venv. No vcpkg/Conan, no HighFive, no mp-units.
