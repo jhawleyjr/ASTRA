@@ -3,8 +3,9 @@
 ## In flight
 M0 PR 3 on branch `worktree-m0-python`: `pyproject.toml` (scikit-build-core + nanobind 3), `astra._core`
 (`python/bindings/_core.cpp`) with the generated stub, `pyrightconfig.json`, ruff, pytest scaffold
-(`tests/python/`), `.clangd`; `just check` grew `venv`, `python`, `ruff`, `pyright`, `pytest`. Pushed; PR #6
-open; awaiting Joe's squash-merge. PR 3 is ticked in `PLAN.md`.
+(`tests/python/`), `.clangd`; `just check` grew `venv`, `python`, `ruff`, `pyright`, `pytest`. Rebased onto
+`main` after PR #7; PR #6 open. Awaiting Joe: `/codex:review --base origin/main --wait` (user-invoked only; the
+built-in `/code-review` subagent ran before that rule landed, its findings are fixed), then squash-merge.
 
 ## Last verified result
 - `just check` exited 0 in this session on the branch rebased onto current `main`: 4 presets × 16 ctest cases,
@@ -19,8 +20,7 @@ open; awaiting Joe's squash-merge. PR 3 is ticked in `PLAN.md`.
 - clang-tidy over the binding TU is live: unnamed `nb::exception` temporaries failed the gate until named.
 - Review fixes verified: a stale editable install (build/python reconfigured as Debug, module not reinstalled)
   fails `import astra._core` with an ImportError naming both toolchains; a deleted `_core.pyi` regenerates.
-- CI: workflow `check` passed on PR #6's first run (about three and a half minutes), creating the venv from
-  scratch on the runner.
+- CI: workflow `check` passed on PR #6's first run (about three and a half minutes), venv built on the runner.
 
 ## Next step
 M0 PR 4 in a fresh session: `claude --worktree m0-hooks --effort xhigh --permission-mode plan`. Scope per
