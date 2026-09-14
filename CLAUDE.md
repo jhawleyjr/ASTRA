@@ -38,8 +38,9 @@ Prefer the clangd/pyright LSP tools over grep for symbol lookups; they are feedb
 - One task = one PR = one verifiable outcome. A task is 3-10 lines: intent, acceptance command, ADR pointers.
   If the diff fits in one sentence, skip plan mode.
 - **The oracle is human-owned.** `tests/golden/**`, tolerance files, and `docs/decisions/**` change only when Joe
-  says so (session started with `/task --touch-goldens`). Widening a tolerance, narrowing a comparison, regenerating
-  a golden, or weakening a test is a blocking review finding.
+  says so (session started with `/task --touch-goldens`). `.claude/hooks/guard-oracle.sh` (PreToolUse on Edit/Write/
+  Bash) blocks those paths; the override is the gitignored marker `.claude/touch-goldens` or `ASTRA_TOUCH_GOLDENS=1`.
+  Widening a tolerance, narrowing a comparison, regenerating a golden, or weakening a test is a blocking review finding.
 - Physics-touching diffs (`core/kernel/`, `core/util/`, `plugins/physical/`, transports, anything writing a golden)
   run at effort `xhigh` and Joe reads them. Default model/effort is pinned in `.claude/settings.json`.
 - Never commit from a Cowork session (leaves `.git/index.lock`; see `docs/lessons.md`).
