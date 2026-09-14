@@ -12,7 +12,7 @@ Across Anthropic's current docs, OpenAI's harness-engineering write-up, the mart
 |---|---|---|
 | Task brief = "the entire brief… if it's not in here, it does not exist": verbatim spec excerpts, exact interfaces, complete file list → `scope.json`, named tests with values, wrong-implementations table, gate list, plus 1–2 adversarial review passes — all written in Cowork with no compiler | Front-loaded the hardest thinking to the point of least information. Opus-hours spent on paperwork; a short brief was treated as a defect | A task is **3–10 lines**: intent, acceptance check as a command, pointers to the ADRs that bind it. The agent does its own recon in the repo with plan mode. Detail emerges from code and tests, not prose |
 | Seven mandated hops per task across Cowork and Claude Code, each ending in a handoff ritual | Every hop = context rebuild + a `STATE.md` rewrite + a doc sweep | **One surface.** Claude Code on Joe's machine plans, builds, tests, reviews, and commits. Cowork is for design conversations and research, never a gate in the loop |
-| Task pinned to a commit SHA; `scope.json` hook; `.claude/current-task.json` arming; amend-only revise rounds; `--no-optional-locks` everywhere | Preconditions that tested *state* instead of *outcomes*. A push to origin broke the run | **Precondition: `check` passes on current HEAD. Postcondition: `check` passes and the task's acceptance command passes.** Nothing is pinned by hash except reference data and goldens (which are not allowed to change silently — see rules) |
+| Task pinned to a commit SHA; `scope.json` hook; `.claude/current-task.json` arming; amend-only revise rounds; `--no-optional-locks` everywhere | Preconditions that tested *state* instead of *outcomes*. A push to origin broke the run | **Precondition: the worktree is cut from current `main`, which is green by construction (CI-gated). Postcondition: `check` passes and the task's acceptance command passes.** The gate runs once, after the work, never before it. Nothing is pinned by hash except reference data and goldens (which are not allowed to change silently — see rules) |
 | Retrospective must produce a diff to skills/rules | Rules accumulated faster than they were tested; drift between tree copy and account copy of skills had to be token-diffed | Rules are added only after something bites, in one place (`CLAUDE.md` or `.claude/rules/`), and reviewed for deletion each milestone |
 
 ## The loop
@@ -20,7 +20,7 @@ Across Anthropic's current docs, OpenAI's harness-engineering write-up, the mart
 ```
   Joe + Claude (Cowork or Claude Code)         Claude Code, one session per task
   ────────────────────────────────────          ─────────────────────────────────────────────
-  PLAN.md: milestones as checkboxes    ──►     /task  → read STATE.md + git log, run check
+  PLAN.md: milestones as checkboxes    ──►     /task  → STATE.md + git log already in context (hook)
   ADRs when a decision is made                        → plan mode: recon + 5-line approach, Joe OKs
                                                       → worktree branch from fresh main
                                                       → implement against the acceptance check
@@ -83,7 +83,7 @@ Cowork sessions are for **thinking that produces documents**: architecture, ADRs
 
 ## Skills (three, small)
 
-- **`/task`** — start of session: read `STATE.md`, `git log -10`, run `just check`; enter plan mode with the task line; produce a ≤5-line approach and the acceptance command; create the worktree. `--touch-goldens` lifts the oracle guard for the session.
+- **`/task`** — start of session: `STATE.md`, `git log`, and the open PLAN.md items arrive via the SessionStart hook; no gate run before work; enter plan mode with the task line (`--no-plan` skips it); produce a ≤5-line approach and the acceptance command. `--touch-goldens` lifts the oracle guard for the session.
 - **`/wrap`** — end of session: rewrite `STATE.md`, append to `docs/lessons.md` if anything bit, ensure the branch is pushed and the PR is open, print the one-line opener for next time.
 - **`/retro`** — at each milestone: list rules that have not fired since the last retro and propose deleting them; list things that bit twice and propose one rule. Must be run by Joe; produces a diff or nothing.
 
