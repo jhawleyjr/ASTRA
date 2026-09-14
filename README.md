@@ -2,7 +2,7 @@
 
 A vehicle-agnostic six-degree-of-freedom simulation framework for commercial transport aircraft, built to run the aircraft's real embedded software against the sim — all-digital first, hardware-in-the-loop later.
 
-**Status:** pre-M0. No code yet. Everything needed to start is in `docs/`:
+**Status:** M0 in progress (`PLAN.md` has the checklist). The design and process are in `docs/`:
 
 | Read this | For |
 |---|---|
@@ -23,10 +23,10 @@ Two layers, both required:
 
 Claude Code sessions always start with `--worktree <name>`, which creates `.claude/worktrees/<name>` on branch `worktree-<name>` from the current remote `main` and blocks edits to the main checkout entirely.
 
-## Starting M0
+## Building
 
-**Start M0 with** `claude --worktree m0 --model fable --effort xhigh --permission-mode plan` in this directory, then:
+Ubuntu 24.04, apt-only toolchain: run `./scripts/setup-ubuntu.sh` once, then `just check`. That is the whole gate: every CMake preset (`debug`, `release`, `asan`, `static-plugins`) builds with clang-18 `-Werror` and runs its tests, then clang-tidy, clang-format, and the hook test cases. `just build` and `just test` take one preset (default `asan`). CI runs the same `just check` on every pull request.
 
-> Read `docs/architecture.md` and `docs/process/workflow.md`. The milestone is M0 as defined in architecture §16. Before writing anything, restate in one paragraph what you understood the plugin model (§4) and the ICD boundary (§10) to be, and propose how to split M0 into three or four PRs. First PR: `.claude/settings.json` (model `fable`, effort `high`), `CLAUDE.md`, and ADR-0001 through ADR-0011 in `docs/decisions/` from the table in §17, each with its rejected alternatives. Install the PreToolUse hook that guards `docs/decisions/**` only after the ADRs exist.
+## Working on M0
 
-Plan mode here is a checkpoint, not a design step — the architecture doc is the design. If the restatement matches it, approve and let it run.
+Each M0 PR starts a fresh session: `claude --worktree <name> --effort xhigh --permission-mode plan`, with the PR's line from `PLAN.md` and the acceptance row from architecture §16 in the opening prompt. Plan mode there is a checkpoint, not a design step — the architecture doc is the design. If the restatement matches it, approve and let it run.

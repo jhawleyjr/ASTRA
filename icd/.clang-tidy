@@ -1,0 +1,5 @@
+---
+# icd/ is C11 with C-style names by design (ADR-0006) and is consumed by toolchains that are not ours.
+# The C++ checks do not apply to it; the gate's HeaderFilterRegex already excludes it, and this keeps
+# clangd from linting the header on its own.
+Checks: '-*'

@@ -1,0 +1,45 @@
+---
+# docs/architecture.md §14 Style: bugprone, performance, modernize, readability, minus identifier-length
+# (fights physics notation). Two further exclusions, each for a stated reason:
+#   modernize-use-trailing-return-type   mandates `auto f() -> T`; Google style, the higher-level decision,
+#                                        writes `T f()`.
+#   bugprone-easily-swappable-parameters fires on every (x, y, z) and (expected, actual) signature; the fix
+#                                        it asks for is a wrapper type per parameter, which is the
+#                                        per-signal unit-type approach ADR-0002 rejected.
+Checks: >
+  bugprone-*,
+  performance-*,
+  modernize-*,
+  readability-*,
+  -readability-identifier-length,
+  -modernize-use-trailing-return-type,
+  -bugprone-easily-swappable-parameters
+WarningsAsErrors: '*'
+# Our headers only: Eigen and GoogleTest are SYSTEM, and icd/ is C11 with C-style names by design (ADR-0006).
+HeaderFilterRegex: '/(core|plugins|aircraft|tests)/.*\.hpp$'
+FormatStyle: file
+CheckOptions:
+  readability-identifier-naming.NamespaceCase: lower_case
+  readability-identifier-naming.ClassCase: CamelCase
+  readability-identifier-naming.StructCase: CamelCase
+  readability-identifier-naming.UnionCase: CamelCase
+  readability-identifier-naming.EnumCase: CamelCase
+  readability-identifier-naming.EnumConstantCase: CamelCase
+  readability-identifier-naming.EnumConstantPrefix: k
+  readability-identifier-naming.TypeAliasCase: CamelCase
+  readability-identifier-naming.TypedefCase: CamelCase
+  readability-identifier-naming.TemplateParameterCase: CamelCase
+  readability-identifier-naming.FunctionCase: lower_case
+  readability-identifier-naming.MethodCase: lower_case
+  readability-identifier-naming.VariableCase: lower_case
+  readability-identifier-naming.ParameterCase: lower_case
+  readability-identifier-naming.MemberCase: lower_case
+  readability-identifier-naming.PrivateMemberSuffix: _
+  readability-identifier-naming.ProtectedMemberSuffix: _
+  readability-identifier-naming.ConstexprVariableCase: CamelCase
+  readability-identifier-naming.ConstexprVariablePrefix: k
+  readability-identifier-naming.GlobalConstantCase: CamelCase
+  readability-identifier-naming.GlobalConstantPrefix: k
+  readability-identifier-naming.StaticConstantCase: CamelCase
+  readability-identifier-naming.StaticConstantPrefix: k
+  readability-identifier-naming.MacroDefinitionCase: UPPER_CASE
