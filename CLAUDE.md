@@ -47,8 +47,12 @@ Prefer the clangd/pyright LSP tools over grep for symbol lookups; they are feedb
   says so (Joe runs `touch .claude/touch-goldens` before the session). `.claude/hooks/guard-oracle.sh` (PreToolUse on Edit/Write/
   Bash) blocks those paths; the override is the gitignored marker `.claude/touch-goldens` or `ASTRA_TOUCH_GOLDENS=1`.
   Widening a tolerance, narrowing a comparison, regenerating a golden, or weakening a test is a blocking review finding.
-- Physics-touching diffs (`core/kernel/`, `core/util/`, `plugins/physical/`, transports, anything writing a golden)
-  run at effort `xhigh` and Joe reads them. Default model/effort is pinned in `.claude/settings.json`.
+- Model is `opusplan` (Opus plans, Sonnet executes) at effort `high`, subagents on Sonnet; pinned in
+  `.claude/settings.json`. Do not raise effort or model on your own. Escalation is Joe's: `/effort xhigh` when a
+  task stalls with full context, `/model fable` only after Opus has failed with full context. Physics-touching diffs
+  (`core/kernel/`, `core/util/`, `plugins/physical/`, transports, goldens) are read by Joe; that, not effort, is the check.
+- Keep the context small: send build/test output to a file and show the tail (`just check > /tmp/check.log 2>&1;
+  tail -20 /tmp/check.log`), one PR per session, no recon subagents on a tree this size.
 - Never commit from a Cowork session (leaves `.git/index.lock`; see `docs/lessons.md`).
 - Review before the PR is `/codex:review --base origin/main --wait` (a different model, fresh context; it reads
   `AGENTS.md` = this file). Physics-touching diffs also get `/codex:adversarial-review --base origin/main` with the

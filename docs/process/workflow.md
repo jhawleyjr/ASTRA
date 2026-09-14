@@ -86,13 +86,28 @@ Cowork sessions are for **thinking that produces documents**: architecture, ADRs
 - **`/wrap`** — end of session: rewrite `STATE.md`, append to `docs/lessons.md` if anything bit, ensure the branch is pushed and the PR is open, print the one-line opener for next time.
 - **`/retro`** — at each milestone: list rules that have not fired since the last retro and propose deleting them; list things that bit twice and propose one rule. Must be run by Joe; produces a diff or nothing.
 
-## Model and effort (decided 2026-09-14, from code.claude.com/docs/en/model-config)
+## Model and effort (revised 2026-09-14 after M0; supersedes the 2026-09-14 morning decision)
 
-- **Standing default: `fable` at `high`**, pinned in `.claude/settings.json` (`"model": "fable"`, `"effortLevel": "high"`) because Fable 5.1 does not hold an effort level across sessions. Anthropic's Fable guidance — describe the outcome not the steps, skip verification reminders, size up larger tasks — matches the 3–10-line task shape here.
-- **Physics-touching tasks and M0 run at `xhigh`.** Open those sessions with `--effort xhigh` on the command line (the opener `/wrap` prints carries it). Physics-touching = `core/kernel/`, `core/util/` (frames, quaternions, geodesy), `plugins/physical/`, transports, anything that writes a golden.
-- **Mechanical work may drop to `sonnet` at `high`** (CMake plumbing, logging, Python tooling, packet packers). `opusplan` is the hands-off middle path.
-- **`max` is not a default.** Use it only when a task stalls at `xhigh`; the docs warn of diminishing returns and overthinking, which is a real failure mode in numerical code. `ultrathink` in a single prompt is the one-off alternative.
-- **Review runs on Codex, not on a weaker Claude model**; a weaker reviewer of a stronger writer is not a check, a different one from a fresh context is.
+M0 ran on `fable` at `high`/`xhigh` with subagents inheriting the model. One day cost about 3.7M output tokens and
+100M cache-read tokens, roughly $300 of API-equivalent, and Fable burns Max-plan usage about twice as fast as Opus
+with a 50%-of-weekly cap. That is not sustainable on a 20x plan and was not buying correctness: nothing in M0-M5 is
+a problem no one has seen, and correctness comes from the human-owned oracle, not from thinking tokens.
+
+- **Standing default: `opusplan` at `high`**, pinned in `.claude/settings.json`: Opus 5 in plan mode, Sonnet 5
+  once the plan is approved. Anthropic's guidance: use the model's default effort; higher effort generates roughly
+  7x the tokens. If the automatic switch does not happen, `/model sonnet` right after approving the plan.
+- **Subagents on Sonnet** (`CLAUDE_CODE_SUBAGENT_MODEL=sonnet` in the settings `env` block). No recon subagents on
+  a tree this size; the session reads the files itself.
+- **Escalation is Joe's, by Anthropic's rule**: if Claude had the context and tried and still got it wrong, the
+  model is too small (`/model opus` for the rest of the session, `/model fable` only after Opus has failed);
+  if it got it wrong by skipping a file or not running the tests, the effort is too low (`/effort xhigh` for the
+  rest of the session). Neither is a standing setting. `max` never.
+- **Physics-touching diffs** are checked by Joe reading them and by the oracle tests, not by a higher effort level.
+- **Context is the multiplier.** Cache reads scale with context size times turns. Build and test output goes to a
+  file with only the tail shown; one PR per session; `/clear` rather than continuing after a merge.
+- **Review** is Codex (§Review), on the OpenAI plan, so it costs Claude usage almost nothing.
+- Measure: the per-session token script (transcripts under `~/.claude/projects/*ASTRA*/**/*.jsonl`) after each
+  PR; `/usage` for the 5-hour and weekly windows.
 
 ## Milestones for v1 (seed for `PLAN.md`)
 
