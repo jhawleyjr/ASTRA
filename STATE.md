@@ -17,7 +17,7 @@ M0 PR 2 on branch `worktree-m0-build`: CMake presets, `justfile`, core skeleton,
 - Negative paths shown to fire: a corrupted hook case → runner exit 1; symbol check told the wrong
   expectation → exit 1; a wrong ICD size → gcc static-assert error.
 - The dummy plugin's shared object exports exactly one symbol, `astra_plugin`.
-- CI: workflow `check` (job `check`, `ubuntu-24.04`) pushed with the branch; result recorded on the PR.
+- CI: workflow `check` (job `check`, `ubuntu-24.04`) passed on PR #2's first run, about two minutes.
 
 ## Next step
 M0 PR 3 in a fresh session: `claude --worktree m0-python --effort xhigh --permission-mode plan`. Scope per
