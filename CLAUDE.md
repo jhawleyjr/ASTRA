@@ -47,6 +47,9 @@ Prefer the clangd/pyright LSP tools over grep for symbol lookups; they are feedb
 - Physics-touching diffs (`core/kernel/`, `core/util/`, `plugins/physical/`, transports, anything writing a golden)
   run at effort `xhigh` and Joe reads them. Default model/effort is pinned in `.claude/settings.json`.
 - Never commit from a Cowork session (leaves `.git/index.lock`; see `docs/lessons.md`).
+- Review before the PR is `/codex:review --base origin/main --wait` (a different model, fresh context; it reads
+  `AGENTS.md` = this file). Physics-touching diffs also get `/codex:adversarial-review --base origin/main` with the
+  ADRs named as focus. Never the built-in `/code-review`; never enable the Codex stop-time gate.
 
 ## Non-standard conventions (the things an agent will silently get wrong)
 

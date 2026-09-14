@@ -25,7 +25,7 @@ Across Anthropic's current docs, OpenAI's harness-engineering write-up, the mart
                                                       → worktree branch from fresh main
                                                       → implement against the acceptance check
                                                       → Stop hook: fast check must pass
-                                                      → /code-review subagent vs intent + ADRs
+                                                      → /codex:review --base origin/main (other model)
                                                       → commit, push branch, open PR
                                                /wrap  → STATE.md rewritten, lessons appended
   Joe merges (skim physics; trust the gate)   ◄──     
@@ -69,7 +69,7 @@ Wiring, all deterministic and cheap:
 
 ## Review
 
-`/code-review` in a subagent, prompted with the task's intent line and the relevant ADRs, told to "report only gaps that affect correctness or violate a decision record" (Anthropic's own warning: a reviewer asked to find gaps will find some even when the work is sound). For **physics-touching** changes — anything under `core/kernel/`, `core/util/` (frames, quaternions, geodesy), `plugins/physical/`, or `tests/golden/` — Joe reads the diff. For everything else, the gate is the review. No separate review session, no `REVIEW.md`, no ACCEPT/REVISE state machine; a review finding is either fixed in the same session or becomes a line in `PLAN.md`.
+Review is done by a different model from a fresh context: `/codex:review --base origin/main --wait` (OpenAI's `codex` plugin; Codex reads `AGENTS.md`, a symlink to `CLAUDE.md`, so it knows the conventions). Codex's tokens are on the OpenAI plan; Claude spends only what it takes to launch the review and read the result. For **physics-touching** diffs add `/codex:adversarial-review --base origin/main` with focus text naming the ADRs and oracles the change must satisfy (signs per ADR-0001, units per ADR-0002, no per-frame allocation, determinism). The plugin's stop-time review gate stays **off**: a review on every turn is the endless-review failure mode, and the Stop hook is for the fast check. Findings are treated as claims to verify against the code, not as instructions (Anthropic's own warning: a reviewer asked to find gaps will find some even when the work is sound). For **physics-touching** changes — anything under `core/kernel/`, `core/util/` (frames, quaternions, geodesy), `plugins/physical/`, or `tests/golden/` — Joe reads the diff. For everything else, the gate is the review. No separate review session, no `REVIEW.md`, no ACCEPT/REVISE state machine; a review finding is either fixed in the same session or becomes a line in `PLAN.md`.
 
 ## Git
 
@@ -92,7 +92,7 @@ Cowork sessions are for **thinking that produces documents**: architecture, ADRs
 - **Physics-touching tasks and M0 run at `xhigh`.** Open those sessions with `--effort xhigh` on the command line (the opener `/wrap` prints carries it). Physics-touching = `core/kernel/`, `core/util/` (frames, quaternions, geodesy), `plugins/physical/`, transports, anything that writes a golden.
 - **Mechanical work may drop to `sonnet` at `high`** (CMake plumbing, logging, Python tooling, packet packers). `opusplan` is the hands-off middle path.
 - **`max` is not a default.** Use it only when a task stalls at `xhigh`; the docs warn of diminishing returns and overthinking, which is a real failure mode in numerical code. `ultrathink` in a single prompt is the one-off alternative.
-- **`/code-review` runs on the session's model** for physics diffs; a weaker reviewer of a stronger writer is not a check.
+- **Review runs on Codex, not on a weaker Claude model**; a weaker reviewer of a stronger writer is not a check, a different one from a fresh context is.
 
 ## Milestones for v1 (seed for `PLAN.md`)
 
