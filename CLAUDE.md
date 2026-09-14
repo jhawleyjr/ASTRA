@@ -41,22 +41,22 @@ Prefer the clangd/pyright LSP tools over grep for symbol lookups; they are feedb
 - Work in a worktree: sessions start with `claude --worktree <name>`. A PreToolUse hook (`.claude/hooks/no-main.sh`)
   blocks `git push` to `main` and any commit/merge/rebase while `main` is checked out. Push the branch, open the PR
   yourself; Joe squash-merges. Never put commit SHAs in process files.
-- One task = one PR = one verifiable outcome. A task is 3-10 lines: intent, acceptance command, ADR pointers.
-  If the diff fits in one sentence, skip plan mode.
+- One task = one PR = one verifiable outcome; a task is 3-10 lines: intent, acceptance command, ADR pointers.
 - **The oracle is human-owned.** `tests/golden/**`, tolerance files, and `docs/decisions/**` change only when Joe
   says so (Joe runs `touch .claude/touch-goldens` before the session). `.claude/hooks/guard-oracle.sh` (PreToolUse on Edit/Write/
   Bash) blocks those paths; the override is the gitignored marker `.claude/touch-goldens` or `ASTRA_TOUCH_GOLDENS=1`.
   Widening a tolerance, narrowing a comparison, regenerating a golden, or weakening a test is a blocking review finding.
-- Model is `opusplan` (Opus plans, Sonnet executes) at effort `high`, subagents on Sonnet; pinned in
-  `.claude/settings.json`. Do not raise effort or model on your own. Escalation is Joe's: `/effort xhigh` when a
-  task stalls with full context, `/model fable` only after Opus has failed with full context. Physics-touching diffs
-  (`core/kernel/`, `core/util/`, `plugins/physical/`, transports, goldens) are read by Joe; that, not effort, is the check.
-- Keep the context small: send build/test output to a file and show the tail (`just check > /tmp/check.log 2>&1;
-  tail -20 /tmp/check.log`), one PR per session, no recon subagents on a tree this size.
+- Model is `opusplan` (Opus plans, Sonnet executes) at `high`, subagents on Sonnet; pinned in `.claude/settings.json`.
+  Never raise effort or model yourself; Joe escalates (`/effort xhigh` if a task stalls with full context, `/model
+  fable` only after Opus failed with it). Physics diffs (`core/kernel/`, `core/util/`, `plugins/physical/`,
+  transports, goldens) are read by Joe; that, not effort, is the check.
+- Keep the context small: build/test output to a file, show the tail; one PR per session; no recon subagents.
 - Never commit from a Cowork session (leaves `.git/index.lock`; see `docs/lessons.md`).
-- Review before the PR is `/codex:review --base origin/main --wait` (a different model, fresh context; it reads
-  `AGENTS.md` = this file). Physics-touching diffs also get `/codex:adversarial-review --base origin/main` with the
-  ADRs named as focus. Never the built-in `/code-review`; never enable the Codex stop-time gate.
+- Review before the PR is `/codex:review --base origin/main --wait` (other model, fresh context; reads `AGENTS.md`
+  = this file). Physics diffs also get `/codex:adversarial-review --base origin/main` with the ADRs as focus. Never
+  the built-in `/code-review`; never the Codex stop-time gate. Plans deciding a design the ADRs do not pin (EOM,
+  kinematics, integrator interface, health monitor) go to Codex via `/codex:rescue` before code, when Joe says so;
+  do not spawn a critique subagent yourself.
 
 ## Non-standard conventions (the things an agent will silently get wrong)
 
