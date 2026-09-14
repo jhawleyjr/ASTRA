@@ -3,9 +3,11 @@
 # (recipe hooks-test) so "hooks fire" is verified by the gate, never by inline probes.
 #
 # A case line is <expected exit>\t<JSON piped to the hook on stdin>; '#' lines and blank lines are skipped.
-# Two placeholders are substituted:
+# Four placeholders are substituted:
 #   $ROOT          a temporary project root with a .claude/ directory and no touch-goldens marker
 #   $ROOT_ON_MAIN  a temporary git repository whose HEAD is on main
+#   $ROOT_GREEN    a temporary tree whose stub justfile has a `test` recipe that passes
+#   $ROOT_RED      a temporary tree whose stub justfile has a `test` recipe that fails the way ctest does
 # The hooks read CLAUDE_PROJECT_DIR for the override marker, so it points at the temporary root, and the
 # ASTRA_TOUCH_GOLDENS override is cleared: the session that runs the gate cannot leak its own override into
 # the cases. Exits 1 on any mismatch and prints the hook's stderr for each failure.
@@ -21,6 +23,12 @@ mkdir -p "$root/.claude"
 on_main="$tmp/on_main"
 git init -q -b main "$on_main"
 git -C "$on_main" -c user.name=astra -c user.email=astra@example.invalid commit -q --allow-empty -m init
+green="$tmp/green"
+mkdir -p "$green"
+printf 'test:\n    @true\n' >"$green/justfile"
+red="$tmp/red"
+mkdir -p "$red"
+printf 'test:\n    @echo "The following tests FAILED:"; echo "  1 - StateVector.Stub (Failed)"; exit 1\n' >"$red/justfile"
 
 export CLAUDE_PROJECT_DIR="$root"
 export ASTRA_TOUCH_GOLDENS=0
@@ -42,6 +50,8 @@ for cases in "$tests_dir"/*.cases; do
     expect=${line%%$'\t'*}
     json=${line#*$'\t'}
     json=${json//\$ROOT_ON_MAIN/$on_main}
+    json=${json//\$ROOT_GREEN/$green}
+    json=${json//\$ROOT_RED/$red}
     json=${json//\$ROOT/$root}
     err=$(printf '%s' "$json" | "$hook" 2>&1 >/dev/null)
     got=$?

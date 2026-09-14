@@ -42,6 +42,18 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/stop-check.sh",
+            "timeout": 900,
+            "statusMessage": "stop-check: just test"
+          }
+        ]
+      }
     ]
   },
   "attribution": {
