@@ -33,7 +33,8 @@ cat <<'MSG'
 
 Done. Remaining one-time steps (need your login, not scriptable here):
   gh auth login
-  gh api -X POST repos/jhawleyjr/ASTRA/rulesets --input .github/rulesets/main.json   # protect main
+  (main is already protected by .github/rulesets/main.json; change it with
+   gh api -X PUT repos/jhawleyjr/ASTRA/rulesets/<id> --input .github/rulesets/main.json)
   claude plugin install clangd-lsp
   claude plugin install pyright-lsp
 Optional, for real-time mode later (free for personal use, up to 5 machines):

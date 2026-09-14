@@ -18,8 +18,8 @@ Two layers, both required:
    ```
    gh api -X POST repos/jhawleyjr/ASTRA/rulesets --input .github/rulesets/main.json
    ```
-   This requires a pull request for every change to `main`, squash-merge only, and blocks deletion and force-push. When the CI workflow exists (M0), add `check` as a required status check to the ruleset (`.github/rulesets/main.json` → `required_status_checks`, then `gh api -X PUT repos/jhawleyjr/ASTRA/rulesets/<id>`), so a red PR can't merge.
-2. **Local hook** (the everyday guard). `.claude/settings.json` installs `.claude/hooks/no-main.sh` as a `PreToolUse` hook on Bash: it blocks any `git push` to `main` and any `git commit`/`merge`/`rebase` while `main` is checked out. Claude Code sees the block message and moves to a branch. It is in the repo, so every clone gets it.
+   This requires a pull request for every change to `main`, squash-merge only, blocks deletion and force-push, and requires the CI job `check` to pass on a branch that is up to date with `main`, so a red PR can't merge. The file is the ruleset: edit `.github/rulesets/main.json`, then re-apply it with `gh api -X PUT repos/jhawleyjr/ASTRA/rulesets/<id> --input .github/rulesets/main.json` (`gh api repos/jhawleyjr/ASTRA/rulesets` lists the id).
+2. **Local hook** (the everyday guard). `.claude/settings.json` installs `.claude/hooks/no-main.sh` as a `PreToolUse` hook on Bash: it blocks any `git push` to `main` and any `git commit`/`merge`/`rebase` while `main` is checked out. Claude Code sees the block message and moves to a branch. `.claude/hooks/stop-check.sh` is the `Stop` hook: `just test` runs when a turn ends and blocks the turn until it passes. Both are in the repo, so every clone gets them.
 
 Claude Code sessions always start with `--worktree <name>`, which creates `.claude/worktrees/<name>` on branch `worktree-<name>` from the current remote `main` and blocks edits to the main checkout entirely.
 

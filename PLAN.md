@@ -2,7 +2,7 @@
 
 Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place; no task IDs.
 
-- [ ] **M0 Bootstrap** — core + one dummy plugin build under all presets; loader loads by path, rejects a bad
+- [x] **M0 Bootstrap** — core + one dummy plugin build under all presets; loader loads by path, rejects a bad
       `core_api_version`, static-plugins build passes the same test; ICD static asserts hold under clang-18 and
       `gcc -std=c11`; hooks fire; LSPs resolve symbols; CI runs `just check` on PRs and `main` requires it;
       ADR-0001…0011 accepted.
@@ -11,7 +11,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         `icd/`, GitHub Actions (job named `check`); hook test runner over `.claude/hooks/tests/*.cases` wired into
         `just check` so "hooks fire" is verified by the gate, never by inline probes
   - [x] PR 3 — Python package (`astra._core` via nanobind, stubs), pyright/ruff/pytest, clangd config
-  - [ ] PR 4 — Stop hook (fast check), `/wrap` `/retro` skills, Codex review wired (`AGENTS.md`, `/codex:review`), `check` required in the ruleset
+  - [x] PR 4 — Stop hook (fast check), `/wrap` `/retro` skills, Codex review wired (`AGENTS.md`, `/codex:review`), `check` required in the ruleset
 - [ ] **M1 Rigid body** — EOM + integrators + mass properties + flat Earth; torque-free energy/angular-momentum
       drift < 1e-9 over 1000 s, |q| within 1e-12, ballistic arc closed form, RK4 vs Euler order shown, zero
       allocations over 1000 frames; health monitor halts on injected NaN and broken quaternion, naming the source.

@@ -1,5 +1,5 @@
 # CI: `just check` on every pull request (docs/process/workflow.md §Verification, ADR-0000 row "CI").
-# The job is named `check`; PR 4 adds it to the main ruleset as a required status check.
+# The job is named `check`; the main ruleset (.github/rulesets/main.json) requires it before a merge.
 name: check
 
 on:

@@ -1,4 +1,4 @@
-# The GoogleTest unit suite: fast, run by every preset and (from PR 4) by the Stop hook.
+# The GoogleTest unit suite: fast, run by every preset and by the Stop hook (.claude/hooks/stop-check.sh).
 add_executable(astra_unit_tests
   icd/icd_test.cpp
   kernel/state_test.cpp

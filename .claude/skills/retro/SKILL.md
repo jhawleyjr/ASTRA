@@ -7,7 +7,7 @@ disable-model-invocation: true
 Run at the end of a milestone, by Joe. Output is a diff to CLAUDE.md / `.claude/rules/` / the skills, or the
 single line "nothing to change". Do not apply the diff; Joe does.
 
-1. Read CLAUDE.md, `.claude/rules/` if present, the three skills, and docs/lessons.md. Read the git log since
+1. Read CLAUDE.md, `.claude/rules/` if present, the skills in `.claude/skills/`, and docs/lessons.md. Read the git log since
    the previous milestone was ticked in PLAN.md.
 2. **Delete candidates:** every rule or convention in CLAUDE.md that nothing in this milestone's commits,
    lessons, or review findings exercised. For each, one line: the rule and why it looks dead. Anything an
