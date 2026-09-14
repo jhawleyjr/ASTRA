@@ -20,4 +20,4 @@ End of session. Do these in order; each is a file or a command, not a conversati
 5. **Do not touch** goldens, tolerances, or docs/decisions/ from here.
 6. **Print the opener** for next time, ready to paste, on one line:
    `claude --worktree <next-name> [--effort xhigh if physics] --permission-mode plan` followed on the next
-   line by the `/task ...` text for the next PLAN.md item, 3-10 lines, with its acceptance command.
+   line by the opening prompt for the next PLAN.md item, 3-10 lines, with its acceptance command.
