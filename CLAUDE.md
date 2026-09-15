@@ -20,3 +20,4 @@
   the built-in `/code-review`; never the Codex stop-time gate; never a critique subagent. A plan deciding a design
   the ADRs do not pin (EOM, kinematics, integrator interface, health monitor) gets one `/codex:rescue` round in
   plan mode before Joe sees it, plan and acceptance command inlined (workflow.md §Review); other plans skip it.
+- End every session by running `/wrap` yourself (it is model-invocable); Joe does not trigger it.

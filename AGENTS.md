@@ -63,8 +63,7 @@ Prefer the clangd/pyright LSP tools over grep for symbol lookups; they are feedb
   asserts, version in every frame. Never edit a struct layout; add a `_vN` struct and bump the version.
 - **Prose**: American English everywhere (comments, docs, ADRs, commit messages, PR bodies): honor, behavior,
   normalize, center, license. Never British spellings.
-- **Embedded example** (`embedded/autopilot/`) is C++17 on purpose and links only `icd/` + `embedded/hal/`, never
-  `astra_core`.
+- **Embedded example** (`embedded/autopilot/`) is C++17 on purpose and links only `icd/` + `embedded/hal/`, never `astra_core`.
 
 ## Architecture in one breath
 
