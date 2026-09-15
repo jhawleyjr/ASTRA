@@ -6,8 +6,8 @@
 
 namespace astra {
 
-class Config;          // core/config, a later milestone
-class SignalRegistry;  // core/signals, a later milestone
+class Config;          // core/include/astra/config/config.hpp
+class SignalRegistry;  // core/include/astra/signals/signal_registry.hpp
 
 // Handed to every step. frame is the source of truth; t = frame * dt is derived, never accumulated
 // (ADR-0010).

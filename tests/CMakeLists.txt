@@ -16,6 +16,7 @@ foreach(compiler IN ITEMS "gcc;${ASTRA_GCC}" "clang;${ASTRA_CLANG_C}")
   add_test(NAME icd_static_asserts_${label}_c11
            COMMAND "${cc}" -std=c11 -Wall -Wextra -Wpedantic -Werror -fsyntax-only
                    "-I${ASTRA_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/icd/icd_c11.c")
+  set_tests_properties(icd_static_asserts_${label}_c11 PROPERTIES LABELS unit)
 endforeach()
 
 # The static-plugins build must not reference dlopen at all; the shared build must, so the check is known
@@ -30,3 +31,4 @@ endif()
 add_test(NAME ${dlopen_test}
          COMMAND "${CMAKE_COMMAND}" "-DLIB=$<TARGET_FILE:astra_core>" -DSYMBOL=dlopen
                  "-DEXPECT=${dlopen_expect}" -P "${ASTRA_SOURCE_DIR}/cmake/check_undefined_symbol.cmake")
+set_tests_properties(${dlopen_test} PROPERTIES LABELS unit)

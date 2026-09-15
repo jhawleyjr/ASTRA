@@ -36,6 +36,7 @@ if(ASTRA_SANITIZERS)
 endif()
 
 find_package(Eigen3 3.4 REQUIRED CONFIG)
+find_package(yaml-cpp 0.8 REQUIRED CONFIG)
 
 include(AstraPlugin)
 add_subdirectory(icd)

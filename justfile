@@ -22,8 +22,13 @@ build preset="asan": (configure preset)
     cmake --build --preset {{preset}} --parallel {{jobs}}
 
 # Single tests: `ctest --preset asan -R <name>` from the repo root, or `ctest -R <name>` from build/<preset>.
+# --no-tests=error: a label or regex selector that matches nothing is a failure, not a silent pass.
 test preset="asan": (build preset)
-    ctest --preset {{preset}} --parallel {{jobs}}
+    ctest --preset {{preset}} --parallel {{jobs}} --no-tests=error
+
+# The Stop hook's fast subset (docs/process/workflow.md): every `unit`-labeled test, no physics oracles.
+test-unit preset="asan": (build preset)
+    ctest --preset {{preset}} -L unit --parallel {{jobs}} --no-tests=error
 
 # The venv the gate uses. Created here when missing (a fresh worktree or CI has none) and filled from the pinned
 # dev group in pyproject.toml. `pip install --group` needs pip 25.1; a venv's bundled pip (24.0) is upgraded

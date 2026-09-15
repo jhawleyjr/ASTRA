@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Stop hook. The fast check (`just test`: configure, build, ctest on one preset) must pass before a turn may
-# end (docs/process/workflow.md §Verification). Exit 2 = block; the failure excerpt on stderr goes to Claude,
-# which fixes it and tries to stop again. Claude Code stops honoring the block after eight in a row without
-# progress, which is the right amount of stubbornness. Reads the Stop event as JSON on stdin.
+# Stop hook. The fast check (`just test-unit`: configure, build, `unit`-labeled ctest on one preset) must
+# pass before a turn may end (docs/process/workflow.md §Verification). Exit 2 = block; the failure excerpt
+# on stderr goes to Claude, which fixes it and tries to stop again. Claude Code stops honoring the block
+# after eight in a row without progress, which is the right amount of stubbornness. Reads the Stop event
+# as JSON on stdin.
 #   - Plan mode cannot have changed the tree, so it is not checked.
 #   - A build already running under this tree (a backgrounded `just check`) would share build/ with ours, so
 #     the turn is blocked until it has finished and its result has been read.
@@ -33,14 +34,14 @@ done
 budget=${ASTRA_STOP_BUDGET:-840}  # seconds; the override exists for the hook test cases only
 log=$(mktemp)
 trap 'rm -f "$log"' EXIT
-timeout -k 10 "$budget" just test >"$log" 2>&1
+timeout -k 10 "$budget" just test-unit >"$log" 2>&1
 status=$?
 [ "$status" -eq 0 ] && exit 0
 {
   if [ "$status" -eq 124 ]; then
-    echo "BLOCKED by stop-check: 'just test' exceeded ${budget} s in $root (hung test? concurrent build?)."
+    echo "BLOCKED by stop-check: 'just test-unit' exceeded ${budget} s in $root (hung test? concurrent build?)."
   else
-    echo "BLOCKED by stop-check: 'just test' failed (exit $status) in $root. Fix it before ending the turn; rerun 'just test' for the full output."
+    echo "BLOCKED by stop-check: 'just test-unit' failed (exit $status) in $root. Fix it before ending the turn; rerun 'just test-unit' for the full output."
   fi
   grep -n -m 20 -E '^FAILED:|error:|The following tests FAILED' "$log"
   echo "--- last 40 lines of 'just test' ---"
