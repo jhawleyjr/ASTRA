@@ -1,36 +1,40 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines; written as true once the PR carrying it has merged)
 
 ## In flight
-Nothing. M0 is complete (PRs #1–#11: bootstrap, core skeleton, plugin loader, Python package, Stop hook, M0 retro
-with the M1 plan). PR #12 merged the human-owned ADR-0001 oracle, `tests/golden/frames/adr0001_cases.hpp`, so the
-M1 PR 1 worktree can be cut from `main` and see it.
+Nothing. M1 PR 1 (PR #15) merged: `core/util/frames.hpp` (quaternion ↔ DCM ↔ 3-2-1 Euler, rotation,
+kinematics, ADR-0001), `core/kernel/integrator.hpp` (Euler/RK4 over `StateVector`, ADR-0003/0004),
+`scripts/tokens.py`. Also: plan review for unpinned designs (EOM, kinematics, integrator interface,
+health monitor) is now automatic — Claude runs one `/codex:rescue` round inside plan mode before the
+plan is shown, not triggered by Joe — and `/wrap`/`/codex:review`/`/codex:adversarial-review` are
+model-invocable, so the session ends its own session and runs its own reviews.
 
 ## Last verified result
-- `tests/golden/frames/adr0001_cases.hpp`: every entry of the eight cases recomputed independently from the closed
-  forms in its header (numpy, Cowork), worst disagreement 2.2e-16 against a 1e-12 test tolerance; clang-format and
-  clang-tidy clean with the repo settings; compiles under clang-18 `-std=c++23 -Wall -Wextra -Werror`.
-- Last gate result: `just check` exited 0 (`check: OK`) on PR #12's CI (`check` is required on `main`).
-- Not exercised: the Stop hook's 840 s budget branch in a live session (its hook case passes under a 1 s budget).
+- `just check` exited 0 (`check: OK`) on the merged state; `ctest --preset asan -R 'frames|integrator'`
+  passed 18/18: every ADR-0001 golden case within `kTolerance` (1e-12); RK4 error ratio 16±0.5 and
+  Euler 2±0.1 on a linear oscillator when dt halves; `|q|` within 1e-12 after post-step; a non-finite
+  `dt` or unknown `IntegratorKind` is rejected at construction; a zero/non-finite quaternion leaves
+  `post_step_renormalize` returning `false` without corrupting state.
+- `/codex:review`/`/codex:adversarial-review` findings (non-finite `dt`; unconditional `normalize()`)
+  are fixed in the merged code, not just noted. `AGENTS.md` + `CLAUDE.md` = 100 lines exactly.
+- `tests/golden/frames/adr0001_cases.hpp`'s `C_nb` member needed one
+  `NOLINTNEXTLINE(readability-identifier-naming)` (Joe armed `touch-goldens`; no values changed) —
+  nothing had included this human-owned header in a compiled TU before this PR, so clang-tidy had
+  never actually analyzed it until now.
 
 ## Next step
-M1 PR 1 (PLAN.md). Opener (model and effort pinned in `.claude/settings.json`; escalation is Joe's):
-   `claude --worktree m1-frames --permission-mode plan`
-   M1 PR 1: `core/util/` frames — quaternion Hamilton scalar-first (w,x,y,z) ↔ DCM ↔ 3-2-1 Euler, vector
-   rotation, `q_nb` kinematics (n→b, ADR-0001); `core/kernel/` `Integrator` over `StateVector` (ADR-0003/0004):
-   Euler and RK4, `f(t, y) → ẏ` functor, post-step renormalize, no allocation in `step`. The frames test reads
-   `tests/golden/frames/adr0001_cases.hpp` (human-owned; do not edit it, and do not loosen the tidy header filter
-   to get past it — it is already NOLINT-scoped and clean). Accept: `just check` exits 0 and
-   `ctest --preset asan -R 'frames|integrator'` passes with (a) every ADR-0001 case within `kTolerance`,
-   (b) RK4 error ratio 16 ± 0.5 and Euler 2 ± 0.1 when dt halves on a linear ODE with a closed form,
-   (c) |q| within 1e-12 after post-step. Also commits `scripts/tokens.py` (workflow.md §Model and effort).
-   Build and test output to a file, tail only. Plan review: the integrator-interface plan gets one `/codex:rescue`
-   round inside plan mode, automatically, before the plan is shown. Review: the session runs the Codex companion script's
-   `review` then `adversarial-review` (ADR-0001/0003/0004 as focus) itself, per CLAUDE.md. Then `/wrap`.
-Follow-ups already in PLAN.md: PR 2 labels ctest `unit`/`physics` and points the Stop hook at `ctest -L unit`;
-the Python `Simulation.derivative` binding lands with M3 trim.
+M1 PR 2 (PLAN.md): `Config` (yaml-cpp; typed getters, missing/unknown key errors name the path),
+`SignalRegistry` (register at init, pointers on the hot path, `v0.` namespace), `VirtualClock`,
+`Scheduler`, `Vehicle`, `Simulation` as a list of one that loads plugins named by path in the config.
+Accept: a config naming the dummy plugin runs 1000 frames with `t == frame * dt` exact and the
+plugin's signal visible as `v0.dummy.*`. Adds ctest labels `unit`/`physics`; Stop hook runs
+`ctest -L unit`. No design here is on the ADR-unpinned list, so the automatic `/codex:rescue`
+plan-review round is skipped.
+Opener (model and effort pinned in `.claude/settings.json`; escalation is Joe's):
+   `claude --worktree m1-config --permission-mode plan`
 
 ## Tried / failed
-- Nothing this session. (M0 entries retired to docs/lessons.md.)
+- Nothing unresolved this session. (Golden-header clang-tidy stop-and-ask and two Codex adversarial-
+  review findings were all fixed; see `docs/lessons.md`.)
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.
