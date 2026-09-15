@@ -3,6 +3,7 @@
 // its own StateVector and its own signal namespace ("v0.aero.CL").
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -11,7 +12,9 @@
 #include "astra/config/config.hpp"
 #include "astra/interfaces/earth_model.hpp"
 #include "astra/interfaces/gravity_model.hpp"
+#include "astra/interfaces/wrench_source.hpp"
 #include "astra/kernel/eom.hpp"
+#include "astra/kernel/health_monitor.hpp"
 #include "astra/kernel/integrator.hpp"
 #include "astra/kernel/scheduler.hpp"
 #include "astra/kernel/state.hpp"
@@ -58,18 +61,16 @@ class Vehicle {
 
   void step(const StepContext& ctx) noexcept { scheduler_.step(ctx); }
 
-  // Runs this frame's EOM derivative, integrator step, and post-step renormalize
-  // (docs/architecture.md §5): a no-op when this vehicle has no Eom (physics off). Renormalize's
-  // [[nodiscard]] bool is discarded explicitly; routing a failed renormalize (a zero or non-finite
-  // quaternion) to a halt is PLAN.md M1 PR 4's named acceptance item, not this one's.
-  void integrate(const Integrator& integrator, const StepContext& ctx) noexcept {
-    if (!eom_.has_value()) {
-      return;
-    }
-    eom_->begin_frame();
-    integrator.step(*eom_, ctx.t, state_);
-    static_cast<void>(post_step_renormalize(state_));
-  }
+  // Runs this frame's wrench accumulation, EOM derivative, integrator step, and post-step
+  // renormalize (docs/architecture.md §5): a no-op returning a falsey HaltReason when this vehicle
+  // has no Eom (physics off). Order: health-check each WrenchSource's contribution before summing
+  // it (a halt here leaves state() untouched -- the EOM never sees a bad wrench); integrate;
+  // health- check the resulting state before renormalization (PLAN.md M1 PR 4: "|q| drift > 1e-6
+  // before renormalization"); renormalize unconditionally, halt or not (ADR-0001: renormalized
+  // after every integrator step, an invariant a halt does not suspend); return the state check's
+  // halt, if any. Per-frame path: no allocation, no exceptions.
+  [[nodiscard]] HaltReason integrate(const Integrator& integrator, const StepContext& ctx,
+                                     HealthMonitor& health) noexcept;
 
   [[nodiscard]] std::uint32_t index() const noexcept { return index_; }
   [[nodiscard]] const std::string& name() const noexcept { return name_; }
@@ -78,12 +79,23 @@ class Vehicle {
   [[nodiscard]] const Scheduler& scheduler() const noexcept { return scheduler_; }
 
  private:
+  // A vehicle.models entry that resolved to a WrenchSource, kept alongside the plugin path its
+  // config named it by (§15: "the offending plugin named") -- Scheduler::Entry only stores Model*.
+  struct WrenchEntry {
+    WrenchSource* model;
+    std::string plugin_path;
+  };
+
   std::uint32_t index_;
   std::string name_;
   StateVector state_ = StateVector::Zero();
   std::vector<LoadedPlugin> plugins_;
   Scheduler scheduler_;
   std::optional<Eom> eom_;
+  std::vector<WrenchEntry> wrench_sources_;
+  // "<name_>.state.{p_n,v_b,q_nb,omega_b}", built once at init from this vehicle's own name so a
+  // halt never carries a "v0" literal (ADR-0011).
+  std::array<std::string, 4> state_names_;
 };
 
 }  // namespace astra

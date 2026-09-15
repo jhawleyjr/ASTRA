@@ -31,7 +31,7 @@ TEST(Precession, TransverseRatesMatchClosedFormAndSpinStaysConstant) {
       astra::Config::from_file(std::string{ASTRA_TEST_CONFIG_DIR} + "/physics_precession.yaml");
   astra::Simulation sim = astra::Simulation::from_config(config, ASTRA_TEST_PLUGIN_DIR);
 
-  sim.run();
+  ASSERT_FALSE(sim.run());
   const double duration = static_cast<double>(sim.frames()) * sim.clock().dt();
   const astra::StateVector& y = sim.vehicles().front().state();
   const Eigen::Vector3d omega_b =

@@ -9,10 +9,12 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <span>
 #include <vector>
 
 #include "astra/config/config.hpp"
+#include "astra/kernel/health_monitor.hpp"
 #include "astra/kernel/integrator.hpp"
 #include "astra/kernel/scheduler.hpp"
 #include "astra/kernel/vehicle.hpp"
@@ -32,18 +34,24 @@ class Simulation {
                                               std::filesystem::path plugin_dir);
 
   // Advances exactly one major frame: docs/architecture.md §5's order -- environment models,
-  // vehicle models, then (when physics is configured) each vehicle's EOM derivative, integrator
-  // step, and post-step renormalize. Transport exchange and the logger join this as PR 4 and later
+  // vehicle models, then (when physics is configured) each vehicle's wrench accumulation, EOM
+  // derivative, integrator step, and post-step renormalize, health-checked throughout (PLAN.md M1
+  // PR 4). Returns the first vehicle's halt, if any; the clock does not advance on a halt, so
+  // halt.frame == clock().frame() afterwards. Transport exchange and the logger join this as later
   // milestones create them.
-  void step() noexcept;
-  // Steps `frames` major frames.
-  void run(std::uint64_t frames) noexcept;
+  [[nodiscard]] HaltReason step() noexcept;
+  // Steps `frames` major frames, or until one halts. Returns the halt that stopped the run, if any.
+  [[nodiscard]] HaltReason run(std::uint64_t frames) noexcept;
   // Steps the frame count read from "sim.frames" at from_config time.
-  void run() noexcept { run(frames_); }
+  [[nodiscard]] HaltReason run() noexcept { return run(frames_); }
 
   [[nodiscard]] const VirtualClock& clock() const noexcept { return clock_; }
   [[nodiscard]] const SignalRegistry& registry() const noexcept { return registry_; }
+  [[nodiscard]] const HealthMonitor& health() const noexcept { return *health_; }
   [[nodiscard]] std::span<const Vehicle> vehicles() const noexcept { return vehicles_; }
+  // Non-const overload: tests inject a broken state (e.g. scaling q_nb) through this to exercise a
+  // health halt end to end.
+  [[nodiscard]] std::span<Vehicle> vehicles() noexcept { return vehicles_; }
   [[nodiscard]] std::uint64_t frames() const noexcept { return frames_; }
 
  private:
@@ -56,6 +64,10 @@ class Simulation {
   Integrator integrator_;
   Scheduler environment_scheduler_;
   std::vector<LoadedPlugin> environment_plugins_;
+  // unique_ptr, not by value: from_config returns Simulation by value, and HealthMonitor::init
+  // registers &counter_ pointers into registry_, so the monitor's address must survive every move
+  // this Simulation goes through (a by-value member would dangle those pointers on the first move).
+  std::unique_ptr<HealthMonitor> health_;
 };
 
 }  // namespace astra

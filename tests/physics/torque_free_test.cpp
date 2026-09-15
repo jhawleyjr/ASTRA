@@ -57,7 +57,7 @@ TEST(TorqueFree, EnergyAndAngularMomentumDriftBelowOneEMinusNineOverOneThousandS
   const Eigen::Vector3d h_n0_direction = h_n0.normalized();
 
   for (int checkpoint = 1; checkpoint <= kCheckpoints; ++checkpoint) {
-    sim.run(kFramesPerCheckpoint);
+    ASSERT_FALSE(sim.run(kFramesPerCheckpoint)) << "checkpoint " << checkpoint;
     const astra::StateVector& y = sim.vehicles().front().state();
 
     const double energy = kinetic_energy(y);

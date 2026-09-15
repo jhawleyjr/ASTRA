@@ -1,0 +1,12 @@
+# PLAN.md M1 PR 4 acceptance: a NaN wrench injected at frame 500 halts naming the plugin that
+# produced it ("tests/plugins/nan_wrench"), at frame 500, with the clock not advanced past it.
+sim:
+  dt: 0.001
+  frames: 1000
+vehicle:
+  models:
+    - { plugin: tests/plugins/nan_wrench, nan_frame: 500 }
+physical:
+  earth: plugins/physical/earth/flat
+  gravity: plugins/physical/gravity/constant
+  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 }

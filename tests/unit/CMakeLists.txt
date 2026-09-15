@@ -1,9 +1,11 @@
 # The GoogleTest unit suite: fast, run by every preset and by the Stop hook (.claude/hooks/stop-check.sh).
 add_executable(astra_unit_tests
   config/config_test.cpp
+  health/health_monitor_test.cpp
   icd/icd_test.cpp
   kernel/clock_test.cpp
   kernel/scheduler_test.cpp
+  kernel/simulation_halt_test.cpp
   kernel/simulation_physical_config_test.cpp
   kernel/simulation_test.cpp
   kernel/state_test.cpp
