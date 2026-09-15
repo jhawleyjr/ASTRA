@@ -57,16 +57,13 @@ Prefer the clangd/pyright LSP tools over grep for symbol lookups; they are feedb
 - **Per-frame path** (`step`, `compute`, integrator, transport exchange, logger sample): no heap allocation, no
   exceptions, no blocking I/O, no `std::string`, no `dlopen`. Init may allocate and throw typed errors naming the
   config path. Step-time model errors go through status flags, not exceptions.
-- **Randomness**: `std::mt19937_64` with in-house Box-Muller/uniform transforms (the standard distributions are not
-  portable across libstdc++/libc++). Every stochastic plugin takes a seed from config; the seed is logged.
-- **Floating point**: `double` everywhere, no `-ffast-math`. Eigen is a `SYSTEM` include so its warnings don't fight
-  `-Werror`. Integrator is in-house fixed-step RK4 (ADR-0004); Odeint only in Python-side analysis tools.
+- **Randomness**: `std::mt19937_64` with in-house Box-Muller/uniform transforms (the standard distributions are not portable across libstdc++/libc++). Every stochastic plugin takes a seed from config; the seed is logged.
+- **Floating point**: `double` everywhere, no `-ffast-math`. Eigen is a `SYSTEM` include so its warnings don't fight `-Werror`. Integrator is in-house fixed-step RK4 (ADR-0004); Odeint only in Python-side analysis tools.
 - **ICD** (`icd/astra_icd.h`, ADR-0006): C11, `<stdint.h>` only, fixed-width fields, 8-byte alignment, static size
   asserts, version in every frame. Never edit a struct layout; add a `_vN` struct and bump the version.
 - **Prose**: American English everywhere (comments, docs, ADRs, commit messages, PR bodies): honor, behavior,
   normalize, center, license. Never British spellings.
-- **Embedded example** (`embedded/autopilot/`) is C++17 on purpose and links only `icd/` + `embedded/hal/`, never
-  `astra_core`.
+- **Embedded example** (`embedded/autopilot/`) is C++17 on purpose and links only `icd/` + `embedded/hal/`, never `astra_core`.
 
 ## Architecture in one breath
 

@@ -1,10 +1,10 @@
 ---
 name: wrap
 description: End an ASTRA session - rewrite STATE.md, append lessons, ensure the branch is pushed and the PR is open, print next session's opener.
-disable-model-invocation: true
 ---
 
-End of session. Do these in order; each is a file or a command, not a conversation.
+End of session. Run this yourself once the PR is open and the reviews are addressed; do not wait for Joe to
+invoke it. Do these in order; each is a file or a command, not a conversation.
 
 1. **STATE.md** — rewrite it completely (never append), 40 lines or fewer, written as true at the moment this
    PR has merged (its reader is the next session, cut from `main` after the merge; nothing in it may hold only
