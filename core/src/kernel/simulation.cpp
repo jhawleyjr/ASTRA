@@ -1,6 +1,7 @@
 #include "astra/kernel/simulation.hpp"
 
 #include <Eigen/Core>
+#include <cmath>
 #include <cstdint>
 #include <limits>
 #include <string>
@@ -72,7 +73,8 @@ LoadedPlugin load_environment_model(const PluginLoader& loader, const Vehicle::M
 
 // A 3-vector at parent.key, or zero when the key is absent -- "initial.state" reads every field
 // this way, so a config that gives only euler_nb still gets zero position/velocity/rate rather than
-// an error.
+// an error. Each component must be finite (Codex review: an unvalidated NaN/Inf here starts the sim
+// already broken instead of failing the §15 pre-run "no NaN/Inf anywhere in state" check).
 Eigen::Vector3d read_vector3(const Config& parent, std::string_view key) {
   if (!parent.has(key)) {
     return Eigen::Vector3d::Zero();
@@ -80,7 +82,12 @@ Eigen::Vector3d read_vector3(const Config& parent, std::string_view key) {
   const Config entry = parent.at(key);
   Eigen::Vector3d v;
   for (std::size_t i = 0; i < 3; ++i) {
-    v(static_cast<Eigen::Index>(i)) = entry.at(i).number();
+    const Config component = entry.at(i);
+    const double value = component.number();
+    if (!std::isfinite(value)) {
+      throw ConfigError(component.origin(), component.path(), "must be finite");
+    }
+    v(static_cast<Eigen::Index>(i)) = value;
   }
   return v;
 }
@@ -98,6 +105,12 @@ StateVector read_initial_state(const Config& config) {
   frames::EulerAngles euler_nb = frames::EulerAngles::Zero();
   if (config.has("initial.state")) {
     const Config state_config = config.at("initial.state");
+    // Codex review: without this, "initial: { state: [1, 2, 3] }" or a bare scalar marks the whole
+    // block consumed (Config::at's own bookkeeping) while every field lookup below silently reads
+    // as absent, so a malformed block produces a valid-looking all-zero state instead of an error.
+    if (!state_config.is_map()) {
+      throw ConfigError(state_config.origin(), state_config.path(), "must be a map");
+    }
     p_n = read_vector3(state_config, "p_n");
     v_b = read_vector3(state_config, "v_b");
     omega_b = read_vector3(state_config, "omega_b");

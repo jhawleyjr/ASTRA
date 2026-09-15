@@ -144,6 +144,69 @@ TEST(SimulationPhysicalConfig, InitialStateDefaultsToIdentityAttitudeWhenEulerNb
   EXPECT_DOUBLE_EQ(y(astra::state::kVelocity), 100.0) << "v_b still read when euler_nb is absent";
 }
 
+// Codex review: an unvalidated NaN/Inf gravity value used to propagate into every EOM evaluation
+// with no init-time error, instead of failing §15's pre-run parameter sanity check.
+TEST(SimulationPhysicalConfig, RejectsNonFiniteGravityNamingTheKey) {
+  const Config config = Config::from_string(
+      "sim: { dt: 0.001, frames: 1 }\n"
+      "vehicle: { models: [] }\n"
+      "physical:\n"
+      "  earth: plugins/physical/earth/flat\n"
+      "  gravity: { plugin: plugins/physical/gravity/constant, g: .nan }\n"
+      "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 "
+      "}\n",
+      "nonfinite-gravity-fixture");
+  try {
+    static_cast<void>(load(config));
+    FAIL() << "expected ConfigError";
+  } catch (const ConfigError& error) {
+    EXPECT_EQ(error.config_path(), "physical.gravity.g");
+  }
+}
+
+// Codex review: an unvalidated NaN/Inf initial-state component used to start the sim already
+// broken instead of failing §15's pre-run "no NaN/Inf anywhere in state" check.
+TEST(SimulationPhysicalConfig, RejectsNonFiniteInitialStateComponent) {
+  const Config config = Config::from_string(
+      "sim: { dt: 0.001, frames: 1 }\n"
+      "vehicle: { models: [] }\n"
+      "physical:\n"
+      "  earth: plugins/physical/earth/flat\n"
+      "  gravity: plugins/physical/gravity/constant\n"
+      "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 "
+      "}\n"
+      "initial: { state: { v_b: [.inf, 0.0, 0.0] } }\n",
+      "nonfinite-initial-state-fixture");
+  try {
+    static_cast<void>(load(config));
+    FAIL() << "expected ConfigError";
+  } catch (const ConfigError& error) {
+    EXPECT_EQ(error.config_path(), "initial.state.v_b.0");
+  }
+}
+
+// Codex review: a non-map "initial.state" (a scalar or sequence) used to mark the whole block
+// consumed while every field lookup silently read as absent, producing a valid-looking all-zero
+// state instead of an error.
+TEST(SimulationPhysicalConfig, RejectsANonMapInitialState) {
+  const Config config = Config::from_string(
+      "sim: { dt: 0.001, frames: 1 }\n"
+      "vehicle: { models: [] }\n"
+      "physical:\n"
+      "  earth: plugins/physical/earth/flat\n"
+      "  gravity: plugins/physical/gravity/constant\n"
+      "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 "
+      "}\n"
+      "initial: { state: [1, 2, 3] }\n",
+      "non-map-initial-state-fixture");
+  try {
+    static_cast<void>(load(config));
+    FAIL() << "expected ConfigError";
+  } catch (const ConfigError& error) {
+    EXPECT_EQ(error.config_path(), "initial.state");
+  }
+}
+
 TEST(SimulationPhysicalConfig, PhysicsOffLeavesStateZeroedExactlyAsBeforePr3) {
   const Config config = Config::from_string(
       "sim: { dt: 0.001, frames: 0 }\n"
