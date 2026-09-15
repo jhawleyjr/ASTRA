@@ -8,6 +8,7 @@
 #   $ROOT_ON_MAIN  a temporary git repository whose HEAD is on main
 #   $ROOT_GREEN    a temporary tree whose stub justfile has a `test` recipe that passes
 #   $ROOT_RED      a temporary tree whose stub justfile has a `test` recipe that fails the way ctest does
+#   $ROOT_SLOW     a temporary tree whose stub `test` recipe outlives ASTRA_STOP_BUDGET (set to 1 s here)
 # The hooks read CLAUDE_PROJECT_DIR for the override marker, so it points at the temporary root, and the
 # ASTRA_TOUCH_GOLDENS override is cleared: the session that runs the gate cannot leak its own override into
 # the cases. Exits 1 on any mismatch and prints the hook's stderr for each failure.
@@ -30,7 +31,12 @@ red="$tmp/red"
 mkdir -p "$red"
 printf 'test:\n    @echo "The following tests FAILED:"; echo "  1 - StateVector.Stub (Failed)"; exit 1\n' >"$red/justfile"
 
+slow="$tmp/slow"
+mkdir -p "$slow"
+printf 'test:\n    @sleep 5\n' >"$slow/justfile"
+
 export CLAUDE_PROJECT_DIR="$root"
+export ASTRA_STOP_BUDGET=1
 export ASTRA_TOUCH_GOLDENS=0
 
 pass=0
@@ -52,6 +58,7 @@ for cases in "$tests_dir"/*.cases; do
     json=${json//\$ROOT_ON_MAIN/$on_main}
     json=${json//\$ROOT_GREEN/$green}
     json=${json//\$ROOT_RED/$red}
+    json=${json//\$ROOT_SLOW/$slow}
     json=${json//\$ROOT/$root}
     err=$(printf '%s' "$json" | "$hook" 2>&1 >/dev/null)
     got=$?

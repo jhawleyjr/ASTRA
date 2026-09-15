@@ -10,3 +10,5 @@
 2	{"hook_event_name":"Stop","permission_mode":"default","cwd":"$ROOT_RED","stop_hook_active":false}
 2	{"hook_event_name":"Stop","permission_mode":"acceptEdits","cwd":"$ROOT_RED","stop_hook_active":true}
 2	{"hook_event_name":"Stop","cwd":"$ROOT_RED"}
+# BLOCK: a `just test` that outlives the budget is a block (exit 124 from timeout), not a silent pass
+2	{"hook_event_name":"Stop","cwd":"$ROOT_SLOW"}

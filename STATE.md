@@ -1,38 +1,36 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines)
 
 ## In flight
-M0 PR 4 on branch `worktree-m0-hooks`, PR #9 open, rebased onto `main` after #8: Stop hook
-(`.claude/hooks/stop-check.sh`, wired in `.claude/settings.json`), 7 hook cases in `just hooks-test`, `check`
-required on `main` (ruleset applied), `/retro` wording fix, docs in the present tense. Codex review ran
-(`--base origin/main --wait`); its one finding (the guard compared a logical path with `/proc` physical paths)
-is fixed. Awaiting Joe: squash-merge (CI `check` must pass; strict, so the branch must be current), then `/retro`.
+Nothing. M0 is complete: PRs #1–#10 merged, `main` at the M0 close. This Cowork session (2026-09-14) planned M1:
+PLAN.md now lists M1 as four PRs; CLAUDE.md status line says M1. Both edits are uncommitted in the main checkout —
+Joe commits them from his terminal before opening a worktree (a worktree cannot see them, docs/lessons.md).
 
 ## Last verified result
-- `just check` exited 0 (`check: OK`) on the tree rebased onto `main` after #8: 4 presets × 16 ctest cases,
-  clang-tidy, clang-format, hooks 32/32, ruff, pyright strict, pytest 26 passed.
-- Stop hook: with `EXPECT_EQ(kVelocity, 3)` changed to 4, the hook exited 2 naming
-  `StateVector.LayoutPartitionsThirteenStatesAsAdr0003Says`, both with a Stop JSON piped in directly and as
-  the live Stop event when a turn ended (the block text came back as the next prompt); reverted, exit 0.
-- Busy-tree guard: with a `just` process held in the worktree, exit 2 naming its pid; quiet tree, exit 0.
-- Ruleset: `gh api repos/jhawleyjr/ASTRA/rules/branches/main` lists `required_status_checks`, context
-  `check`, integration 15368, strict. PR #9 shows it as required.
-- `/codex:setup`: Codex ready, logged in, review gate off. LSPs: clangd resolved `kVelocity` to
-  `core/include/astra/kernel/state.hpp`; pyright found `__version__`.
-- Not exercised: the hook's 840 s budget branch (exit 124) and the eight-block cap. CI on PR #9 pending at wrap.
+- Nothing ran this session (Cowork, planning only). The last gate result is the M0 one: `just check` exited 0
+  (`check: OK`) on the tree that became PR #9 — 4 presets × 16 ctest cases, tidy, format, hooks 32/32, ruff,
+  pyright strict, pytest 26 passed. CI `check` is required on `main`.
+- Not exercised: the Stop hook's 840 s budget branch (exit 124) and the eight-block cap.
 
 ## Next step
-M0 closes when PR #9 merges; Joe runs `/retro`. Then M1 in a fresh session:
-`claude --worktree m1-rigid-body --permission-mode plan` (model and effort per CLAUDE.md: `opusplan` at
-`high`; Joe escalates) with the M1 line from PLAN.md and architecture §16 row M1. Follow-up for M1: when
-physics tests join ctest, label the unit suite and have the Stop hook run `ctest -L unit` (architecture §5
-says the Stop hook runs `tests/unit/`), so the fast check stays fast.
+1. Joe: retro for M0 (`/retro` in Claude Code, or the Cowork `astra-retro` skill once saved); commit PLAN.md,
+   CLAUDE.md, STATE.md on `main`.
+2. Joe: `/codex:rescue` with the five-line plan for the integrator interface once the M1 PR 1 session has
+   produced it in plan mode (workflow.md §Review, plan review); one round.
+3. Opener (model and effort pinned in `.claude/settings.json`; escalation is Joe's):
+   `claude --worktree m1-frames --permission-mode plan`
+   M1 PR 1 (PLAN.md): `core/util/` frames — quaternion Hamilton scalar-first (w,x,y,z) ↔ DCM ↔ 3-2-1 Euler,
+   vector rotation, `q_nb` kinematics (n→b, ADR-0001); `core/kernel/` `Integrator` over `StateVector`
+   (ADR-0003/0004): Euler and RK4, `f(t, y) → ẏ` functor, post-step renormalize, no allocation in `step`.
+   Accept: `just check` exits 0 and `ctest --preset asan -R 'frames|integrator'` passes with (a) the ADR-0001
+   sign-pinning test whose expected values I hand you before code, (b) RK4 error ratio 16 ± 0.5 and Euler
+   2 ± 0.1 when dt halves on a linear ODE with a closed form, (c) |q| within 1e-12 after post-step.
+   Build and test output to a file, tail only. Review: `/codex:review --base origin/main --wait`, then
+   `/codex:adversarial-review --base origin/main` with ADR-0001/0003/0004 as focus. Then `/wrap`.
+4. Follow-ups carried into M1: PR 2 labels ctest `unit`/`physics` and points the Stop hook at `ctest -L unit`;
+   the Python `Simulation.derivative` binding (ADR-0003) lands with M3 trim, not M1.
 
 ## Tried / failed
-- Busy-tree probe with a build started in the background in the same response returned 0 once: the build had
-  not spawned when the hook scanned. Probe with a held `just --working-directory <tree> --justfile <stub> slow`.
-- The worktree session's Bash guard refused heredoc file writes, chained `git`, and `printf | hook`; used the
-  Write and Edit tools and a JSON file redirected into the hook (docs/lessons.md).
-- A CLAUDE.md line about the Stop hook: dropped, PR #8 took the file to its 100-line cap.
+- Nothing this session. (M0 entries retired to docs/lessons.md.)
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.
