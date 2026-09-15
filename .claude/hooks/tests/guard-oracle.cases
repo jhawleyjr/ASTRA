@@ -8,6 +8,9 @@
 0	{"tool_name":"Bash","tool_input":{"command":"rm -rf build && ls docs/decisions/"}}
 0	{"tool_name":"Bash","tool_input":{"command":"git add docs/decisions/0012-x.md"}}
 0	{"tool_name":"Write","tool_input":{"file_path":"$ROOT/core/kernel/clock.hpp"}}
+# PASS: the override -- the marker is present under $ROOT_ARMED (the runner points CLAUDE_PROJECT_DIR there)
+0	{"tool_name":"Write","tool_input":{"file_path":"$ROOT_ARMED/docs/decisions/0012-x.md"}}
+0	{"cwd":"$ROOT_ARMED","tool_name":"Bash","tool_input":{"command":"python gen.py > tests/golden/cruise.csv"}}
 # BLOCK: a guarded path as a write target
 2	{"tool_name":"Bash","tool_input":{"command":"python gen.py > tests/golden/cruise.csv"}}
 2	{"tool_name":"Bash","tool_input":{"command":"cat x >> tests/golden/cruise.csv"}}
@@ -17,6 +20,9 @@
 2	{"tool_name":"Bash","tool_input":{"command":"mv tests/golden/a.csv tests/golden/b.csv"}}
 2	{"tool_name":"Bash","tool_input":{"command":"git checkout HEAD~1 -- tests/golden/cruise.csv"}}
 2	{"tool_name":"Bash","tool_input":{"command":"cp /tmp/new.md docs/decisions/0001-frames-and-attitude.md"}}
+2	{"tool_name":"Bash","tool_input":{"command":"truncate -s 0 tests/golden/cruise.csv"}}
+2	{"tool_name":"Bash","tool_input":{"command":"git rm docs/decisions/0004-fixed-step-rk4-in-house.md"}}
+2	{"tool_name":"Bash","tool_input":{"command":"git restore --source=HEAD~1 tests/golden/cruise.csv"}}
 2	{"tool_name":"Write","tool_input":{"file_path":"$ROOT/docs/decisions/0012-x.md"}}
 2	{"tool_name":"Edit","tool_input":{"file_path":"$ROOT/tests/golden/cruise.csv"}}
 2	{"tool_name":"Edit","tool_input":{"file_path":"$ROOT/tests/physics/tolerances.yaml"}}

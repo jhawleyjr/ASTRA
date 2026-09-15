@@ -3,6 +3,11 @@
 0	{"cwd":"$ROOT","tool_input":{"command":"git push -u origin worktree-m0"}}
 0	{"cwd":"$ROOT","tool_input":{"command":"git status"}}
 0	{"cwd":"$ROOT","tool_input":{"command":"just check"}}
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -m x"}}
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git rebase main"}}
 2	{"cwd":"$ROOT","tool_input":{"command":"git push origin main"}}
 2	{"cwd":"$ROOT","tool_input":{"command":"git push -u origin HEAD:main"}}
 2	{"cwd":"$ROOT_ON_MAIN","tool_input":{"command":"git commit -m x"}}
+2	{"cwd":"$ROOT_ON_MAIN","tool_input":{"command":"git merge worktree-task"}}
+2	{"cwd":"$ROOT_ON_MAIN","tool_input":{"command":"git rebase worktree-task"}}
+2	{"cwd":"$ROOT_ON_MAIN","tool_input":{"command":"git reset --hard HEAD~1"}}

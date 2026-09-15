@@ -2,8 +2,8 @@
 # PreToolUse hook (matchers: Edit|Write|MultiEdit|NotebookEdit and Bash).
 # The oracle is human-owned (docs/process/workflow.md §Verification): docs/decisions/**, tests/golden/**,
 # and tolerance files change only when Joe says so. Exit 2 = block; the message on stderr goes to Claude.
-# Override for a session Joe opens after `touch .claude/touch-goldens`: that marker file
-# (gitignored) or ASTRA_TOUCH_GOLDENS=1 in the environment.
+# Override: ASTRA_TOUCH_GOLDENS=1 in the session's environment, or the gitignored marker
+# .claude/touch-goldens touched by Joe while the session runs (the SessionStart hook deletes it).
 set -u
 input=$(cat)
 root="${CLAUDE_PROJECT_DIR:-$(pwd)}"

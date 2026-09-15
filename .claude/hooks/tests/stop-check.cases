@@ -12,3 +12,6 @@
 2	{"hook_event_name":"Stop","cwd":"$ROOT_RED"}
 # BLOCK: a `just test-unit` that outlives the budget is a block (exit 124 from timeout), not a silent pass
 2	{"hook_event_name":"Stop","cwd":"$ROOT_SLOW"}
+# BLOCK: a `just` process already running under the tree blocks before any test runs (the busy-tree guard; the
+# tree is green, so only the guard can produce the block)
+2	{"hook_event_name":"Stop","cwd":"$ROOT_BUSY"}

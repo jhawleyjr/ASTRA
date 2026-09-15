@@ -38,10 +38,10 @@ Prefer the clangd/pyright LSP tools over grep for symbol lookups; they are feedb
 
 ## Git and session rules
 
-- One task = one PR = one verifiable outcome; a task is 3-10 lines: intent, acceptance command, ADR pointers.
 - **The oracle is human-owned.** `tests/golden/**`, tolerance files, and `docs/decisions/**` change only when Joe
-  says so (Joe runs `touch .claude/touch-goldens` before the session). `.claude/hooks/guard-oracle.sh` (PreToolUse on Edit/Write/
-  Bash) blocks those paths; the override is the gitignored marker `.claude/touch-goldens` or `ASTRA_TOUCH_GOLDENS=1`.
+  says so. `.claude/hooks/guard-oracle.sh` (PreToolUse on Edit/Write/Bash) blocks those paths; Joe lifts it with
+  `ASTRA_TOUCH_GOLDENS=1` in the session's environment, or `touch .claude/touch-goldens` while the session runs (the
+  SessionStart hook deletes the marker, so a lifted guard never carries into the next session).
   Widening a tolerance, narrowing a comparison, regenerating a golden, or weakening a test is a blocking review finding.
 
 ## Non-standard conventions (the things an agent will silently get wrong)

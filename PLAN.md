@@ -41,6 +41,18 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         zero allocations over 1000 frames. Plan review: health monitor → Codex before code.
 - [ ] **M2 Environment** — ISA-1976, gravity (constant / inverse-square / WGS-84 J2), wind + Dryden, Earth
       (flat / round / WGS-84 rotating); NASA check cases 1–10 within NESC tolerances; ISA table points exact.
+  - [ ] PR 1 — `AtmosphereModel` + `plugins/physical/atmosphere/isa1976`; `plugins/physical/earth/{round,
+        wgs84_rotating}` (geodetic `p_n` per ADR-0003, Earth rate, transport rate; initial `p_n` stays the raw
+        vector, radians and metres, range-checked by the Earth model at init); `plugins/physical/gravity/
+        {inverse_square, wgs84_j2}`. Accept: ISA table points exact; round non-rotating drop vs the inverse-square
+        closed form; the WGS-84 rotating sphere drop from the NESC set within its tolerance. Plan review: how gravity
+        and atmosphere models get geodetic position from the Earth model → Codex before code.
+  - [ ] PR 2 — `WindModel` (steady + Dryden; seeded `std::mt19937_64`, in-house transforms) feeding relative velocity.
+        Accept: Dryden PSD matches spec within statistical bounds at a fixed seed; steady-wind NESC cases within
+        tolerance; bit-identical logs across two runs with the same seed.
+  - [ ] PR 3 — NESC check-case harness: cases 1–10 from YAML under `tests/physics/nesc/`, reference data and
+        tolerances under `tests/golden/nesc/` (human-owned; Joe lifts the guard). Accept: all ten within the
+        tolerances the NESC data provides, under every preset.
 - [ ] **M3 Notional transport** — aero + mass + turbofan plugins; trims at cruise with residual < 1e-6;
       linearized modes match design values; 300 s open-loop run reproduces the golden.
 - [ ] **M4 Lockstep** — shm transport + HAL + straight-and-level autopilot outside the sim tree; 10,000
