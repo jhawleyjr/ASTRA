@@ -90,6 +90,8 @@ TEST(SimulationPhysicalConfig, RejectsInitialTrimAsAnUnknownKey) {
   }
 }
 
+// "atmosphere" is not yet a config slot: AtmosphereModel/isa1976 grew too large to land alongside
+// the Earth/gravity models in this PR (PLAN.md's own size contingency) and are a follow-up PR.
 TEST(SimulationPhysicalConfig, RejectsAnUnknownPhysicalSlotName) {
   const Config config = Config::from_string(
       "sim: { dt: 0.001, frames: 1 }\n"
@@ -107,6 +109,52 @@ TEST(SimulationPhysicalConfig, RejectsAnUnknownPhysicalSlotName) {
   } catch (const ConfigError& error) {
     EXPECT_TRUE(mentions(error, "physical.atmosphere")) << error.what();
   }
+}
+
+// gravity/wgs84_j2 assumes geodetic p_n (PositionRepresentation::kGeodetic); earth/flat provides
+// kFlatNed. Pairing them would read NED metres as radians, so it is rejected at init.
+TEST(SimulationPhysicalConfig, RejectsAGeodeticGravityModelPairedWithFlatEarth) {
+  const Config config = Config::from_string(
+      "sim: { dt: 0.001, frames: 1 }\n"
+      "vehicle: { models: [] }\n"
+      "physical:\n"
+      "  earth: plugins/physical/earth/flat\n"
+      "  gravity: plugins/physical/gravity/wgs84_j2\n"
+      "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 "
+      "}\n",
+      "representation-mismatch-fixture");
+  try {
+    static_cast<void>(load(config));
+    FAIL() << "expected ConfigError";
+  } catch (const ConfigError& error) {
+    EXPECT_EQ(error.config_path(), "physical.gravity");
+    EXPECT_TRUE(mentions(error, "physical.earth")) << error.what();
+  }
+}
+
+// The converse of the above: a gravity model that does not read p_n's geometry (kAny) is
+// compatible with every Earth model, geodetic or not. frames: 0, so gravity never gets a chance to
+// integrate and change the state -- this test is about the representation check accepting the
+// pairing at init, not about what one frame of falling does to the state. Checked against p_n/v_b/
+// omega_b individually, not the whole vector's isZero(): with "physical" configured, q_nb defaults
+// to the identity quaternion (w = 1), so the full StateVector is never all-zero.
+TEST(SimulationPhysicalConfig, AcceptsConstantGravityWithRoundEarth) {
+  const Config config = Config::from_string(
+      "sim: { dt: 0.001, frames: 0 }\n"
+      "vehicle: { models: [] }\n"
+      "physical:\n"
+      "  earth: plugins/physical/earth/round\n"
+      "  gravity: plugins/physical/gravity/constant\n"
+      "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 "
+      "}\n",
+      "compatible-representation-fixture");
+  const Simulation sim = load(config);
+  const astra::StateVector& y = sim.vehicles().front().state();
+  EXPECT_TRUE(y.segment<astra::state::kPositionSize>(astra::state::kPosition).isZero());
+  EXPECT_TRUE(y.segment<astra::state::kVelocitySize>(astra::state::kVelocity).isZero());
+  EXPECT_TRUE(y.segment<astra::state::kAngularRateSize>(astra::state::kAngularRate).isZero());
+  EXPECT_DOUBLE_EQ(1.0, y(astra::state::kQuaternion))
+      << "identity attitude when euler_nb is absent";
 }
 
 TEST(SimulationPhysicalConfig, RejectsAPartialPhysicalSpecNamingTheMissingSlot) {

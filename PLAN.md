@@ -41,27 +41,38 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         zero allocations over 1000 frames. Plan review: health monitor → Codex before code.
 - [ ] **M2 Environment** — ISA-1976, gravity (constant / inverse-square / WGS-84 J2), wind + Dryden, Earth
       (flat / round / WGS-84 rotating); NASA check cases 1–10 within NESC tolerances; ISA table points exact.
-  - [ ] PR 1 — `AtmosphereModel` + `plugins/physical/atmosphere/isa1976` (declares its valid altitude range; §15's
-        pre-run "altitude inside the atmosphere's range" check joins the HealthMonitor init path); `plugins/physical/
-        earth/{round, wgs84_rotating}` (geodetic `p_n` per ADR-0003, Earth rate, transport rate; initial `p_n` stays
-        the raw vector, radians and metres, range-checked at init with a message naming ADR-0003); `plugins/physical/
-        gravity/{inverse_square, wgs84_j2}` reading latitude and altitude from `p_n` directly. Each gravity and
-        atmosphere model declares the position representation it assumes; `Simulation::from_config` rejects a
-        mismatch with `earth/flat` (ConfigError naming `physical.gravity` / `physical.earth`). Also adds
-        `cppcoreguidelines-no-malloc` to `.clang-tidy` (NOLINT pair in `tests/support/alloc_counter.cpp`), closing
-        PR #21's adversarial-review finding at the gate. Accept: ISA table points exact; round non-rotating drop vs
-        the inverse-square closed form; the WGS-84 rotating sphere drop from the NESC set within its tolerance.
-        Plan review (one round, done): the Earth/gravity/atmosphere position contract. If the plan exceeds ~1200
-        lines of new code, ISA becomes its own PR; gravity stays with the Earth models.
+  - [x] PR 1 — `plugins/physical/earth/{round, wgs84_rotating}` (geodetic `p_n` per ADR-0003, Earth rate, transport
+        rate; initial `p_n` stays the raw vector, radians and metres, range-checked at init with a message naming
+        ADR-0003 for a degree-valued latitude and a separate message for the polar singularity margin
+        `core/util/geodesy.hpp`'s `kMaxLatitude` guards against); `plugins/physical/gravity/{inverse_square,
+        wgs84_j2}` reading latitude and altitude from `p_n` directly (settled by Joe, not the plan-review round:
+        ADR-0003 already makes `p_n` geodetic under these Earth models, so no new position-access API). Each gravity
+        model declares the position representation it assumes; `Simulation::from_config` rejects a mismatch with
+        `earth/flat` (ConfigError naming `physical.gravity` / `physical.earth`). Also adds
+        `cppcoreguidelines-no-malloc` (with its `Allocations` option widened past the default `::malloc;::calloc` to
+        include `::aligned_alloc;::posix_memalign`) to `.clang-tidy`, NOLINT pair in `tests/support/alloc_counter.cpp`,
+        closing PR #21's adversarial-review finding at the gate. Accept: round non-rotating drop vs the
+        inverse-square closed form; the WGS-84 rotating sphere drop (NASA/TM-2015-218675 check-case 1, "dragless
+        sphere" — the report publishes exact initial conditions but, by design, no single numeric reference or fixed
+        tolerance, so the oracle is an independent high-precision integration of that exact scenario, not a number
+        copied from the report) within its tolerance. Plan review (one round, done): the Earth/gravity position
+        contract. **Split from the plan's contingency**: the diff exceeded ~1200 lines with `AtmosphereModel` +
+        `isa1976` included, so that work moved to PR 1b below; gravity stayed with the Earth models as specified.
+  - [ ] PR 1b — `AtmosphereModel` + `plugins/physical/atmosphere/isa1976` (declares its valid altitude range; §15's
+        pre-run "altitude inside the atmosphere's range" check joins the HealthMonitor init path); the same
+        position-representation check extended to `physical.atmosphere`. Accept: ISA table points exact.
   - [ ] PR 2 — `WindModel` (§7 signature) with `plugins/physical/wind/{uniform, dryden}` (seeded `std::mt19937_64`,
         in-house transforms, seed logged). Accept: Dryden PSD matches the MIL-F-8785C spec within statistical bounds
         at a fixed seed; steady-wind NESC cases within tolerance; bit-identical logs across two same-seed runs.
-  - [ ] PR 3 — NESC check-case harness: cases 1–10 from YAML under `tests/physics/nesc/`; a `tests/plugins/`
-        `WrenchSource` for the sphere's Cd·A drag and the brick's damping (the only M2 consumer of wind and
-        atmosphere, air-relative velocity). Reference trajectories and per-channel tolerances under
-        `tests/golden/nesc/` are human-owned: Joe places NASA's TM-2015-218675 data files and reads the proposed
-        tolerances with the guard lifted. Decide from the report whether any case needs a rotating spherical Earth
-        (`rotating: true` on `round`, per §4 granularity). Accept: all ten within tolerance under every preset.
+  - [ ] PR 3 — NESC check-case harness: cases 1–10 from YAML under `tests/physics/nesc/` (absorbing PR 1's
+        hand-written case 1 into the harness); a `tests/plugins/` `WrenchSource` for the sphere's Cd·A drag and the
+        brick's damping (the only M2 consumer of wind and atmosphere, air-relative velocity). Reference trajectories
+        and per-channel tolerances under `tests/golden/nesc/` are human-owned: Joe places NASA's TM-2015-218675 data
+        files and reads the proposed tolerances with the guard lifted (PR 1's case 1 already shows the report itself
+        publishes no fixed tolerance, only initial conditions — decide per case whether an independent integration
+        or a cross-tool comparison band is the right oracle). Decide from the report whether any case needs a
+        rotating spherical Earth (`rotating: true` on `round`, per §4 granularity). Accept: all ten within tolerance
+        under every preset.
 - [ ] **M3 Notional transport** — aero + mass + turbofan plugins; trims at cruise with residual < 1e-6;
       linearized modes match design values; 300 s open-loop run reproduces the golden.
 - [ ] **M4 Lockstep** — shm transport + HAL + straight-and-level autopilot outside the sim tree; 10,000

@@ -6,11 +6,17 @@
 #   bugprone-easily-swappable-parameters fires on every (x, y, z) and (expected, actual) signature; the fix
 #                                        it asks for is a wrapper type per parameter, which is the
 #                                        per-signal unit-type approach ADR-0002 rejected.
+# cppcoreguidelines-no-malloc (M2 PR 1, closing PR #21's adversarial-review finding): the allocation
+# counter (tests/support/alloc_counter.cpp) replaces global operator new/delete but cannot see a
+# direct malloc/calloc/aligned_alloc/posix_memalign call from a plugin. This check makes any such
+# call a `just check` failure instead of a silent gap in the counter's coverage. One check only, not
+# the whole cppcoreguidelines-* family (too broad for this codebase's style).
 Checks: >
   bugprone-*,
   performance-*,
   modernize-*,
   readability-*,
+  cppcoreguidelines-no-malloc,
   -readability-identifier-length,
   -modernize-use-trailing-return-type,
   -bugprone-easily-swappable-parameters
@@ -43,3 +49,6 @@ CheckOptions:
   readability-identifier-naming.StaticConstantCase: CamelCase
   readability-identifier-naming.StaticConstantPrefix: k
   readability-identifier-naming.MacroDefinitionCase: UPPER_CASE
+  # Default Allocations is only "::malloc;::calloc" -- widened so aligned_alloc (which
+  # alloc_counter.cpp itself calls, NOLINT-suppressed below) and posix_memalign are covered too.
+  cppcoreguidelines-no-malloc.Allocations: '::malloc;::calloc;::aligned_alloc;::posix_memalign'

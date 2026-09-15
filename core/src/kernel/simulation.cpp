@@ -12,6 +12,7 @@
 #include "astra/errors.hpp"
 #include "astra/interfaces/earth_model.hpp"
 #include "astra/interfaces/gravity_model.hpp"
+#include "astra/interfaces/position_representation.hpp"
 #include "astra/kernel/state.hpp"
 #include "astra/plugin/loader.hpp"
 #include "astra/util/frames.hpp"
@@ -71,6 +72,25 @@ LoadedPlugin load_environment_model(const PluginLoader& loader, const Vehicle::M
   return loaded;
 }
 
+// M2: rejects a gravity model whose assumed position representation (position_representation.hpp)
+// does not match what the configured Earth model provides -- e.g. gravity/wgs84_j2 paired with
+// earth/flat would otherwise read NED metres as radians. kAny ("does not read p_n's geometry") is
+// always compatible. config_path names the assuming model's own slot ("physical.gravity"); the
+// message also names the Earth slot it disagrees with. The same check will apply to
+// physical.atmosphere once that slot exists (a follow-up PR: AtmosphereModel grew too large to land
+// alongside the Earth/gravity models in one PR, PLAN.md's own size contingency).
+void check_position_representation(PositionRepresentation assumed, PositionRepresentation provided,
+                                   const Vehicle::ModelSpec& assuming_spec,
+                                   const Vehicle::ModelSpec& earth_spec) {
+  if (assumed == PositionRepresentation::kAny || assumed == provided) {
+    return;
+  }
+  throw ConfigError(assuming_spec.config.origin(), assuming_spec.config.path(),
+                    assuming_spec.plugin_path + " assumes a position representation that " +
+                        earth_spec.plugin_path + " (" + earth_spec.config.path() +
+                        ") does not provide");
+}
+
 // A 3-vector at parent.key, or zero when the key is absent -- "initial.state" reads every field
 // this way, so a config that gives only euler_nb still gets zero position/velocity/rate rather than
 // an error. Each component must be finite (Codex review: an unvalidated NaN/Inf here starts the sim
@@ -111,6 +131,10 @@ StateVector read_initial_state(const Config& config) {
     if (!state_config.is_map()) {
       throw ConfigError(state_config.origin(), state_config.path(), "must be a map");
     }
+    // p_n's units depend on the configured Earth model (ADR-0003): NED metres for flat, geodetic
+    // latitude/longitude in rad and altitude in m for round/wgs84_rotating.
+    // EarthModel::validate_p_n (called below, once the Earth model is loaded) rejects a value that
+    // would be meaningless or singular under that Earth model's own representation.
     p_n = read_vector3(state_config, "p_n");
     v_b = read_vector3(state_config, "v_b");
     omega_b = read_vector3(state_config, "omega_b");
@@ -161,6 +185,8 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
     if (gravity == nullptr) {
       throw PluginLoadError(gravity_spec.plugin_path, "does not implement GravityModel");
     }
+    check_position_representation(gravity->assumed_position_representation(),
+                                  earth->position_representation(), gravity_spec, earth_spec);
 
     sim.environment_scheduler_.add(*earth, earth_spec.divisor);
     sim.environment_scheduler_.add(*gravity, gravity_spec.divisor);
@@ -170,6 +196,11 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
     const Vehicle::PhysicsSpec physics_spec{std::move(mass_spec), earth, gravity};
     vehicle.init(loader, specs, sim.registry_, &physics_spec);
     vehicle.state() = read_initial_state(config);
+
+    const Eigen::Vector3d p_n = vehicle.state().segment<state::kPositionSize>(state::kPosition);
+    const Config initial_state_node =
+        config.has("initial.state") ? config.at("initial.state") : config;
+    earth->validate_p_n(p_n, initial_state_node);
   } else {
     vehicle.init(loader, specs, sim.registry_, nullptr);
   }

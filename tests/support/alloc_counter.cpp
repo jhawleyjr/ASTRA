@@ -9,6 +9,12 @@ namespace {
 
 std::atomic<std::size_t> g_allocation_count{0};
 
+// NOLINTBEGIN(cppcoreguidelines-no-malloc): this file's whole purpose, from here to the end, is to
+// forward every allocating/freeing form to the C allocator underneath ASan's own interceptor (see
+// alloc_counter.hpp's header comment) -- the one place in the tree that legitimately calls it
+// directly, closing PR #21's adversarial-review finding (.clang-tidy) without touching malloc/free
+// under ASan itself (real conflict risk, no benefit).
+
 // std::aligned_alloc requires size to already be a multiple of alignment (glibc enforces this and
 // returns null otherwise); a new-expression has no such obligation, so this rounds size up before
 // calling it. The extra bytes are harmless: callers only need at least size bytes back, and
@@ -113,3 +119,4 @@ void operator delete[](void* ptr, std::align_val_t /*alignment*/,
                        const std::nothrow_t& /*tag*/) noexcept {
   std::free(ptr);
 }
+// NOLINTEND(cppcoreguidelines-no-malloc)

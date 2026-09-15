@@ -1,0 +1,107 @@
+// The WGS-84 ellipsoid, rotating (docs/architecture.md §6, ADR-0003, PLAN.md M2 PR 1): p_n is
+// geodetic (latitude, longitude in rad; altitude above the ellipsoid in m). Same
+// navigation-equation shape as earth/round (plugins/physical/earth/round), with the meridian radius
+// of curvature M(lat) and the prime-vertical radius of curvature N(lat) (core/util/geodesy.hpp) in
+// place of round's constant R, and a nonzero omega_ie_n from the Earth's own rotation. Reads no
+// config: every constant is a WGS-84 defining parameter, not a per-run choice.
+#include <cmath>
+#include <memory>
+#include <numbers>
+#include <string>
+#include <string_view>
+
+#include "astra/config/config.hpp"
+#include "astra/core_api.hpp"
+#include "astra/errors.hpp"
+#include "astra/interfaces/earth_model.hpp"
+#include "astra/interfaces/position_representation.hpp"
+#include "astra/kernel/vehicle_state.hpp"
+#include "astra/plugin/descriptor.hpp"
+#include "astra/util/frames.hpp"
+#include "astra/util/geodesy.hpp"
+
+namespace {
+
+using astra::Config;
+using astra::ConfigError;
+
+class Wgs84Rotating final : public astra::EarthModel {
+ public:
+  void init(const Config& /*config*/, astra::SignalRegistry& /*registry*/) override {}
+  void reset() override {}
+  void step(const astra::StepContext& /*ctx*/) override {}
+  [[nodiscard]] std::string_view name() const override { return "earth"; }
+
+  // NOLINTBEGIN(readability-magic-numbers): vector component indices below are position/velocity
+  // axes (lat/lon/alt, N/E/D), not arbitrary magic numbers.
+  [[nodiscard]] Eigen::Vector3d p_n_dot(const astra::VehicleState& vs) const noexcept override {
+    const double lat = vs.p_n()(0);
+    const double h = vs.p_n()(2);
+    const Eigen::Vector3d v_n = astra::frames::rotate_b_to_n(vs.q_nb(), vs.v_b());
+    const double m_h = astra::geodesy::meridian_radius(lat) + h;
+    const double n_h = astra::geodesy::prime_vertical_radius(lat) + h;
+    return {v_n(0) / m_h, v_n(1) / (n_h * std::cos(lat)), -v_n(2)};
+  }
+  [[nodiscard]] Eigen::Vector3d omega_ie_n(const astra::VehicleState& vs) const noexcept override {
+    const double lat = vs.p_n()(0);
+    return astra::geodesy::kOmegaIe * Eigen::Vector3d{std::cos(lat), 0.0, -std::sin(lat)};
+  }
+  [[nodiscard]] Eigen::Vector3d omega_en_n(const astra::VehicleState& vs) const noexcept override {
+    const double lat = vs.p_n()(0);
+    const double h = vs.p_n()(2);
+    const Eigen::Vector3d v_n = astra::frames::rotate_b_to_n(vs.q_nb(), vs.v_b());
+    const double m_h = astra::geodesy::meridian_radius(lat) + h;
+    const double n_h = astra::geodesy::prime_vertical_radius(lat) + h;
+    return {v_n(1) / n_h, -v_n(0) / m_h, -v_n(1) * std::tan(lat) / n_h};
+  }
+  // NOLINTEND(readability-magic-numbers)
+  [[nodiscard]] double altitude(const astra::VehicleState& vs) const noexcept override {
+    return vs.p_n()(2);  // p_n's third component is already altitude above the ellipsoid (ADR-0003)
+  }
+
+  [[nodiscard]] astra::PositionRepresentation position_representation() const noexcept override {
+    return astra::PositionRepresentation::kGeodetic;
+  }
+
+  // Same shape as earth/round's validate_p_n (see that file's comment), with the surface bound at
+  // this latitude's prime-vertical radius N(lat) rather than a constant R: below -N(lat), the
+  // position kinematics' (N(lat) + h) denominator itself goes through zero.
+  // NOLINTBEGIN(readability-magic-numbers): 0/1/2 are the p_n vector's lat/lon/alt components.
+  void validate_p_n(const Eigen::Vector3d& p_n, const Config& node) const override {
+    const double lat = p_n(0);
+    const double lon = p_n(1);
+    const double alt = p_n(2);
+    const std::string path = node.path().empty() ? "initial.state.p_n" : node.path() + ".p_n";
+    if (!std::isfinite(lat) || !std::isfinite(lon) || !std::isfinite(alt)) {
+      throw ConfigError(node.origin(), path, "p_n must be finite");
+    }
+    if (std::abs(lat) > std::numbers::pi / 2.0) {
+      throw ConfigError(node.origin(), path,
+                        "p_n's latitude magnitude exceeds pi/2 rad -- latitude is radians, not "
+                        "degrees (ADR-0003)");
+    }
+    if (std::abs(lat) > astra::geodesy::kMaxLatitude) {
+      throw ConfigError(node.origin(), path,
+                        "p_n's latitude is within the polar singularity margin of +-pi/2 rad; "
+                        "the geodetic chart is undefined there");
+    }
+    if (lon < -std::numbers::pi || lon > std::numbers::pi) {
+      throw ConfigError(node.origin(), path, "p_n's longitude must be within [-pi, pi] rad");
+    }
+    if (alt <= -astra::geodesy::prime_vertical_radius(lat)) {
+      throw ConfigError(node.origin(), path,
+                        "p_n's altitude is at or below the ellipsoid's center -- the position "
+                        "kinematics divide by (N(lat) + altitude)");
+    }
+  }
+  // NOLINTEND(readability-magic-numbers)
+};
+
+std::unique_ptr<astra::Model> create() { return std::make_unique<Wgs84Rotating>(); }
+
+constexpr astra::PluginDescriptor kDescriptor{"physical", "earth_wgs84_rotating",
+                                              astra::kCoreApiVersion, astra::kBuiltWith, &create};
+
+}  // namespace
+
+ASTRA_PLUGIN_EXPORT const astra::PluginDescriptor* astra_plugin() { return &kDescriptor; }

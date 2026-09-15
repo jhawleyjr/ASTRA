@@ -7,6 +7,7 @@
 
 #include "astra/core_api.hpp"
 #include "astra/interfaces/earth_model.hpp"
+#include "astra/interfaces/position_representation.hpp"
 #include "astra/kernel/state.hpp"
 #include "astra/kernel/vehicle_state.hpp"
 #include "astra/plugin/descriptor.hpp"
@@ -35,6 +36,10 @@ class FlatEarth final : public astra::EarthModel {
   [[nodiscard]] double altitude(const astra::VehicleState& vs) const noexcept override {
     constexpr int kDown = astra::state::kPositionSize - 1;  // NED: third component is down
     return -vs.p_n()(kDown);
+  }
+
+  [[nodiscard]] astra::PositionRepresentation position_representation() const noexcept override {
+    return astra::PositionRepresentation::kFlatNed;
   }
 };
 
