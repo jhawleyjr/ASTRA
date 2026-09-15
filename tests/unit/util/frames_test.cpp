@@ -8,6 +8,7 @@
 
 #include <array>
 #include <cstddef>
+#include <limits>
 #include <span>
 
 #include "golden/frames/adr0001_cases.hpp"
@@ -145,6 +146,19 @@ TEST(Frames, EigenQuaternionConversionIsTheTransposeAdr0001Warns) {
         astra::frames::from_eigen_quaternion(astra::frames::to_eigen_quaternion(q_nb));
     expect_vec4_near(c.q_nb, round_trip);
   }
+}
+
+TEST(Frames, NormalizeQuaternionRejectsZeroOrNonFiniteNormAndLeavesItUnmodified) {
+  astra::frames::Quaternion zero = astra::frames::Quaternion::Zero();
+  EXPECT_FALSE(astra::frames::normalize_quaternion(zero));
+  EXPECT_TRUE((zero.array() == 0.0).all());
+
+  astra::frames::Quaternion non_finite{std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0, 0.0};
+  EXPECT_FALSE(astra::frames::normalize_quaternion(non_finite));
+
+  astra::frames::Quaternion off_norm{2.0, 0.0, 0.0, 0.0};
+  EXPECT_TRUE(astra::frames::normalize_quaternion(off_norm));
+  EXPECT_NEAR(off_norm.norm(), 1.0, kTolerance);
 }
 
 }  // namespace

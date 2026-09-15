@@ -24,8 +24,8 @@ M1 PR 1 (PLAN.md). Opener (model and effort pinned in `.claude/settings.json`; e
    (b) RK4 error ratio 16 ± 0.5 and Euler 2 ± 0.1 when dt halves on a linear ODE with a closed form,
    (c) |q| within 1e-12 after post-step. Also commits `scripts/tokens.py` (workflow.md §Model and effort).
    Build and test output to a file, tail only. Plan review: the integrator-interface plan gets one `/codex:rescue`
-   round inside plan mode, automatically, before the plan is shown. Review: `/codex:review --base origin/main --wait`, then
-   `/codex:adversarial-review --base origin/main` with ADR-0001/0003/0004 as focus. Then `/wrap`.
+   round inside plan mode, automatically, before the plan is shown. Review: the session runs the Codex companion script's
+   `review` then `adversarial-review` (ADR-0001/0003/0004 as focus) itself, per CLAUDE.md. Then `/wrap`.
 Follow-ups already in PLAN.md: PR 2 labels ctest `unit`/`physics` and points the Stop hook at `ctest -L unit`;
 the Python `Simulation.derivative` binding lands with M3 trim.
 

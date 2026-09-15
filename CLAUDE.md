@@ -13,8 +13,10 @@
   A backgrounded gate reports the wrapper's exit, not its own: verified means the log's `EXIT=0` / `check: OK`
   line was read, and a process started in the background may not exist yet when the next command runs.
 - Never commit from a Cowork session (leaves `.git/index.lock`; see `docs/lessons.md`).
-- Review before the PR is `/codex:review --base origin/main --wait` (other model, fresh context; reads `AGENTS.md`
-  directly). Physics diffs also get `/codex:adversarial-review --base origin/main` with the ADRs as focus. Never
+- Review before the PR is Codex (other model, fresh context; reads `AGENTS.md`), run by the session from Bash:
+  `node "$(find ~/.claude/plugins -name codex-companion.mjs | head -1)" review --base origin/main --wait`; physics
+  diffs also `adversarial-review --base origin/main --wait <focus naming the ADRs>`. The `/codex:*review` slash
+  commands are user-only wrappers of that script; do not wait for Joe to run them. Never
   the built-in `/code-review`; never the Codex stop-time gate; never a critique subagent. A plan deciding a design
   the ADRs do not pin (EOM, kinematics, integrator interface, health monitor) gets one `/codex:rescue` round in
   plan mode before Joe sees it, plan and acceptance command inlined (workflow.md §Review); other plans skip it.

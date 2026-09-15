@@ -6,6 +6,7 @@
 
 #include <cmath>
 #include <cstddef>
+#include <limits>
 
 #include "astra/kernel/state.hpp"
 #include "astra/util/frames.hpp"
@@ -67,6 +68,22 @@ TEST(Integrator, ConstructorRejectsNonPositiveDt) {
   EXPECT_THROW((astra::Integrator{astra::IntegratorKind::kRk4, -1e-3}), astra::Error);
 }
 
+TEST(Integrator, ConstructorRejectsNonFiniteDt) {
+  EXPECT_THROW(
+      (astra::Integrator{astra::IntegratorKind::kRk4, std::numeric_limits<double>::infinity()}),
+      astra::Error);
+  EXPECT_THROW(
+      (astra::Integrator{astra::IntegratorKind::kRk4, std::numeric_limits<double>::quiet_NaN()}),
+      astra::Error);
+}
+
+TEST(Integrator, ConstructorRejectsUnknownIntegratorKind) {
+  // Deliberately out of range: this is the bad-config-value case is_valid_kind exists to catch.
+  // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
+  const auto bad_kind = static_cast<astra::IntegratorKind>(99);
+  EXPECT_THROW((astra::Integrator{bad_kind, astra::kDefaultDt}), astra::Error);
+}
+
 TEST(Integrator, Rk4ConvergesAtFourthOrderOnALinearOscillator) {
   constexpr double kDuration = 1.0;
   const double coarse = integrate_oscillator_error(astra::IntegratorKind::kRk4, 0.05, kDuration);
@@ -96,7 +113,7 @@ TEST(Integrator, StepDoesNotRenormalizeQuaternion) {
       y.segment<astra::state::kQuaternionSize>(astra::state::kQuaternion).norm();
   EXPECT_GT(norm_after_step, 1.05);
 
-  astra::post_step_renormalize(y);
+  EXPECT_TRUE(astra::post_step_renormalize(y));
   EXPECT_NEAR(y.segment<astra::state::kQuaternionSize>(astra::state::kQuaternion).norm(), 1.0,
               1e-12);
 }
@@ -112,7 +129,7 @@ TEST(Integrator, ConstantRateRotationStaysNormalizedAndMatchesClosedForm) {
   for (int i = 0; i < kSteps; ++i) {
     const double t = static_cast<double>(i) * astra::kDefaultDt;
     integrator.step(rotation_derivative, t, y);
-    astra::post_step_renormalize(y);
+    ASSERT_TRUE(astra::post_step_renormalize(y)) << "frame " << i;
     const double norm = y.segment<astra::state::kQuaternionSize>(astra::state::kQuaternion).norm();
     ASSERT_NEAR(norm, 1.0, 1e-12) << "frame " << i;
   }

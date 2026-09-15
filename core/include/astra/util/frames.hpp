@@ -114,8 +114,18 @@ using EulerAngles = Eigen::Vector3d;
 }
 
 // In-place renormalize, e.g. on a StateVector's quaternion segment (ADR-0001: after every
-// integrator step).
-inline void normalize_quaternion(Eigen::Ref<Quaternion> q) noexcept { q.normalize(); }
+// integrator step). Returns false, leaving q unmodified, if its norm is zero or non-finite, instead
+// of dividing by zero or propagating NaN into every later rotation (docs/architecture.md §14: model
+// errors are status flags, not silent corruption); the caller routes that into a halt once the
+// health monitor exists (PLAN.md M1 PR 4).
+[[nodiscard]] inline bool normalize_quaternion(Eigen::Ref<Quaternion> q) noexcept {
+  const double norm = q.norm();
+  if (!std::isfinite(norm) || norm == 0.0) {
+    return false;
+  }
+  q /= norm;
+  return true;
+}
 
 // --- Vector rotation by the quaternion sandwich, independent of the DCM path above ---
 
