@@ -1,8 +1,10 @@
 // Loads a config into a runnable simulation (docs/architecture.md §4, §5, §13): one VirtualClock,
 // one SignalRegistry, and -- for v1 -- exactly one Vehicle (ADR-0011: nothing here may assume
-// there will only ever be one). Reads "sim.dt", "sim.frames", and "vehicle.models" (this PR's one
-// generic model-list schema; the typed physical./hardware. slots of §13 arrive with the
-// milestones that create those interfaces).
+// there will only ever be one). Reads "sim.dt", "sim.frames", "vehicle.models" (PR 2's generic
+// model-list schema), and -- when present -- the typed "physical.earth" / "physical.gravity" /
+// "physical.mass" slots §13 shows plus "initial.state" (PLAN.md M1 PR 3). A config with no
+// "physical" section runs with no EOM at all, exactly as before this PR (PR 2's dummy-plugin
+// fixture): physics is opt-in, all three slots or none.
 #pragma once
 
 #include <cstdint>
@@ -11,8 +13,11 @@
 #include <vector>
 
 #include "astra/config/config.hpp"
+#include "astra/kernel/integrator.hpp"
+#include "astra/kernel/scheduler.hpp"
 #include "astra/kernel/vehicle.hpp"
 #include "astra/kernel/virtual_clock.hpp"
+#include "astra/plugin/loader.hpp"
 #include "astra/signals/signal_registry.hpp"
 
 namespace astra {
@@ -26,9 +31,10 @@ class Simulation {
   [[nodiscard]] static Simulation from_config(const Config& config,
                                               std::filesystem::path plugin_dir);
 
-  // Advances exactly one major frame: docs/architecture.md §5's order, restricted for now to the
-  // stage this PR has a model for ("vehicle models"). environment / EOM / integrator / post-step /
-  // logger join this as PR 3 and PR 4 create them.
+  // Advances exactly one major frame: docs/architecture.md §5's order -- environment models,
+  // vehicle models, then (when physics is configured) each vehicle's EOM derivative, integrator
+  // step, and post-step renormalize. Transport exchange and the logger join this as PR 4 and later
+  // milestones create them.
   void step() noexcept;
   // Steps `frames` major frames.
   void run(std::uint64_t frames) noexcept;
@@ -47,6 +53,9 @@ class Simulation {
   SignalRegistry registry_;
   std::vector<Vehicle> vehicles_;
   std::uint64_t frames_ = 0;
+  Integrator integrator_;
+  Scheduler environment_scheduler_;
+  std::vector<LoadedPlugin> environment_plugins_;
 };
 
 }  // namespace astra

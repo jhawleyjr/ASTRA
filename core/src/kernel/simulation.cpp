@@ -1,13 +1,19 @@
 #include "astra/kernel/simulation.hpp"
 
+#include <Eigen/Core>
 #include <cstdint>
 #include <limits>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "astra/errors.hpp"
+#include "astra/interfaces/earth_model.hpp"
+#include "astra/interfaces/gravity_model.hpp"
+#include "astra/kernel/state.hpp"
 #include "astra/plugin/loader.hpp"
+#include "astra/util/frames.hpp"
 
 namespace astra {
 
@@ -42,7 +48,9 @@ std::uint32_t checked_divisor(const Config& entry, std::int64_t value) {
 // Accepts both docs/architecture.md §13 spellings for one plugin slot: a plain scalar
 // ("plugins/physical/earth/flat") or a map with its own config next to "plugin"
 // ({ plugin: ..., seed: 42, divisor: 10 }). Either way the returned ModelSpec::config is the
-// entry itself, so a model that reads its own keys can (dummy reads none, in this PR).
+// entry itself, so a model that reads its own keys can. Shared by vehicle.models entries and by
+// the typed physical.earth / physical.gravity / physical.mass slots (§13 uses the same convention
+// for both).
 Vehicle::ModelSpec resolve_model_spec(const Config& entry) {
   if (entry.is_scalar()) {
     return Vehicle::ModelSpec{entry.text(), entry, 1};
@@ -52,6 +60,57 @@ Vehicle::ModelSpec resolve_model_spec(const Config& entry) {
   return Vehicle::ModelSpec{std::move(plugin_path), entry, divisor};
 }
 
+// Loads and initializes one environment model with no PrefixScope open: earth and gravity are
+// shared across vehicles (ADR-0011), so their signals publish unprefixed ("gravity.g", not
+// "v0.gravity.g"), unlike every vehicle.models entry and the per-vehicle mass model.
+LoadedPlugin load_environment_model(const PluginLoader& loader, const Vehicle::ModelSpec& spec,
+                                    SignalRegistry& registry) {
+  LoadedPlugin loaded = loader.load(spec.plugin_path);
+  loaded.model->init(spec.config, registry);
+  return loaded;
+}
+
+// A 3-vector at parent.key, or zero when the key is absent -- "initial.state" reads every field
+// this way, so a config that gives only euler_nb still gets zero position/velocity/rate rather than
+// an error.
+Eigen::Vector3d read_vector3(const Config& parent, std::string_view key) {
+  if (!parent.has(key)) {
+    return Eigen::Vector3d::Zero();
+  }
+  const Config entry = parent.at(key);
+  Eigen::Vector3d v;
+  for (std::size_t i = 0; i < 3; ++i) {
+    v(static_cast<Eigen::Index>(i)) = entry.at(i).number();
+  }
+  return v;
+}
+
+// "initial.state" (PLAN.md M1 PR 3): p_n, v_b, omega_b as 3-vectors and attitude as
+// euler_nb = [psi, theta, phi] (rad, ADR-0002), converted once with quaternion_from_euler. Any
+// missing field, or the whole "initial.state" block, defaults to zero -- absent euler_nb means
+// identity attitude. Read only when physics is configured (from_config's caller only calls this
+// under "physical"); "initial.state" given without a "physical" section is meaningless and is left
+// unread, so it surfaces as an unknown-key error like any other unconsumed key (§15).
+StateVector read_initial_state(const Config& config) {
+  Eigen::Vector3d p_n = Eigen::Vector3d::Zero();
+  Eigen::Vector3d v_b = Eigen::Vector3d::Zero();
+  Eigen::Vector3d omega_b = Eigen::Vector3d::Zero();
+  frames::EulerAngles euler_nb = frames::EulerAngles::Zero();
+  if (config.has("initial.state")) {
+    const Config state_config = config.at("initial.state");
+    p_n = read_vector3(state_config, "p_n");
+    v_b = read_vector3(state_config, "v_b");
+    omega_b = read_vector3(state_config, "omega_b");
+    euler_nb = read_vector3(state_config, "euler_nb");
+  }
+  StateVector y0;
+  y0.segment<state::kPositionSize>(state::kPosition) = p_n;
+  y0.segment<state::kVelocitySize>(state::kVelocity) = v_b;
+  y0.segment<state::kQuaternionSize>(state::kQuaternion) = frames::quaternion_from_euler(euler_nb);
+  y0.segment<state::kAngularRateSize>(state::kAngularRate) = omega_b;
+  return y0;
+}
+
 }  // namespace
 
 Simulation Simulation::from_config(const Config& config, std::filesystem::path plugin_dir) {
@@ -59,6 +118,7 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
   const double dt = config.number("sim.dt");
   sim.frames_ = checked_frame_count(config, config.integer("sim.frames"));
   sim.clock_ = VirtualClock(dt);
+  sim.integrator_ = Integrator(IntegratorKind::kRk4, dt);
 
   const PluginLoader loader(std::move(plugin_dir));
   const Config vehicle_models = config.at("vehicle.models");
@@ -69,7 +129,38 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
   }
 
   Vehicle vehicle(0, "v0");
-  vehicle.init(loader, specs, sim.registry_);
+  // Physics is opt-in, all three slots or none: a config with no "physical" section (PR 2's
+  // dummy-plugin fixture) runs exactly as before this PR, with no EarthModel/GravityModel/
+  // MassPropertiesModel loaded and no Eom, so Vehicle::integrate is a no-op for it.
+  if (config.has("physical")) {
+    const Config physical = config.at("physical");
+    const Vehicle::ModelSpec earth_spec = resolve_model_spec(physical.at("earth"));
+    const Vehicle::ModelSpec gravity_spec = resolve_model_spec(physical.at("gravity"));
+    Vehicle::ModelSpec mass_spec = resolve_model_spec(physical.at("mass"));
+
+    LoadedPlugin earth_loaded = load_environment_model(loader, earth_spec, sim.registry_);
+    auto* const earth = dynamic_cast<EarthModel*>(earth_loaded.model.get());
+    if (earth == nullptr) {
+      throw PluginLoadError(earth_spec.plugin_path, "does not implement EarthModel");
+    }
+    LoadedPlugin gravity_loaded = load_environment_model(loader, gravity_spec, sim.registry_);
+    auto* const gravity = dynamic_cast<GravityModel*>(gravity_loaded.model.get());
+    if (gravity == nullptr) {
+      throw PluginLoadError(gravity_spec.plugin_path, "does not implement GravityModel");
+    }
+
+    sim.environment_scheduler_.add(*earth, earth_spec.divisor);
+    sim.environment_scheduler_.add(*gravity, gravity_spec.divisor);
+    sim.environment_plugins_.push_back(std::move(earth_loaded));
+    sim.environment_plugins_.push_back(std::move(gravity_loaded));
+
+    const Vehicle::PhysicsSpec physics_spec{std::move(mass_spec), earth, gravity};
+    vehicle.init(loader, specs, sim.registry_, &physics_spec);
+    vehicle.state() = read_initial_state(config);
+  } else {
+    vehicle.init(loader, specs, sim.registry_, nullptr);
+  }
+
   sim.vehicles_.push_back(std::move(vehicle));
   sim.registry_.freeze();
 
@@ -83,8 +174,10 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
 
 void Simulation::step() noexcept {
   const StepContext ctx = clock_.context();
+  environment_scheduler_.step(ctx);
   for (Vehicle& vehicle : vehicles_) {
     vehicle.step(ctx);
+    vehicle.integrate(integrator_, ctx);
   }
   clock_.advance();
 }

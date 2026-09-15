@@ -5,6 +5,7 @@ include(GoogleTest)
 
 astra_discover_plugins(tests/plugins)
 add_subdirectory(unit)
+add_subdirectory(physics)
 
 # The ICD static asserts under a C11 compiler that is not the sim's (ADR-0006): gcc and clang, -std=c11,
 # pedantic, warnings as errors. A failing assert is a compile error, which is the test.

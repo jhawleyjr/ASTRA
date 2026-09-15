@@ -1,0 +1,14 @@
+# M1 PR 3 acceptance: ballistic arc vs closed form, level (identity) attitude, omega_b = 0, no
+# applied wrench. tests/physics/ballistic_test.cpp duplicates v_b and g as named constants.
+sim:
+  dt: 0.001
+  frames: 10000
+vehicle:
+  models: []
+physical:
+  earth: plugins/physical/earth/flat
+  gravity: plugins/physical/gravity/constant
+  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 }
+initial:
+  state:
+    v_b: [100.0, 0.0, 0.0]

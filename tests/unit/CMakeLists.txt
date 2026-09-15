@@ -4,8 +4,10 @@ add_executable(astra_unit_tests
   icd/icd_test.cpp
   kernel/clock_test.cpp
   kernel/scheduler_test.cpp
+  kernel/simulation_physical_config_test.cpp
   kernel/simulation_test.cpp
   kernel/state_test.cpp
+  kernel/vehicle_state_test.cpp
   plugin/load_all_test.cpp
   plugin/loader_test.cpp
   signals/signal_registry_test.cpp)

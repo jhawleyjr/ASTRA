@@ -28,7 +28,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         Adds ctest labels `unit`/`physics`; Stop hook runs `ctest -L unit`. Also checks `scripts/tokens.py` (PR 1):
         prints one row per session and model (the Opus/Sonnet split workflow.md §Model and effort needs), and
         `--since <date>` returns rows instead of 0 against this session's own transcripts.
-  - [ ] PR 3 — `EarthModel` (position kinematics, Earth rate, transport rate; `plugins/physical/earth/flat`),
+  - [x] PR 3 — `EarthModel` (position kinematics, Earth rate, transport rate; `plugins/physical/earth/flat`),
         `GravityModel` (`plugins/physical/gravity/constant`, pulled forward from M2), `MassPropertiesModel`
         (`plugins/physical/mass/constant`), `Eom` derivative (Stevens & Lewis body axes) in the frame loop.
         Accept: `tests/physics/` torque-free asymmetric body, |ω| ≈ 1 rad/s, g = 0: energy and |H_n| drift < 1e-9
