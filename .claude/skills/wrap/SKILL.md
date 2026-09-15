@@ -6,7 +6,9 @@ disable-model-invocation: true
 
 End of session. Do these in order; each is a file or a command, not a conversation.
 
-1. **STATE.md** — rewrite it completely (never append), 40 lines or fewer, exactly these sections:
+1. **STATE.md** — rewrite it completely (never append), 40 lines or fewer, written as true at the moment this
+   PR has merged (its reader is the next session, cut from `main` after the merge; nothing in it may hold only
+   before the merge, so "awaiting Joe: merge" never appears), exactly these sections:
    `## In flight` (branch, PR number, what is done, what awaits Joe), `## Last verified result`
    (only what an acceptance command proved in this session; "a trace matched" is not verified),
    `## Next step` (the next unchecked PLAN.md item and any precondition on Joe's machine),
