@@ -4,7 +4,10 @@
 // keeps this plugin usable as an ordinary, well-behaved wrench source too
 // (tests/physics/no_alloc_test.cpp); "nan_frame" (default absent = never NaN) is the frame from
 // which force_b(0) becomes NaN. Both default to values that leave this plugin loadable with an
-// empty config, because load_all_test constructs every registered plugin with none.
+// empty config, because load_all_test constructs every registered plugin with none. Publishes no
+// signal of its own (unlike a real plugin) so a test can load two instances under one vehicle to
+// exercise an overflowing wrench sum (tests/unit/kernel/simulation_halt_test.cpp) without a
+// duplicate-name collision in the registry.
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -27,7 +30,7 @@ std::string keyed_path(const astra::Config& config, std::string_view key) {
 
 class NanWrench final : public astra::WrenchSource {
  public:
-  void init(const astra::Config& config, astra::SignalRegistry& registry) override {
+  void init(const astra::Config& config, astra::SignalRegistry& /*registry*/) override {
     force_x_ = config.number("force_x", 0.0);
     if (config.has("nan_frame")) {
       const std::int64_t value = config.integer("nan_frame");
@@ -37,7 +40,6 @@ class NanWrench final : public astra::WrenchSource {
       }
       nan_frame_ = static_cast<std::uint64_t>(value);
     }
-    registry.add("nan_wrench.force_x", &force_x_, "N");
   }
   void reset() override { nan_from_here_ = false; }
   // Latches once ctx.frame reaches nan_frame_: wrench_b() below has no StepContext of its own, so

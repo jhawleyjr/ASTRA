@@ -13,6 +13,7 @@ void Vehicle::init(const PluginLoader& loader, const std::vector<ModelSpec>& mod
                    SignalRegistry& registry, const PhysicsSpec* physics) {
   state_names_ = {name_ + ".state.p_n", name_ + ".state.v_b", name_ + ".state.q_nb",
                   name_ + ".state.omega_b"};
+  wrench_total_name_ = name_ + ".wrench_total";
 
   plugins_.reserve(models.size() + (physics != nullptr ? 1 : 0));
   wrench_sources_.reserve(models.size());  // upper bound: not every model is a WrenchSource
@@ -64,6 +65,13 @@ HaltReason Vehicle::integrate(const Integrator& integrator, const StepContext& c
     }
     total.force_b += contribution.force_b;
     total.moment_b += contribution.moment_b;
+  }
+
+  // Codex review: individually finite contributions can still sum to a non-finite total (e.g. two
+  // sources each near DBL_MAX), which the per-contribution checks above cannot catch -- check the
+  // accumulated wrench too, before it reaches the EOM.
+  if (const HaltReason halt = health.check_wrench(total, wrench_total_name_, ctx, index_); halt) {
+    return halt;  // state_ untouched, same as a halting per-contribution check above.
   }
 
   eom_->set_applied_wrench(total);

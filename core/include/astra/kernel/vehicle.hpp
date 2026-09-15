@@ -64,11 +64,14 @@ class Vehicle {
   // Runs this frame's wrench accumulation, EOM derivative, integrator step, and post-step
   // renormalize (docs/architecture.md §5): a no-op returning a falsey HaltReason when this vehicle
   // has no Eom (physics off). Order: health-check each WrenchSource's contribution before summing
-  // it (a halt here leaves state() untouched -- the EOM never sees a bad wrench); integrate;
-  // health- check the resulting state before renormalization (PLAN.md M1 PR 4: "|q| drift > 1e-6
-  // before renormalization"); renormalize unconditionally, halt or not (ADR-0001: renormalized
-  // after every integrator step, an invariant a halt does not suspend); return the state check's
-  // halt, if any. Per-frame path: no allocation, no exceptions.
+  // it (a halt here leaves state() untouched -- the EOM never sees a bad wrench); health-check the
+  // accumulated total too (Codex review: individually finite contributions can overflow to Inf on
+  // summation, e.g. two sources each near DBL_MAX -- a check per contribution alone would miss
+  // that and hand the EOM a broken wrench with no wrench fault ever reported); integrate; health-
+  // check the resulting state before renormalization (PLAN.md M1 PR 4: "|q| drift > 1e-6 before
+  // renormalization"); renormalize unconditionally, halt or not (ADR-0001: renormalized after every
+  // integrator step, an invariant a halt does not suspend); return the state check's halt, if any.
+  // Per-frame path: no allocation, no exceptions.
   [[nodiscard]] HaltReason integrate(const Integrator& integrator, const StepContext& ctx,
                                      HealthMonitor& health) noexcept;
 
@@ -96,6 +99,10 @@ class Vehicle {
   // "<name_>.state.{p_n,v_b,q_nb,omega_b}", built once at init from this vehicle's own name so a
   // halt never carries a "v0" literal (ADR-0011).
   std::array<std::string, 4> state_names_;
+  // "<name_>.wrench_total": names a halt on the accumulated wrench, which is not any one plugin's
+  // fault to name (Codex review finding above) -- a sum can be non-finite even when every summed
+  // contribution was finite.
+  std::string wrench_total_name_;
 };
 
 }  // namespace astra
