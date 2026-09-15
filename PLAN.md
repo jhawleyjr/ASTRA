@@ -58,13 +58,20 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         copied from the report) within its tolerance. Plan review (one round, done): the Earth/gravity position
         contract. **Split from the plan's contingency**: the diff exceeded ~1200 lines with `AtmosphereModel` +
         `isa1976` included, so that work moved to PR 1b below; gravity stayed with the Earth models as specified.
-        **Known gap, disclosed not fixed** (Codex adversarial review, two rounds): `validate_p_n` checks only the
+        **Known gap, disclosed not fixed** (Codex adversarial review, three rounds — round 3 verdict stayed
+        "no-ship" on this point after rounds 1–2's findings were fixed and confirmed): `validate_p_n` checks only the
         initial state; a trajectory that *continuously approaches* (without landing exactly on) the polar margin or
         an altitude floor is not re-validated per frame, and could in principle run for a while on large-but-finite,
         degraded kinematics before anything overflows to Inf/NaN or trips the quaternion-norm-drift check (verified:
-        landing *exactly* on either boundary is caught — the gap is the approach). Per-frame Earth-domain validity is
-        a new HealthMonitor capability, not a bug fix, and none of this PR's tests fly near either boundary; close it
-        before any milestone flies a trajectory that can realistically approach a pole (not M2's drop-test scenarios).
+        landing *exactly* on either boundary is caught — the gap is the approach). Rejected as in-scope for this PR,
+        with reasons: (a) none of this PR's own tests fly anywhere near either boundary; (b) a correct fix is a new
+        HealthMonitor capability (per-frame Earth/gravity domain validity), not a bolt-on — it has to say what
+        "in-domain" means for every Earth model and compose correctly with the RK4 integrator's intermediate stage
+        evaluations, not just the post-step state Codex's own suggested fix checks, and that is exactly the kind of
+        unpinned, expensive-to-unwind design workflow.md's plan-review trigger exists for, not something to add under
+        review pressure at the tail of an already-large PR; (c) it is disclosed here and in round.cpp's comment, not
+        hidden. Joe's call whether this blocks the merge; close it before any milestone flies a trajectory that can
+        realistically approach a pole (not M2's drop-test scenarios) — plan-reviewed like M1's EOM and health monitor.
   - [ ] PR 1b — `AtmosphereModel` + `plugins/physical/atmosphere/isa1976` (declares its valid altitude range; §15's
         pre-run "altitude inside the atmosphere's range" check joins the HealthMonitor init path); the same
         position-representation check extended to `physical.atmosphere`. Accept: ISA table points exact.
