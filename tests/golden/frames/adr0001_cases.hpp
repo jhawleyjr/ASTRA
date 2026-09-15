@@ -38,9 +38,11 @@ inline constexpr double kTolerance = 1e-12;
 // NOLINTBEGIN(modernize-avoid-c-arrays): a data table; C arrays keep the braces one level deep.
 struct Case {
   const char* name;
-  double euler_nb[3];        // psi, theta, phi [rad] used to build the attitude
-  double q_nb[4];            // w, x, y, z
-  double C_nb[3][3];         // v_b = C_nb v_n
+  double euler_nb[3];  // psi, theta, phi [rad] used to build the attitude
+  double q_nb[4];      // w, x, y, z
+  // v_b = C_nb v_n, Stevens & Lewis DCM notation.
+  // NOLINTNEXTLINE(readability-identifier-naming): matches that notation, not a case-style bug.
+  double C_nb[3][3];
   bool euler_roundtrip;      // false at theta = +-90 deg (only theta is checked there)
   double n_axes_in_b[3][3];  // rows: north, east, down expressed in b  (= columns of C_nb)
   double b_axes_in_n[3][3];  // rows: body x, y, z expressed in n       (= rows of C_nb)
