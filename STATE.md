@@ -1,40 +1,40 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines; written as true once the PR carrying it has merged)
 
 ## In flight
-Nothing once PR #19 (branch `worktree-m1-eom`) merges. It adds `EarthModel`/`GravityModel`/
-`MassPropertiesModel` interfaces (each with an out-of-line destructor in `libastra_core`, the same
-key-function fix `Model` already needed, so `dynamic_cast` and UBSan's vptr check work across every
-plugin's `-fvisibility=hidden` boundary), `VehicleState`, `Eom` (Stevens & Lewis, parameterized by the
-Earth interface), and the first three plugins outside `tests/plugins/`:
-`plugins/physical/{earth/flat, gravity/constant, mass/constant}`. `Simulation` gains typed
-`physical.earth`/`physical.gravity`/`physical.mass` config slots and `initial.state`; physics is
-opt-in (all three slots or none), so PR 2's dummy-plugin fixture is unchanged. Also fixes a
-pre-existing `Config::navigate` bug: a bare `YAML::Node{}` is Null-typed but still `IsDefined()`, so
-navigating a dotted path through a scalar never stopped as intended (`docs/lessons.md`).
+Nothing once PR #21 (branch `worktree-m1-health`) merges. It adds `HealthMonitor` (`core/kernel/`,
+docs/architecture.md §15): NaN/Inf in state or in any wrench contribution (per-contribution and
+accumulated-total, naming the offending plugin or `<vehicle>.wrench_total`), quaternion norm drift
+> 1e-6 before renormalization -- each check `off`/`warn`/`halt` (default `halt`) via an optional
+`sim.health` config block, each a registered `health.*` signal. `WrenchSource` (`core/interfaces/`)
+is a new `Model` subclass a `vehicle.models` entry can implement; `Vehicle` resolves every instance
+once at init (`Eom::set_applied_wrench` had no caller before this PR). `Simulation::step()`/`run()`
+now return a `HaltReason` (allocation-free struct); a halt still renormalizes q_nb (ADR-0001) before
+returning. `tests/support/alloc_counter` replaces global operator new/delete so
+`tests/physics/no_alloc_test.cpp` asserts zero allocations, linked only into `astra_physics_tests`.
 
 ## Last verified result
-- `just check` exited 0 (`check: OK`) on every preset, 89/89 tests each, in this session (run twice:
-  after the implementation, and again after the Codex-review fixup commit).
-- `tests/physics/`: torque-free body, energy/`|H_n|`/`H_n` direction all < 1e-9 relative drift over
-  1000 s at 1 kHz; ballistic arc at two attitudes (`v_b` checked independently of the trajectory);
-  symmetric-top precession vs closed form.
-- `/codex:rescue` plan round: 3 findings, all accepted — a wrong-sign precession closed form and two
-  oracle tests that didn't catch what they claimed to. Folded in before any code existed.
-- Codex review + adversarial review: 3 findings (non-finite `physical.gravity.g`, non-finite
-  `initial.state` components, a non-map `initial.state` silently accepted) — fixed with regression
-  tests in a follow-up commit, not just noted.
+- `just check` exited 0 (`check: OK`) on every preset, 107/107 tests each (run three times: after the
+  implementation, the Codex-review fixup, and the adversarial-review doc fixup).
+- `/codex:rescue` plan round: 5 findings, 3 accepted and folded in before code existed
+  (halt-before-renormalize was sharpest); 2 rejected with reasons in the plan file.
+- Codex review: 1 finding (finite wrench contributions can overflow to Inf on summation) — fixed
+  with a regression test.
+- Codex adversarial review: 1 finding (the allocation counter misses a direct malloc/calloc call) —
+  verified no plugin calls the C allocator directly, documented the scope limit rather than
+  overriding malloc/free under ASan (real conflict risk, no current benefit); Joe may want a look.
 
 ## Next step
-M1 PR 4 (PLAN.md): `HealthMonitor` — NaN/Inf in state or any wrench (plugin named), `|q|` drift > 1e-6
-before renormalization; `Simulation::run` returns a typed halt reason, no throw in the loop;
-allocation counter in the asan preset. Accept: a NaN wrench at frame 500 halts naming it; `q` norm
-1.1 halts naming `v0.state.q_nb`; zero allocations over 1000 frames. Plan review: health monitor →
-Codex (`/codex:rescue`) before code. No precondition on Joe's machine.
+M2 Environment (PLAN.md): no PR breakdown exists yet (M1's four PRs are the model). Draft M2 PR 1 in
+plan mode; natural first slice is ISA-1976 atmosphere plus a selectable round/WGS-84-rotating Earth
+model (M1 only built flat). No precondition on Joe's machine.
 Opener (model and effort pinned in `.claude/settings.json`; escalation is Joe's):
-   `claude --worktree m1-health --permission-mode plan`
+   `claude --worktree m2-environment --permission-mode plan`
 
 ## Tried / failed
-Nothing unresolved this session; both Codex review rounds' findings were fixed before opening the PR.
+Trusted the Bash tool's "completed" notification for `nohup just check > log 2>&1 &` under
+`run_in_background: true`; failed because that double-backgrounds the command, so the notification
+fires for the wrapper's near-instant exit, not the gate's. Fixed by finding the real `just` pid and
+blocking on it directly (`tail --pid=<pid> -f /dev/null`); see `docs/lessons.md`.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.
