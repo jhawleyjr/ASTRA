@@ -138,4 +138,22 @@ TEST(Config, UnknownKeysNamesTheOneKeyNoGetterConsumed) {
   EXPECT_EQ(unknown.front(), "b");
 }
 
+// Codex review, PR M1-2: an untouched empty map or sequence has no scalar leaf under it, so it
+// used to vanish from unknown_keys() entirely -- "bogus: {}" and "bogus: []" both bypassed §15.
+TEST(Config, UnknownKeysFlagsAnUnreadEmptyMapOrSequence) {
+  const Config config = Config::from_string("a: 1\nbogus_map: {}\nbogus_seq: []\n", "test");
+  static_cast<void>(config.integer("a"));
+  const std::vector<std::string> unknown = config.unknown_keys();
+  EXPECT_EQ(std::vector<std::string>({"bogus_map", "bogus_seq"}), unknown);
+}
+
+// A caller that explicitly navigates to and inspects an empty subtree (its size, say) has
+// acknowledged it; at() marks the path it returns as read so that is not also flagged as unknown.
+TEST(Config, AtOnAnEmptyMapCountsAsReadingIt) {
+  const Config config = Config::from_string("a: 1\nsensors: {}\n", "test");
+  static_cast<void>(config.integer("a"));
+  EXPECT_EQ(config.at("sensors").size(), 0U);
+  EXPECT_TRUE(config.unknown_keys().empty());
+}
+
 }  // namespace

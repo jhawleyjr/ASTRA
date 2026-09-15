@@ -108,17 +108,22 @@ YAML::Node navigate(const YAML::Node& root, std::string_view path) {
   return navigate_from(root, segments);
 }
 
+// A leaf is a scalar, a null, or an EMPTY map/sequence (Codex review, PR M1-2): without the empty
+// case, "bogus: {}" or "bogus: []" had no leaf under them at all and so could never appear in
+// unknown_keys(), silently defeating §15's "unknown keys are errors". Config::at() marks the exact
+// path it returns as read, so a caller that explicitly navigated to and inspected an empty
+// subtree (checked its size, say) is not falsely flagged by this.
 void collect_leaf_paths(const YAML::Node& node, const std::string& prefix,
                         std::vector<std::string>& out) {
-  if (node.IsMap()) {
+  if (node.IsMap() && node.size() > 0) {
     for (const auto& entry : node) {
       collect_leaf_paths(entry.second, join(prefix, entry.first.as<std::string>()), out);
     }
-  } else if (node.IsSequence()) {
+  } else if (node.IsSequence() && node.size() > 0) {
     for (std::size_t i = 0; i < node.size(); ++i) {
       collect_leaf_paths(node[i], join_index(prefix, i), out);
     }
-  } else if (node.IsScalar()) {
+  } else {
     out.push_back(prefix);
   }
 }
@@ -210,6 +215,11 @@ Config Config::at(std::string_view key) const {
   if (!navigate(document_->root, full_path).IsDefined()) {
     throw_missing(document_->origin, full_path);
   }
+  // Marks full_path read even though at() returns a subtree rather than a value: an empty map or
+  // sequence is itself a leaf (collect_leaf_paths above), so a caller that explicitly navigated
+  // to and inspected one (its size, say) has acknowledged it and unknown_keys() must not still
+  // flag it.
+  document_->read_paths.insert(full_path);
   return {document_, full_path};
 }
 
@@ -218,6 +228,7 @@ Config Config::at(std::size_t index) const {
   if (!navigate(document_->root, full_path).IsDefined()) {
     throw_missing(document_->origin, full_path);
   }
+  document_->read_paths.insert(full_path);
   return {document_, full_path};
 }
 

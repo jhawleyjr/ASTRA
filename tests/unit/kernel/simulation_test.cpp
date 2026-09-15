@@ -91,4 +91,36 @@ vehicle: { models: [ { plugin: plugins/physical/does_not_exist, divisor: 1 } ] }
   }
 }
 
+// Codex review, PR M1-2: a negative frame count used to wrap to UINT64_MAX on the unsigned cast,
+// turning a typo'd config into an effectively-infinite run instead of a rejected one.
+TEST(Simulation, RejectsANegativeFrameCountNamingSimFrames) {
+  const Config config = Config::from_string(R"(
+sim: { dt: 0.001, frames: -1 }
+vehicle: { models: [ { plugin: tests/plugins/dummy, divisor: 1 } ] }
+)",
+                                            "negative-frames-fixture");
+  try {
+    static_cast<void>(load(config));
+    FAIL() << "expected ConfigError";
+  } catch (const ConfigError& error) {
+    EXPECT_EQ(error.config_path(), "sim.frames");
+  }
+}
+
+// Codex review, PR M1-2: divisor: -1 used to wrap to UINT32_MAX on the unsigned cast, silently
+// turning a typo into "run once every 4.29 billion frames" instead of a rejected config.
+TEST(Simulation, RejectsANegativeDivisorNamingItsPath) {
+  const Config config = Config::from_string(R"(
+sim: { dt: 0.001, frames: 1 }
+vehicle: { models: [ { plugin: tests/plugins/dummy, divisor: -1 } ] }
+)",
+                                            "negative-divisor-fixture");
+  try {
+    static_cast<void>(load(config));
+    FAIL() << "expected ConfigError";
+  } catch (const ConfigError& error) {
+    EXPECT_EQ(error.config_path(), "vehicle.models.0.divisor");
+  }
+}
+
 }  // namespace
