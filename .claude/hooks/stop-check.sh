@@ -30,7 +30,7 @@ for pid in $(pgrep -u "$(id -u)" -x 'just|cmake|ninja|ctest' 2>/dev/null); do
   esac
 done
 
-budget=840
+budget=${ASTRA_STOP_BUDGET:-840}  # seconds; the override exists for the hook test cases only
 log=$(mktemp)
 trap 'rm -f "$log"' EXIT
 timeout -k 10 "$budget" just test >"$log" 2>&1

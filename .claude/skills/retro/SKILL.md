@@ -14,5 +14,8 @@ single line "nothing to change". Do not apply the diff; Joe does.
    agent would get right without being told is a delete candidate by definition.
 3. **Add candidate:** at most one. Only something that bit at least twice (two lessons entries or two review
    findings on the same theme). One line, placed under "Non-standard conventions".
-4. Check CLAUDE.md stays under 100 lines and STATE.md under 40 after the proposed diff.
-5. Print the unified diff, or "nothing to change".
+4. **Cost:** run `scripts/tokens.py` over this milestone's transcripts (`~/.claude/projects/*ASTRA*/**/*.jsonl`;
+   readable from Claude Code, not from Cowork) and print output tokens, cache reads, and model per session. Propose
+   one change to `docs/process/workflow.md` §Model and effort only if a number shows the current rule wrong.
+5. Check CLAUDE.md stays under 100 lines and STATE.md under 40 after the proposed diff.
+6. Print the unified diff, or "nothing to change".
