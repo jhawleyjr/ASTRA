@@ -1,0 +1,13 @@
+# tests/physics/no_alloc_test.cpp (docs/architecture.md §15, PLAN.md M1 PR 4): a well-behaved
+# wrench source (no nan_frame) so the wrench-accumulation, EOM, integrator, and health stages all
+# run every frame, over the full per-frame path a heap allocation must not appear in.
+sim:
+  dt: 0.001
+  frames: 1000
+vehicle:
+  models:
+    - { plugin: tests/plugins/nan_wrench, force_x: 1.0 }
+physical:
+  earth: plugins/physical/earth/flat
+  gravity: plugins/physical/gravity/constant
+  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 }

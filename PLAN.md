@@ -12,7 +12,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         `just check` so "hooks fire" is verified by the gate, never by inline probes
   - [x] PR 3 — Python package (`astra._core` via nanobind, stubs), pyright/ruff/pytest, clangd config
   - [x] PR 4 — Stop hook (fast check), `/wrap` `/retro` skills, Codex review wired (`AGENTS.md`, `/codex:review`), `check` required in the ruleset
-- [ ] **M1 Rigid body** — EOM + integrators + mass properties + flat Earth; torque-free energy/angular-momentum
+- [x] **M1 Rigid body** — EOM + integrators + mass properties + flat Earth; torque-free energy/angular-momentum
       drift < 1e-9 over 1000 s, |q| within 1e-12, ballistic arc closed form, RK4 vs Euler order shown, zero
       allocations over 1000 frames; health monitor halts on injected NaN and broken quaternion, naming the source.
   - [x] PR 1 — `core/util/` frames: quaternion (Hamilton, scalar-first) ↔ DCM ↔ 3-2-1 Euler, vector rotation,
@@ -34,7 +34,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         Accept: `tests/physics/` torque-free asymmetric body, |ω| ≈ 1 rad/s, g = 0: energy and |H_n| drift < 1e-9
         relative over 1000 s at 1 kHz; ballistic arc vs closed form at two attitudes (pins n→b); symmetric-top
         precession vs closed form. Plan review: EOM and kinematics → Codex before code.
-  - [ ] PR 4 — `HealthMonitor`: NaN/Inf in state or any wrench (plugin named), |q| drift > 1e-6 before
+  - [x] PR 4 — `HealthMonitor`: NaN/Inf in state or any wrench (plugin named), |q| drift > 1e-6 before
         renormalization; `Simulation::run` returns a typed halt reason with the source name, no throw in the
         loop; allocation counter (replaced global `operator new`) in the asan preset. Accept: test plugin
         injecting a NaN wrench at frame 500 halts naming it; q set to norm 1.1 halts naming `v0.state.q_nb`;

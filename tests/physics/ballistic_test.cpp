@@ -38,7 +38,7 @@ void run_and_check(std::string_view config_name) {
   const Eigen::Vector3d g_n{0.0, 0.0, kG};
   const Eigen::Vector3d v_n0 = astra::frames::rotate_b_to_n(q_nb0, v_b0);
 
-  sim.run();
+  ASSERT_FALSE(sim.run());
   const double duration = static_cast<double>(sim.frames()) * sim.clock().dt();
   const astra::StateVector& y = sim.vehicles().front().state();
 

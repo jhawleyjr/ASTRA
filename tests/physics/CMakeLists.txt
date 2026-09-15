@@ -4,8 +4,14 @@
 # these; `just check`'s unlabeled `ctest` still runs them under every preset. cmake/AstraPlugin.cmake's
 # astra_finalize_plugins() gives this target (named explicitly there) a build-order dependency on
 # every plugin it dlopens by path.
+#
+# no_alloc_test.cpp (docs/architecture.md §15's tests/physics/test_no_alloc, PLAN.md M1 PR 4) links
+# ../support/alloc_counter.cpp's global operator new/delete replacement into this target only, never
+# astra_unit_tests -- see that file's header comment for why the whole set must move together.
 add_executable(astra_physics_tests
+  ../support/alloc_counter.cpp
   ballistic_test.cpp
+  no_alloc_test.cpp
   precession_test.cpp
   torque_free_test.cpp)
 target_link_libraries(astra_physics_tests PRIVATE astra::core GTest::gtest_main)

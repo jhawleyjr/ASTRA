@@ -35,7 +35,7 @@ TEST(Simulation, RunsOneThousandFramesWithTExactlyFrameTimesDt) {
   for (std::uint64_t frame = 0; frame < sim.frames(); ++frame) {
     ASSERT_EQ(sim.clock().frame(), frame);
     ASSERT_EQ(sim.clock().t(), static_cast<double>(frame) * sim.clock().dt()) << "frame " << frame;
-    sim.step();
+    ASSERT_FALSE(sim.step());
   }
   EXPECT_EQ(sim.clock().frame(), 1000U);
 }
@@ -44,7 +44,7 @@ TEST(Simulation, RunAdvancesTheConfiguredFrameCountAndPublishesTheDummySignals) 
   const Config config = Config::from_file(std::string{ASTRA_TEST_CONFIG_DIR} + "/dummy_1000.yaml");
   Simulation sim = load(config);
 
-  sim.run();
+  ASSERT_FALSE(sim.run());
 
   EXPECT_EQ(sim.clock().frame(), 1000U);
   const double* steps = sim.registry().find("v0.dummy.steps");

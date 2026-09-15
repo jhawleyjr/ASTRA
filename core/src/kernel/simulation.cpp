@@ -175,6 +175,12 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
   }
 
   sim.vehicles_.push_back(std::move(vehicle));
+
+  // Before freeze(): HealthMonitor::init registers "health.nan" / "health.quaternion" /
+  // "health.max_q_drift", and SignalRegistry::add throws once frozen.
+  sim.health_ = std::make_unique<HealthMonitor>();
+  sim.health_->init(config, sim.registry_);
+
   sim.registry_.freeze();
 
   const std::vector<std::string> unknown = config.unknown_keys();
@@ -185,20 +191,28 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
   return sim;
 }
 
-void Simulation::step() noexcept {
+HaltReason Simulation::step() noexcept {
   const StepContext ctx = clock_.context();
   environment_scheduler_.step(ctx);
   for (Vehicle& vehicle : vehicles_) {
     vehicle.step(ctx);
-    vehicle.integrate(integrator_, ctx);
+    if (const HaltReason halt = vehicle.integrate(integrator_, ctx, *health_); halt) {
+      // The clock does not advance: halt.frame == clock_.frame() and this frame's other vehicles
+      // (ADR-0011: there can be more than one) do not step -- a halt stops the run.
+      return halt;
+    }
   }
   clock_.advance();
+  return {};
 }
 
-void Simulation::run(std::uint64_t frames) noexcept {
+HaltReason Simulation::run(std::uint64_t frames) noexcept {
   for (std::uint64_t i = 0; i < frames; ++i) {
-    step();
+    if (const HaltReason halt = step(); halt) {
+      return halt;
+    }
   }
+  return {};
 }
 
 }  // namespace astra
