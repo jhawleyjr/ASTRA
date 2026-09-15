@@ -1,9 +1,11 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines)
 
 ## In flight
-Nothing. M0 is complete: PRs #1–#10 merged, `main` at the M0 close. This Cowork session (2026-09-14) planned M1:
-PLAN.md now lists M1 as four PRs; CLAUDE.md status line says M1. Both edits are uncommitted in the main checkout —
-Joe commits them from his terminal before opening a worktree (a worktree cannot see them, docs/lessons.md).
+Branch `adr0001-oracle`, pushed, PR open: `tests/golden/frames/adr0001_cases.hpp`, the human-owned ADR-0001
+sign-pinning values for M1 PR 1 (eight attitudes: q_nb, C_nb, Euler round-trip, axis images, qdot). Checked
+independently in Cowork against the closed forms in its header (worst disagreement 2.2e-16); clang-format and
+clang-tidy clean. Awaiting Joe: squash-merge before the M1 PR 1 worktree is cut, since a worktree branches from
+remote `main`. M0 is complete (PRs #1–#11); the M0 retro and the M1 plan landed in #11.
 
 ## Last verified result
 - Nothing ran this session (Cowork, planning only). The last gate result is the M0 one: `just check` exited 0
@@ -12,8 +14,7 @@ Joe commits them from his terminal before opening a worktree (a worktree cannot 
 - Not exercised: the Stop hook's 840 s budget branch (exit 124) and the eight-block cap.
 
 ## Next step
-1. Joe: retro for M0 (`/retro` in Claude Code, or the Cowork `astra-retro` skill once saved); commit PLAN.md,
-   CLAUDE.md, STATE.md on `main`.
+1. Joe: merge `adr0001-oracle`.
 2. Joe: `/codex:rescue` with the five-line plan for the integrator interface once the M1 PR 1 session has
    produced it in plan mode (workflow.md §Review, plan review); one round.
 3. Opener (model and effort pinned in `.claude/settings.json`; escalation is Joe's):
