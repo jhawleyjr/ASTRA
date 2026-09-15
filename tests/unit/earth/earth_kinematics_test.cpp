@@ -187,12 +187,58 @@ TEST(EarthKinematics, RoundValidatePnRejectsAltitudeAtOrBelowTheCenter) {
   EXPECT_NO_THROW(earth.validate_p_n({0.0, 0.0, -999.0}, node));
 }
 
-TEST(EarthKinematics, Wgs84ValidatePnUsesThePrimeVerticalRadiusAsItsSurfaceBound) {
+// Codex adversarial review: validate_p_n only checks the *initial* state -- a trajectory that
+// later crosses the altitude floor or the polar margin is not re-checked mid-run. This proves the
+// documented consequence (round.cpp's validate_p_n comment): querying the kinematics themselves at
+// or beyond either boundary produces non-finite output, which is exactly what would propagate into
+// the integrated state and trip HealthMonitor's existing per-frame NaN/Inf check (M1 PR 4) -- a
+// named halt, not silent garbage. No new domain-tracking machinery; this is the same halt-on-NaN
+// backstop every model already relies on.
+TEST(EarthKinematics, CrossingTheAltitudeFloorMidRunProducesNonFiniteKinematics) {
+  EarthModel& earth = load_round(1000.0);
+  const StateVector y = make_state(0.0, 0.0, -1000.0, {100.0, 0.0, 0.0});  // exactly at the floor
+  EXPECT_FALSE(earth.p_n_dot(VehicleState{y}).allFinite());
+  EXPECT_FALSE(earth.omega_en_n(VehicleState{y}).allFinite());
+}
+
+// At the pole, std::numbers::pi / 2.0 (a finite double approximation of the irrational pi/2) gives
+// cos(lat) ~ 6.1e-17, not exactly zero -- so 1/cos(lat) is an enormous but still *finite* double
+// (~1.6e16), not literally Inf/NaN, unlike the altitude-floor case above where radius_ + h hits an
+// exact floating-point zero. Documented honestly rather than overclaiming: this magnitude is still
+// wildly unphysical (compare kTolerance's ~1e-9 scale used everywhere else in this file) and would
+// almost certainly cascade to a non-finite or wildly-drifted quaternion within a frame or two of
+// integration, tripping HealthMonitor's NaN/Inf or quaternion-norm-drift check -- but that
+// cascade is not asserted here, only the enormous magnitude at the boundary itself.
+TEST(EarthKinematics, CrossingThePolarMarginMidRunProducesAnEnormousMagnitude) {
+  EarthModel& earth = load_round();
+  const StateVector y =
+      make_state(std::numbers::pi / 2.0, 0.0, 0.0, {0.0, 100.0, 0.0});  // exactly at the pole
+  // libm's cos() near this singularity is not identically rounded across optimization levels
+  // (observed 1.63e16 under one preset's math library, 2.56e11 under another's) -- both are
+  // wildly unphysical, so the threshold stays far below either, not tuned to one build.
+  constexpr double kUnphysicallyLarge = 1e6;
+  EXPECT_GT(earth.p_n_dot(VehicleState{y}).cwiseAbs().maxCoeff(), kUnphysicallyLarge);
+  EXPECT_TRUE(earth.p_n_dot(VehicleState{y}).allFinite())
+      << "finite but enormous, not Inf/NaN -- see comment above";
+}
+
+// Codex review finding: M(lat) <= N(lat) everywhere (equal only at the poles), so the bound must be
+// the *meridian* radius M(lat), the more restrictive of the two p_n_dot/omega_en_n actually divide
+// by -- bounding on N(lat) alone would accept an altitude that already makes (M(lat) + h) negative.
+TEST(EarthKinematics, Wgs84ValidatePnUsesTheMeridianRadiusAsItsSurfaceBound) {
   EarthModel& earth = load_wgs84();
   const Config node = Config::from_string("{}\n", "wgs84-depth-fixture");
+  const double m_at_equator = astra::geodesy::meridian_radius(0.0);
   const double n_at_equator = astra::geodesy::prime_vertical_radius(0.0);
-  EXPECT_THROW(earth.validate_p_n({0.0, 0.0, -n_at_equator - 1.0}, node), ConfigError);
-  EXPECT_NO_THROW(earth.validate_p_n({0.0, 0.0, -n_at_equator + 1.0}, node));
+  ASSERT_LT(m_at_equator, n_at_equator) << "the equator is where M and N differ the most";
+
+  EXPECT_THROW(earth.validate_p_n({0.0, 0.0, -m_at_equator - 1.0}, node), ConfigError);
+  EXPECT_NO_THROW(earth.validate_p_n({0.0, 0.0, -m_at_equator + 1.0}, node));
+
+  // The specific regression: an altitude between -N(0) and -M(0) already makes (M(lat) + h)
+  // negative and must be rejected, even though it lies inside the (looser, wrong) N(0) bound.
+  const double between_m_and_n = -(m_at_equator + n_at_equator) / 2.0;
+  EXPECT_THROW(earth.validate_p_n({0.0, 0.0, between_m_and_n}, node), ConfigError);
 }
 
 TEST(EarthKinematics, RoundAndWgs84BothProvideGeodeticPositionRepresentation) {

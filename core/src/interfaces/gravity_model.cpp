@@ -11,4 +11,9 @@ PositionRepresentation GravityModel::assumed_position_representation() const noe
   return PositionRepresentation::kAny;
 }
 
+// Default no-op: gravity/constant reads no geometry, and gravity/wgs84_j2's fixed WGS-84 geometry
+// is already bounded well away from any singularity by the paired Earth model's own altitude
+// floor. gravity/inverse_square overrides this (its own, separately configured radius).
+void GravityModel::validate_p_n(const Eigen::Vector3d& /*p_n*/, const Config& /*node*/) const {}
+
 }  // namespace astra

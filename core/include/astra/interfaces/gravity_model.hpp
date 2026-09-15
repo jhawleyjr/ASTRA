@@ -11,6 +11,8 @@
 
 namespace astra {
 
+class Config;  // core/include/astra/config/config.hpp
+
 class GravityModel : public Model {
  public:
   // Defined out of line in libastra_core; same key-function reasoning as EarthModel (see
@@ -26,6 +28,16 @@ class GravityModel : public Model {
   // Earth model's EarthModel::position_representation() and rejects a mismatch at init. Non-pure
   // and defined out of line in gravity_model.cpp, so the destructor above stays the key function.
   [[nodiscard]] virtual PositionRepresentation assumed_position_representation() const noexcept;
+
+  // Init-path (may throw ConfigError): validates a proposed initial p_n against this gravity
+  // model's *own* configured geometry, the same shape as EarthModel::validate_p_n. Needed because
+  // the Earth and gravity models each carry their own, independently configurable notion of
+  // "radius" (Codex adversarial review, M2 PR 1): earth/round's altitude floor uses *its* radius,
+  // which says nothing about whether gravity/inverse_square's own, separately configured radius
+  // still makes (radius + altitude) positive at that same altitude. Default no-op (gravity/constant
+  // and gravity/wgs84_j2, whose fixed WGS-84 geometry is already bounded by the paired Earth
+  // model's own floor). Defined out of line, so the destructor stays the key function.
+  virtual void validate_p_n(const Eigen::Vector3d& p_n, const Config& node) const;
 };
 
 }  // namespace astra

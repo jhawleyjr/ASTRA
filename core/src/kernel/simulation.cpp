@@ -201,6 +201,10 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
     const Config initial_state_node =
         config.has("initial.state") ? config.at("initial.state") : config;
     earth->validate_p_n(p_n, initial_state_node);
+    // The Earth and gravity models each carry their own, independently configurable notion of
+    // "radius" (Codex adversarial review): earth's own floor above says nothing about whether the
+    // gravity model's own geometry is still well-defined at this altitude.
+    gravity->validate_p_n(p_n, initial_state_node);
   } else {
     vehicle.init(loader, specs, sim.registry_, nullptr);
   }

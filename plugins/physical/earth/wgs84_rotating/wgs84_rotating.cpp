@@ -64,8 +64,12 @@ class Wgs84Rotating final : public astra::EarthModel {
   }
 
   // Same shape as earth/round's validate_p_n (see that file's comment), with the surface bound at
-  // this latitude's prime-vertical radius N(lat) rather than a constant R: below -N(lat), the
-  // position kinematics' (N(lat) + h) denominator itself goes through zero.
+  // this latitude's *meridian* radius M(lat) rather than a constant R. p_n_dot/omega_en_n divide by
+  // both (M(lat) + h) and (N(lat) + h), and M(lat) <= N(lat) everywhere (equal only at the poles;
+  // M/N = (1-e^2)/(1-e^2*sin^2(lat)) <= 1), so M(lat) is the more restrictive bound: h > -M(lat)
+  // guarantees h > -N(lat) too, while bounding on N(lat) alone would not (Codex review: e.g. at the
+  // equator, M(0) = a*(1-e^2) < N(0) = a, so an altitude between -N(0) and -M(0) would pass a
+  // check against N(0) alone while already making M(lat) + h negative).
   // NOLINTBEGIN(readability-magic-numbers): 0/1/2 are the p_n vector's lat/lon/alt components.
   void validate_p_n(const Eigen::Vector3d& p_n, const Config& node) const override {
     const double lat = p_n(0);
@@ -88,10 +92,10 @@ class Wgs84Rotating final : public astra::EarthModel {
     if (lon < -std::numbers::pi || lon > std::numbers::pi) {
       throw ConfigError(node.origin(), path, "p_n's longitude must be within [-pi, pi] rad");
     }
-    if (alt <= -astra::geodesy::prime_vertical_radius(lat)) {
+    if (alt <= -astra::geodesy::meridian_radius(lat)) {
       throw ConfigError(node.origin(), path,
                         "p_n's altitude is at or below the ellipsoid's center -- the position "
-                        "kinematics divide by (N(lat) + altitude)");
+                        "kinematics divide by (M(lat) + altitude) and (N(lat) + altitude)");
     }
   }
   // NOLINTEND(readability-magic-numbers)

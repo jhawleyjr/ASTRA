@@ -132,6 +132,30 @@ TEST(SimulationPhysicalConfig, RejectsAGeodeticGravityModelPairedWithFlatEarth) 
   }
 }
 
+// Codex adversarial review: earth/round and gravity/inverse_square each carry their own,
+// independently configurable "radius", and the representation check alone does not relate them.
+// Earth radius 3000 m accepts altitude -2000 m at init (-2000 > -3000); gravity radius 2000 m would
+// divide by exactly zero in g_n() at that same altitude were it not for GravityModel::validate_p_n
+// (gravity_model.hpp) rejecting it too, independently of earth/round's own check.
+TEST(SimulationPhysicalConfig, RejectsAnInverseSquareRadiusInconsistentWithTheInitialAltitude) {
+  const Config config = Config::from_string(
+      "sim: { dt: 0.001, frames: 1 }\n"
+      "vehicle: { models: [] }\n"
+      "physical:\n"
+      "  earth: { plugin: plugins/physical/earth/round, radius: 3000.0 }\n"
+      "  gravity: { plugin: plugins/physical/gravity/inverse_square, radius: 2000.0 }\n"
+      "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 "
+      "}\n"
+      "initial: { state: { p_n: [0.0, 0.0, -2000.0] } }\n",
+      "inconsistent-radius-fixture");
+  try {
+    static_cast<void>(load(config));
+    FAIL() << "expected ConfigError";
+  } catch (const ConfigError& error) {
+    EXPECT_TRUE(mentions(error, "radius")) << error.what();
+  }
+}
+
 // The converse of the above: a gravity model that does not read p_n's geometry (kAny) is
 // compatible with every Earth model, geodetic or not. frames: 0, so gravity never gets a chance to
 // integrate and change the state -- this test is about the representation check accepting the

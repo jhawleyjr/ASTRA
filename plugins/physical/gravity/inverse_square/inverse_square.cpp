@@ -65,6 +65,24 @@ class InverseSquareGravity final : public astra::GravityModel {
     return astra::PositionRepresentation::kGeodetic;
   }
 
+  // Codex adversarial review: earth/round's own validate_p_n bounds altitude against *its*
+  // configured radius, which says nothing about this plugin's separately configured radius_ --
+  // e.g. earth radius 3000 m, gravity radius 2000 m, altitude -2000 m passes earth/round's floor
+  // but makes radius_ + h exactly zero in g_n() below. Bound against this plugin's own radius_.
+  void validate_p_n(const Eigen::Vector3d& p_n, const Config& node) const override {
+    const double alt = p_n(2);  // NOLINT(readability-magic-numbers): p_n's third component
+    if (!std::isfinite(alt)) {
+      const std::string path = node.path().empty() ? "initial.state.p_n" : node.path() + ".p_n";
+      throw ConfigError(node.origin(), path, "p_n's altitude must be finite");
+    }
+    if (alt <= -radius_) {
+      const std::string path = node.path().empty() ? "initial.state.p_n" : node.path() + ".p_n";
+      throw ConfigError(node.origin(), path,
+                        "p_n's altitude is at or below gravity/inverse_square's own configured "
+                        "radius' center -- g_n() divides by (radius + altitude)");
+    }
+  }
+
  private:
   double g0_ = kStandardGravity;
   double radius_ = kDefaultRadius;

@@ -88,7 +88,17 @@ class RoundEarth final : public astra::EarthModel {
   // separate message for the obvious failure mode of a degree-valued latitude; altitude finite and
   // above -radius_ (below that, (radius_ + h) itself goes through zero -- a chart singularity, not
   // a terrain check; the atmosphere model's valid_range() is the authority on whether an altitude
-  // makes physical sense for a run).
+  // makes physical sense for a run). This is an init-time check only: it validates the initial
+  // state, not every state the integrator visits mid-run (Codex adversarial review). A trajectory
+  // that later crosses either boundary is not re-validated, but neither degrades to silent,
+  // undetected garbage (verified in tests/unit/earth/earth_kinematics_test.cpp): crossing the
+  // altitude floor hits an exact floating-point zero in (radius_ + h), producing literal Inf in
+  // p_n_dot/omega_en_n that HealthMonitor's existing per-frame NaN/Inf check (M1 PR 4) catches
+  // immediately as a named halt; crossing the polar margin instead produces an enormous but still
+  // finite value (cos(lat) near a double's representation of pi/2 is ~1e-17, not exactly zero), not
+  // itself a halt, but wildly unphysical enough to cascade into a non-finite or drift-checked
+  // quaternion within a frame or two of integration. No new domain-tracking machinery is added for
+  // either case: both rely on the same halt-on-NaN backstop the whole per-frame path already uses.
   // NOLINTBEGIN(readability-magic-numbers): 0/1/2 are the p_n vector's lat/lon/alt components.
   void validate_p_n(const Eigen::Vector3d& p_n, const Config& node) const override {
     const double lat = p_n(0);
