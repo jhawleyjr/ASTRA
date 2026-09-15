@@ -54,16 +54,29 @@ bool parse_index(std::string_view segment, std::size_t& out) {
 // yaml-cpp's operator[] on a non-const Node inserts a missing key as a null "zombie" node
 // (docs/lessons.md), silently growing the document. Every lookup below goes through a
 // const-qualified node so the const overload -- which only ever reads -- is the one selected.
+
+// A genuinely undefined node (IsDefined() == false), matching what a const map lookup returns for a
+// missing key. A bare `YAML::Node{}` does NOT match that: yaml-cpp's default constructor produces a
+// Null-typed node that is still "defined" (docs/lessons.md), so returning `{}` from child() below
+// as a "not found" sentinel would make navigate_from's `!next.IsDefined()` short-circuit fail to
+// fire -- navigation past a scalar (or a too-short sequence) would silently continue instead of
+// stopping, and the final result would be this same Null-but-"defined" node instead of a correctly
+// missing one.
+YAML::Node undefined_node() {
+  const YAML::Node empty_map{YAML::NodeType::Map};
+  return empty_map["astra_internal_never_a_real_key"];
+}
+
 YAML::Node child(const YAML::Node& node, std::string_view segment) {
   std::size_t index = 0;
   if (parse_index(segment, index)) {
     if (!node.IsSequence() || index >= node.size()) {
-      return {};
+      return undefined_node();
     }
     return node[index];
   }
   if (!node.IsMap()) {
-    return {};
+    return undefined_node();
   }
   return node[std::string{segment}];
 }

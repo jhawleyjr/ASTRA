@@ -1,0 +1,17 @@
+# M1 PR 3 acceptance (PLAN.md, docs/architecture.md §16 row M1): torque-free asymmetric rigid body,
+# g = 0, no applied wrench, 1000 s at 1 kHz. omega_b(0) = (1,1,1)/sqrt(3) rad/s -- |omega| ~ 1 rad/s
+# with all three components nonzero (a principal-axis rate would stay constant and hide a wrong Euler
+# coupling term; Codex plan-review finding). Mass and inertia here are duplicated as named constants
+# in tests/physics/torque_free_test.cpp -- keep the two in sync by hand if either changes.
+sim:
+  dt: 0.001
+  frames: 1000000
+vehicle:
+  models: []
+physical:
+  earth: plugins/physical/earth/flat
+  gravity: { plugin: plugins/physical/gravity/constant, g: 0.0 }
+  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 2.0, izz: 3.0 }
+initial:
+  state:
+    omega_b: [0.5773502691896258, 0.5773502691896258, 0.5773502691896258]

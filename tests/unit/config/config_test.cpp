@@ -156,4 +156,26 @@ TEST(Config, AtOnAnEmptyMapCountsAsReadingIt) {
   EXPECT_TRUE(config.unknown_keys().empty());
 }
 
+// A bare `YAML::Node{}` is NOT "undefined" in yaml-cpp: its default constructor produces a
+// Null-typed node that still reports IsDefined() == true (unlike a genuine const-map miss).
+// child()'s "not a map"/"index out of range" branches used `return {};` as their not-found
+// sentinel, so navigating a dotted path THROUGH a scalar (or past the end of a sequence) with more
+// segments after it did not stop there as intended: it kept recursing on this Null-but-"defined"
+// node, and the final result looked defined instead of missing -- "physical.gravity.g" reported
+// has() == true and a defaulted number() read on it threw "expected a number value" instead of
+// returning the default, the moment a §13 plugin slot was written as a bare scalar
+// (docs/lessons.md).
+TEST(Config, NavigatingPastAScalarWithMoreSegmentsIsUndefinedNotAWrongTypeError) {
+  const Config config =
+      Config::from_string("physical: { gravity: plugins/physical/gravity/constant }\n", "test");
+  EXPECT_FALSE(config.has("physical.gravity.g"));
+  EXPECT_DOUBLE_EQ(config.number("physical.gravity.g", 9.80665), 9.80665);
+  EXPECT_THROW(static_cast<void>(config.number("physical.gravity.g")), ConfigError);
+}
+
+TEST(Config, NavigatingPastTheEndOfASequenceWithMoreSegmentsIsUndefined) {
+  const Config config = Config::from_string("xs: [1, 2]\n", "test");
+  EXPECT_FALSE(config.has("xs.5.y"));
+}
+
 }  // namespace

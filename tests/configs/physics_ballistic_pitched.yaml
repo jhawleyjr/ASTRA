@@ -1,0 +1,17 @@
+# M1 PR 3 acceptance: ballistic arc vs closed form, a nondegenerate attitude with nonzero pitch at a
+# non-special angle -- a level or yaw-only attitude leaves NED gravity on the down axis unchanged and
+# so cannot expose a transposed n<->b rotation (Codex plan-review finding). omega_b = 0, no applied
+# wrench, so the attitude stays constant through the whole run. euler_nb = [psi, theta, phi], rad.
+sim:
+  dt: 0.001
+  frames: 10000
+vehicle:
+  models: []
+physical:
+  earth: plugins/physical/earth/flat
+  gravity: plugins/physical/gravity/constant
+  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 }
+initial:
+  state:
+    v_b: [100.0, 0.0, 0.0]
+    euler_nb: [0.3, 0.4, 0.2]

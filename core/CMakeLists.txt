@@ -35,7 +35,11 @@ add_library(astra_core SHARED
   src/config/config.cpp
   src/core_api.cpp
   src/errors.cpp
+  src/interfaces/earth_model.cpp
+  src/interfaces/gravity_model.cpp
+  src/interfaces/mass_properties_model.cpp
   src/interfaces/model.cpp
+  src/kernel/eom.cpp
   src/kernel/simulation.cpp
   src/kernel/vehicle.cpp
   src/plugin/loader.cpp

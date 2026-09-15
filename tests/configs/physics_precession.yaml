@@ -1,0 +1,16 @@
+# M1 PR 3 acceptance: symmetric-top precession vs closed form. inertia_b = diag(it, it, ia), g = 0,
+# no applied wrench. omega_b(0) = (p0, 0, r0): p0 the transverse rate, r0 the spin about the symmetry
+# axis (constant for a symmetric top with no torque). tests/physics/precession_test.cpp duplicates
+# it, ia, p0, r0 as named constants to compute lambda = (it - ia) / it * r0 and the closed form.
+sim:
+  dt: 0.001
+  frames: 10000
+vehicle:
+  models: []
+physical:
+  earth: plugins/physical/earth/flat
+  gravity: { plugin: plugins/physical/gravity/constant, g: 0.0 }
+  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 2.0, iyy: 2.0, izz: 1.0 }
+initial:
+  state:
+    omega_b: [0.3, 0.0, 2.0]
