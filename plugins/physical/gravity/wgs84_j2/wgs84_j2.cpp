@@ -10,10 +10,12 @@
 // parameter.
 #include <cmath>
 #include <memory>
+#include <string>
 #include <string_view>
 
 #include "astra/config/config.hpp"
 #include "astra/core_api.hpp"
+#include "astra/errors.hpp"
 #include "astra/interfaces/gravity_model.hpp"
 #include "astra/interfaces/position_representation.hpp"
 #include "astra/kernel/vehicle_state.hpp"
@@ -58,6 +60,35 @@ class Wgs84J2Gravity final : public astra::GravityModel {
       const noexcept override {
     return astra::PositionRepresentation::kGeodetic;
   }
+
+  // Codex adversarial review: earth/wgs84_rotating's own validate_p_n bounds altitude against the
+  // meridian radius M(lat), which keeps its *own* p_n_dot/omega_en_n well-defined, but says nothing
+  // about g_n's ECEF radius mag_r above. Near the polar margin, a geodetic (lat, alt) pair can pass
+  // that M(lat) floor while still making the *ECEF* radius from the center collapse toward zero:
+  // verified numerically (this session) that lat = kMaxLatitude, alt = -N(lat)*(1-e^2) gives
+  // mag_r ~ 0.043 m -- the ECEF z-component vanishes exactly there while x and y are already tiny
+  // from cos(lat), a genuinely different singularity from the M(lat)/N(lat) floor, since it is the
+  // *combination* of near-polar latitude and a specific altitude that collapses all three ECEF
+  // components at once. Bounded well below any physically sensible altitude's mag_r (which stays
+  // on the order of thousands of kilometres near the real Earth) so this only excludes genuinely
+  // degenerate configurations.
+  void validate_p_n(const Eigen::Vector3d& p_n, const astra::Config& node) const override {
+    const double lat = p_n(0);  // NOLINT(readability-magic-numbers): p_n's lat/lon/alt components
+    const double lon = p_n(1);
+    const double alt = p_n(2);
+    const double mag_r = astra::geodesy::geodetic_to_ecef(lat, lon, alt).norm();
+    if (mag_r < kMinSafeRadius) {
+      const std::string path = node.path().empty() ? "initial.state.p_n" : node.path() + ".p_n";
+      throw astra::ConfigError(
+          node.origin(), path,
+          "p_n's ECEF radius from the Earth's center is too small for gravity/wgs84_j2's geometry "
+          "-- this combination of latitude and altitude is too close to the ellipsoid's own "
+          "singularity even though it passes the Earth model's own altitude floor");
+    }
+  }
+
+ private:
+  static constexpr double kMinSafeRadius = 1000.0;  // m; see validate_p_n's comment
 };
 
 std::unique_ptr<astra::Model> create() { return std::make_unique<Wgs84J2Gravity>(); }

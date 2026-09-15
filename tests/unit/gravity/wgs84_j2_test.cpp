@@ -15,6 +15,7 @@
 #include <numbers>
 
 #include "astra/config/config.hpp"
+#include "astra/errors.hpp"
 #include "astra/interfaces/gravity_model.hpp"
 #include "astra/interfaces/position_representation.hpp"
 #include "astra/kernel/state.hpp"
@@ -103,6 +104,22 @@ TEST(Wgs84J2Gravity, IsIndependentOfLongitude) {
 
 TEST(Wgs84J2Gravity, AssumesGeodeticPositionRepresentation) {
   EXPECT_EQ(astra::PositionRepresentation::kGeodetic, load().assumed_position_representation());
+}
+
+// Codex adversarial review: earth/wgs84_rotating's own meridian-radius floor does not protect
+// gravity/wgs84_j2's ECEF-based geometry -- verified numerically that lat = kMaxLatitude,
+// alt = -N(lat)*(1-e^2) makes the ECEF radius collapse to ~0.043 m even though it passes that
+// floor. gravity/wgs84_j2's own validate_p_n must reject it independently.
+TEST(Wgs84J2Gravity, ValidatePnRejectsAnEcefRadiusThatCollapsesNearThePolarMargin) {
+  GravityModel& gravity = load();
+  const Config node = Config::from_string("{}\n", "near-singular-fixture");
+  const double lat = astra::geodesy::kMaxLatitude;
+  const double collapsing_alt =
+      -astra::geodesy::prime_vertical_radius(lat) * (1.0 - astra::geodesy::kEccentricitySquared);
+  EXPECT_THROW(gravity.validate_p_n({lat, 0.0, collapsing_alt}, node), astra::ConfigError);
+
+  // A sensible altitude at the same latitude must not be rejected.
+  EXPECT_NO_THROW(gravity.validate_p_n({lat, 0.0, 10000.0}, node));
 }
 
 }  // namespace

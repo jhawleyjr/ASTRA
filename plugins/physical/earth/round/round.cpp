@@ -89,16 +89,23 @@ class RoundEarth final : public astra::EarthModel {
   // above -radius_ (below that, (radius_ + h) itself goes through zero -- a chart singularity, not
   // a terrain check; the atmosphere model's valid_range() is the authority on whether an altitude
   // makes physical sense for a run). This is an init-time check only: it validates the initial
-  // state, not every state the integrator visits mid-run (Codex adversarial review). A trajectory
-  // that later crosses either boundary is not re-validated, but neither degrades to silent,
-  // undetected garbage (verified in tests/unit/earth/earth_kinematics_test.cpp): crossing the
-  // altitude floor hits an exact floating-point zero in (radius_ + h), producing literal Inf in
-  // p_n_dot/omega_en_n that HealthMonitor's existing per-frame NaN/Inf check (M1 PR 4) catches
-  // immediately as a named halt; crossing the polar margin instead produces an enormous but still
-  // finite value (cos(lat) near a double's representation of pi/2 is ~1e-17, not exactly zero), not
-  // itself a halt, but wildly unphysical enough to cascade into a non-finite or drift-checked
-  // quaternion within a frame or two of integration. No new domain-tracking machinery is added for
-  // either case: both rely on the same halt-on-NaN backstop the whole per-frame path already uses.
+  // state, not every state the integrator visits mid-run (Codex adversarial review, two rounds).
+  // What is actually verified (tests/unit/earth/earth_kinematics_test.cpp), and what is not:
+  //   - Landing exactly on the altitude floor hits an exact floating-point zero in (radius_ + h),
+  //     producing literal Inf in p_n_dot/omega_en_n, which HealthMonitor's existing per-frame
+  //     NaN/Inf check (M1 PR 4) catches immediately as a named halt.
+  //   - Landing exactly on the polar margin instead produces an enormous but still *finite* value
+  //     (cos(lat) near a double's representation of pi/2 is ~1e-17, not exactly zero) -- not itself
+  //     a halt.
+  //   - NOT verified end-to-end: a trajectory that *continuously approaches* either boundary,
+  //     without ever landing on the exact singular value in one frame, could in principle produce a
+  //     run of large-but-finite, physically-degraded states before anything overflows to Inf/NaN or
+  //     trips the quaternion-norm-drift check. Per-frame Earth-domain validity (a state-halting
+  //     capability HealthMonitor does not have) is deliberately out of scope for this PR -- it is a
+  //     new architectural capability, not a bug fix, and none of this PR's own tests fly a
+  //     trajectory anywhere near either boundary. Disclosed in PLAN.md as a known gap rather than
+  //     silently left unmentioned; the right time to close it is whichever milestone first flies a
+  //     trajectory that can realistically approach a pole (not M2's drop-test scenarios).
   // NOLINTBEGIN(readability-magic-numbers): 0/1/2 are the p_n vector's lat/lon/alt components.
   void validate_p_n(const Eigen::Vector3d& p_n, const Config& node) const override {
     const double lat = p_n(0);

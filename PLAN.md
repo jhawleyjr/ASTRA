@@ -58,6 +58,13 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         copied from the report) within its tolerance. Plan review (one round, done): the Earth/gravity position
         contract. **Split from the plan's contingency**: the diff exceeded ~1200 lines with `AtmosphereModel` +
         `isa1976` included, so that work moved to PR 1b below; gravity stayed with the Earth models as specified.
+        **Known gap, disclosed not fixed** (Codex adversarial review, two rounds): `validate_p_n` checks only the
+        initial state; a trajectory that *continuously approaches* (without landing exactly on) the polar margin or
+        an altitude floor is not re-validated per frame, and could in principle run for a while on large-but-finite,
+        degraded kinematics before anything overflows to Inf/NaN or trips the quaternion-norm-drift check (verified:
+        landing *exactly* on either boundary is caught — the gap is the approach). Per-frame Earth-domain validity is
+        a new HealthMonitor capability, not a bug fix, and none of this PR's tests fly near either boundary; close it
+        before any milestone flies a trajectory that can realistically approach a pole (not M2's drop-test scenarios).
   - [ ] PR 1b — `AtmosphereModel` + `plugins/physical/atmosphere/isa1976` (declares its valid altitude range; §15's
         pre-run "altitude inside the atmosphere's range" check joins the HealthMonitor init path); the same
         position-representation check extended to `physical.atmosphere`. Accept: ISA table points exact.
