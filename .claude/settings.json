@@ -57,6 +57,7 @@
     ]
   },
   "attribution": {
+    "commit": false,
     "sessionUrl": false
   }
 }
