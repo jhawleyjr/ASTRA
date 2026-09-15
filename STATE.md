@@ -4,9 +4,9 @@
 Nothing. M1 PR 1 (PR #15) merged: `core/util/frames.hpp` (quaternion ↔ DCM ↔ 3-2-1 Euler, rotation,
 kinematics, ADR-0001), `core/kernel/integrator.hpp` (Euler/RK4 over `StateVector`, ADR-0003/0004),
 `scripts/tokens.py`. Also: plan review for unpinned designs (EOM, kinematics, integrator interface,
-health monitor) is now automatic — Claude runs one `/codex:rescue` round inside plan mode before the
-plan is shown, not triggered by Joe — and `/wrap`/`/codex:review`/`/codex:adversarial-review` are
-model-invocable, so the session ends its own session and runs its own reviews.
+health monitor) is automatic via one `/codex:rescue` round in plan mode, not triggered by Joe. `/wrap`
+is model-invocable; review still runs from Bash via the codex-companion script per CLAUDE.md — the
+`/codex:*review` slash commands stay user-only.
 
 ## Last verified result
 - `just check` exited 0 (`check: OK`) on the merged state; `ctest --preset asan -R 'frames|integrator'`

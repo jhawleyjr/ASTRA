@@ -25,7 +25,9 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         (register at init, pointers on the hot path, `v0.` namespace), `VirtualClock`, `Scheduler`, `Vehicle`,
         `Simulation` as a list of one that loads plugins named by path in the config. Accept: a config naming the
         dummy plugin runs 1000 frames with `t == frame * dt` exact and the plugin's signal visible as `v0.dummy.*`.
-        Adds ctest labels `unit`/`physics`; Stop hook runs `ctest -L unit`.
+        Adds ctest labels `unit`/`physics`; Stop hook runs `ctest -L unit`. Also checks `scripts/tokens.py` (PR 1):
+        prints one row per session and model (the Opus/Sonnet split workflow.md §Model and effort needs), and
+        `--since <date>` returns rows instead of 0 against this session's own transcripts.
   - [ ] PR 3 — `EarthModel` (position kinematics, Earth rate, transport rate; `plugins/physical/earth/flat`),
         `GravityModel` (`plugins/physical/gravity/constant`, pulled forward from M2), `MassPropertiesModel`
         (`plugins/physical/mass/constant`), `Eom` derivative (Stevens & Lewis body axes) in the frame loop.
