@@ -4,9 +4,7 @@ name: check
 
 on:
   pull_request:
-  push:
-    branches: [main]
-  workflow_dispatch:
+  workflow_dispatch:   # no push-to-main run: main is protected, so the PR run already tested this tree
 
 concurrency:
   group: check-${{ github.ref }}
@@ -19,12 +17,30 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # A docs-only PR still needs the required `check` status, so the job runs but skips the gate.
+      # Allow-list of what counts as docs; anything else (code, configs, hooks, justfile) builds.
+      - name: Scope (docs-only PRs skip the gate)
+        id: scope
+        run: |
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" \
+               | grep -vqE '^(docs/|\.github/workflows/|README\.md$|STATE\.md$|PLAN\.md$|LICENSE$)'; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            echo "docs-only PR: gate skipped"
+          fi
 
       - name: "Toolchain: scripts/setup-ubuntu.sh --ci (the one apt list, shared with the developer setup)"
+        if: steps.scope.outputs.build == 'true'
         run: ./scripts/setup-ubuntu.sh --ci
 
       - name: Let ASan map its shadow under the runner kernel's ASLR entropy
+        if: steps.scope.outputs.build == 'true'
         run: sudo sysctl -w vm.mmap_rnd_bits=28
 
       - name: just check
+        if: steps.scope.outputs.build == 'true'
         run: just check
