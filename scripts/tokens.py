@@ -1,9 +1,11 @@
-#!/ usr / bin / env python3
-"""Per-session token usage from Claude Code transcripts (workflow.md, Model and effort).
+#!/usr/bin/env python3
+"""Per-session, per-model token usage from Claude Code transcripts (workflow.md, Model and effort).
 
 Reads every ``*.jsonl`` transcript under the given roots (default: ``~/.claude/projects/*ASTRA*``),
-sums each assistant message's ``usage`` fields per session, and prints one row per session plus a
-total row. Used to measure cost after a PR, and by ``/retro`` step 4 each milestone. Stdlib only.
+sums each assistant message's ``usage`` fields per (session, model) pair, and prints one row per
+pair plus a total row -- so a session that switches models under `opusplan` (Opus in plan mode,
+Sonnet once a plan is approved) shows the split workflow.md §Model and effort measures with. Used
+to measure cost after a PR, and by ``/retro`` step 4 each milestone. Stdlib only.
 """
 
 from __future__ import annotations
@@ -12,29 +14,27 @@ import argparse
 import glob
 import json
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
 
 @dataclass
-class SessionUsage:
-    """Aggregated token counts for one session, plus the model names seen in it."""
+class ModelUsage:
+    """Aggregated token counts for one (session, model) pair."""
 
     session_id: str
+    model: str
     input_tokens: int = 0
     output_tokens: int = 0
     cache_read_tokens: int = 0
     cache_creation_tokens: int = 0
-    models: set[str] = field(default_factory=set)
 
-    def add(self, usage: dict[str, object], model: str | None) -> None:
+    def add(self, usage: dict[str, object]) -> None:
         self.input_tokens += _as_int(usage.get("input_tokens"))
         self.output_tokens += _as_int(usage.get("output_tokens"))
         self.cache_read_tokens += _as_int(usage.get("cache_read_input_tokens"))
         self.cache_creation_tokens += _as_int(usage.get("cache_creation_input_tokens"))
-        if model:
-            self.models.add(model)
 
 
 def _as_int(value: object) -> int:
@@ -55,8 +55,8 @@ def find_transcripts(roots: list[str]) -> list[Path]:
     return sorted(paths)
 
 
-def collect_usage(paths: list[Path], since: datetime | None) -> dict[str, SessionUsage]:
-    sessions: dict[str, SessionUsage] = {}
+def collect_usage(paths: list[Path], since: datetime | None) -> dict[tuple[str, str], ModelUsage]:
+    rows: dict[tuple[str, str], ModelUsage] = {}
     for path in paths:
         with path.open(encoding="utf-8") as handle:
             for raw_line in handle:
@@ -83,44 +83,43 @@ def collect_usage(paths: list[Path], since: datetime | None) -> dict[str, Sessio
                 usage = message.get("usage")
                 if not isinstance(usage, dict):
                     continue
-                session = sessions.setdefault(session_id, SessionUsage(session_id))
-                session.add(usage, message.get("model"))
-    return sessions
+                model = message.get("model") or "-"
+                key = (session_id, model)
+                rows.setdefault(key, ModelUsage(session_id, model)).add(usage)
+    return rows
 
 
 _COLUMNS = ("session", "model", "output", "cache_read", "cache_create", "input")
 _ROW_FORMAT = "{:<38}{:<20}{:>12}{:>14}{:>14}{:>10}"
 
 
-def _row(session_id: str, session: SessionUsage) -> str:
-    model = ",".join(sorted(session.models)) or "-"
+def _row(session_id: str, model: str, usage: ModelUsage) -> str:
     return _ROW_FORMAT.format(
         session_id,
         model,
-        session.output_tokens,
-        session.cache_read_tokens,
-        session.cache_creation_tokens,
-        session.input_tokens,
+        usage.output_tokens,
+        usage.cache_read_tokens,
+        usage.cache_creation_tokens,
+        usage.input_tokens,
     )
 
 
-def format_table(sessions: dict[str, SessionUsage]) -> str:
+def format_table(rows: dict[tuple[str, str], ModelUsage]) -> str:
     header = _ROW_FORMAT.format(*_COLUMNS)
     rule = "-" * len(header)
     lines = [header, rule]
 
-    total = SessionUsage("TOTAL")
-    for session_id in sorted(sessions):
-        session = sessions[session_id]
-        lines.append(_row(session_id, session))
-        total.input_tokens += session.input_tokens
-        total.output_tokens += session.output_tokens
-        total.cache_read_tokens += session.cache_read_tokens
-        total.cache_creation_tokens += session.cache_creation_tokens
-        total.models |= session.models
+    total = ModelUsage("TOTAL", "")
+    for key in sorted(rows):
+        usage = rows[key]
+        lines.append(_row(usage.session_id, usage.model, usage))
+        total.input_tokens += usage.input_tokens
+        total.output_tokens += usage.output_tokens
+        total.cache_read_tokens += usage.cache_read_tokens
+        total.cache_creation_tokens += usage.cache_creation_tokens
 
     lines.append(rule)
-    lines.append(_row("TOTAL", total))
+    lines.append(_row("TOTAL", "", total))
     return "\n".join(lines)
 
 
@@ -139,8 +138,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     since = _parse_timestamp(args.since).astimezone(UTC) if args.since else None
-    sessions = collect_usage(find_transcripts(args.roots), since)
-    print(format_table(sessions))
+    rows = collect_usage(find_transcripts(args.roots), since)
+    print(format_table(rows))
     return 0
 
 

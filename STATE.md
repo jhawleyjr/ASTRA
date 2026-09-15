@@ -1,40 +1,40 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines; written as true once the PR carrying it has merged)
 
 ## In flight
-Nothing. M1 PR 1 (PR #15) merged: `core/util/frames.hpp` (quaternion ↔ DCM ↔ 3-2-1 Euler, rotation,
-kinematics, ADR-0001), `core/kernel/integrator.hpp` (Euler/RK4 over `StateVector`, ADR-0003/0004),
-`scripts/tokens.py`. Also: plan review for unpinned designs (EOM, kinematics, integrator interface,
-health monitor) is automatic via one `/codex:rescue` round in plan mode, not triggered by Joe. `/wrap`
-is model-invocable; review still runs from Bash via the codex-companion script per CLAUDE.md — the
-`/codex:*review` slash commands stay user-only.
+Nothing once PR #16 (branch `worktree-m1-config`) merges. It adds `Config` (pimpl over yaml-cpp),
+`SignalRegistry` (`v0.`-namespaced via `PrefixScope`), `VirtualClock` (`t = frame * dt`, ADR-0010),
+`Scheduler` (ordered `(Model*, divisor)`, §5), `Vehicle`, `Simulation::from_config`/`run`. Configs use
+one generic `vehicle.models` list (no typed `physical.`/`hardware.` slot exists yet); `vehicle:` is
+singular per ADR-0011. ctest gained the `unit` label everywhere (`physics` is the convention, first
+used in PR 3); Stop hook now runs `just test-unit` (`ctest -L unit`).
 
 ## Last verified result
-- `just check` exited 0 (`check: OK`) on the merged state; `ctest --preset asan -R 'frames|integrator'`
-  passed 18/18: every ADR-0001 golden case within `kTolerance` (1e-12); RK4 error ratio 16±0.5 and
-  Euler 2±0.1 on a linear oscillator when dt halves; `|q|` within 1e-12 after post-step; a non-finite
-  `dt` or unknown `IntegratorKind` is rejected at construction; a zero/non-finite quaternion leaves
-  `post_step_renormalize` returning `false` without corrupting state.
-- `/codex:review`/`/codex:adversarial-review` findings (non-finite `dt`; unconditional `normalize()`)
-  are fixed in the merged code, not just noted. `AGENTS.md` + `CLAUDE.md` = 100 lines exactly.
-- `tests/golden/frames/adr0001_cases.hpp`'s `C_nb` member needed one
-  `NOLINTNEXTLINE(readability-identifier-naming)` (Joe armed `touch-goldens`; no values changed) —
-  nothing had included this human-owned header in a compiled TU before this PR, so clang-tidy had
-  never actually analyzed it until now.
+- `just check` exited 0 (`check: OK`) on every preset, 71/71 tests each, in this session.
+  `Simulation.RunsOneThousandFramesWithTExactlyFrameTimesDt`: 1000 frames, `t == frame * dt`
+  bit-exact every frame; `v0.dummy.steps` == 1000, `v0.dummy.t` == `999 * dt` after `run()`.
+- `/codex:review` found 3 real bugs (negative `sim.frames`/`divisor` wrapping to `UINT64_MAX`/
+  `UINT32_MAX` on the unsigned cast; an untouched empty map/sequence bypassing `unknown_keys()`) —
+  fixed with regression tests, not just noted.
+- `/codex:adversarial-review` raised 3 findings, all rejected/deferred with reasons in the PR body:
+  `Model::step` non-`noexcept` is PR 4's explicit acceptance item; SignalRegistry unit-vocabulary
+  validation isn't an ADR-0002 requirement; the singular `vehicle:` config key is ADR-0011's own
+  stated v1 shape.
+- Found and fixed a real yaml-cpp bug: `current = child(current, segment)` in a navigation loop
+  used `Node::operator=`, which mutates the aliased document in place instead of rebinding the
+  handle — `Config::navigate` is now recursive (`docs/lessons.md`).
 
 ## Next step
-M1 PR 2 (PLAN.md): `Config` (yaml-cpp; typed getters, missing/unknown key errors name the path),
-`SignalRegistry` (register at init, pointers on the hot path, `v0.` namespace), `VirtualClock`,
-`Scheduler`, `Vehicle`, `Simulation` as a list of one that loads plugins named by path in the config.
-Accept: a config naming the dummy plugin runs 1000 frames with `t == frame * dt` exact and the
-plugin's signal visible as `v0.dummy.*`. Adds ctest labels `unit`/`physics`; Stop hook runs
-`ctest -L unit`. No design here is on the ADR-unpinned list, so the automatic `/codex:rescue`
-plan-review round is skipped.
+M1 PR 3 (PLAN.md): `EarthModel` (flat), `GravityModel` (constant), `MassPropertiesModel` (constant),
+`Eom` derivative (Stevens & Lewis) in the frame loop. Accept: `tests/physics/` torque-free
+asymmetric body: energy/|H_n| drift < 1e-9 relative over 1000 s at 1 kHz; ballistic arc vs closed
+form; symmetric-top precession vs closed form. Plan review: EOM/kinematics → Codex `/codex:rescue`
+before code (unpinned design). No precondition on Joe's machine.
 Opener (model and effort pinned in `.claude/settings.json`; escalation is Joe's):
-   `claude --worktree m1-config --permission-mode plan`
+   `claude --worktree m1-eom --permission-mode plan`
 
 ## Tried / failed
-- Nothing unresolved this session. (Golden-header clang-tidy stop-and-ask and two Codex adversarial-
-  review findings were all fixed; see `docs/lessons.md`.)
+- Nothing unresolved this session; the yaml-cpp corruption bug and all Codex findings were fixed
+  before opening the PR (see `docs/lessons.md`).
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.

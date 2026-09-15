@@ -1,7 +1,7 @@
 // Typed errors (docs/architecture.md §14). Exceptions are an init-time mechanism only: the
-// per-frame path never throws; step-time model errors go through status flags. The config path that
-// caused an init error is added to Error when Config exists (a later milestone); the plugin errors
-// already name their plugin.
+// per-frame path never throws; step-time model errors go through status flags. ConfigError names
+// the config path that caused an init error (core/config/config.hpp); the plugin errors already
+// name their plugin.
 #pragma once
 
 #include <cstdint>
@@ -68,6 +68,21 @@ class PluginToolchainError : public PluginError {
  private:
   std::string expected_;
   std::string actual_;
+};
+
+// A Config (core/config/config.hpp) getter finding a missing key, a value of the wrong type, or a
+// malformed document. what() and config_path() both name the dotted path from the document root
+// ("vehicle.models.0.plugin"); origin() names the file or fixture the document came from.
+class ConfigError : public Error {
+ public:
+  ConfigError(std::string_view origin, std::string_view config_path, std::string_view message);
+
+  [[nodiscard]] const std::string& origin() const noexcept { return origin_; }
+  [[nodiscard]] const std::string& config_path() const noexcept { return config_path_; }
+
+ private:
+  std::string origin_;
+  std::string config_path_;
 };
 
 }  // namespace astra

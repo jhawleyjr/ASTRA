@@ -1,5 +1,5 @@
 # One case per line: <expected exit>\t<JSON piped to stop-check.sh on stdin>. $ROOT_GREEN holds a stub justfile
-# whose `test` recipe passes, $ROOT_RED one whose `test` fails the way ctest does. Every case names a cwd:
+# whose `test-unit` recipe passes, $ROOT_RED one whose `test-unit` fails the way ctest does. Every case names a cwd:
 # without one the hook would run the real `just test` inside the gate.
 # PASS: plan mode is never checked; a green tree passes whatever stop_hook_active says; only plan mode skips
 0	{"hook_event_name":"Stop","permission_mode":"plan","cwd":"$ROOT_RED","stop_hook_active":false}
@@ -10,5 +10,5 @@
 2	{"hook_event_name":"Stop","permission_mode":"default","cwd":"$ROOT_RED","stop_hook_active":false}
 2	{"hook_event_name":"Stop","permission_mode":"acceptEdits","cwd":"$ROOT_RED","stop_hook_active":true}
 2	{"hook_event_name":"Stop","cwd":"$ROOT_RED"}
-# BLOCK: a `just test` that outlives the budget is a block (exit 124 from timeout), not a silent pass
+# BLOCK: a `just test-unit` that outlives the budget is a block (exit 124 from timeout), not a silent pass
 2	{"hook_event_name":"Stop","cwd":"$ROOT_SLOW"}

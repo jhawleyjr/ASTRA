@@ -66,15 +66,14 @@ def test_sums_usage_per_session_and_ignores_non_assistant_records(tmp_path: Path
         ],
     )
 
-    sessions = tokens.collect_usage(tokens.find_transcripts([str(tmp_path)]), since=None)
+    rows = tokens.collect_usage(tokens.find_transcripts([str(tmp_path)]), since=None)
 
-    assert set(sessions) == {"a"}
-    session = sessions["a"]
-    assert session.input_tokens == 5
-    assert session.output_tokens == 150
-    assert session.cache_read_tokens == 3000
-    assert session.cache_creation_tokens == 500
-    assert session.models == {"claude-opus-5"}
+    assert set(rows) == {("a", "claude-opus-5")}
+    row = rows[("a", "claude-opus-5")]
+    assert row.input_tokens == 5
+    assert row.output_tokens == 150
+    assert row.cache_read_tokens == 3000
+    assert row.cache_creation_tokens == 500
 
 
 def test_since_filters_out_earlier_messages(tmp_path: Path) -> None:
@@ -88,9 +87,9 @@ def test_since_filters_out_earlier_messages(tmp_path: Path) -> None:
     )
 
     since = datetime(2026, 9, 15, tzinfo=UTC)
-    sessions = tokens.collect_usage(tokens.find_transcripts([str(tmp_path)]), since=since)
+    rows = tokens.collect_usage(tokens.find_transcripts([str(tmp_path)]), since=since)
 
-    assert sessions["b"].output_tokens == 20
+    assert rows[("b", "claude-sonnet-5")].output_tokens == 20
 
 
 def test_format_table_includes_a_total_row_summing_every_session(tmp_path: Path) -> None:
@@ -103,8 +102,8 @@ def test_format_table_includes_a_total_row_summing_every_session(tmp_path: Path)
         ],
     )
 
-    sessions = tokens.collect_usage(tokens.find_transcripts([str(tmp_path)]), since=None)
-    table = tokens.format_table(sessions)
+    rows = tokens.collect_usage(tokens.find_transcripts([str(tmp_path)]), since=None)
+    table = tokens.format_table(rows)
 
     assert "c1" in table
     assert "c2" in table
@@ -112,3 +111,22 @@ def test_format_table_includes_a_total_row_summing_every_session(tmp_path: Path)
     fields = total_line.split()
     assert fields[0] == "TOTAL"
     assert fields[-4:] == ["30", "0", "0", "0"]
+
+
+def test_one_row_per_session_and_model_when_a_session_switches_models(tmp_path: Path) -> None:
+    """workflow.md §Model and effort: `opusplan` runs Opus in plan mode, Sonnet once approved, so
+    one session's transcript carries both -- the table must show that split, not merge it."""
+    transcript = tmp_path / "session-d.jsonl"
+    _write_transcript(
+        transcript,
+        [
+            _assistant_record("d", "2026-09-14T08:00:00Z", "claude-opus-5", output_tokens=100),
+            _assistant_record("d", "2026-09-14T08:01:00Z", "claude-sonnet-5", output_tokens=200),
+        ],
+    )
+
+    rows = tokens.collect_usage(tokens.find_transcripts([str(tmp_path)]), since=None)
+
+    assert set(rows) == {("d", "claude-opus-5"), ("d", "claude-sonnet-5")}
+    assert rows[("d", "claude-opus-5")].output_tokens == 100
+    assert rows[("d", "claude-sonnet-5")].output_tokens == 200

@@ -36,4 +36,32 @@ PluginToolchainError::PluginToolchainError(std::string_view path,
       expected_(expected_toolchain),
       actual_(actual_toolchain) {}
 
+namespace {
+
+std::string describe_config(std::string_view origin, std::string_view config_path,
+                            std::string_view message) {
+  std::string text = "config";
+  if (!origin.empty()) {
+    text += " '";
+    text += origin;
+    text += "'";
+  }
+  if (!config_path.empty()) {
+    text += " at '";
+    text += config_path;
+    text += "'";
+  }
+  text += ": ";
+  text += message;
+  return text;
+}
+
+}  // namespace
+
+ConfigError::ConfigError(std::string_view origin, std::string_view config_path,
+                         std::string_view message)
+    : Error(describe_config(origin, config_path, message)),
+      origin_(origin),
+      config_path_(config_path) {}
+
 }  // namespace astra

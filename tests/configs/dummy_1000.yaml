@@ -1,0 +1,9 @@
+# M1 PR 2 acceptance fixture (PLAN.md): the dummy plugin run for 1000 frames at the default 1 kHz
+# major frame. "vehicle.models" is this PR's one generic model-list schema (no typed
+# physical./hardware. slots exist yet -- see the plan's schema note).
+sim:
+  dt: 0.001
+  frames: 1000
+vehicle:
+  models:
+    - { plugin: tests/plugins/dummy, divisor: 1 }

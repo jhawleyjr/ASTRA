@@ -23,8 +23,8 @@ as authoritative and do not re-decide anything it or an accepted ADR decides. `P
   `-Werror`, and runs ctest; `just python` installs `astra._core` into `.venv` (editable, built in `build/python`,
   `just venv` creates the venv if missing); then `clang-tidy`, `clang-format --dry-run --Werror`, the hook test
   cases, `ruff`, `pyright` (strict on `python/astra/`), and `pytest`. Physics oracles and goldens join later.
-- `just build [preset]` / `just test [preset]` — one preset (default `asan`); `build/<preset>/` holds
-  `lib/libastra_core.so` and `plugins/libastra_<path_with_underscores>.so`.
+- `just build [preset]` / `just test [preset]` / `just test-unit [preset]` (the Stop hook's `unit`-labeled
+  subset) — one preset (default `asan`); `build/<preset>/` holds `lib/libastra_core.so` and plugin `.so`s.
 - Single tests: `ctest --preset asan -R <name>` from the repo root; `.venv/bin/pytest tests/python -k <name>`.
 - `just format` fixes formatting (clang-format and ruff); `just hooks-test` runs `.claude/hooks/tests/*.cases`;
   `just tidy` is clang-tidy alone (it runs `just python` first for the binding TU's compile database).

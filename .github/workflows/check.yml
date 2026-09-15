@@ -20,12 +20,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Toolchain (Ubuntu 24.04 apt only; scripts/setup-ubuntu.sh is the developer equivalent)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            clang-18 clang-tidy-18 clang-format-18 cmake ninja-build just gcc \
-            libeigen3-dev libgtest-dev libgmock-dev python3 python3-venv python3-dev
+      - name: "Toolchain: scripts/setup-ubuntu.sh --ci (the one apt list, shared with the developer setup)"
+        run: ./scripts/setup-ubuntu.sh --ci
 
       - name: Let ASan map its shadow under the runner kernel's ASLR entropy
         run: sudo sysctl -w vm.mmap_rnd_bits=28

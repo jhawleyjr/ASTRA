@@ -21,7 +21,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         when dt halves on a linear ODE with a closed form; |q| within 1e-12 after post-step.
         Plan review: integrator interface → Codex (`/codex:rescue`) before code. Also commits `scripts/tokens.py`,
         the per-session token script workflow.md §Model and effort measures with, so `/retro` can run it.
-  - [ ] PR 2 — `Config` (yaml-cpp; typed getters, missing/unknown key errors name the path), `SignalRegistry`
+  - [x] PR 2 — `Config` (yaml-cpp; typed getters, missing/unknown key errors name the path), `SignalRegistry`
         (register at init, pointers on the hot path, `v0.` namespace), `VirtualClock`, `Scheduler`, `Vehicle`,
         `Simulation` as a list of one that loads plugins named by path in the config. Accept: a config naming the
         dummy plugin runs 1000 frames with `t == frame * dt` exact and the plugin's signal visible as `v0.dummy.*`.

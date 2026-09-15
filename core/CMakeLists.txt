@@ -32,12 +32,19 @@ if(ASTRA_STATIC_PLUGINS)
 endif()
 
 add_library(astra_core SHARED
+  src/config/config.cpp
   src/core_api.cpp
   src/errors.cpp
   src/interfaces/model.cpp
-  src/plugin/loader.cpp)
+  src/kernel/simulation.cpp
+  src/kernel/vehicle.cpp
+  src/plugin/loader.cpp
+  src/signals/signal_registry.cpp)
 add_library(astra::core ALIAS astra_core)
 target_link_libraries(astra_core PUBLIC astra_core_headers)
+# Private: Config's yaml-cpp usage is behind a pimpl (core/include/astra/config/config.hpp), so no
+# plugin ever needs the yaml-cpp headers.
+target_link_libraries(astra_core PRIVATE yaml-cpp::yaml-cpp)
 if(NOT ASTRA_STATIC_PLUGINS)
   target_link_libraries(astra_core PRIVATE ${CMAKE_DL_LIBS})
 endif()
