@@ -4,9 +4,7 @@ name: check
 
 on:
   pull_request:
-  push:
-    branches: [main]
-  workflow_dispatch:
+  workflow_dispatch:   # no push-to-main run: main is protected, so the PR run already tested this tree
 
 concurrency:
   group: check-${{ github.ref }}
