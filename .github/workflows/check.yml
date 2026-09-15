@@ -26,7 +26,7 @@ jobs:
         id: scope
         run: |
           if git diff --name-only "origin/${{ github.base_ref }}...HEAD" \
-               | grep -vqE '^(docs/|README\.md$|STATE\.md$|PLAN\.md$|LICENSE$)'; then
+               | grep -vqE '^(docs/|\.github/workflows/|README\.md$|STATE\.md$|PLAN\.md$|LICENSE$)'; then
             echo "build=true" >> "$GITHUB_OUTPUT"
           else
             echo "build=false" >> "$GITHUB_OUTPUT"
