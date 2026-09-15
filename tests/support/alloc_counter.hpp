@@ -8,6 +8,16 @@
 // through std::malloc/std::free underneath -- ASan's interceptor, and therefore its own checking,
 // stays in the loop. Linked into astra_physics_tests only (tests/physics/CMakeLists.txt); the unit
 // suite does not link it.
+//
+// Known scope limit (Codex adversarial review, M1 PR 4): this counts C++ operator new/delete only,
+// not a direct std::malloc/calloc/realloc/aligned_alloc call from a future model or plugin -- such
+// a call would allocate without incrementing allocation_count(), so a passing no_alloc_test.cpp
+// does not prove the absence of THAT specific pattern. No model or plugin in this build calls the
+// raw C allocator family directly today (grepped clean at review time). Deliberately not closed by
+// also overriding malloc/calloc/free here: those symbols are exactly what -fsanitize=address's own
+// runtime intercepts, so redefining them in a process ASan already instruments risks fighting its
+// allocator rather than extending it, for a pattern nothing in this codebase currently uses.
+// Revisit if a plugin ever needs a C allocator directly.
 #pragma once
 
 #include <cstddef>
