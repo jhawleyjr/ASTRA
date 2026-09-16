@@ -27,20 +27,27 @@ class CountingWind final : public astra::WindModel {
     // Earth-model-specific altitude sign convention -- a straight north displacement from a
     // nonzero v_b(0) is unambiguous under every Earth model.
     registry.add("counting_wind.last_p_n_north", &last_p_n_north_, "m");
+    // The Earth-derived altitude begin_frame was last handed (wind_model.hpp: never read from
+    // vs.p_n() directly -- Codex adversarial review, M2 PR 2). UsesEarthDerivedAltitudeNotRawPN
+    // compares this against EarthModel::altitude(vs) computed independently in the test.
+    registry.add("counting_wind.last_altitude_m", &last_altitude_m_, "m");
   }
   void reset() override {
     step_calls_ = 0.0;
     begin_frame_calls_ = 0.0;
     wind_n_calls_ = 0.0;
     last_p_n_north_ = 0.0;
+    last_altitude_m_ = 0.0;
     latched_wind_.setZero();
   }
   void step(const astra::StepContext& /*ctx*/) override { ++step_calls_; }
   [[nodiscard]] std::string_view name() const override { return "counting_wind"; }
 
-  void begin_frame(const astra::StepContext& ctx, const astra::VehicleState& vs) noexcept override {
+  void begin_frame(const astra::StepContext& ctx, const astra::VehicleState& vs,
+                   double altitude_m) noexcept override {
     ++begin_frame_calls_;
     last_p_n_north_ = vs.p_n()(0);  // NOLINT(readability-magic-numbers): p_n's first component
+    last_altitude_m_ = altitude_m;
     // Encodes which frame latched it, so a test can check wind_n() returns exactly this without a
     // separate "did begin_frame already run this frame" signal.
     latched_wind_ = {static_cast<double>(ctx.frame), 0.0, 0.0};
@@ -60,6 +67,7 @@ class CountingWind final : public astra::WindModel {
   double begin_frame_calls_ = 0.0;
   mutable double wind_n_calls_ = 0.0;
   double last_p_n_north_ = 0.0;
+  double last_altitude_m_ = 0.0;
   Eigen::Vector3d latched_wind_ = Eigen::Vector3d::Zero();
 };
 

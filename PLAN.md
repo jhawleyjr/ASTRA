@@ -100,9 +100,21 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         contradiction Codex's round caught; a real correction to the plan's own reasoning -- `wind_n`
         shipped `const noexcept`, not non-const, because a reference member does not propagate the
         enclosing object's constness to the referent, so `Eom::operator() const` was never the barrier
-        an earlier draft claimed; `WindModel::begin_frame(ctx, vs)` is the per-vehicle evolution hook that
-        design needed, since `Model::step` has no `VehicleState` to give a stateful model the true
-        airspeed/altitude MIL-F-8785C ties its coefficients to). `physical.wind` is optional, like
+        an earlier draft claimed; `WindModel::begin_frame(ctx, vs, altitude_m)` is the per-vehicle
+        evolution hook that design needed, since `Model::step` has no `VehicleState` to give a stateful
+        model the true airspeed/altitude MIL-F-8785C ties its coefficients to). The post-implementation
+        `adversarial-review` round caught one more: `begin_frame`'s first draft passed only `VehicleState`,
+        so a stateful model reading `vs.p_n()(2)` for altitude would get opposite meanings under
+        `earth/flat` (NED down) and `earth/round`/`wgs84_rotating` (geodetic altitude) -- the same
+        representation trap ADR-0003/`PositionRepresentation` already prevents for gravity models, and the
+        one `AtmosphereModel::at()` avoids by taking a plain `altitude_m` rather than a `VehicleState` at
+        all. Fixed before merge: `begin_frame` takes an explicit Earth-derived `altitude_m`
+        (`EarthModel::altitude(vs)`, computed in `Simulation::step`, which is why `Simulation` now also
+        holds a non-owning `EarthModel*` alongside `WindModel*`), so no `WindModel` ever reads `vs.p_n()`
+        for altitude. Also caught and fixed: the `WrenchSource` ABI change (`requires_environment()` added,
+        `wrench_b`'s signature changed) needed `kCoreApiVersion` bumped (1 -> 2, `core_api.hpp.in`) so a
+        stale out-of-tree plugin is rejected at load rather than dispatched through a vtable slot it does
+        not have. `physical.wind` is optional, like
         `physical.atmosphere`; rejects a `divisor` other than 1 (`begin_frame`/`wind_n` are sampled every
         frame by `Simulation::step` regardless of the model's own scheduler divisor, and no hold contract
         exists yet for a coarser rate). `Vehicle::init` rejects a `WrenchSource` whose

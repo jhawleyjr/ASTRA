@@ -267,6 +267,9 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
     if (earth == nullptr) {
       throw PluginLoadError(earth_spec.plugin_path, "does not implement EarthModel");
     }
+    // Required, so always set whenever "physical" is configured -- WindModel::begin_frame's own
+    // altitude_m parameter (wind_model.hpp) depends on this being set before physical.wind loads.
+    sim.earth_ = earth;
     LoadedPlugin gravity_loaded = load_environment_model(loader, gravity_spec, sim.registry_);
     auto* const gravity = dynamic_cast<GravityModel*>(gravity_loaded.model.get());
     if (gravity == nullptr) {
@@ -369,8 +372,11 @@ HaltReason Simulation::step() noexcept {
     EnvironmentSample sample;  // wind zero / atmosphere all-NaN by default
     if (wind_ != nullptr) {
       const VehicleState vs{vehicle.state()};
-      wind_->begin_frame(ctx, vs);             // per-vehicle evolution: uses this frame's V, h
-      sample.wind_n = wind_->wind_n(ctx, vs);  // pure read of what begin_frame just latched
+      // earth_ is always set whenever wind_ is (both are set only under a "physical" section, and
+      // earth loads first, unconditionally -- see the sim.earth_ assignment above in from_config).
+      const double altitude_m = earth_->altitude(vs);
+      wind_->begin_frame(ctx, vs, altitude_m);  // per-vehicle evolution: uses this frame's V, h
+      sample.wind_n = wind_->wind_n(ctx, vs);   // pure read of what begin_frame just latched
     }
     vehicle.set_environment(sample);
     vehicle.step(ctx);

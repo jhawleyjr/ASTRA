@@ -254,6 +254,50 @@ TEST(WindCallContract, TheSampledWindReachesTheWrenchSource) {
   EXPECT_DOUBLE_EQ(*recorded_north, static_cast<double>(kFrames - 1));
 }
 
+// wind_model.hpp: begin_frame receives an Earth-derived altitude, never raw p_n -- Codex's
+// adversarial review caught that vs.p_n()(2) means opposite things under earth/flat (NED down,
+// metres) and earth/round (geodetic altitude, metres, opposite sign). This proves the fix: the SAME
+// physical altitude, expressed correctly under each Earth model's own p_n convention, produces the
+// SAME value in counting_wind.last_altitude_m.
+TEST(WindCallContract, UsesEarthDerivedAltitudeNotRawPN) {
+  constexpr double kAltitudeM = 5000.0;
+  auto config_for = [](std::string_view earth_plugin, double p_n_z) {
+    return Config::from_string(
+        "sim: { dt: 0.001, frames: 1 }\n"
+        "vehicle: { models: [] }\n"
+        "physical:\n"
+        "  earth: " +
+            std::string{earth_plugin} +
+            "\n"
+            "  gravity: plugins/physical/gravity/constant\n"
+            "  wind: tests/plugins/counting_wind\n"
+            "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, "
+            "izz: "
+            "1.0 }\n"
+            "initial: { state: { p_n: [0.0, 0.0, " +
+            std::to_string(p_n_z) + "] } }\n",
+        "altitude-fixture");
+  };
+  // earth/flat: p_n(2) is NED down, so +5000 m altitude is p_n_z = -5000.
+  Simulation sim_flat = load_sim(config_for("plugins/physical/earth/flat", -kAltitudeM));
+  // earth/round: p_n(2) is geodetic altitude directly, so +5000 m altitude is p_n_z = +5000.
+  Simulation sim_round = load_sim(config_for("plugins/physical/earth/round", kAltitudeM));
+
+  EXPECT_FALSE(sim_flat.step());
+  EXPECT_FALSE(sim_round.step());
+
+  const double* altitude_flat = sim_flat.registry().find("counting_wind.last_altitude_m");
+  const double* altitude_round = sim_round.registry().find("counting_wind.last_altitude_m");
+  ASSERT_NE(altitude_flat, nullptr);
+  ASSERT_NE(altitude_round, nullptr);
+  // Not bitwise: one frame of gravity/constant moves the state by a few micrometres before
+  // begin_frame reads it, and flat/round Earth's p_n_dot formulas differ at that scale. The point
+  // of this test is representation correctness (no sign flip, no order-of-magnitude error), not
+  // integrator precision.
+  EXPECT_NEAR(*altitude_flat, *altitude_round, 1e-6);
+  EXPECT_NEAR(*altitude_flat, kAltitudeM, 1e-2);
+}
+
 // simulation.cpp's Vehicle::init requirement check (D3): the contract "a wrench source that
 // requires wind and finds none is an init error naming physical.wind" has existed as a comment
 // since M2 PR 1b; this is the first test to assert it.

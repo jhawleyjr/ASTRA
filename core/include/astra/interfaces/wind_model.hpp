@@ -9,11 +9,20 @@
 //                             one place a stochastic model draws this frame's RNG samples:
 //                             evolution here depends only on the scheduler, never on how many
 //                             vehicles or consumers exist.
-//   - begin_frame(ctx, vs) -- below. The ONLY place a WindModel may use a VehicleState to evolve
-//                             internal state (a shaping filter's coefficients, which MIL-F-8785C
-//                             ties to true airspeed and altitude -- state step() cannot see).
-//                             Called once per vehicle, per frame, by Simulation::step, immediately
-//                             before wind_n for that same vehicle.
+//   - begin_frame(ctx, vs, altitude_m) -- below. The ONLY place a WindModel may use a VehicleState
+//                             to evolve internal state (a shaping filter's coefficients, which
+//                             MIL-F-8785C ties to true airspeed and altitude -- state step() cannot
+//                             see). Called once per vehicle, per frame, by Simulation::step,
+//                             immediately before wind_n for that same vehicle. altitude_m is Earth-
+//                             derived (EarthModel::altitude(vs)), not read from vs.p_n() directly:
+//                             an earlier draft passed only VehicleState, and Codex's adversarial
+//                             review caught that vs.p_n()(2) means opposite things under earth/flat
+//                             (NED down, metres) and earth/round or wgs84_rotating (geodetic
+//                             altitude, metres, opposite sign) -- exactly the representation trap
+//                             ADR-0003/PositionRepresentation already exists to prevent for gravity
+//                             models, and the same trap AtmosphereModel::at() avoids by taking a
+//                             plain altitude_m instead of a VehicleState at all. A WindModel
+//                             needing altitude reads this parameter, never vs.p_n().
 //   - wind_n(ctx, vs)      -- const noexcept. A pure read of whatever begin_frame already computed;
 //                             it cannot itself advance anything, because a const method cannot
 //                             write to a non-mutable member (compiler-enforced). An earlier draft
@@ -51,9 +60,17 @@ class WindModel : public Model {
   // Model::step(const StepContext&) has no VehicleState to offer, and wind_n below is const and
   // cannot evolve anything. Non-const and kernel-driven only -- nothing outside Simulation::step
   // calls it, so evolution still does not depend on how many WrenchSources later read wind_n.
+  //
+  // altitude_m is exactly whatever the configured EarthModel::altitude() returns for vs -- height
+  // above that Earth model's own reference surface, the same value AtmosphereModel::at() takes
+  // (atmosphere_model.hpp). A WindModel needing altitude reads this, never vs.p_n() (see the file
+  // header above). vs itself still carries v_b (true airspeed) and q_nb (for wind_n's body-to-nav
+  // rotation), both well-defined under every Earth model with no representation ambiguity.
+  //
   // Default: empty (wind/uniform has no state to evolve). Per-frame path (§14): no allocation, no
   // exceptions. Defined out of line in wind_model.cpp, so the destructor stays the key function.
-  virtual void begin_frame(const StepContext& ctx, const VehicleState& vs) noexcept;
+  virtual void begin_frame(const StepContext& ctx, const VehicleState& vs,
+                           double altitude_m) noexcept;
 
   // The velocity of the AIR MASS with respect to the Earth, expressed in the local navigation frame
   // (NED, ADR-0001), metres per second (ADR-0002). This is "wind-to", not "wind-from": a 10 m/s

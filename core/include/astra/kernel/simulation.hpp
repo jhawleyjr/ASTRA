@@ -24,7 +24,8 @@
 
 namespace astra {
 
-class WindModel;  // core/include/astra/interfaces/wind_model.hpp
+class EarthModel;  // core/include/astra/interfaces/earth_model.hpp
+class WindModel;   // core/include/astra/interfaces/wind_model.hpp
 
 class Simulation {
  public:
@@ -66,6 +67,12 @@ class Simulation {
   Integrator integrator_;
   Scheduler environment_scheduler_;
   std::vector<LoadedPlugin> environment_plugins_;
+  // Non-owning: the model lives in environment_plugins_ above (set alongside physics whenever
+  // "physical" is configured, so it is always set whenever wind_ below is -- earth is required,
+  // wind is not, and wind is loaded strictly after earth within the same "physical" branch).
+  // Used only to compute the Earth-derived altitude WindModel::begin_frame takes, so a WindModel
+  // never has to read vs.p_n() directly under an assumed representation (wind_model.hpp).
+  EarthModel* earth_ = nullptr;
   // Non-owning: the model lives in environment_plugins_ above. nullptr when physical.wind is not
   // configured -- Simulation::step then samples still air (EnvironmentSample's own default).
   WindModel* wind_ = nullptr;
