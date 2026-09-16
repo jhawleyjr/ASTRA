@@ -218,6 +218,31 @@ TEST(SimulationPhysicalConfig, RejectsAWindDivisorOtherThanOne) {
   }
 }
 
+// check_sampled_every_frame (simulation.cpp) is shared by load_atmosphere and load_wind precisely
+// so the two optional environment slots cannot disagree on this rule (Cowork review, post-merge-
+// ready: load_atmosphere had no divisor check at all before this, though load_wind already did --
+// the same reasoning already applies to atmosphere today, since EarthModel::altitude() and a
+// WindModel already read it per frame, and applies more directly still once PR 3 samples
+// AtmosphereModel into EnvironmentSample every frame too).
+TEST(SimulationPhysicalConfig, RejectsAnAtmosphereDivisorOtherThanOne) {
+  const Config config = Config::from_string(
+      "sim: { dt: 0.001, frames: 1 }\n"
+      "vehicle: { models: [] }\n"
+      "physical:\n"
+      "  earth: plugins/physical/earth/flat\n"
+      "  gravity: plugins/physical/gravity/constant\n"
+      "  atmosphere: { plugin: plugins/physical/atmosphere/isa1976, divisor: 10 }\n"
+      "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 "
+      "}\n",
+      "atmosphere-divisor-fixture");
+  try {
+    static_cast<void>(load(config));
+    FAIL() << "expected ConfigError";
+  } catch (const ConfigError& error) {
+    EXPECT_EQ(error.config_path(), "physical.atmosphere.divisor");
+  }
+}
+
 // wind_model.hpp: unlike physical.atmosphere, physical.wind DOES take the position-representation
 // check (Codex adversarial review, M2 PR 2 round 2) -- tests/plugins/geodetic_wind declares
 // kGeodetic, and earth/flat provides kFlatNed, the same mismatch shape as

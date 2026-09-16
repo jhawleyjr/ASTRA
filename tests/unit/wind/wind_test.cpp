@@ -12,12 +12,15 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "astra/config/config.hpp"
 #include "astra/errors.hpp"
+#include "astra/interfaces/earth_model.hpp"
 #include "astra/interfaces/wind_model.hpp"
 #include "astra/kernel/simulation.hpp"
 #include "astra/kernel/state.hpp"
+#include "astra/kernel/vehicle.hpp"
 #include "astra/kernel/vehicle_state.hpp"
 #include "astra/plugin/loader.hpp"
 #include "astra/signals/signal_registry.hpp"
@@ -27,9 +30,11 @@ namespace {
 
 using astra::Config;
 using astra::ConfigError;
+using astra::EarthModel;
 using astra::Simulation;
 using astra::StateVector;
 using astra::StepContext;
+using astra::Vehicle;
 using astra::VehicleState;
 using astra::WindModel;
 
@@ -189,7 +194,14 @@ Config call_contract_config(std::uint64_t frames) {
       "call-contract-fixture");
 }
 
-TEST(WindCallContract, BeginFrameThenWindNAreEachCalledExactlyOncePerVehiclePerFrame) {
+// Proves "once per frame" through the real from_config pipeline (config parsing, plugin loading,
+// the requirement check, the real wiring) -- with exactly the one vehicle from_config ever builds
+// (ADR-0011), so it cannot by itself distinguish "once per frame" from "once per vehicle per
+// frame". WindMultiVehicle's tests below prove the "per vehicle" half, through
+// Simulation::for_testing instead, since from_config has no way to build more than one vehicle
+// (Cowork review, post-merge-ready) -- the two are complementary, not redundant: this test is the
+// only one exercising the real config-driven path end to end.
+TEST(WindCallContract, BeginFrameThenWindNAreEachCalledExactlyOncePerFrame) {
   constexpr std::uint64_t kFrames = 20;
   Simulation sim = load_sim(call_contract_config(kFrames));
   EXPECT_FALSE(sim.run());
@@ -383,6 +395,116 @@ class MinimalWind final : public astra::WindModel {
 TEST(WindCallContract, NonShareableWindModelPredicate) {
   const MinimalWind wind;
   EXPECT_FALSE(wind.shareable_across_vehicles());
+}
+
+// ---- The multi-vehicle call contract (D1's "once per vehicle", D4's shareability guard;
+// ADR-0011: "nothing may assume there will only ever be one" vehicle) ----
+//
+// from_config never builds more than one vehicle in v1 (ADR-0011), so the "per vehicle" half of
+// the call contract above, and the D4 guard, had no way to be exercised at all before
+// Simulation::for_testing existed (Cowork review, post-merge-ready).
+
+StateVector state_with_p_n_north(double p_n_north) {
+  StateVector y = StateVector::Zero();
+  y(astra::state::kQuaternion) = 1.0;
+  y(astra::state::kPosition) = p_n_north;  // NOLINT(readability-magic-numbers): p_n's 1st component
+  return y;
+}
+
+TEST(WindMultiVehicle, BeginFrameThenWindNAreCalledOncePerVehiclePerFrameWithDistinctState) {
+  const astra::PluginLoader loader{ASTRA_TEST_PLUGIN_DIR};
+  astra::LoadedPlugin wind_loaded = loader.load("tests/plugins/counting_wind");
+  auto* const wind = dynamic_cast<WindModel*>(wind_loaded.model.get());
+  astra::LoadedPlugin earth_loaded = loader.load("plugins/physical/earth/flat");
+  auto* const earth = dynamic_cast<EarthModel*>(earth_loaded.model.get());
+  astra::SignalRegistry wind_registry;
+  wind->init(Config::from_string("{}\n", "counting-wind-fixture"), wind_registry);
+  astra::SignalRegistry earth_registry;
+  earth->init(Config::from_string("{}\n", "earth-flat-fixture"), earth_registry);
+
+  const std::array<StateVector, 2> initial_states{state_with_p_n_north(0.0),
+                                                  state_with_p_n_north(1000.0)};
+  constexpr std::uint64_t kFrames = 10;
+  Simulation sim = Simulation::for_testing(loader, initial_states, {}, wind, earth);
+  EXPECT_FALSE(sim.run(kFrames));
+
+  const double* begin_frame_calls = wind_registry.find("counting_wind.begin_frame_calls");
+  const double* wind_n_calls = wind_registry.find("counting_wind.wind_n_calls");
+  const double* frame_min = wind_registry.find("counting_wind.frame_min_p_n_north");
+  const double* frame_max = wind_registry.find("counting_wind.frame_max_p_n_north");
+  ASSERT_NE(begin_frame_calls, nullptr);
+  ASSERT_NE(wind_n_calls, nullptr);
+  ASSERT_NE(frame_min, nullptr);
+  ASSERT_NE(frame_max, nullptr);
+  // No physics configured (for_testing always passes physics = nullptr to Vehicle::init), so
+  // Vehicle::integrate is a no-op and neither vehicle's state ever changes: every one of the
+  // 2*kFrames begin_frame calls sees exactly {0.0, 1000.0} across the two vehicles.
+  EXPECT_DOUBLE_EQ(*begin_frame_calls, static_cast<double>(2 * kFrames));
+  EXPECT_DOUBLE_EQ(*wind_n_calls, static_cast<double>(2 * kFrames));
+  // Distinct within the (last) frame, proving begin_frame ran against each vehicle's OWN
+  // VehicleState, not the same one twice -- this is exactly what
+  // BeginFrameThenWindNAreEachCalledExactlyOncePerFrame's single vehicle cannot show.
+  EXPECT_DOUBLE_EQ(*frame_min, 0.0);
+  EXPECT_DOUBLE_EQ(*frame_max, 1000.0);
+}
+
+TEST(WindMultiVehicle, EachVehicleWrenchSourceReceivesItsOwnEnvironmentSample) {
+  const astra::PluginLoader loader{ASTRA_TEST_PLUGIN_DIR};
+  astra::LoadedPlugin wind_loaded = loader.load("tests/plugins/counting_wind");
+  auto* const wind = dynamic_cast<WindModel*>(wind_loaded.model.get());
+  astra::LoadedPlugin earth_loaded = loader.load("plugins/physical/earth/flat");
+  auto* const earth = dynamic_cast<EarthModel*>(earth_loaded.model.get());
+  astra::SignalRegistry wind_registry;
+  wind->init(Config::from_string("{}\n", "counting-wind-fixture"), wind_registry);
+  astra::SignalRegistry earth_registry;
+  earth->init(Config::from_string("{}\n", "earth-flat-fixture"), earth_registry);
+  // WrenchSource::wrench_b is only ever called when Vehicle::integrate has a real Eom
+  // (eom_.has_value(), core/src/kernel/vehicle.cpp) -- so this test needs physics configured, not
+  // just wind/earth, or wind_consumer would never run at all and both signals would silently read
+  // their untouched zero default (caught by this test itself before this fix: vehicle 0's expected
+  // value happened to be zero too, so only vehicle 1's assertion failed).
+  astra::LoadedPlugin gravity_loaded = loader.load("plugins/physical/gravity/constant");
+  auto* const gravity = dynamic_cast<astra::GravityModel*>(gravity_loaded.model.get());
+  astra::SignalRegistry gravity_registry;
+  gravity->init(Config::from_string("{ g: 0.0 }\n", "gravity-constant-fixture"), gravity_registry);
+  const Vehicle::ModelSpec mass_spec{
+      "plugins/physical/mass/constant",
+      Config::from_string("{ mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 }\n", "mass-fixture"), 1};
+
+  const std::array<StateVector, 2> initial_states{state_with_p_n_north(0.0),
+                                                  state_with_p_n_north(1000.0)};
+  const std::vector<Vehicle::ModelSpec> models{Vehicle::ModelSpec{
+      "tests/plugins/wind_consumer", Config::from_string("{}\n", "wind-consumer-fixture"), 1}};
+  Simulation sim =
+      Simulation::for_testing(loader, initial_states, models, wind, earth, gravity, &mass_spec);
+  EXPECT_FALSE(sim.step());
+
+  // component 1 (east) of counting_wind's wind_n carries the p_n north value begin_frame last saw
+  // for the SAME vehicle wind_n is then evaluated for (counting_wind.cpp's own header comment) --
+  // if both vehicles' WrenchSources recorded the same value, that would mean the same
+  // EnvironmentSample reached both, rather than each vehicle sampled against its own state.
+  const double* v0_east = sim.registry().find("v0.wind_consumer.wind_n_east");
+  const double* v1_east = sim.registry().find("v1.wind_consumer.wind_n_east");
+  ASSERT_NE(v0_east, nullptr);
+  ASSERT_NE(v1_east, nullptr);
+  EXPECT_DOUBLE_EQ(*v0_east, 0.0);
+  EXPECT_DOUBLE_EQ(*v1_east, 1000.0);
+}
+
+// D4: the guard from_config runs after building its vehicles (currently unreachable in
+// production, since from_config always builds exactly one) is exercised here through
+// Simulation::for_testing instead, the same check_wind_shareable call, same ConfigError.
+TEST(WindMultiVehicle, RejectsMoreThanOneVehicleWithANonShareableWindModel) {
+  MinimalWind wind;  // leaves shareable_across_vehicles() at the default: false
+  const astra::PluginLoader loader{ASTRA_TEST_PLUGIN_DIR};
+  const std::array<StateVector, 2> initial_states{StateVector::Zero(), StateVector::Zero()};
+  // earth may be null here: the guard throws before Simulation::step could ever dereference it.
+  try {
+    static_cast<void>(Simulation::for_testing(loader, initial_states, {}, &wind, nullptr));
+    FAIL() << "expected ConfigError";
+  } catch (const ConfigError& error) {
+    EXPECT_EQ(error.config_path(), "physical.wind");
+  }
 }
 
 }  // namespace

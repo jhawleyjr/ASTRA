@@ -14,6 +14,17 @@ struct EnvironmentSample {
   // convention). Zero when no physical.wind is configured: still air is the correct default, and a
   // WrenchSource that cannot accept it declares EnvironmentRequirements::wind and is rejected at
   // init instead (wrench_source.hpp) -- never a silent zero read by a model that needed real wind.
+  //
+  // Known gap, disclosed not fixed (Cowork review, M2 PR 2, post-merge-ready; PLAN.md's M2 PR 2 and
+  // PR 3 lines), the same shape as AtmoState's own disclosed gap (atmosphere_model.hpp): a
+  // WindModel that returns a NaN wind_n (e.g. an out-of-domain internal state PR 2b's dryden could
+  // reach) is not itself checked -- HealthMonitor has no environment check, only check_wrench and
+  // check_state. A WrenchSource that reads this NaN into a force/moment does make it visible, via
+  // check_wrench, but check_wrench names the WRENCH's source (the consuming WrenchSource's plugin
+  // path), never the wind plugin that actually produced the NaN -- contrary to §15's "with the
+  // offending plugin named." PR 3's drag WrenchSource is the first thing that can carry such a NaN
+  // into the EOM. A correct fix is the same new per-frame domain-validity HealthMonitor capability
+  // PR 1/1b already deferred for AtmoState, not a second bolt-on here.
   Eigen::Vector3d wind_n = Eigen::Vector3d::Zero();
 
   // All-NaN by default (AtmoState's own designed default, atmosphere_model.hpp). NEVER populated in

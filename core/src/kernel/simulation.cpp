@@ -2,8 +2,10 @@
 
 #include <Eigen/Core>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -106,6 +108,41 @@ void check_position_representation(PositionRepresentation assumed, PositionRepre
                         ") does not provide");
 }
 
+// ADR-0011: "nothing may assume there will only ever be one [vehicle]," and environment models are
+// shared across whatever vehicles exist -- a WindModel that has not declared itself safe to share
+// (shareable_across_vehicles(), wind_model.hpp) must not silently run under more than one. Shared
+// by from_config (currently always exactly one vehicle, so unreachable there in production) and
+// Simulation::for_testing below, the only way this guard can actually be exercised today (Cowork
+// review, post-merge-ready: it had no way to be exercised at all before for_testing existed).
+// config_origin names whatever document or fixture is asking; from_config passes its own config's
+// origin(), for_testing a literal fixture description.
+void check_wind_shareable(WindModel* wind, std::size_t vehicle_count,
+                          const std::string& wind_plugin_path, std::string_view config_origin) {
+  if (wind != nullptr && vehicle_count > 1 && !wind->shareable_across_vehicles()) {
+    throw ConfigError(config_origin, "physical.wind",
+                      wind_plugin_path + " is not safe to share across more than one vehicle");
+  }
+}
+
+// physical.atmosphere and physical.wind are both sampled into EnvironmentSample every major frame
+// by Simulation::step (see its own comment), regardless of either model's own scheduler divisor --
+// so a divisor other than 1 on either slot would silently desynchronize step()'s per-frame sampling
+// from what the model's own step() last computed. No defined hold contract exists for that yet, so
+// both slots reject it rather than each inventing (or, worse, disagreeing on) an answer under
+// review pressure. Stated once here, shared by load_atmosphere and load_wind below, precisely so
+// the two slots cannot drift apart the way they once did (Cowork review, post-merge-ready:
+// load_atmosphere had no such check at all, though load_wind already did -- an omission that would
+// have applied to atmosphere too the moment PR 3 starts sampling it into EnvironmentSample, per
+// exactly this reasoning).
+void check_sampled_every_frame(const Vehicle::ModelSpec& spec) {
+  if (spec.divisor != 1) {
+    const std::string path =
+        spec.config.path().empty() ? "divisor" : spec.config.path() + ".divisor";
+    throw ConfigError(spec.config.origin(), path,
+                      spec.config.path() + " must run every major frame (divisor 1)");
+  }
+}
+
 // physical.atmosphere (M2 PR 1b): optional, no position-representation check (see
 // check_position_representation's comment above), not part of Vehicle::PhysicsSpec -- the EOM has
 // no atmosphere input; PR 3's drag WrenchSource is the first consumer. Factored out alongside
@@ -119,6 +156,7 @@ LoadedAtmosphere load_atmosphere(const PluginLoader& loader, const Config& physi
     return {};
   }
   const Vehicle::ModelSpec atmosphere_spec = resolve_model_spec(physical.at("atmosphere"));
+  check_sampled_every_frame(atmosphere_spec);
   LoadedPlugin atmosphere_loaded = load_environment_model(loader, atmosphere_spec, registry);
   auto* const atmosphere = dynamic_cast<AtmosphereModel*>(atmosphere_loaded.model.get());
   if (atmosphere == nullptr) {
@@ -137,13 +175,14 @@ struct LoadedWind {
   std::string plugin_path;
 };
 
-// physical.wind (M2 PR 2): resolves, validates the divisor, loads, checks position-representation
-// compatibility against the configured Earth model (see check_position_representation's own
-// comment above for why wind takes this check, unlike atmosphere), and registers one WindModel
-// with the scheduler. Factored out of from_config (clang-tidy's
-// readability-function-cognitive-complexity threshold) rather than inlined like the required
-// earth/gravity/mass slots -- this is the one optional slot with enough of its own logic to earn a
-// name. Returns a default LoadedWind{nullptr, ""} when physical.wind is absent.
+// physical.wind (M2 PR 2): resolves, validates the divisor (check_sampled_every_frame above --
+// shared with load_atmosphere, not a second copy of the same reasoning), loads, checks position-
+// representation compatibility against the configured Earth model (see
+// check_position_representation's own comment above for why wind takes this check, unlike
+// atmosphere), and registers one WindModel with the scheduler. Factored out of from_config
+// (clang-tidy's readability-function-cognitive-complexity threshold) rather than inlined like the
+// required earth/gravity/mass slots -- this is the one optional slot with enough of its own logic
+// to earn a name. Returns a default LoadedWind{nullptr, ""} when physical.wind is absent.
 LoadedWind load_wind(const PluginLoader& loader, const Config& physical, EarthModel& earth,
                      const Vehicle::ModelSpec& earth_spec, Scheduler& scheduler,
                      std::vector<LoadedPlugin>& plugins, SignalRegistry& registry) {
@@ -151,16 +190,7 @@ LoadedWind load_wind(const PluginLoader& loader, const Config& physical, EarthMo
     return {};
   }
   const Vehicle::ModelSpec wind_spec = resolve_model_spec(physical.at("wind"));
-  // begin_frame/wind_n are sampled every frame by Simulation::step regardless of this model's own
-  // scheduler divisor, so a divisor other than 1 would silently desynchronize step()'s own
-  // evolution from what is read every frame. No defined hold contract exists for that yet, so it
-  // is rejected rather than designed under review pressure.
-  if (wind_spec.divisor != 1) {
-    const std::string path =
-        wind_spec.config.path().empty() ? "divisor" : wind_spec.config.path() + ".divisor";
-    throw ConfigError(wind_spec.config.origin(), path,
-                      "physical.wind must run every major frame (divisor 1)");
-  }
+  check_sampled_every_frame(wind_spec);
   LoadedPlugin wind_loaded = load_environment_model(loader, wind_spec, registry);
   auto* const wind = dynamic_cast<WindModel*>(wind_loaded.model.get());
   if (wind == nullptr) {
@@ -340,16 +370,10 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
 
   sim.vehicles_.push_back(std::move(vehicle));
 
-  // ADR-0011: "nothing may assume there will only ever be one [vehicle]," and environment models
-  // are shared across whatever vehicles exist. Checked here so it composes correctly once
-  // from_config loops over more than one vehicle spec -- currently unreachable (exactly one Vehicle
-  // is ever constructed above), so this is verified only at the predicate level
-  // (WindModel::shareable_across_vehicles, tests/unit/wind/wind_test.cpp), not through a config
-  // that can actually trigger it.
-  if (wind != nullptr && sim.vehicles_.size() > 1 && !wind->shareable_across_vehicles()) {
-    throw ConfigError(config.origin(), "physical.wind",
-                      wind_plugin_path + " is not safe to share across more than one vehicle");
-  }
+  // Checked here so it composes correctly once from_config loops over more than one vehicle spec
+  // -- currently unreachable in production (exactly one Vehicle is ever constructed above); see
+  // check_wind_shareable's own comment for how it is actually exercised (Simulation::for_testing).
+  check_wind_shareable(wind, sim.vehicles_.size(), wind_plugin_path, config.origin());
 
   // Before freeze(): HealthMonitor::init registers "health.nan" / "health.quaternion" /
   // "health.max_q_drift", and SignalRegistry::add throws once frozen.
@@ -363,6 +387,47 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
     throw ConfigError(config.origin(), unknown.front(),
                       "unknown config key (docs/architecture.md §15: unknown keys are errors)");
   }
+  return sim;
+}
+
+Simulation Simulation::for_testing(const PluginLoader& loader,
+                                   std::span<const StateVector> initial_states,
+                                   const std::vector<Vehicle::ModelSpec>& models, WindModel* wind,
+                                   EarthModel* earth, GravityModel* gravity,
+                                   const Vehicle::ModelSpec* mass_spec) {
+  Simulation sim;
+  sim.wind_ = wind;
+  sim.earth_ = earth;
+  if (wind != nullptr) {
+    sim.environment_scheduler_.add(*wind);
+  }
+  const bool has_physics = gravity != nullptr && mass_spec != nullptr;
+  std::uint32_t index = 0;
+  for (const StateVector& initial_state : initial_states) {
+    Vehicle vehicle(index, "v" + std::to_string(index));
+    if (has_physics) {
+      // Constructed fresh per vehicle (mass is loaded fresh from mass_spec inside Vehicle::init,
+      // exactly as from_config's own single vehicle gets its own mass model) rather than hoisted
+      // out of the loop, since Vehicle::PhysicsSpec has no default constructor to hoist it past.
+      const Vehicle::PhysicsSpec physics_spec{*mass_spec, earth, gravity};
+      vehicle.init(loader, models, sim.registry_, &physics_spec,
+                   Vehicle::EnvironmentAvailability{wind != nullptr});
+    } else {
+      vehicle.init(loader, models, sim.registry_, nullptr,
+                   Vehicle::EnvironmentAvailability{wind != nullptr});
+    }
+    vehicle.state() = initial_state;
+    sim.vehicles_.push_back(std::move(vehicle));
+    ++index;
+  }
+
+  // Same guard, same call shape, as from_config's own (check_wind_shareable's own comment) --
+  // this is the only way it is exercised today.
+  check_wind_shareable(wind, sim.vehicles_.size(), "for_testing's wind", "Simulation::for_testing");
+
+  sim.health_ = std::make_unique<HealthMonitor>();
+  sim.health_->init(Config::from_string("{}\n", "Simulation::for_testing"), sim.registry_);
+  sim.registry_.freeze();
   return sim;
 }
 

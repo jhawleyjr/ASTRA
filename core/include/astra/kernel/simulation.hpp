@@ -36,6 +36,33 @@ class Simulation {
   [[nodiscard]] static Simulation from_config(const Config& config,
                                               std::filesystem::path plugin_dir);
 
+  // Test-only: builds a Simulation with one Vehicle per entry of initial_states (index i, name
+  // "v<i>"), each carrying the same models list (docs/architecture.md §13's vehicle.models schema)
+  // and wired to wind/earth the same way from_config wires the single vehicle it ever builds --
+  // including running the same shareability guard from_config runs after building its vehicles
+  // (may throw ConfigError the same way). Exists because ADR-0011 keeps v1's from_config to exactly
+  // one vehicle by design (multi-vehicle configs are a v2 idea): the multi-vehicle call contract
+  // §7/D1/D4 make (begin_frame/wind_n once per vehicle per frame, against THAT vehicle's own state;
+  // the shareability guard) had no way to be exercised at all otherwise (Cowork review, post-merge-
+  // ready). Never called by from_config; does not change what from_config itself does with a real
+  // config. wind/earth may be null (matching physical.wind/physical.earth both being absent); a
+  // non-null wind with a null earth is a caller error (Simulation::step would then dereference a
+  // null earth_ -- the same invariant from_config's own wiring already relies on).
+  //
+  // gravity/mass_spec default to null (no physics, matching a config with no "physical" section):
+  // Vehicle::integrate is then a no-op, and NO WrenchSource is ever called at all (it is gated on
+  // eom_.has_value(), core/src/kernel/vehicle.cpp), the same as from_config's own physics-off path.
+  // A test needing a WrenchSource actually invoked (e.g. to check what EnvironmentSample it
+  // received) must supply both, mirroring Vehicle::PhysicsSpec exactly (mass is loaded fresh per
+  // vehicle from mass_spec, the same way from_config's own single vehicle gets its own mass model;
+  // gravity, like earth and wind, is shared across every vehicle here).
+  [[nodiscard]] static Simulation for_testing(const PluginLoader& loader,
+                                              std::span<const StateVector> initial_states,
+                                              const std::vector<Vehicle::ModelSpec>& models,
+                                              WindModel* wind, EarthModel* earth,
+                                              GravityModel* gravity = nullptr,
+                                              const Vehicle::ModelSpec* mass_spec = nullptr);
+
   // Advances exactly one major frame: docs/architecture.md §5's order -- environment models,
   // vehicle models, then (when physics is configured) each vehicle's wrench accumulation, EOM
   // derivative, integrator step, and post-step renormalize, health-checked throughout (PLAN.md M1

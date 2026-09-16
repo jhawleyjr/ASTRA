@@ -111,10 +111,24 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         all. Fixed before merge: `begin_frame` takes an explicit Earth-derived `altitude_m`
         (`EarthModel::altitude(vs)`, computed in `Simulation::step`, which is why `Simulation` now also
         holds a non-owning `EarthModel*` alongside `WindModel*`), so no `WindModel` ever reads `vs.p_n()`
-        for altitude. Also caught and fixed: the `WrenchSource` ABI change (`requires_environment()` added,
-        `wrench_b`'s signature changed) needed `kCoreApiVersion` bumped (1 -> 2, `core_api.hpp.in`) so a
-        stale out-of-tree plugin is rejected at load rather than dispatched through a vtable slot it does
-        not have. `physical.wind` is optional, like
+        for altitude -- this is also this PR's own **Known gap, disclosed not fixed**: it is the first
+        per-frame caller of `EarthModel::altitude()` (`origin/main`'s only caller was the init-time
+        `physical.atmosphere` `valid_range()` check); PR 1's/PR 1b's disclosed per-frame domain-validity
+        gap (initial state validated, not every frame) was written before `altitude()` had any per-frame
+        caller, and now does, with a `WindModel` (from PR 2b, `dryden`) reading that per-frame value. The
+        decision PR 1b deferred is re-accepted knowingly here, not silently inherited (Cowork review,
+        post-merge-ready) -- see PR 2b's line for the consequence. Also caught and fixed: the
+        `WrenchSource` ABI change (`requires_environment()` added, `wrench_b`'s signature changed) needed
+        `kCoreApiVersion` bumped 1 -> 2 (`core_api.hpp.in`) so a stale out-of-tree plugin is rejected at
+        load rather than dispatched through a vtable slot it does not have, bumped again 2 -> 3 once
+        `WindModel`'s own vtable settled after two further adversarial-review rounds. **Second known gap,
+        disclosed not fixed** (Cowork review, post-merge-ready): `HealthMonitor` has no environment check
+        (only `check_wrench`/`check_state`), so a `WindModel` returning a NaN `wind_n` reaches a
+        `WrenchSource` through `EnvironmentSample` and halts naming the *consumer's* plugin path, not the
+        wind plugin that produced the NaN -- contrary to §15's "with the offending plugin named", the
+        same shape as `AtmoState`'s own disclosed gap (PR 1b). Disclosed in `environment_sample.hpp`'s
+        `wind_n` field comment; see PR 3's line, whose drag `WrenchSource` is the first thing that can
+        carry such a NaN into the EOM. `physical.wind` is optional, like
         `physical.atmosphere`; rejects a `divisor` other than 1 (`begin_frame`/`wind_n` are sampled every
         frame by `Simulation::step` regardless of the model's own scheduler divisor, and no hold contract
         exists yet for a coarser rate). `Vehicle::init` rejects a `WrenchSource` whose
@@ -152,15 +166,19 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         transforms per `AGENTS.md` -- `std::normal_distribution` is unspecified across libstdc++/libc++)
         and `plugins/physical/wind/dryden` (MIL-F-8785C scale lengths and intensities), built on PR 2's
         `begin_frame`/`wind_n` split: `step()` draws the frame's RNG samples (scheduler-driven, consumer-
-        count-independent, §2); `begin_frame(ctx, vs)` advances the shaping filter using the vehicle's
-        REAL per-frame true airspeed and altitude from `vs` -- not a configured nominal -- which is the
-        entire reason `begin_frame` takes a `VehicleState`. Consequence, decided here rather than left to
-        discover mid-PR: MIL-F-8785C's PSD is a stationary-process spectrum, meaningful only at fixed `V`
-        and `h`, so the PSD acceptance test must drive `begin_frame`/`wind_n` with a synthetic,
-        held-constant `VehicleState` across its sample count, never a real trajectory. Reuses PR 2's
-        bitwise determinism harness (`tests/unit/wind/wind_determinism_test.cpp`) against `dryden`, where
+        count-independent, §2); `begin_frame(ctx, vs, altitude_m)` advances the shaping filter using the
+        vehicle's REAL per-frame true airspeed (from `vs`) and altitude (`altitude_m`, Earth-derived, never
+        read from `vs.p_n()` -- PR 2's own disclosed representation fix) -- not a configured nominal --
+        which is the entire reason `begin_frame` takes a `VehicleState` at all. Consequence, decided here
+        rather than left to discover mid-PR: MIL-F-8785C's PSD is a stationary-process spectrum, meaningful
+        only at fixed `V` and `h`, so the PSD acceptance test must drive `begin_frame`/`wind_n` with a
+        synthetic, held-constant `VehicleState` across its sample count, never a real trajectory. Reuses PR
+        2's bitwise determinism harness (`tests/unit/wind/wind_determinism_test.cpp`) against `dryden`, where
         a mismatch is diagnostic of a real bug rather than trivially passing (PR 2 shipped it against
-        `uniform`, a constant model, as plumbing coverage only). Accept: Dryden PSD matches the
+        `uniform`, a constant model, as plumbing coverage only). **Inherits PR 2's disclosed per-frame
+        `EarthModel::altitude()` domain-validity gap**: `altitude_m` is `dryden`'s own coefficient input,
+        read every frame from a `p_n` that is not re-validated per frame (PR 1's/PR 1b's gap, re-accepted
+        knowingly by PR 2, not fixed here either). Accept: Dryden PSD matches the
         MIL-F-8785C spec within statistical bounds at a fixed seed (docs/architecture.md §16's M2 row);
         two same-seed runs are bitwise identical on the gust sequence and the registry snapshot, and
         across `reset()`.
@@ -175,7 +193,10 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         `uniform` nor `dryden` produces a commanded time-varying mean -- choose between a
         `plugins/physical/wind/table` plugin and a `tests/plugins/` one. `WrenchSource::wrench_b` needs its own
         `StepContext` latch (`step()`, mirroring `tests/plugins/nan_wrench`'s existing pattern) to hand `wind_n`
-        one, since `wrench_b(vs, env)` itself carries none. Reference trajectories
+        one, since `wrench_b(vs, env)` itself carries none. **Also the first thing that can carry a NaN
+        `wind_n` into the EOM** (PR 2's disclosed gap: `HealthMonitor` has no environment check, so a NaN
+        reaching a `WrenchSource` via `EnvironmentSample` halts naming the consumer, not the wind plugin),
+        the same way it already is for a NaN `AtmoState`. Reference trajectories
         and per-channel tolerances under `tests/golden/nesc/` are human-owned: Joe places NASA's TM-2015-218675 data
         files and reads the proposed tolerances with the guard lifted (PR 1's case 1 already shows the report itself
         publishes no fixed tolerance, only initial conditions — decide per case whether an independent integration
