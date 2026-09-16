@@ -1,46 +1,112 @@
-# CI: `just check` on every pull request (docs/process/workflow.md §Verification, ADR-0000 row "CI").
-# The job is named `check`; the main ruleset (.github/rulesets/main.json) requires it before a merge.
+# CI for pull requests (docs/process/workflow.md §Verification, ADR-0000 row "CI"). The job is named
+# `check`; the main ruleset (.github/rulesets/main.json) requires it before a merge, so this job must
+# always report, even when it deliberately runs nothing.
+#
+# GATE is the one knob.
+#
+#   local (current, M2-M3)  The authoritative gate is `just check` on Joe's machine, run once after the
+#                           task and before the push. CI runs only what the local gate cannot cover as
+#                           cheaply -- today that is nothing but the hook cases -- and says so in the run
+#                           summary. A green `check` here means "not tested in CI", not "tested".
+#   full                    CI runs `just check` itself, the original arrangement.
+#
+# Why local, decided 2026-09-16: `ctest` is ~556 s real per preset (the 7 `physics` tests are ~95% of
+# it; the 134 `unit` tests are 7 s), so four presets is ~37 minutes of tests per run. That overran the
+# job timeout and does not fit the 2,000-minute monthly allowance while the same tree is already tested
+# locally on every task. Nothing about the tree is less verified -- the gate moved, it did not go away.
+#
+# Before flipping to full: run the `physics`-labelled tests under the asan preset only and
+# `ctest -LE physics` under the other three. That is ~28 of the ~37 minutes, and asan is the preset
+# most likely to catch a physics bug the others would not.
 name: check
 
 on:
   pull_request:
-  workflow_dispatch:   # no push-to-main run: main is protected, so the PR run already tested this tree
+    # Deliberately not `synchronize`: open the PR as a draft (`gh pr create --draft`), push as often as
+    # you like for free, then `gh pr ready` fires exactly one run against the final tree. A push after
+    # that leaves the new head SHA without a `check`, so the merge blocks until
+    # `gh pr ready --undo && gh pr ready` re-runs it -- the merged SHA is always the tested one.
+    types: [opened, reopened, ready_for_review]
+  workflow_dispatch:
 
 concurrency:
   group: check-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  GATE: local # "local" | "full" -- see the header
+
 jobs:
   check:
     name: check
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      # A docs-only PR still needs the required `check` status, so the job runs but skips the gate.
-      # Allow-list of what counts as docs; anything else (code, configs, hooks, justfile) builds.
-      - name: Scope (docs-only PRs skip the gate)
+      # Two questions, not one: does this diff touch anything the gate would build, and does it touch
+      # the hooks (whose only real test is the case runner, which needs no build at all)?
+      - name: Scope
         id: scope
         run: |
-          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" \
-               | grep -vqE '^(docs/|\.github/workflows/|README\.md$|STATE\.md$|PLAN\.md$|LICENSE$)'; then
-            echo "build=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "build=false" >> "$GITHUB_OUTPUT"
-            echo "docs-only PR: gate skipped"
+          base_ref="${{ github.base_ref }}"
+          [ -n "$base_ref" ] || base_ref=main
+          git fetch -q --no-tags origin "$base_ref"
+          changed=$(git diff --name-only "$(git rev-parse FETCH_HEAD)...HEAD")
+          printf 'changed files:\n%s\n' "$changed"
+          code=false
+          hooks=false
+          if printf '%s\n' "$changed" \
+               | grep -qvE '^(docs/|\.github/|\.claude/|README\.md$|STATE\.md$|PLAN\.md$|LICENSE$)'; then
+            code=true
           fi
+          if printf '%s\n' "$changed" | grep -qE '^\.claude/(hooks/|settings\.json$)'; then
+            hooks=true
+          fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "hooks=$hooks" >> "$GITHUB_OUTPUT"
+
+      # `just` alone, not scripts/setup-ubuntu.sh: the case runner needs the binary for its busy-tree
+      # case and nothing else, so this is seconds rather than the full clang/Eigen/yaml-cpp toolchain.
+      - name: "Hook cases: just hooks-test"
+        if: steps.scope.outputs.hooks == 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq just
+          just hooks-test
 
       - name: "Toolchain: scripts/setup-ubuntu.sh --ci (the one apt list, shared with the developer setup)"
-        if: steps.scope.outputs.build == 'true'
+        if: env.GATE == 'full' && steps.scope.outputs.code == 'true'
         run: ./scripts/setup-ubuntu.sh --ci
 
       - name: Let ASan map its shadow under the runner kernel's ASLR entropy
-        if: steps.scope.outputs.build == 'true'
+        if: env.GATE == 'full' && steps.scope.outputs.code == 'true'
         run: sudo sysctl -w vm.mmap_rnd_bits=28
 
       - name: just check
-        if: steps.scope.outputs.build == 'true'
+        if: env.GATE == 'full' && steps.scope.outputs.code == 'true'
         run: just check
+
+      # Always last, so the run summary states what this green check actually means. A `check` that
+      # passed without running the gate must never read as one that ran it.
+      - name: Say what was run
+        if: always()
+        run: |
+          {
+            echo "### check: GATE=${GATE}"
+            if [ "$GATE" = full ]; then
+              if [ "${{ steps.scope.outputs.code }}" = true ]; then
+                echo "- \`just check\` ran here: this tree is verified by CI."
+              else
+                echo "- No buildable file changed; the gate was skipped."
+              fi
+            else
+              echo "- **The gate did NOT run in CI.** The authoritative result is \`just check\` on Joe's"
+              echo "  machine, run once after the task and before the push (workflow.md §Verification)."
+              echo "- A green \`check\` on this PR means the ruleset is satisfied, not that CI tested the tree."
+            fi
+            [ "${{ steps.scope.outputs.hooks }}" = true ] && echo "- Hook cases ran (\`just hooks-test\`)."
+            true
+          } >> "$GITHUB_STEP_SUMMARY"
