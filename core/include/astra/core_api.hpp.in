@@ -7,7 +7,10 @@ namespace astra {
 
 // Bumped by hand whenever the plugin-facing ABI (Model, PluginDescriptor, StepContext) changes. A plugin
 // whose descriptor carries a different value is rejected at load with a typed error (ADR-0009).
-inline constexpr std::uint32_t kCoreApiVersion = 1;
+// 2 (M2 PR 2): WrenchSource gained requires_environment() and wrench_b's signature changed, both
+// changing WrenchSource's vtable layout -- an out-of-tree plugin built against version 1 must be
+// rejected, not dispatched through a vtable slot it does not have (Codex review).
+inline constexpr std::uint32_t kCoreApiVersion = 2;
 
 // The toolchain and configuration this tree was configured with. A plugin built by a different configure
 // carries a different string and is rejected at load; it can only come from a stale build directory.
