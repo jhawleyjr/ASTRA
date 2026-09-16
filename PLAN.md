@@ -72,7 +72,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         review pressure at the tail of an already-large PR; (c) it is disclosed here and in round.cpp's comment, not
         hidden. Joe's call whether this blocks the merge; close it before any milestone flies a trajectory that can
         realistically approach a pole (not M2's drop-test scenarios) — plan-reviewed like M1's EOM and health monitor.
-  - [ ] PR 1b — `AtmosphereModel` + `plugins/physical/atmosphere/isa1976` (declares its valid altitude range
+  - [x] PR 1b — `AtmosphereModel` + `plugins/physical/atmosphere/isa1976` (declares its valid altitude range
         `[-5000, 86000]` m geometric; §15's pre-run "altitude inside the atmosphere's range" check joins
         `Simulation::from_config` beside PR 1's `validate_p_n` calls, not `HealthMonitor::init` -- that class only
         parses `sim.health` and registers signals). `physical.atmosphere` is optional, unlike the three required
