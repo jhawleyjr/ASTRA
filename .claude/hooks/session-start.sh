@@ -28,6 +28,7 @@ echo; echo "--- PLAN.md: unchecked items ---"; grep -E '^\s*- \[ \]' PLAN.md 2>/
 echo; echo "--- gate ---"
 if [ -f justfile ]; then echo "justfile present: 'just check' is the gate; it runs once, after the work."
 else echo "No justfile yet (pre-PR 2): there is nothing to run."; fi
-[ -e .claude/touch-goldens ] && echo "Oracle guard LIFTED for this session (.claude/touch-goldens present)."
+# The marker cannot be checked here: the SessionStart hook that deletes it runs in this same event.
+[ "${ASTRA_TOUCH_GOLDENS:-0}" = "1" ] && echo "Oracle guard LIFTED for this session (ASTRA_TOUCH_GOLDENS=1)."
 echo "Read CLAUDE.md conventions before writing code; ADRs in docs/decisions/ are immutable."
 exit 0

@@ -1,0 +1,18 @@
+# PLAN.md M2 PR 1 acceptance: round non-rotating drop vs. the inverse-square closed form. Released
+# from rest at 5000 m above earth/round's default sphere (radius 6371000 m, matching
+# gravity/inverse_square's own default -- so the two plugins describe the same sphere without an
+# explicit override). Purely radial: lat = lon = 0, v_b = omega_b = 0, so the fall never touches the
+# polar singularity and the closed form (tests/physics/round_earth_drop_test.cpp) needs no
+# horizontal terms. 25 s stays well clear of the ground (closed form: ~32 s to reach h = 0).
+sim:
+  dt: 0.001
+  frames: 25000
+vehicle:
+  models: []
+physical:
+  earth: plugins/physical/earth/round
+  gravity: plugins/physical/gravity/inverse_square
+  mass: { plugin: plugins/physical/mass/constant, mass: 1.0, ixx: 1.0, iyy: 1.0, izz: 1.0 }
+initial:
+  state:
+    p_n: [0.0, 0.0, 5000.0]

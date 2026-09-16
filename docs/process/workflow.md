@@ -61,7 +61,7 @@ One command, **`just check`** (`just` from apt, with CMake presets underneath fo
 Wiring, all deterministic and cheap:
 
 - **Stop hook** runs the fast subset (build + unit tests) and blocks the turn from ending until it passes. Claude Code caps this at 8 consecutive blocks, which is the right amount of stubbornness.
-- **PreToolUse hook** denies edits to `tests/golden/**`, tolerance files, and `docs/decisions/**` unless Joe ran `touch .claude/touch-goldens` before opening the session. This is the one hard precondition in the whole design, and it tests the thing that actually matters: *the oracle does not move without a human deciding it should.* Widened tolerance, narrowed comparison, regenerated golden, or a deleted/weakened test is always a blocking review finding.
+- **PreToolUse hook** denies edits to `tests/golden/**`, tolerance files, and `docs/decisions/**` unless Joe lifts it: `ASTRA_TOUCH_GOLDENS=1` in the session's environment, or `touch .claude/touch-goldens` while the session runs (the SessionStart hook deletes the marker, so a lifted guard never carries into the next session). This is the one hard precondition in the whole design, and it tests the thing that actually matters: *the oracle does not move without a human deciding it should.* Widened tolerance, narrowed comparison, regenerated golden, or a deleted/weakened test is always a blocking review finding.
 - **`/goal`** for unattended runs: "all tests in `tests/physics/` pass and `just check` exits 0, or stop after 20 turns."
 - **CI**: GitHub Actions runs `just check` on every pull request on an `ubuntu-24.04` runner; `main` is protected and requires it.
 

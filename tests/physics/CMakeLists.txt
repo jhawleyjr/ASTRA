@@ -11,12 +11,17 @@
 add_executable(astra_physics_tests
   ../support/alloc_counter.cpp
   ballistic_test.cpp
+  nesc_case1_test.cpp
   no_alloc_test.cpp
   precession_test.cpp
+  round_earth_drop_test.cpp
   torque_free_test.cpp)
 target_link_libraries(astra_physics_tests PRIVATE astra::core GTest::gtest_main)
 target_compile_definitions(astra_physics_tests PRIVATE
   "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""
   "ASTRA_TEST_CONFIG_DIR=\"${ASTRA_SOURCE_DIR}/tests/configs\"")
+# nesc_case1_test.cpp includes tests/golden/nesc/case1_dragless_sphere.hpp (human-owned) as
+# "golden/nesc/case1_dragless_sphere.hpp", the astra_frames_test pattern.
+target_include_directories(astra_physics_tests PRIVATE "${ASTRA_SOURCE_DIR}/tests")
 gtest_discover_tests(astra_physics_tests TEST_PREFIX "physics." DISCOVERY_MODE PRE_TEST
                      PROPERTIES LABELS physics)

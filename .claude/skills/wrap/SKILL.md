@@ -14,7 +14,10 @@ invoke it. Do these in order; each is a file or a command, not a conversation.
    `## Next step` (the next unchecked PLAN.md item and any precondition on Joe's machine),
    `## Tried / failed` ("tried X, failed because Y", or "Nothing yet"), and the `## Honesty rules` block
    copied verbatim from the current file.
-2. **PLAN.md** — tick the item this PR completes only if its acceptance passed; otherwise leave it.
+2. **PLAN.md** — tick the item this PR completes only if its acceptance passed; otherwise leave it. If that tick
+   completes a `**M<n>**` milestone line, tick it too, and the next step is the milestone retro, not the next
+   milestone's first PR: STATE.md's `## Next step` says "M<n> retro (Joe: `/retro` in Claude Code or `/astra-retro`
+   in Cowork) before M<n+1> planning", and step 6 prints that instead of a worktree opener.
 3. **docs/lessons.md** — append one entry per thing that actually bit (numerical, build, or tooling), dated,
    newest at the bottom. Never rewrite an old entry. If a lesson became a rule, say where. Nothing bit: no entry.
 4. **Branch and PR** — `git status` clean, branch pushed, `gh pr status` shows the PR open with a body that

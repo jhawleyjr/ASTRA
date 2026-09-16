@@ -1,0 +1,19 @@
+# NASA/TM-2015-218675 Volume II Table 25, atmospheric check-case 1 ("dragless sphere"): WGS-84
+# rotating geodesy, J2 gravitation, no drag -- no wrench source at all (CD = 0 per the report).
+# Initial position 30,000 ft (9144.0 m) MSL over the Equator/Prime Meridian intersection; velocity
+# zero relative to the rotating Earth (v_b = 0); level attitude (euler_nb absent -> identity);
+# ZERO INERTIAL ROTATION, so omega_b = 0 (see tests/golden/nesc/case1_dragless_sphere.hpp for why
+# the report's own tabulated -0.004178073 deg/s is not this value). Duration 30 s at the sim's
+# standard 1 ms frame.
+sim:
+  dt: 0.001
+  frames: 30000
+vehicle:
+  models: []
+physical:
+  earth: plugins/physical/earth/wgs84_rotating
+  gravity: plugins/physical/gravity/wgs84_j2
+  mass: { plugin: plugins/physical/mass/constant, mass: 1.0, ixx: 1.0, iyy: 1.0, izz: 1.0 }
+initial:
+  state:
+    p_n: [0.0, 0.0, 9144.0]

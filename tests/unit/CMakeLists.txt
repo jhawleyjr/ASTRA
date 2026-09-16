@@ -1,6 +1,8 @@
 # The GoogleTest unit suite: fast, run by every preset and by the Stop hook (.claude/hooks/stop-check.sh).
 add_executable(astra_unit_tests
   config/config_test.cpp
+  earth/earth_kinematics_test.cpp
+  gravity/wgs84_j2_test.cpp
   health/health_monitor_test.cpp
   icd/icd_test.cpp
   kernel/clock_test.cpp
@@ -12,7 +14,8 @@ add_executable(astra_unit_tests
   kernel/vehicle_state_test.cpp
   plugin/load_all_test.cpp
   plugin/loader_test.cpp
-  signals/signal_registry_test.cpp)
+  signals/signal_registry_test.cpp
+  util/geodesy_test.cpp)
 target_link_libraries(astra_unit_tests PRIVATE astra::core GTest::gtest_main)
 target_compile_definitions(astra_unit_tests PRIVATE
   "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""
