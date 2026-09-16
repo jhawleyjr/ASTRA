@@ -414,6 +414,20 @@ Simulation Simulation::for_testing(const PluginLoader& loader,
         "Simulation::for_testing: gravity and mass_spec require a non-null earth too, mirroring "
         "Vehicle::PhysicsSpec's third required field");
   }
+  // A second re-run of adversarial review (same round) reclassified this one: not the same
+  // domain-validity shape as check_position_representation/validate_p_n/the atmosphere valid_range
+  // check above (a plausible-but-wrong answer that needs a real trajectory to observe), but the
+  // same crash shape as the gravity/mass_spec/earth check just above -- Simulation::step's wind
+  // branch dereferences earth_ unconditionally whenever wind_ is non-null (earth_->altitude(vs)
+  // below), and that branch runs inside step()'s own noexcept, so a null earth_ here is UB
+  // reachable with a single vehicle, not just through the D4 shareability guard's multi-vehicle
+  // path. Enforced, not merely disclosed, for that reason -- the doc comment above previously
+  // argued otherwise from a stale analogy and has been corrected alongside this.
+  if (wind != nullptr && earth == nullptr) {
+    throw Error(
+        "Simulation::for_testing: a non-null wind requires a non-null earth (begin_frame's "
+        "Earth-derived altitude_m, computed in Simulation::step)");
+  }
   Simulation sim;
   sim.frames_ = frames;
   sim.wind_ = wind;

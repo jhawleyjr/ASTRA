@@ -527,13 +527,39 @@ TEST(WindMultiVehicle, EachVehicleWrenchSourceReceivesItsOwnEnvironmentSample) {
 TEST(WindMultiVehicle, RejectsMoreThanOneVehicleWithANonShareableWindModel) {
   MinimalWind wind;  // leaves shareable_across_vehicles() at the default: false
   const astra::PluginLoader loader{ASTRA_TEST_PLUGIN_DIR};
+  // A real EarthModel, not null: for_testing now rejects non-null wind paired with a null earth
+  // before this guard ever runs (RejectsWindWithoutEarth below), so this fixture must supply one to
+  // reach the guard this test actually means to exercise.
+  astra::LoadedPlugin earth_loaded = loader.load("plugins/physical/earth/flat");
+  auto* const earth = dynamic_cast<EarthModel*>(earth_loaded.model.get());
+  astra::SignalRegistry earth_registry;
+  earth->init(Config::from_string("{}\n", "earth-flat-fixture"), earth_registry);
   const std::array<StateVector, 2> initial_states{StateVector::Zero(), StateVector::Zero()};
-  // earth may be null here: the guard throws before Simulation::step could ever dereference it.
   try {
-    static_cast<void>(Simulation::for_testing(loader, initial_states, {}, &wind, nullptr));
+    static_cast<void>(Simulation::for_testing(loader, initial_states, {}, &wind, earth));
     FAIL() << "expected ConfigError";
   } catch (const ConfigError& error) {
     EXPECT_EQ(error.config_path(), "physical.wind");
+  }
+}
+
+// Adversarial-review finding (Cowork re-review round 2, second pass, "medium"): a non-null wind
+// with a null earth reached Simulation::step's wind branch, which dereferences earth_
+// unconditionally inside noexcept -- undefined behavior, reachable with a single vehicle, not just
+// through the D4 shareability guard above. Proves for_testing now rejects it before step() can be
+// reached.
+TEST(WindMultiVehicle, RejectsWindWithoutEarth) {
+  const astra::PluginLoader loader{ASTRA_TEST_PLUGIN_DIR};
+  astra::LoadedPlugin wind_loaded = loader.load("tests/plugins/counting_wind");
+  auto* const wind = dynamic_cast<WindModel*>(wind_loaded.model.get());
+  astra::SignalRegistry wind_registry;
+  wind->init(Config::from_string("{}\n", "counting-wind-fixture"), wind_registry);
+  const std::array<StateVector, 1> initial_states{state_with_p_n_north(0.0)};
+  try {
+    static_cast<void>(Simulation::for_testing(loader, initial_states, {}, wind, nullptr));
+    FAIL() << "expected astra::Error";
+  } catch (const astra::Error& error) {
+    EXPECT_TRUE(mentions(error, "earth")) << error.what();
   }
 }
 

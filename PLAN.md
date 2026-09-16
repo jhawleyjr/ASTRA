@@ -204,15 +204,24 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         (`astra::Error`, not `ConfigError` -- `for_testing` takes no `Config` to name a path in);
         supplying exactly one of `gravity`/`mass_spec` is rejected too, closing the same review's
         second observation that a partial pair silently built a no-physics `Simulation` instead of
-        using what was passed. Two new tests. The review's other recommendation -- also rejecting a
-        non-null `wind` with a null `earth` -- was **not** taken: doing so would break
-        `RejectsMoreThanOneVehicleWithANonShareableWindModel`'s own deliberate null-`earth` fixture
-        (it relies on the D4 shareability guard throwing before `step()` could ever dereference
-        `earth_`), and it is the same disclosure-only shape as the validation class this round's
-        Cowork review already declined to add (`simulation.hpp`'s own comment says so). Not a gap
-        this PR introduced with new state, but a bug that existed in `for_testing` since the prior
-        round added it, reachable only because a re-run adversarial review, not the original Cowork
-        list, went looking for it -- caught before merge because `CLAUDE.md` requires the re-run.
+        using what was passed. **A second adversarial-review round on this same fix caught a
+        related miss, and corrected a wrong call made resolving the first round**: this PR's own
+        first draft response left a non-null `wind` with a null `earth` disclosed but unenforced,
+        reasoning it was the same shape as `check_position_representation`/`validate_p_n`/the
+        atmosphere `valid_range` check (deliberately left unenforced above) and that enforcing it
+        would break `RejectsMoreThanOneVehicleWithANonShareableWindModel`'s null-`earth` fixture.
+        Both parts of that reasoning were wrong: `Simulation::step`'s wind branch dereferences
+        `earth_` unconditionally whenever `wind_` is non-null (`earth_->altitude(vs)`), inside
+        `step()`'s own `noexcept` -- the same crash shape as the `gravity`/`mass_spec`/`earth` bug
+        just fixed, not a "plausible but domain-wrong answer" one, and reachable with a single
+        vehicle, not only through the D4 guard. Fixed instead: `wind` without `earth` is now
+        rejected the same way; the shareability fixture was given a real `EarthModel` (it does not
+        need a null one to prove what it proves) rather than left as the reason to under-enforce.
+        Four new tests across both fixes. Not a gap this PR introduced with new state, but a bug
+        that existed in `for_testing` since the prior round added it, reachable only because a
+        re-run adversarial review, not the original Cowork list, went looking for it -- caught
+        before merge because `CLAUDE.md` requires the re-run, and caught in full only because that
+        re-run was itself re-run once more against its own fix.
   - [ ] PR 2b — `core/util/random.hpp` (`std::mt19937_64` seeded from config, in-house Box-Muller/uniform
         transforms per `AGENTS.md` -- `std::normal_distribution` is unspecified across libstdc++/libc++)
         and `plugins/physical/wind/dryden` (MIL-F-8785C scale lengths and intensities), built on PR 2's
