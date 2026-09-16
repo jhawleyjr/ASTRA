@@ -26,3 +26,10 @@
 2	{"tool_name":"Write","tool_input":{"file_path":"$ROOT/docs/decisions/0012-x.md"}}
 2	{"tool_name":"Edit","tool_input":{"file_path":"$ROOT/tests/golden/cruise.csv"}}
 2	{"tool_name":"Edit","tool_input":{"file_path":"$ROOT/tests/physics/tolerances.yaml"}}
+# PASS: a worktree session armed by a marker in the MAIN CHECKOUT (the shape every golden PR runs in;
+# before this, `touch .claude/touch-goldens` in ~/repos/ASTRA armed nothing at all -- docs/lessons.md)
+0	{"tool_name":"Write","tool_input":{"file_path":"$ROOT_WT_ARMED/tests/golden/atmosphere/isa1976_table.hpp"}}
+0	{"cwd":"$ROOT_WT_ARMED","tool_name":"Bash","tool_input":{"command":"python gen.py > tests/golden/x.csv"}}
+# BLOCK: the same worktree shape with no marker anywhere
+2	{"tool_name":"Write","tool_input":{"file_path":"$ROOT_WT/tests/golden/atmosphere/isa1976_table.hpp"}}
+2	{"cwd":"$ROOT_WT","tool_name":"Bash","tool_input":{"command":"python gen.py > tests/golden/x.csv"}}

@@ -61,7 +61,7 @@ One command, **`just check`** (`just` from apt, with CMake presets underneath fo
 Wiring, all deterministic and cheap:
 
 - **Stop hook** runs the fast subset (build + unit tests) and blocks the turn from ending until it passes. Claude Code caps this at 8 consecutive blocks, which is the right amount of stubbornness.
-- **PreToolUse hook** denies edits to `tests/golden/**`, tolerance files, and `docs/decisions/**` unless Joe lifts it: `ASTRA_TOUCH_GOLDENS=1` in the session's environment, or `touch .claude/touch-goldens` while the session runs (the SessionStart hook deletes the marker, so a lifted guard never carries into the next session). This is the one hard precondition in the whole design, and it tests the thing that actually matters: *the oracle does not move without a human deciding it should.* Widened tolerance, narrowed comparison, regenerated golden, or a deleted/weakened test is always a blocking review finding.
+- **PreToolUse hook** denies edits to `tests/golden/**`, tolerance files, and `docs/decisions/**` unless Joe lifts it, two ways: `ASTRA_TOUCH_GOLDENS=1` **on the `claude` launch line** (an `export` inside a running session never reaches the hook, which inherits the `claude` process's environment), or `touch .claude/touch-goldens` while the session runs. The marker counts in **either the session's own root or the main checkout**, so one `touch ~/repos/ASTRA/.claude/touch-goldens` arms a worktree session too -- before 2026-09-16 it did not, because a worktree session's `CLAUDE_PROJECT_DIR` is the worktree and every golden-touching PR runs in one. `disarm-goldens.sh` (SessionStart) deletes both, so a lifted guard never carries into the next session. This is the one hard precondition in the whole design, and it tests the thing that actually matters: *the oracle does not move without a human deciding it should.* Widened tolerance, narrowed comparison, regenerated golden, or a deleted/weakened test is always a blocking review finding.
 - **`/goal`** for unattended runs: "all tests in `tests/physics/` pass and `just check` exits 0, or stop after 20 turns."
 - **CI**: GitHub Actions runs `just check` on every pull request on an `ubuntu-24.04` runner; `main` is protected and requires it.
 
@@ -81,12 +81,14 @@ Review is done by a different model from a fresh context: Codex, via OpenAI's `c
 
 ## Where Cowork fits
 
-Cowork sessions are for **thinking that produces documents**: architecture, ADRs, research, milestone planning, and occasional fresh-eyes review of a PR when Joe wants a second opinion untainted by having written the code. Their outputs land in the Project and in `docs/`. They are never a required step between two Claude Code sessions. Dispatch can route a "go build M2" from Cowork to a Claude Code session when that's convenient, but it is a convenience, not the process.
+Cowork sessions are for **thinking that produces documents**: architecture, ADRs, research, milestone planning, and occasional fresh-eyes review of a PR when Joe wants a second opinion untainted by having written the code. Their outputs land in the Project and in `docs/`.
+
+**Optional in-loop use, added 2026-09-16 after M2 PR 1b.** Joe may paste a Claude Code plan into Cowork before approving it, and may bring a mid-session design question there rather than settling it in the coding session. It is a **convenience, never a required hop**: no PR waits on it, and a plan approved without it is not out of process. It earns its place when the question is one a fresh context reads better than the session that just wrote the plan -- in 1b it caught a `constexpr std::pow` that clang-18 rejects and a golden with no oracle but its own implementation, both before a `just check` cycle paid for them. It is the wrong tool for anything the repo can answer mechanically, and two hops (Cowork plans, Claude Code builds, Cowork reviews, Claude Code fixes) is the old process growing back -- one pass, then the session owns it. Dispatch can route a "go build M2" from Cowork to a Claude Code session when that's convenient, but it is a convenience, not the process.
 
 ## Skills (two, small)
 
 - **`/wrap`** — end of session: rewrite `STATE.md`, append to `docs/lessons.md` if anything bit, ensure the branch is pushed and the PR is open, print the one-line opener for next time.
-- **`/retro`** — at each milestone: list rules that have not fired since the last retro and propose deleting them; list things that bit twice and propose one rule. Must be run by Joe; produces a diff or nothing.
+- **`astra-retro`** — at each milestone, run by Joe **from Cowork** (it was a Claude Code `/retro` skill until M2): list rules that have not fired since the last retro and propose deleting them; list things that bit twice and propose at most one rule to add; propose a process change if the milestone showed one. Produces git-apply patches or nothing, and never commits.
 
 ## Model and effort (revised 2026-09-14 after M0; supersedes the 2026-09-14 morning decision)
 
@@ -113,7 +115,7 @@ a problem no one has seen, and correctness comes from the human-owned oracle, no
 
 ## Milestones for v1 (seed for `PLAN.md`)
 
-The authoritative acceptance criteria are in `docs/architecture.md` §16.
+The authoritative acceptance criteria are in `docs/architecture.md` §16, and the live milestone state is `PLAN.md`. The list below is the original 2026-09-14 seed, kept as history: it is **not** maintained, and where it disagrees with `PLAN.md` or §16, they win.
 
 - **M0 Bootstrap** — repo skeleton, CMake presets with `compile_commands.json` exported, `justfile`, `just check` green on an empty core plus one dummy plugin, hooks installed, CI on PRs, `clangd-lsp` + `pyright-lsp` working (nanobind stubs, pyright on the venv), ADR-0001…0011.
 - **M1 Rigid body** — EOM + integrators + mass properties + flat Earth; torque-free and ballistic oracles pass; health monitor halts on injected faults.
