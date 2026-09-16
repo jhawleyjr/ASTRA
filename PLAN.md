@@ -194,6 +194,25 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         circumstance is not load-bearing and would not survive a future Python binding or driver
         executable being added without re-litigating this -- Joe's call whether that is acceptable
         risk for a v1 test helper or worth a real gate later.
+        **The re-run `adversarial-review` this round found a real bug, not a re-raise** (`high`):
+        `for_testing`'s `has_physics` was computed from `gravity`/`mass_spec` alone, so a caller
+        supplying both without `earth` built a `Vehicle::PhysicsSpec` holding a null `EarthModel*`,
+        which `Vehicle::init` then dereferenced unconditionally (`eom_.emplace(*physics->earth,
+        ...)`, `vehicle.cpp`) -- undefined behavior, confirmed by UBSan itself
+        ("reference binding to null pointer") when the fix was reverted to check the new tests have
+        teeth. Fixed: `earth`, `gravity`, and `mass_spec` are now required together or rejected
+        (`astra::Error`, not `ConfigError` -- `for_testing` takes no `Config` to name a path in);
+        supplying exactly one of `gravity`/`mass_spec` is rejected too, closing the same review's
+        second observation that a partial pair silently built a no-physics `Simulation` instead of
+        using what was passed. Two new tests. The review's other recommendation -- also rejecting a
+        non-null `wind` with a null `earth` -- was **not** taken: doing so would break
+        `RejectsMoreThanOneVehicleWithANonShareableWindModel`'s own deliberate null-`earth` fixture
+        (it relies on the D4 shareability guard throwing before `step()` could ever dereference
+        `earth_`), and it is the same disclosure-only shape as the validation class this round's
+        Cowork review already declined to add (`simulation.hpp`'s own comment says so). Not a gap
+        this PR introduced with new state, but a bug that existed in `for_testing` since the prior
+        round added it, reachable only because a re-run adversarial review, not the original Cowork
+        list, went looking for it -- caught before merge because `CLAUDE.md` requires the re-run.
   - [ ] PR 2b — `core/util/random.hpp` (`std::mt19937_64` seeded from config, in-house Box-Muller/uniform
         transforms per `AGENTS.md` -- `std::normal_distribution` is unspecified across libstdc++/libc++)
         and `plugins/physical/wind/dryden` (MIL-F-8785C scale lengths and intensities), built on PR 2's

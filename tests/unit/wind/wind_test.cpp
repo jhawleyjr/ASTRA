@@ -537,4 +537,45 @@ TEST(WindMultiVehicle, RejectsMoreThanOneVehicleWithANonShareableWindModel) {
   }
 }
 
+// Adversarial-review finding (Cowork re-review round 2, "high"): gravity supplied without
+// mass_spec (or vice versa) used to silently build a no-physics Simulation, discarding whichever
+// one was passed. Proves for_testing now rejects the combination instead.
+TEST(WindMultiVehicle, RejectsGravityWithoutMassSpec) {
+  const astra::PluginLoader loader{ASTRA_TEST_PLUGIN_DIR};
+  astra::LoadedPlugin gravity_loaded = loader.load("plugins/physical/gravity/constant");
+  auto* const gravity = dynamic_cast<astra::GravityModel*>(gravity_loaded.model.get());
+  astra::SignalRegistry gravity_registry;
+  gravity->init(Config::from_string("{ g: 0.0 }\n", "gravity-constant-fixture"), gravity_registry);
+  const std::array<StateVector, 1> initial_states{state_with_p_n_north(0.0)};
+  try {
+    static_cast<void>(
+        Simulation::for_testing(loader, initial_states, {}, nullptr, nullptr, gravity, nullptr));
+    FAIL() << "expected astra::Error";
+  } catch (const astra::Error& error) {
+    EXPECT_TRUE(mentions(error, "mass_spec")) << error.what();
+  }
+}
+
+// Same finding: gravity + mass_spec supplied without earth used to reach Vehicle::init's
+// eom_.emplace(*physics->earth, ...) (vehicle.cpp) with a null earth -- undefined behavior, not a
+// thrown error, since Vehicle::PhysicsSpec::earth was never checked before this fix.
+TEST(WindMultiVehicle, RejectsGravityAndMassSpecWithoutEarth) {
+  const astra::PluginLoader loader{ASTRA_TEST_PLUGIN_DIR};
+  astra::LoadedPlugin gravity_loaded = loader.load("plugins/physical/gravity/constant");
+  auto* const gravity = dynamic_cast<astra::GravityModel*>(gravity_loaded.model.get());
+  astra::SignalRegistry gravity_registry;
+  gravity->init(Config::from_string("{ g: 0.0 }\n", "gravity-constant-fixture"), gravity_registry);
+  const Vehicle::ModelSpec mass_spec{
+      "plugins/physical/mass/constant",
+      Config::from_string("{ mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 }\n", "mass-fixture"), 1};
+  const std::array<StateVector, 1> initial_states{state_with_p_n_north(0.0)};
+  try {
+    static_cast<void>(
+        Simulation::for_testing(loader, initial_states, {}, nullptr, nullptr, gravity, &mass_spec));
+    FAIL() << "expected astra::Error";
+  } catch (const astra::Error& error) {
+    EXPECT_TRUE(mentions(error, "earth")) << error.what();
+  }
+}
+
 }  // namespace

@@ -64,9 +64,14 @@ class Simulation {
   // needs production-equivalent validation should call from_config, not for_testing.
   //
   // Never called by from_config; does not change what from_config itself does with a real config.
-  // wind/earth may be null (matching physical.wind/physical.earth both being absent); a non-null
-  // wind with a null earth is a caller error (Simulation::step would then dereference a null earth_
-  // -- the same invariant from_config's own wiring already relies on).
+  // wind/earth may be null (matching physical.wind/physical.earth both being absent). A non-null
+  // wind with a null earth remains a caller error, disclosed but not enforced (Simulation::step
+  // would then dereference a null earth_ -- the same invariant from_config's own wiring already
+  // relies on): unlike the gravity/mass_spec/earth check just below, rejecting this would also
+  // reject RejectsMoreThanOneVehicleWithANonShareableWindModel's own deliberate null-earth fixture
+  // (wind_test.cpp), which relies on the D4 shareability guard throwing before step() could ever be
+  // reached -- the same "for_testing trusts its caller for what it cannot resolve without a Config"
+  // posture as the validation class disclosed above, not reopened here either (Cowork re-review).
   //
   // gravity/mass_spec default to null (no physics, matching a config with no "physical" section):
   // Vehicle::integrate is then a no-op, and NO WrenchSource is ever called at all (it is gated on
@@ -74,7 +79,13 @@ class Simulation {
   // A test needing a WrenchSource actually invoked (e.g. to check what EnvironmentSample it
   // received) must supply both, mirroring Vehicle::PhysicsSpec exactly (mass is loaded fresh per
   // vehicle from mass_spec, the same way from_config's own single vehicle gets its own mass model;
-  // gravity, like earth and wind, is shared across every vehicle here).
+  // gravity, like earth and wind, is shared across every vehicle here) -- and, unlike wind/earth
+  // just above, THIS combination is enforced: gravity and mass_spec must both be null or both be
+  // non-null, and if both are non-null, earth must be too (Error, not ConfigError -- for_testing
+  // takes no Config to name a path in). This closes a real gap adversarial review found, not a
+  // disclosed one: gravity+mass_spec without earth used to build a Vehicle::PhysicsSpec holding a
+  // null EarthModel*, which Vehicle::init then dereferenced unconditionally
+  // (eom_.emplace(*physics->earth, ...), vehicle.cpp) -- undefined behavior, not a thrown error.
   //
   // frames defaults to 0, matching a freshly constructed Simulation's own frames_ default: a caller
   // that only ever uses step()/run(N) explicitly, as every test before this parameter existed does,

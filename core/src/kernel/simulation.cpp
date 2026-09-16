@@ -395,6 +395,25 @@ Simulation Simulation::for_testing(const PluginLoader& loader,
                                    const std::vector<Vehicle::ModelSpec>& models, WindModel* wind,
                                    EarthModel* earth, GravityModel* gravity,
                                    const Vehicle::ModelSpec* mass_spec, std::uint64_t frames) {
+  // Adversarial-review finding (Cowork re-review round 2, "high"): has_physics used to be computed
+  // from gravity/mass_spec alone, so a caller supplying both without earth reached Vehicle::init's
+  // eom_.emplace(*physics->earth, ...) (vehicle.cpp) with a null earth -- undefined behavior, not a
+  // thrown error, and caught only by review, since nothing in this tree had called for_testing that
+  // way. earth, gravity, and mass_spec are Vehicle::PhysicsSpec's three required fields together
+  // (vehicle.hpp); rejecting a partial combination here is enforcing that existing invariant, not a
+  // new domain-validity design decision of the kind this round's Cowork review already declined to
+  // add for_testing (check_position_representation, validate_p_n, the atmosphere valid_range check
+  // remain unenforced, per for_testing's own doc comment above).
+  if ((gravity != nullptr) != (mass_spec != nullptr)) {
+    throw Error(
+        "Simulation::for_testing: gravity and mass_spec must both be supplied or both be null -- "
+        "one without the other silently built a no-physics Simulation, ignoring the one passed");
+  }
+  if (gravity != nullptr && mass_spec != nullptr && earth == nullptr) {
+    throw Error(
+        "Simulation::for_testing: gravity and mass_spec require a non-null earth too, mirroring "
+        "Vehicle::PhysicsSpec's third required field");
+  }
   Simulation sim;
   sim.frames_ = frames;
   sim.wind_ = wind;
