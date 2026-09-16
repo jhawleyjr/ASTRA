@@ -90,8 +90,11 @@ TEST(SimulationPhysicalConfig, RejectsInitialTrimAsAnUnknownKey) {
   }
 }
 
-// physical.atmosphere joined earth/gravity/mass in M2 PR 1b; a slot name none of the four
-// recognize is still rejected as an unconsumed key (§15).
+// physical.atmosphere and physical.wind joined earth/gravity/mass in M2 PR 1b/PR 2; a slot name
+// none of the five recognize is still rejected as an unconsumed key (§15). "magnetic" -- not
+// "wind" -- is the unrecognized-slot fixture now that physical.wind is a real slot (M2 PR 2); see
+// AcceptsAPhysicalSpecWithWind/RejectsAWindPluginThatDoesNotImplementWindModel below for wind's own
+// coverage.
 TEST(SimulationPhysicalConfig, RejectsAnUnknownPhysicalSlotName) {
   const Config config = Config::from_string(
       "sim: { dt: 0.001, frames: 1 }\n"
@@ -101,13 +104,13 @@ TEST(SimulationPhysicalConfig, RejectsAnUnknownPhysicalSlotName) {
       "  gravity: plugins/physical/gravity/constant\n"
       "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 "
       "}\n"
-      "  wind: plugins/physical/wind/uniform\n",
+      "  magnetic: plugins/physical/atmosphere/isa1976\n",
       "unknown-slot-fixture");
   try {
     static_cast<void>(load(config));
     FAIL() << "expected ConfigError";
   } catch (const ConfigError& error) {
-    EXPECT_TRUE(mentions(error, "physical.wind")) << error.what();
+    EXPECT_TRUE(mentions(error, "physical.magnetic")) << error.what();
   }
 }
 
@@ -139,6 +142,80 @@ TEST(SimulationPhysicalConfig, AcceptsAPhysicalSpecWithoutAtmosphere) {
       "}\n",
       "without-atmosphere-fixture");
   static_cast<void>(load(config));  // must not throw
+}
+
+// physical.wind is optional (M2 PR 2): a physics config naming it loads like any other slot.
+TEST(SimulationPhysicalConfig, AcceptsAPhysicalSpecWithWind) {
+  const Config config = Config::from_string(
+      "sim: { dt: 0.001, frames: 0 }\n"
+      "vehicle: { models: [] }\n"
+      "physical:\n"
+      "  earth: plugins/physical/earth/flat\n"
+      "  gravity: plugins/physical/gravity/constant\n"
+      "  wind: { plugin: plugins/physical/wind/uniform, north: 5.0 }\n"
+      "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 "
+      "}\n",
+      "with-wind-fixture");
+  static_cast<void>(load(config));  // must not throw
+}
+
+// The converse: every fixture above that omits physical.wind already exercises this, but one test
+// says so explicitly -- the same optionality guarantee physical.atmosphere already has.
+TEST(SimulationPhysicalConfig, AcceptsAPhysicalSpecWithoutWind) {
+  const Config config = Config::from_string(
+      "sim: { dt: 0.001, frames: 0 }\n"
+      "vehicle: { models: [] }\n"
+      "physical:\n"
+      "  earth: plugins/physical/earth/flat\n"
+      "  gravity: plugins/physical/gravity/constant\n"
+      "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 "
+      "}\n",
+      "without-wind-fixture");
+  static_cast<void>(load(config));  // must not throw
+}
+
+// A plugin loaded under physical.wind that does not implement WindModel (here, an atmosphere
+// plugin) is rejected the same way the earth/gravity/atmosphere slots already reject a mismatched
+// plugin -- see load_environment_model's dynamic_cast in simulation.cpp.
+TEST(SimulationPhysicalConfig, RejectsAWindPluginThatDoesNotImplementWindModel) {
+  const Config config = Config::from_string(
+      "sim: { dt: 0.001, frames: 1 }\n"
+      "vehicle: { models: [] }\n"
+      "physical:\n"
+      "  earth: plugins/physical/earth/flat\n"
+      "  gravity: plugins/physical/gravity/constant\n"
+      "  wind: plugins/physical/atmosphere/isa1976\n"
+      "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 "
+      "}\n",
+      "wind-wrong-type-fixture");
+  try {
+    static_cast<void>(load(config));
+    FAIL() << "expected PluginLoadError";
+  } catch (const astra::PluginLoadError& error) {
+    EXPECT_TRUE(mentions(error, "WindModel")) << error.what();
+  }
+}
+
+// begin_frame/wind_n are sampled every major frame by Simulation::step regardless of
+// physical.wind's own scheduler divisor (D6, PLAN.md M2 PR 2): a divisor other than 1 has no
+// defined meaning yet, so it is rejected at init rather than silently desynchronized.
+TEST(SimulationPhysicalConfig, RejectsAWindDivisorOtherThanOne) {
+  const Config config = Config::from_string(
+      "sim: { dt: 0.001, frames: 1 }\n"
+      "vehicle: { models: [] }\n"
+      "physical:\n"
+      "  earth: plugins/physical/earth/flat\n"
+      "  gravity: plugins/physical/gravity/constant\n"
+      "  wind: { plugin: plugins/physical/wind/uniform, divisor: 10 }\n"
+      "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 "
+      "}\n",
+      "wind-divisor-fixture");
+  try {
+    static_cast<void>(load(config));
+    FAIL() << "expected ConfigError";
+  } catch (const ConfigError& error) {
+    EXPECT_EQ(error.config_path(), "physical.wind.divisor");
+  }
 }
 
 // §15: "altitude inside the atmosphere model's valid range". isa1976's range is [-5000, 86000] m

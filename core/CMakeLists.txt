@@ -40,6 +40,7 @@ add_library(astra_core SHARED
   src/interfaces/gravity_model.cpp
   src/interfaces/mass_properties_model.cpp
   src/interfaces/model.cpp
+  src/interfaces/wind_model.cpp
   src/interfaces/wrench_source.cpp
   src/kernel/eom.cpp
   src/kernel/health_monitor.cpp

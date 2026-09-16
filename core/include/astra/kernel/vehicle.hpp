@@ -13,6 +13,7 @@
 #include "astra/interfaces/earth_model.hpp"
 #include "astra/interfaces/gravity_model.hpp"
 #include "astra/interfaces/wrench_source.hpp"
+#include "astra/kernel/environment_sample.hpp"
 #include "astra/kernel/eom.hpp"
 #include "astra/kernel/health_monitor.hpp"
 #include "astra/kernel/integrator.hpp"
@@ -46,6 +47,14 @@ class Vehicle {
     GravityModel* gravity;
   };
 
+  // Which optional environment slots Simulation::step will actually populate into EnvironmentSample
+  // this frame (environment_sample.hpp). init() rejects a WrenchSource whose requires_environment()
+  // asks for wind when this is false, naming physical.wind. Deliberately no "atmosphere" field yet:
+  // see init()'s own comment for why that requirement is rejected unconditionally instead.
+  struct EnvironmentAvailability {
+    bool wind = false;
+  };
+
   // name is the signal-namespace prefix ("v0"); state starts zeroed until init()'s caller sets it
   // (Simulation::from_config reads "initial.state", or leaves it zeroed when physics is off).
   Vehicle(std::uint32_t index, std::string name);
@@ -54,12 +63,24 @@ class Vehicle {
   // then -- when physics is non-null -- loads this vehicle's own mass-properties model the same way
   // and constructs this vehicle's Eom against it and the shared earth/gravity models physics names.
   // Every model's init() runs under a SignalRegistry::PrefixScope for this vehicle's name, so
-  // "dummy.steps" is published as "v0.dummy.steps" (ADR-0011). Init-time only: may allocate, may
-  // throw (PluginError, ConfigError).
+  // "dummy.steps" is published as "v0.dummy.steps" (ADR-0011). As each WrenchSource is discovered,
+  // checks its requires_environment() (wrench_source.hpp) against availability: a wind requirement
+  // with availability.wind false throws ConfigError naming physical.wind; an atmosphere requirement
+  // throws unconditionally naming physical.atmosphere -- no PR before M2 PR 3 can populate
+  // EnvironmentSample::atmosphere (environment_sample.hpp), so no config, not even one naming
+  // physical.atmosphere, can satisfy that requirement yet. Init-time only: may allocate, may throw
+  // (PluginError, ConfigError).
   void init(const PluginLoader& loader, const std::vector<ModelSpec>& models,
-            SignalRegistry& registry, const PhysicsSpec* physics);
+            SignalRegistry& registry, const PhysicsSpec* physics,
+            EnvironmentAvailability availability);
 
   void step(const StepContext& ctx) noexcept { scheduler_.step(ctx); }
+
+  // This frame's environment sample (docs/architecture.md §5), latched by Simulation::step before
+  // step()/integrate() run (environment_sample.hpp). Defaults to still air / all-NaN atmosphere,
+  // matching a Simulation with no physical.wind/physical.atmosphere configured.
+  void set_environment(const EnvironmentSample& sample) noexcept { environment_ = sample; }
+  [[nodiscard]] const EnvironmentSample& environment() const noexcept { return environment_; }
 
   // Runs this frame's wrench accumulation, EOM derivative, integrator step, and post-step
   // renormalize (docs/architecture.md §5): a no-op returning a falsey HaltReason when this vehicle
@@ -92,6 +113,7 @@ class Vehicle {
   std::uint32_t index_;
   std::string name_;
   StateVector state_ = StateVector::Zero();
+  EnvironmentSample environment_;
   std::vector<LoadedPlugin> plugins_;
   Scheduler scheduler_;
   std::optional<Eom> eom_;

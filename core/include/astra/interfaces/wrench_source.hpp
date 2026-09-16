@@ -7,6 +7,7 @@
 
 #include "astra/interfaces/model.hpp"
 #include "astra/interfaces/wrench.hpp"
+#include "astra/kernel/environment_sample.hpp"
 #include "astra/kernel/vehicle_state.hpp"
 
 namespace astra {
@@ -20,8 +21,20 @@ class WrenchSource : public Model {
   ~WrenchSource() override;
 
   // This model's contribution to the vehicle's applied wrench (about the CG, body axes), evaluated
-  // at the frame's state. Per-frame path (§14): no allocation, no exceptions.
-  [[nodiscard]] virtual Wrench wrench_b(const VehicleState& vs) const noexcept = 0;
+  // at the frame's state and this frame's environment sample (M2 PR 2: wind; PR 3 adds atmosphere).
+  // env is the same EnvironmentSample Simulation::step latched for this vehicle before the wrench
+  // stage (docs/architecture.md §5) -- a WrenchSource never samples wind or atmosphere itself. Per-
+  // frame path (§14): no allocation, no exceptions.
+  [[nodiscard]] virtual Wrench wrench_b(const VehicleState& vs,
+                                        const EnvironmentSample& env) const noexcept = 0;
+
+  // Which optional environment inputs this source cannot run without (environment_sample.hpp).
+  // Simulation::from_config rejects a config that omits a required slot with a ConfigError naming
+  // physical.wind / physical.atmosphere -- never a silent zero wind or a NaN density read by a
+  // model that needed a real value. Default: none (a source that reads no environment input, e.g.
+  // a constant-coefficient contribution, declares nothing). Defined out of line in
+  // wrench_source.cpp, so the destructor stays the key function.
+  [[nodiscard]] virtual EnvironmentRequirements requires_environment() const noexcept;
 };
 
 }  // namespace astra

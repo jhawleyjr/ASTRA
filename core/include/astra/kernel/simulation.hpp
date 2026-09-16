@@ -24,6 +24,8 @@
 
 namespace astra {
 
+class WindModel;  // core/include/astra/interfaces/wind_model.hpp
+
 class Simulation {
  public:
   // Builds and initializes every vehicle's models from config, resolving plugin paths against
@@ -64,6 +66,9 @@ class Simulation {
   Integrator integrator_;
   Scheduler environment_scheduler_;
   std::vector<LoadedPlugin> environment_plugins_;
+  // Non-owning: the model lives in environment_plugins_ above. nullptr when physical.wind is not
+  // configured -- Simulation::step then samples still air (EnvironmentSample's own default).
+  WindModel* wind_ = nullptr;
   // unique_ptr, not by value: from_config returns Simulation by value, and HealthMonitor::init
   // registers &counter_ pointers into registry_, so the monitor's address must survive every move
   // this Simulation goes through (a by-value member would dangle those pointers on the first move).

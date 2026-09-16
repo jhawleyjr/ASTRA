@@ -14,6 +14,8 @@
 #include "astra/interfaces/earth_model.hpp"
 #include "astra/interfaces/gravity_model.hpp"
 #include "astra/interfaces/position_representation.hpp"
+#include "astra/interfaces/wind_model.hpp"
+#include "astra/kernel/environment_sample.hpp"
 #include "astra/kernel/state.hpp"
 #include "astra/kernel/vehicle_state.hpp"
 #include "astra/plugin/loader.hpp"
@@ -72,6 +74,79 @@ LoadedPlugin load_environment_model(const PluginLoader& loader, const Vehicle::M
   LoadedPlugin loaded = loader.load(spec.plugin_path);
   loaded.model->init(spec.config, registry);
   return loaded;
+}
+
+// load_atmosphere's return type; see load_wind's own LoadedWind just below for why the plugin path
+// travels with the pointer.
+struct LoadedAtmosphere {
+  AtmosphereModel* model = nullptr;
+  std::string plugin_path;
+};
+
+// physical.atmosphere (M2 PR 1b): optional, no position-representation check (see
+// check_position_representation's comment below), not part of Vehicle::PhysicsSpec -- the EOM has
+// no atmosphere input; PR 3's drag WrenchSource is the first consumer. Factored out alongside
+// load_wind (M2 PR 2, just below) for the same reason: clang-tidy's
+// readability-function-cognitive-complexity threshold on from_config. Returns a default
+// LoadedAtmosphere{nullptr, ""} when physical.atmosphere is absent.
+LoadedAtmosphere load_atmosphere(const PluginLoader& loader, const Config& physical,
+                                 Scheduler& scheduler, std::vector<LoadedPlugin>& plugins,
+                                 SignalRegistry& registry) {
+  if (!physical.has("atmosphere")) {
+    return {};
+  }
+  const Vehicle::ModelSpec atmosphere_spec = resolve_model_spec(physical.at("atmosphere"));
+  LoadedPlugin atmosphere_loaded = load_environment_model(loader, atmosphere_spec, registry);
+  auto* const atmosphere = dynamic_cast<AtmosphereModel*>(atmosphere_loaded.model.get());
+  if (atmosphere == nullptr) {
+    throw PluginLoadError(atmosphere_spec.plugin_path, "does not implement AtmosphereModel");
+  }
+  scheduler.add(*atmosphere, atmosphere_spec.divisor);
+  plugins.push_back(std::move(atmosphere_loaded));
+  return LoadedAtmosphere{atmosphere, atmosphere_spec.plugin_path};
+}
+
+// load_wind's return type: the model plus the plugin path it was loaded from, kept alongside
+// AtmosphereModel*/EarthModel*/GravityModel*'s own plain-pointer from_config locals only because
+// the D4 shared-model check after sim.vehicles_.push_back needs the plugin path too.
+struct LoadedWind {
+  WindModel* model = nullptr;
+  std::string plugin_path;
+};
+
+// physical.wind (M2 PR 2): resolves, validates the divisor, loads, and registers one WindModel
+// with the scheduler. Factored out of from_config (clang-tidy's
+// readability-function-cognitive-complexity threshold) rather than inlined like the required
+// earth/gravity/mass slots -- this is the one optional slot with enough of its own logic (the
+// divisor check) to earn a name. Returns a default LoadedWind{nullptr, ""} when physical.wind is
+// absent. No position-representation check: wind_n never reads p_n directly (wind_model.hpp) --
+// the one WindModel that needs a vehicle's altitude or airspeed gets it through begin_frame's
+// VehicleState, not through an assumed p_n layout, so no conforming WindModel could assume one to
+// mismatch.
+LoadedWind load_wind(const PluginLoader& loader, const Config& physical, Scheduler& scheduler,
+                     std::vector<LoadedPlugin>& plugins, SignalRegistry& registry) {
+  if (!physical.has("wind")) {
+    return {};
+  }
+  const Vehicle::ModelSpec wind_spec = resolve_model_spec(physical.at("wind"));
+  // begin_frame/wind_n are sampled every frame by Simulation::step regardless of this model's own
+  // scheduler divisor, so a divisor other than 1 would silently desynchronize step()'s own
+  // evolution from what is read every frame. No defined hold contract exists for that yet, so it
+  // is rejected rather than designed under review pressure.
+  if (wind_spec.divisor != 1) {
+    const std::string path =
+        wind_spec.config.path().empty() ? "divisor" : wind_spec.config.path() + ".divisor";
+    throw ConfigError(wind_spec.config.origin(), path,
+                      "physical.wind must run every major frame (divisor 1)");
+  }
+  LoadedPlugin wind_loaded = load_environment_model(loader, wind_spec, registry);
+  auto* const wind = dynamic_cast<WindModel*>(wind_loaded.model.get());
+  if (wind == nullptr) {
+    throw PluginLoadError(wind_spec.plugin_path, "does not implement WindModel");
+  }
+  scheduler.add(*wind, wind_spec.divisor);
+  plugins.push_back(std::move(wind_loaded));
+  return LoadedWind{wind, wind_spec.plugin_path};
 }
 
 // M2: rejects a gravity model whose assumed position representation (position_representation.hpp)
@@ -168,13 +243,19 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
   }
 
   Vehicle vehicle(0, "v0");
+  // Declared here, not inside the "physical" branch below, because the D4 shared-model check after
+  // sim.vehicles_.push_back needs wind to survive past the if/else (ADR-0011: environment models
+  // are shared across vehicles, and nothing here may assume there is exactly one).
+  WindModel* wind = nullptr;
+  std::string wind_plugin_path;
   // Physics is opt-in. The three required slots -- earth, gravity, mass -- are the Eom's own
   // inputs: all three or none (a config with no "physical" section, PR 2's dummy-plugin fixture,
-  // runs exactly as before this PR, with no Eom and Vehicle::integrate a no-op). Atmosphere (and,
-  // from PR 2, wind) are optional environment models, loaded only when the config names them --
+  // runs exactly as before this PR, with no Eom and Vehicle::integrate a no-op). Atmosphere and
+  // wind (M2 PR 2) are optional environment models, loaded only when the config names them --
   // nothing in the EOM reads them, and the M2 NESC dragless cases have no atmosphere at all. A
-  // wrench source that requires one and finds none is an init error naming physical.atmosphere,
-  // never a silent rho = 0.
+  // wrench source that requires one and finds none is an init error naming physical.atmosphere or
+  // physical.wind, never a silent rho = 0 or a silent zero wind (Vehicle::init's requirement check,
+  // wrench_source.hpp).
   if (config.has("physical")) {
     const Config physical = config.at("physical");
     const Vehicle::ModelSpec earth_spec = resolve_model_spec(physical.at("earth"));
@@ -199,26 +280,20 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
     sim.environment_plugins_.push_back(std::move(earth_loaded));
     sim.environment_plugins_.push_back(std::move(gravity_loaded));
 
-    // physical.atmosphere (M2 PR 1b): optional, no position-representation check (see
-    // check_position_representation's comment above), not part of Vehicle::PhysicsSpec -- the EOM
-    // has no atmosphere input; PR 3's drag WrenchSource is the first consumer.
-    AtmosphereModel* atmosphere = nullptr;
-    std::string atmosphere_plugin_path;
-    if (physical.has("atmosphere")) {
-      const Vehicle::ModelSpec atmosphere_spec = resolve_model_spec(physical.at("atmosphere"));
-      atmosphere_plugin_path = atmosphere_spec.plugin_path;
-      LoadedPlugin atmosphere_loaded =
-          load_environment_model(loader, atmosphere_spec, sim.registry_);
-      atmosphere = dynamic_cast<AtmosphereModel*>(atmosphere_loaded.model.get());
-      if (atmosphere == nullptr) {
-        throw PluginLoadError(atmosphere_spec.plugin_path, "does not implement AtmosphereModel");
-      }
-      sim.environment_scheduler_.add(*atmosphere, atmosphere_spec.divisor);
-      sim.environment_plugins_.push_back(std::move(atmosphere_loaded));
-    }
+    const LoadedAtmosphere loaded_atmosphere = load_atmosphere(
+        loader, physical, sim.environment_scheduler_, sim.environment_plugins_, sim.registry_);
+    AtmosphereModel* const atmosphere = loaded_atmosphere.model;
+    const std::string& atmosphere_plugin_path = loaded_atmosphere.plugin_path;
+
+    const LoadedWind loaded_wind = load_wind(loader, physical, sim.environment_scheduler_,
+                                             sim.environment_plugins_, sim.registry_);
+    wind = loaded_wind.model;
+    wind_plugin_path = loaded_wind.plugin_path;
+    sim.wind_ = wind;
 
     const Vehicle::PhysicsSpec physics_spec{std::move(mass_spec), earth, gravity};
-    vehicle.init(loader, specs, sim.registry_, &physics_spec);
+    vehicle.init(loader, specs, sim.registry_, &physics_spec,
+                 Vehicle::EnvironmentAvailability{wind != nullptr});
     vehicle.state() = read_initial_state(config);
 
     const Eigen::Vector3d p_n = vehicle.state().segment<state::kPositionSize>(state::kPosition);
@@ -251,10 +326,21 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
       }
     }
   } else {
-    vehicle.init(loader, specs, sim.registry_, nullptr);
+    vehicle.init(loader, specs, sim.registry_, nullptr, Vehicle::EnvironmentAvailability{});
   }
 
   sim.vehicles_.push_back(std::move(vehicle));
+
+  // ADR-0011: "nothing may assume there will only ever be one [vehicle]," and environment models
+  // are shared across whatever vehicles exist. Checked here so it composes correctly once
+  // from_config loops over more than one vehicle spec -- currently unreachable (exactly one Vehicle
+  // is ever constructed above), so this is verified only at the predicate level
+  // (WindModel::shareable_across_vehicles, tests/unit/wind/wind_test.cpp), not through a config
+  // that can actually trigger it.
+  if (wind != nullptr && sim.vehicles_.size() > 1 && !wind->shareable_across_vehicles()) {
+    throw ConfigError(config.origin(), "physical.wind",
+                      wind_plugin_path + " is not safe to share across more than one vehicle");
+  }
 
   // Before freeze(): HealthMonitor::init registers "health.nan" / "health.quaternion" /
   // "health.max_q_drift", and SignalRegistry::add throws once frozen.
@@ -273,8 +359,20 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
 
 HaltReason Simulation::step() noexcept {
   const StepContext ctx = clock_.context();
-  environment_scheduler_.step(ctx);
+  environment_scheduler_.step(ctx);  // scheduler-driven evolution only (e.g. a stochastic RNG draw)
   for (Vehicle& vehicle : vehicles_) {
+    // This frame's environment sample (docs/architecture.md §5, environment_sample.hpp), latched
+    // here at frame-start state, before the wrench stage -- the same discipline Eom::begin_frame
+    // and Vehicle::integrate's own VehicleState latch already use. wind_ is the only per-vehicle
+    // evolution/read pair today; PR 3 adds atmosphere the same way, from an AtmosphereModel* member
+    // sampled here too.
+    EnvironmentSample sample;  // wind zero / atmosphere all-NaN by default
+    if (wind_ != nullptr) {
+      const VehicleState vs{vehicle.state()};
+      wind_->begin_frame(ctx, vs);             // per-vehicle evolution: uses this frame's V, h
+      sample.wind_n = wind_->wind_n(ctx, vs);  // pure read of what begin_frame just latched
+    }
+    vehicle.set_environment(sample);
     vehicle.step(ctx);
     if (const HaltReason halt = vehicle.integrate(integrator_, ctx, *health_); halt) {
       // The clock does not advance: halt.frame == clock_.frame() and this frame's other vehicles

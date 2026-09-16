@@ -92,12 +92,65 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         same new per-frame domain-validity `HealthMonitor` capability, not a second bolt-on. Must be resolved, or
         consciously re-accepted, before PR 3's drag `WrenchSource` is the first thing that can actually read a NaN
         `AtmoState` into the EOM.
-  - [ ] PR 2 — `WindModel` (§7 signature) with `plugins/physical/wind/{uniform, dryden}` (seeded `std::mt19937_64`,
-        in-house transforms, seed logged). Accept: Dryden PSD matches the MIL-F-8785C spec within statistical bounds
-        at a fixed seed; steady-wind NESC cases within tolerance; bit-identical logs across two same-seed runs.
+  - [x] PR 2 — `WindModel` (§7 signature, strengthened to `const noexcept` plus `begin_frame`/
+        `shareable_across_vehicles`) with `plugins/physical/wind/uniform` and the per-vehicle
+        `EnvironmentSample` latch (`core/include/astra/kernel/environment_sample.hpp`) that carries wind
+        (and, from PR 3, atmosphere) to a `WrenchSource` -- the wind injection point `CLAUDE.md`'s M2
+        trigger list named, one `/codex:rescue` plan-review round (folded: the `EnvironmentAvailability`
+        contradiction Codex's round caught; a real correction to the plan's own reasoning -- `wind_n`
+        shipped `const noexcept`, not non-const, because a reference member does not propagate the
+        enclosing object's constness to the referent, so `Eom::operator() const` was never the barrier
+        an earlier draft claimed; `WindModel::begin_frame(ctx, vs)` is the per-vehicle evolution hook that
+        design needed, since `Model::step` has no `VehicleState` to give a stateful model the true
+        airspeed/altitude MIL-F-8785C ties its coefficients to). `physical.wind` is optional, like
+        `physical.atmosphere`; rejects a `divisor` other than 1 (`begin_frame`/`wind_n` are sampled every
+        frame by `Simulation::step` regardless of the model's own scheduler divisor, and no hold contract
+        exists yet for a coarser rate). `Vehicle::init` rejects a `WrenchSource` whose
+        `requires_environment()` (`wrench_source.hpp`) asks for wind with none configured, naming
+        `physical.wind`; rejects one asking for atmosphere unconditionally, naming `physical.atmosphere`
+        -- no PR before PR 3 populates `EnvironmentSample::atmosphere`, so this is deliberately not "if
+        `physical.atmosphere` is absent." `Simulation::from_config` rejects more than one vehicle paired
+        with a non-shareable `WindModel` (`ADR-0011`); currently unreachable (`from_config` builds exactly
+        one `Vehicle`), tested at the predicate level only. `tests/plugins/{counting_wind, wind_consumer,
+        atmosphere_consumer}` make the call contract and the two rejections assertable rather than only
+        claimed. Accept (this PR's own, narrower than M2's row -- see below): `begin_frame`/`wind_n` each
+        called exactly once per vehicle per frame, at frame-start state, before the wrench stage; the
+        sampled wind reaches a `WrenchSource` through `EnvironmentSample`; two same-config runs are
+        bitwise identical (`std::bit_cast<uint64_t>`) on the sampled `wind_n` sequence and on every
+        `SignalRegistry` value -- plumbing coverage for the latch, not evidence that seeded stochastic
+        evolution is itself deterministic (there is no logger until M5, and §16 puts "bit-identical log
+        across two runs" under M4; this is PR 2's honest substitute, not a claim on either). `just check`
+        exits 0 on every preset. **Does not by itself satisfy M2's own row above**: the Dryden PSD
+        criterion moves to PR 2b's line; the steady-wind NESC criterion moves to PR 3's line, since
+        `WindModel` had no `WrenchSource` consumer until PR 3's drag model exists.
+  - [ ] PR 2b — `core/util/random.hpp` (`std::mt19937_64` seeded from config, in-house Box-Muller/uniform
+        transforms per `AGENTS.md` -- `std::normal_distribution` is unspecified across libstdc++/libc++)
+        and `plugins/physical/wind/dryden` (MIL-F-8785C scale lengths and intensities), built on PR 2's
+        `begin_frame`/`wind_n` split: `step()` draws the frame's RNG samples (scheduler-driven, consumer-
+        count-independent, §2); `begin_frame(ctx, vs)` advances the shaping filter using the vehicle's
+        REAL per-frame true airspeed and altitude from `vs` -- not a configured nominal -- which is the
+        entire reason `begin_frame` takes a `VehicleState`. Consequence, decided here rather than left to
+        discover mid-PR: MIL-F-8785C's PSD is a stationary-process spectrum, meaningful only at fixed `V`
+        and `h`, so the PSD acceptance test must drive `begin_frame`/`wind_n` with a synthetic,
+        held-constant `VehicleState` across its sample count, never a real trajectory. Reuses PR 2's
+        bitwise determinism harness (`tests/unit/wind/wind_determinism_test.cpp`) against `dryden`, where
+        a mismatch is diagnostic of a real bug rather than trivially passing (PR 2 shipped it against
+        `uniform`, a constant model, as plumbing coverage only). Accept: Dryden PSD matches the
+        MIL-F-8785C spec within statistical bounds at a fixed seed (docs/architecture.md §16's M2 row);
+        two same-seed runs are bitwise identical on the gust sequence and the registry snapshot, and
+        across `reset()`.
   - [ ] PR 3 — NESC check-case harness: cases 1–10 from YAML under `tests/physics/nesc/` (absorbing PR 1's
         hand-written case 1 into the harness); a `tests/plugins/` `WrenchSource` for the sphere's Cd·A drag and the
-        brick's damping (the only M2 consumer of wind and atmosphere, air-relative velocity). Reference trajectories
+        brick's damping (the only M2 consumer of wind and atmosphere, air-relative velocity; steady-wind NESC cases
+        within tolerance, moved from PR 2's line since PR 2 shipped no consumer). Populates
+        `EnvironmentSample::atmosphere` in `Simulation::step` (`core/src/kernel/simulation.cpp`) in the same change
+        that adds the `atmosphere` field back to `Vehicle::EnvironmentAvailability` (`core/include/astra/kernel/
+        vehicle.hpp`) -- the two ship together, not as a flag some later PR has to remember to flip. Also decides
+        the varying-wind model docs/architecture.md §16's M2 row implies ("steady **and varying** wind"): neither
+        `uniform` nor `dryden` produces a commanded time-varying mean -- choose between a
+        `plugins/physical/wind/table` plugin and a `tests/plugins/` one. `WrenchSource::wrench_b` needs its own
+        `StepContext` latch (`step()`, mirroring `tests/plugins/nan_wrench`'s existing pattern) to hand `wind_n`
+        one, since `wrench_b(vs, env)` itself carries none. Reference trajectories
         and per-channel tolerances under `tests/golden/nesc/` are human-owned: Joe places NASA's TM-2015-218675 data
         files and reads the proposed tolerances with the guard lifted (PR 1's case 1 already shows the report itself
         publishes no fixed tolerance, only initial conditions — decide per case whether an independent integration
