@@ -162,6 +162,38 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         something to fold in reactively under review pressure. Disclosed in `wind_model.hpp`'s own
         comment on `assumed_position_representation()`. Joe's call whether this blocks the merge, same
         framing as PR 1's polar-approach gap and PR 1b's WGS-84/ISA datum gap.
+        **Second Cowork re-review round, of the merged-ready branch's own fixes** (three findings,
+        comment/behavior only -- no new validation added, per the same disclosure-over-new-mechanism
+        posture as the two gaps above): (1) `Simulation::for_testing`'s doc comment claimed it wires
+        vehicles "the same way `from_config` wires the single vehicle it ever builds," true of
+        scheduling/topology and false of validation (`check_position_representation`,
+        `earth`/`gravity->validate_p_n`, the atmosphere `valid_range` check, and
+        `check_sampled_every_frame` are all `Config`-driven and `for_testing` takes live model
+        pointers, not `Config` -- there is nothing to hang them off, and a test needing an
+        otherwise-invalid state to reach `step()` is a legitimate use of the helper). Named as a
+        class in the comment now, not fixed instance by instance again: this was the third such
+        from_config/for_testing divergence this PR found by omission (wind's divisor guard existed
+        without atmosphere's; wind was scheduled without earth/gravity; now this). (2) `frames_` was
+        never set by `for_testing`, so `sim.run()` with no argument silently ran zero frames;
+        fixed by adding a `frames` parameter (default 0, matching a freshly constructed `frames_`)
+        rather than only documenting the no-op, since every other `for_testing` parameter already
+        mirrors a `from_config` concept and leaving this one silently absent was the more surprising
+        choice -- a new test (`RunWithNoArgumentStepsTheFramesPassedToForTesting`,
+        `tests/unit/wind/wind_test.cpp`) proves it. (3) `Simulation::for_testing` is a public static
+        on the shipped `Simulation` class in `libastra_core`, not compiled out -- accepted
+        explicitly, not gated behind a test-only build or moved to a friend function outside the
+        class: both would only relocate which header shows the same link-visible symbol, and
+        inventing a test-only build-mode split for one static factory is exactly the kind of new
+        mechanism the disclosure-over-new-design posture above already rejected for smaller gaps.
+        What actually stops production code from calling it today: nothing at the compiler/linker
+        level -- the guard is the name and its doc comment (`simulation.hpp`), the same posture the
+        pre-existing non-const `vehicles()` overload already takes. Circumstantially, nothing
+        production-facing can reach it yet either: `Simulation` has no Python binding at all
+        (`python/bindings/_core.cpp` binds `PluginDescriptor`/`core_api_version` only), and no
+        executable outside `tests/` links `libastra_core` and calls into `Simulation`. That
+        circumstance is not load-bearing and would not survive a future Python binding or driver
+        executable being added without re-litigating this -- Joe's call whether that is acceptable
+        risk for a v1 test helper or worth a real gate later.
   - [ ] PR 2b — `core/util/random.hpp` (`std::mt19937_64` seeded from config, in-house Box-Muller/uniform
         transforms per `AGENTS.md` -- `std::normal_distribution` is unspecified across libstdc++/libc++)
         and `plugins/physical/wind/dryden` (MIL-F-8785C scale lengths and intensities), built on PR 2's

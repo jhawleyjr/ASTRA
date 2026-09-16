@@ -394,8 +394,9 @@ Simulation Simulation::for_testing(const PluginLoader& loader,
                                    std::span<const StateVector> initial_states,
                                    const std::vector<Vehicle::ModelSpec>& models, WindModel* wind,
                                    EarthModel* earth, GravityModel* gravity,
-                                   const Vehicle::ModelSpec* mass_spec) {
+                                   const Vehicle::ModelSpec* mass_spec, std::uint64_t frames) {
   Simulation sim;
+  sim.frames_ = frames;
   sim.wind_ = wind;
   sim.earth_ = earth;
   // Same order as from_config: earth, then gravity, then wind. Both earth/flat and

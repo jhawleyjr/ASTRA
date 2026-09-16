@@ -37,18 +37,36 @@ class Simulation {
                                               std::filesystem::path plugin_dir);
 
   // Test-only: builds a Simulation with one Vehicle per entry of initial_states (index i, name
-  // "v<i>"), each carrying the same models list (docs/architecture.md §13's vehicle.models schema)
-  // and wired to wind/earth/gravity the same way from_config wires the single vehicle it ever
-  // builds -- including scheduling non-null earth/gravity/wind in from_config's own order (earth,
-  // gravity, wind) and running the same shareability guard from_config runs after building its
-  // vehicles (may throw ConfigError the same way). Exists because ADR-0011 keeps v1's from_config
-  // to exactly one vehicle by design (multi-vehicle configs are a v2 idea): the multi-vehicle call
-  // contract §7/D1/D4 make (begin_frame/wind_n once per vehicle per frame, against THAT vehicle's
-  // own state; the shareability guard) had no way to be exercised at all otherwise (Cowork review,
-  // post-merge-ready). Never called by from_config; does not change what from_config itself does
-  // with a real config. wind/earth may be null (matching physical.wind/physical.earth both being
-  // absent); a non-null wind with a null earth is a caller error (Simulation::step would then
-  // dereference a null earth_ -- the same invariant from_config's own wiring already relies on).
+  // "v<i>"), each carrying the same models list (docs/architecture.md §13's vehicle.models schema).
+  // Mirrors from_config's SCHEDULING AND TOPOLOGY only -- non-null earth/gravity/wind added to the
+  // environment scheduler in from_config's own order (earth, gravity, wind), the same
+  // EnvironmentAvailability wiring, and the same D4 shareability guard run after building its
+  // vehicles (may throw ConfigError the same way, check_wind_shareable's own comment). Exists
+  // because ADR-0011 keeps v1's from_config to exactly one vehicle by design (multi-vehicle configs
+  // are a v2 idea): the multi-vehicle call contract §7/D1/D4 make (begin_frame/wind_n once per
+  // vehicle per frame, against THAT vehicle's own state; the shareability guard) had no way to be
+  // exercised at all otherwise (Cowork review, post-merge-ready).
+  //
+  // Deliberately does not mirror from_config's config-driven VALIDATION -- named as a class, not an
+  // instance, because this is the third time in this PR a for_testing/from_config divergence was
+  // found by omission rather than decision (wind's divisor guard existed without atmosphere's; wind
+  // was scheduled without earth/gravity; now this) (Cowork re-review). Specifically not run here,
+  // and why each is a legitimate gap for a test helper rather than an oversight:
+  // check_position_representation (gravity's/wind's assumed representation against the configured
+  // Earth model) -- for_testing's caller already holds live model pointers, not Config, so there is
+  // no plugin-path-resolution step to hang a ConfigError off; check_sampled_every_frame --
+  // for_testing has no divisor concept at all (scheduler.add is always called at the implicit
+  // default of 1); earth->validate_p_n / gravity->validate_p_n (is an initial state within a
+  // model's declared domain) and the atmosphere valid_range check -- these validate one
+  // initial_states entry against a model's declared domain, and a test that needs to reach step()
+  // from a state one of those checks would reject (e.g. to prove a downstream health check catches
+  // what an init check would have) is a legitimate use of this helper, not a bug in it. A test that
+  // needs production-equivalent validation should call from_config, not for_testing.
+  //
+  // Never called by from_config; does not change what from_config itself does with a real config.
+  // wind/earth may be null (matching physical.wind/physical.earth both being absent); a non-null
+  // wind with a null earth is a caller error (Simulation::step would then dereference a null earth_
+  // -- the same invariant from_config's own wiring already relies on).
   //
   // gravity/mass_spec default to null (no physics, matching a config with no "physical" section):
   // Vehicle::integrate is then a no-op, and NO WrenchSource is ever called at all (it is gated on
@@ -57,12 +75,25 @@ class Simulation {
   // received) must supply both, mirroring Vehicle::PhysicsSpec exactly (mass is loaded fresh per
   // vehicle from mass_spec, the same way from_config's own single vehicle gets its own mass model;
   // gravity, like earth and wind, is shared across every vehicle here).
+  //
+  // frames defaults to 0, matching a freshly constructed Simulation's own frames_ default: a caller
+  // that only ever uses step()/run(N) explicitly, as every test before this parameter existed does,
+  // never needs it set. A caller relying on run() with no argument (from_config's own "run the
+  // configured frame count" contract) must pass frames here explicitly -- there is no config for
+  // for_testing to read "sim.frames" from. Before this parameter existed, run() with no argument
+  // silently ran zero frames against a for_testing Simulation (Cowork re-review).
+  //
+  // Public on the shipped Simulation class, not gated behind a test-only build: accepted explicitly
+  // here, not an oversight -- see PLAN.md's PR 2 line for the fuller reasoning (Cowork re-review).
+  // Nothing at the compiler/linker level stops production code from calling it; the guard is the
+  // name and this comment, the same posture the non-const vehicles() overload below already takes.
   [[nodiscard]] static Simulation for_testing(const PluginLoader& loader,
                                               std::span<const StateVector> initial_states,
                                               const std::vector<Vehicle::ModelSpec>& models,
                                               WindModel* wind, EarthModel* earth,
                                               GravityModel* gravity = nullptr,
-                                              const Vehicle::ModelSpec* mass_spec = nullptr);
+                                              const Vehicle::ModelSpec* mass_spec = nullptr,
+                                              std::uint64_t frames = 0);
 
   // Advances exactly one major frame: docs/architecture.md §5's order -- environment models,
   // vehicle models, then (when physics is configured) each vehicle's wrench accumulation, EOM

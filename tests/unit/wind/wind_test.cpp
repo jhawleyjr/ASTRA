@@ -436,9 +436,11 @@ TEST(WindMultiVehicle, BeginFrameThenWindNAreCalledOncePerVehiclePerFrameWithDis
   ASSERT_NE(wind_n_calls, nullptr);
   ASSERT_NE(frame_min, nullptr);
   ASSERT_NE(frame_max, nullptr);
-  // No physics configured (for_testing always passes physics = nullptr to Vehicle::init), so
-  // Vehicle::integrate is a no-op and neither vehicle's state ever changes: every one of the
-  // 2*kFrames begin_frame calls sees exactly {0.0, 1000.0} across the two vehicles.
+  // This call supplies no gravity/mass_spec, so for_testing passes physics = nullptr to
+  // Vehicle::init (its own doc comment): Vehicle::integrate is then a no-op and neither vehicle's
+  // state ever changes, so every one of the 2*kFrames begin_frame calls sees exactly {0.0, 1000.0}
+  // across the two vehicles. EachVehicleWrenchSourceReceivesItsOwnEnvironmentSample below supplies
+  // both and gets real physics instead.
   EXPECT_DOUBLE_EQ(*begin_frame_calls, static_cast<double>(2 * kFrames));
   EXPECT_DOUBLE_EQ(*wind_n_calls, static_cast<double>(2 * kFrames));
   // Distinct within the (last) frame, proving begin_frame ran against each vehicle's OWN
@@ -446,6 +448,34 @@ TEST(WindMultiVehicle, BeginFrameThenWindNAreCalledOncePerVehiclePerFrameWithDis
   // BeginFrameThenWindNAreEachCalledExactlyOncePerFrame's single vehicle cannot show.
   EXPECT_DOUBLE_EQ(*frame_min, 0.0);
   EXPECT_DOUBLE_EQ(*frame_max, 1000.0);
+}
+
+// Cowork re-review: for_testing's first draft never set frames_, so sim.run() with no argument
+// silently ran zero frames against a for_testing Simulation regardless of what a test might expect
+// -- every existing test happened to use run(N) or step() directly, so nothing caught it. Proves
+// the fix: passing frames to for_testing makes run() step exactly that many, the same contract
+// from_config's own run() (reading "sim.frames") already has.
+TEST(WindMultiVehicle, RunWithNoArgumentStepsTheFramesPassedToForTesting) {
+  const astra::PluginLoader loader{ASTRA_TEST_PLUGIN_DIR};
+  astra::LoadedPlugin wind_loaded = loader.load("tests/plugins/counting_wind");
+  auto* const wind = dynamic_cast<WindModel*>(wind_loaded.model.get());
+  astra::LoadedPlugin earth_loaded = loader.load("plugins/physical/earth/flat");
+  auto* const earth = dynamic_cast<EarthModel*>(earth_loaded.model.get());
+  astra::SignalRegistry wind_registry;
+  wind->init(Config::from_string("{}\n", "counting-wind-fixture"), wind_registry);
+  astra::SignalRegistry earth_registry;
+  earth->init(Config::from_string("{}\n", "earth-flat-fixture"), earth_registry);
+
+  const std::array<StateVector, 1> initial_states{state_with_p_n_north(0.0)};
+  constexpr std::uint64_t kFrames = 7;
+  Simulation sim =
+      Simulation::for_testing(loader, initial_states, {}, wind, earth, nullptr, nullptr, kFrames);
+  EXPECT_EQ(sim.frames(), kFrames);
+  EXPECT_FALSE(sim.run());  // no argument: must read the frames passed above, not default to 0
+
+  const double* begin_frame_calls = wind_registry.find("counting_wind.begin_frame_calls");
+  ASSERT_NE(begin_frame_calls, nullptr);
+  EXPECT_DOUBLE_EQ(*begin_frame_calls, static_cast<double>(kFrames));
 }
 
 TEST(WindMultiVehicle, EachVehicleWrenchSourceReceivesItsOwnEnvironmentSample) {
