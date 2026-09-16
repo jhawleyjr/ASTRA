@@ -103,7 +103,11 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         publishes no fixed tolerance, only initial conditions — decide per case whether an independent integration
         or a cross-tool comparison band is the right oracle). Decide from the report whether any case needs a
         rotating spherical Earth (`rotating: true` on `round`, per §4 granularity). Accept: all ten within tolerance
-        under every preset. **Carried from PR 1b (Codex adversarial review, disclosed not fixed):**
+        under every preset. **Also adds** the transcribed-vs-fresh geopotential consistency check PR 1b's own
+        generator left unclaimed: assert `geopotential_from_geometric(Z)` matches each row's transcribed H column
+        within 0.5 m, catching a geometric/geopotential column swap at generation time — the highest-risk
+        transcription error in the NESC tables too (same class of mistake as `docs/lessons.md`'s 2026-09-15
+        entry on NASA-TM-X-74335's dual-column Table I). **Carried from PR 1b (Codex adversarial review, disclosed not fixed):**
         `wgs84_rotating`'s `EarthModel::altitude()` returns height above the WGS-84 ellipsoid (ADR-0003's `p_n(2)`),
         not a sea-level/geoid reference `isa1976` implicitly assumes; the two differ by the geoid undulation
         (roughly -105 to +85 m), bounding the resulting density error at about 1.3% via the barometric
