@@ -1,40 +1,39 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines; written as true once the PR carrying it has merged)
 
 ## In flight
-Nothing once PR #24 (branch `worktree-m2-environment-1b`) merges. Adds `AtmosphereModel`
-(`AtmoState`, `AltitudeRange`) and `plugins/physical/atmosphere/isa1976` (0-86 km geometric
-altitude, docs/architecture.md §7). `physical.atmosphere` is an optional config slot;
-`Simulation::from_config` checks the initial altitude against the atmosphere's `valid_range()` at
-init (§15), naming `physical.atmosphere`/`initial.state.p_n` on rejection. No
-position-representation check: `at(double altitude_m)` never sees `p_n`.
-**Disclosed, not fixed** (Codex adversarial review, four rounds -- round 4 stayed "no-ship" on this
-point after every other finding was fixed): `earth/wgs84_rotating`'s `EarthModel::altitude()`
-returns height above the WGS-84 ellipsoid, not the sea-level/geoid reference ISA-1976 assumes;
-differs by the geoid undulation (~-105 to +85 m), bounding density error at ~1.3% (barometric
-approximation, scale height ~8500 m). Needs a geoid model (EGM96/EGM2008), a separate
-plan-reviewed PR (`PLAN.md`'s M2 PR 3 line). Also carries PR 1's per-frame Earth/gravity
-domain-validity gap onto `physical.atmosphere` (same fix needed, not bolted on here).
+Nothing once PR #25 (branch `worktree-m2-environment-2`) merges. Adds `WindModel`
+(`begin_frame`/`wind_n`/`shareable_across_vehicles`, `docs/architecture.md` §7) and the per-vehicle
+`EnvironmentSample` latch carrying wind (and, from PR 3, atmosphere) to a `WrenchSource`, plus
+`plugins/physical/wind/uniform`. `physical.wind` is optional, like `physical.atmosphere`;
+`Vehicle::init` rejects a `WrenchSource` requiring wind with none configured, and one requiring
+atmosphere unconditionally (no PR before PR 3 connects the two). `assumed_position_representation()`
+mirrors `GravityModel`'s mechanism; `from_config` rejects a mismatched Earth model. `kCoreApiVersion`
+bumped 1 -> 3 (`WrenchSource`'s ABI break, then `WindModel`'s own settled vtable).
+**Disclosed, not fixed** (Codex adversarial review, three rounds, verdict "approve"):
+`assumed_position_representation()` is declarative, not enforced -- a plugin can declare `kAny`
+while still reading `vs.p_n()` internally. Not new: `GravityModel`'s identical mechanism (M2 PR 1)
+has had this property since it shipped.
 
 ## Last verified result
-`just check` exited 0 (`check: OK`) on every preset, 152/152 tests each (four runs: implementation,
-three Codex-review fixup rounds). Codex review: no findings. Codex adversarial review, four rounds:
-round 1 found the WGS-84/ISA datum gap and an undisclosed per-frame atmosphere domain gap -- the
-latter's disclosure added and confirmed; round 3 caught `docs/architecture.md` §7 overclaiming
-`HealthMonitor` monitors `AtmoState` and omitting `valid_range()` -- fixed, confirmed round 4.
-Round 4's remaining finding is the datum gap above -- carried forward as disclosed (Joe's call,
-reasoning in `PLAN.md`'s PR 1b and PR 3 lines), not silently dropped.
+`just check` exited 0 (`check: OK`) on every preset, 177/177 tests each (final run, after four
+Codex-review fixup rounds this session). Codex review: no findings. Codex adversarial review, three
+rounds: round 1 found `begin_frame` exposed raw, representation-dependent `p_n` -- fixed with
+`altitude_m`; round 2 found that declaration unenforced -- fixed with
+`assumed_position_representation()`; round 3 found `kCoreApiVersion` needed a further bump (2 -> 3)
+and confirmed the disclosure above -- verdict: approve.
 
 ## Next step
-M2 Environment (PLAN.md) PR 2: `WindModel` (§7 signature) with `plugins/physical/wind/{uniform,
-dryden}` (seeded `std::mt19937_64`, in-house transforms, seed logged). Accept: Dryden PSD matches
-the MIL-F-8785C spec within statistical bounds at a fixed seed; steady-wind NESC cases within
-tolerance; bit-identical logs across two same-seed runs.
-Opener (model and effort pinned in `.claude/settings.json`; escalation is Joe's):
-   `claude --worktree m2-environment-2 --permission-mode plan`
+M2 Environment (PLAN.md) PR 2b: `core/util/random.hpp` (seeded `std::mt19937_64`, in-house
+Box-Muller/uniform transforms) and `plugins/physical/wind/dryden` (MIL-F-8785C), on PR 2's
+`begin_frame`/`wind_n` split -- real per-frame true airspeed/altitude, so the PSD test drives a
+synthetic, held-constant `VehicleState`. Reuses PR 2's bitwise determinism harness against
+`dryden`. Accept: Dryden PSD matches MIL-F-8785C within statistical bounds at a fixed seed; two
+same-seed runs bitwise identical on the gust sequence and registry snapshot, and across `reset()`.
+Opener: `claude --worktree m2-environment-2b --permission-mode plan`
 
 ## Tried / failed
-Double-backgrounded `just check` once (`&`/`disown` inside `run_in_background: true`); recovered per
-`docs/lessons.md`'s existing rule by finding the real pid and blocking on it, not restarting.
+Blocked on the wrong `just check` pid twice (a transient child, not the real process); recovered
+via `pgrep -x just` per the existing pid-finding rule.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.
