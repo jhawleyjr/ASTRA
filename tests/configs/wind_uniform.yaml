@@ -1,0 +1,15 @@
+# M2 PR 2: the end-to-end physical.wind fixture -- no test config before this PR named an optional
+# environment slot in a *.yaml file (physical.atmosphere in M2 PR 1b was only exercised through
+# inline Config::from_string fixtures in simulation_physical_config_test.cpp). Flat Earth, constant
+# gravity, no vehicle.models, so this config's only job is to exercise physical.wind's own loading
+# and the §13 map spelling (docs/architecture.md:326).
+sim:
+  dt: 0.001
+  frames: 10
+vehicle:
+  models: []
+physical:
+  earth: plugins/physical/earth/flat
+  gravity: plugins/physical/gravity/constant
+  wind: { plugin: plugins/physical/wind/uniform, north: 5.0, east: -2.0, down: 0.0 }
+  mass: { plugin: plugins/physical/mass/constant, mass: 1.0, ixx: 1.0, iyy: 1.0, izz: 1.0 }

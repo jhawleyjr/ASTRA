@@ -210,7 +210,23 @@ public:
   virtual AtmoState at(double altitude_m) const noexcept = 0;
   virtual AltitudeRange valid_range() const noexcept = 0;
 };
-class WindModel       : public Model { public: virtual Eigen::Vector3d wind_n(const StepContext&, const VehicleState&) = 0; };
+// wind_n is const noexcept (M2 PR 2, strengthened over this file's own earlier sketch, the same
+// way AtmosphereModel::at() was in PR 1b): it is a pure read of whatever begin_frame last latched,
+// never itself advancing anything -- a WindModel's own per-frame, per-vehicle evolution (a shaping
+// filter's coefficients, which MIL-F-8785C ties to true airspeed and altitude that step() cannot
+// see) happens in begin_frame, called once per vehicle by Simulation::step immediately before
+// wind_n for that same vehicle. altitude_m is Earth-derived (EarthModel::altitude(), the same value
+// AtmosphereModel::at() takes) rather than read from VehicleState::p_n() directly: p_n's meaning
+// (NED down vs geodetic altitude, opposite sign) depends on the configured Earth model, the same
+// representation trap ADR-0003/PositionRepresentation exists to prevent for gravity models (Codex
+// adversarial review). shareable_across_vehicles() declares whether the per-vehicle evolution above
+// is even correct under more than one vehicle (ADR-0011); defaults to false.
+class WindModel : public Model {
+public:
+  virtual void begin_frame(const StepContext&, const VehicleState&, double altitude_m) noexcept;
+  virtual Eigen::Vector3d wind_n(const StepContext&, const VehicleState&) const noexcept = 0;
+  virtual bool shareable_across_vehicles() const noexcept;
+};
 class GravityModel    : public Model { public: virtual Eigen::Vector3d g_n(const VehicleState&) const = 0; };
 class EarthModel      : public Model { /* frames, rotation rate, transport rate, geodetic conversions */ };
 

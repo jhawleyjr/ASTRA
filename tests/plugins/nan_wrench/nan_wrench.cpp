@@ -52,7 +52,9 @@ class NanWrench final : public astra::WrenchSource {
   }
   [[nodiscard]] std::string_view name() const override { return "nan_wrench"; }
 
-  [[nodiscard]] astra::Wrench wrench_b(const astra::VehicleState& /*vs*/) const noexcept override {
+  [[nodiscard]] astra::Wrench wrench_b(
+      const astra::VehicleState& /*vs*/,
+      const astra::EnvironmentSample& /*env*/) const noexcept override {
     astra::Wrench wrench;
     wrench.force_b(0) = nan_from_here_ ? std::numeric_limits<double>::quiet_NaN() : force_x_;
     return wrench;

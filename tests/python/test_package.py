@@ -19,7 +19,9 @@ def test_version_matches_the_installed_distribution() -> None:
 
 
 def test_core_api_version_and_toolchain_string_come_from_libastra_core() -> None:
-    assert _core.core_api_version() == 1
+    # Bumped by hand alongside core_api.hpp.in's kCoreApiVersion (M2 PR 2: 1 -> 2 -> 3,
+    # WrenchSource's then WindModel's vtables changed).
+    assert _core.core_api_version() == 3
     assert "Clang" in _core.built_with()
     assert "sanitizers=none" in _core.built_with()
     assert "static-plugins=off" in _core.built_with()

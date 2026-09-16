@@ -1,0 +1,1 @@
+astra_add_plugin(SOURCES atmosphere_consumer.cpp)

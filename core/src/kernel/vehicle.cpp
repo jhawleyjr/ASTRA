@@ -10,7 +10,8 @@ namespace astra {
 Vehicle::Vehicle(std::uint32_t index, std::string name) : index_(index), name_(std::move(name)) {}
 
 void Vehicle::init(const PluginLoader& loader, const std::vector<ModelSpec>& models,
-                   SignalRegistry& registry, const PhysicsSpec* physics) {
+                   SignalRegistry& registry, const PhysicsSpec* physics,
+                   EnvironmentAvailability availability) {
   state_names_ = {name_ + ".state.p_n", name_ + ".state.v_b", name_ + ".state.q_nb",
                   name_ + ".state.omega_b"};
   wrench_total_name_ = name_ + ".wrench_total";
@@ -28,6 +29,18 @@ void Vehicle::init(const PluginLoader& loader, const std::vector<ModelSpec>& mod
     // for the vehicle's lifetime once plugins_ owns it.
     if (auto* const wrench_source = dynamic_cast<WrenchSource*>(loaded.model.get());
         wrench_source != nullptr) {
+      const EnvironmentRequirements requirements = wrench_source->requires_environment();
+      if (requirements.wind && !availability.wind) {
+        throw ConfigError(spec.config.origin(), "physical.wind",
+                          spec.plugin_path + " requires wind");
+      }
+      if (requirements.atmosphere) {
+        // Unconditional, not "if physical.atmosphere is absent": no PR before M2 PR 3 populates
+        // EnvironmentSample::atmosphere (environment_sample.hpp), so even a config naming
+        // physical.atmosphere cannot satisfy this yet -- nothing connects the two before PR 3.
+        throw ConfigError(spec.config.origin(), "physical.atmosphere",
+                          spec.plugin_path + " requires atmosphere");
+      }
       wrench_sources_.push_back(WrenchEntry{wrench_source, spec.plugin_path});
     }
     plugins_.push_back(std::move(loaded));
@@ -58,7 +71,7 @@ HaltReason Vehicle::integrate(const Integrator& integrator, const StepContext& c
   Wrench total;
   const VehicleState vs{state_};
   for (const WrenchEntry& entry : wrench_sources_) {
-    const Wrench contribution = entry.model->wrench_b(vs);
+    const Wrench contribution = entry.model->wrench_b(vs, environment_);
     if (const HaltReason halt = health.check_wrench(contribution, entry.plugin_path, ctx, index_);
         halt) {
       return halt;  // state_ untouched: the EOM never sees this contribution.

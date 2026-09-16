@@ -7,7 +7,15 @@ namespace astra {
 
 // Bumped by hand whenever the plugin-facing ABI (Model, PluginDescriptor, StepContext) changes. A plugin
 // whose descriptor carries a different value is rejected at load with a typed error (ADR-0009).
-inline constexpr std::uint32_t kCoreApiVersion = 1;
+// 2 (M2 PR 2): WrenchSource gained requires_environment() and wrench_b's signature changed, both
+// changing WrenchSource's vtable layout -- an out-of-tree plugin built against version 1 must be
+// rejected, not dispatched through a vtable slot it does not have (Codex review).
+// 3 (M2 PR 2, same PR): WindModel -- itself new in this PR, so no version bump could have protected
+// against it before this point -- settled its final vtable shape only after two further adversarial-
+// review rounds added begin_frame's altitude_m parameter and assumed_position_representation();
+// bumped once more so the version this PR ships with names WindModel's one, final layout, not an
+// intermediate shape that existed only for a few commits inside this same unmerged branch.
+inline constexpr std::uint32_t kCoreApiVersion = 3;
 
 // The toolchain and configuration this tree was configured with. A plugin built by a different configure
 // carries a different string and is rejected at load; it can only come from a stale build directory.
