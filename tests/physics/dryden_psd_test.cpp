@@ -17,8 +17,10 @@
 // variance, independent of Dryden's own Rng) whose one-sided PSD in this convention is EXACTLY
 // dt/pi, flat across frequency -- if the self-check fails, the estimator itself is wrong and the
 // Dryden rows below are not evidence of anything. Only once the self-check passes are the three
-// gust axes checked against MIL-F-8785C's Phi_u/Phi_v/Phi_w (dryden_filter.hpp's own header cites
-// the closed forms).
+// gust axes checked against MIL-F-8785C's Phi_u/Phi_v/Phi_w, section 3.7.1.2 p.47 --
+// tests/golden/wind/mil_f_8785c_dryden.hpp's phi_u()/phi_vw(), called below, not restated here
+// (Codex review, PR #26: these two closed forms transcribe the same guarded section the constants
+// in that header do, and had sat outside every guarded path when this file defined them itself).
 //
 // --- Grid bounds, and why (Joe's review) ---
 //
@@ -53,6 +55,7 @@
 #include "astra/signals/signal_registry.hpp"
 #include "astra/util/random.hpp"
 #include "astra/util/units.hpp"
+#include "golden/wind/mil_f_8785c_dryden.hpp"
 #include "plugins/physical/wind/dryden/dryden_filter.hpp"
 
 namespace {
@@ -63,6 +66,7 @@ using astra::StateVector;
 using astra::StepContext;
 using astra::VehicleState;
 using astra::WindModel;
+namespace golden = astra::test::mil_f_8785c;
 
 // --- Fixed test scenario: low altitude, moderate airspeed -- keeps L/V short (T_u ~ 1 s,
 // T_w ~ 0.15 s) so a run of practical length covers many correlation times per axis. ---
@@ -196,24 +200,6 @@ double sample_variance(const std::vector<double>& series) {
   return sum_sq_dev / static_cast<double>(series.size());
 }
 
-// MIL-F-8785C's Phi_u/Phi_v/Phi_w (section 3.7.1.2, p.47; dryden_filter.hpp's file header restates
-// the temporal form via a = V/L): the closed-form continuous spectra this test's Dryden rows are
-// checked against.
-double phi_u(double omega, double sigma_u, double length_u, double airspeed) {
-  const double a = astra::dryden::gust_rate(airspeed, length_u);
-  return sigma_u * sigma_u * (2.0 * a) / std::numbers::pi / ((a * a) + (omega * omega));
-}
-// |G_vw(j*omega)|^2 = sigma^2 * a * (a^2 + 3*omega^2) / (a^2 + omega^2)^2, from
-// G_vw(s) = sigma*sqrt(a)*(sqrt(3)*s + a)/(s + a)^2 (dryden_filter.hpp's file header); Phi =
-// |G|^2/pi.
-double phi_vw(double omega, double sigma, double length, double airspeed) {
-  const double a = astra::dryden::gust_rate(airspeed, length);
-  const double a_sq = a * a;
-  const double omega_sq = omega * omega;
-  const double denom = (a_sq + omega_sq) * (a_sq + omega_sq);
-  return sigma * sigma * a * (a_sq + (3.0 * omega_sq)) / (std::numbers::pi * denom);
-}
-
 TEST(DrydenPsd, EstimatorSelfCheckMatchesFlatWhiteNoiseSpectrum) {
   const std::vector<double> noise = white_noise_series(kTotalFrames, 4242);
   const double omega_min = 5.0 * 2.0 * std::numbers::pi / (kSegmentLength * kDt);
@@ -241,18 +227,24 @@ TEST(DrydenPsd, GustSpectraMatchMilF8785cWithinStatisticalBounds) {
   const double omega_max = 0.1 * std::numbers::pi / kDt;
   const std::vector<double> grid = log_spaced_grid(omega_min, omega_max, 10);
 
+  // a = V/L is plumbing (dryden_filter.hpp's own gust_rate()), computed here at the call site, not
+  // inside the golden spectral forms -- see mil_f_8785c_dryden.hpp's own comment on phi_u/phi_vw.
+  const double rate_u = astra::dryden::gust_rate(kAirspeedMS, mp.length_u_m);
+  const double rate_v = astra::dryden::gust_rate(kAirspeedMS, mp.length_v_m);
+  const double rate_w = astra::dryden::gust_rate(kAirspeedMS, mp.length_w_m);
+
   for (const double omega : grid) {
     SCOPED_TRACE(omega);
     const double u_estimate = periodogram_average(series.u, omega);
-    const double u_expected = phi_u(omega, mp.sigma_u_m_s, mp.length_u_m, kAirspeedMS);
+    const double u_expected = golden::phi_u(omega, mp.sigma_u_m_s, rate_u);
     EXPECT_NEAR(u_expected, u_estimate, u_expected * kFrequencyRelativeTolerance);
 
     const double v_estimate = periodogram_average(series.v, omega);
-    const double v_expected = phi_vw(omega, mp.sigma_v_m_s, mp.length_v_m, kAirspeedMS);
+    const double v_expected = golden::phi_vw(omega, mp.sigma_v_m_s, rate_v);
     EXPECT_NEAR(v_expected, v_estimate, v_expected * kFrequencyRelativeTolerance);
 
     const double w_estimate = periodogram_average(series.w, omega);
-    const double w_expected = phi_vw(omega, mp.sigma_w_m_s, mp.length_w_m, kAirspeedMS);
+    const double w_expected = golden::phi_vw(omega, mp.sigma_w_m_s, rate_w);
     EXPECT_NEAR(w_expected, w_estimate, w_expected * kFrequencyRelativeTolerance);
   }
 

@@ -45,7 +45,9 @@
 // sigma_high (required): sigma_u = sigma_v = sigma_w at and above 2000 ft, m/s (SI already -- this
 // key takes no unit suffix). MIL-F-8785C reads this off Figure 7's (p.49) probability-of-exceedance
 // chart; THAT CHART IS NOT DIGITIZED HERE -- it would be a human-owned golden table
-// (tests/golden/**, Joe's), so a config states the intensity it wants directly.
+// (tests/golden/**, Joe's), so a config states the intensity it wants directly. Figure 7's own axis
+// is "RMS TURBULENCE AMPLITUDE, sigma (FT/SEC - TAS)" -- feet per second, true airspeed; this key
+// takes m/s, a boundary conversion the config author performs when reading a value off that chart.
 //
 // Disclosed, not enforced: w20_knots and sigma_high are independently configured, but MIL-F-8785C
 // derives both from one underlying exceedance-probability chart, and the 1000-2000 ft interpolation
