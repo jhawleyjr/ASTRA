@@ -398,6 +398,17 @@ Simulation Simulation::for_testing(const PluginLoader& loader,
   Simulation sim;
   sim.wind_ = wind;
   sim.earth_ = earth;
+  // Same order as from_config: earth, then gravity, then wind. Both earth/flat and
+  // gravity/constant's own step() are empty today, so this had no observable effect on any test
+  // before this fix (Codex adversarial review, M2 PR 2 Cowork-fix round: scheduling only wind left
+  // for_testing silently non-equivalent to from_config's wiring for a future stateful Earth or
+  // gravity model, which would then never actually be stepped here).
+  if (earth != nullptr) {
+    sim.environment_scheduler_.add(*earth);
+  }
+  if (gravity != nullptr) {
+    sim.environment_scheduler_.add(*gravity);
+  }
   if (wind != nullptr) {
     sim.environment_scheduler_.add(*wind);
   }
