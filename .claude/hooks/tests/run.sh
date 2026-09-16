@@ -6,6 +6,9 @@
 # These placeholders are substituted:
 #   $ROOT          a temporary project root with a .claude/ directory and no touch-goldens marker
 #   $ROOT_ARMED    the same with the touch-goldens marker present; a case naming it runs with CLAUDE_PROJECT_DIR there
+#   $ROOT_WT_ARMED a git worktree whose MAIN CHECKOUT holds the marker (the worktree itself has none): the
+#                  shape every golden-touching session actually runs in
+#   $ROOT_WT       the same shape with no marker anywhere, so the guard still blocks
 #   $ROOT_ON_MAIN  a temporary git repository whose HEAD is on main
 #   $ROOT_ON_BRANCH  a temporary git repository whose HEAD is on a task branch
 #   $ROOT_GREEN    a temporary tree whose stub justfile has a `test-unit` recipe that passes
@@ -34,6 +37,26 @@ on_branch="$tmp/on_branch"
 git init -q -b main "$on_branch"
 git -C "$on_branch" -c user.name=astra -c user.email=astra@example.invalid commit -q --allow-empty -m init
 git -C "$on_branch" checkout -q -b worktree-task
+
+# A worktree session's CLAUDE_PROJECT_DIR is the worktree, but the marker Joe touches lives in the main
+# checkout. guard-oracle.sh accepts either, so both shapes are exercised here.
+gitcommit() { git -C "$1" -c user.name=astra -c user.email=astra@example.invalid commit -q --allow-empty -m init; }
+wt_main="$tmp/wt_main"
+git init -q -b main "$wt_main"
+gitcommit "$wt_main"
+mkdir -p "$wt_main/.claude"
+touch "$wt_main/.claude/touch-goldens"
+wt_armed="$tmp/wt_armed"
+git -C "$wt_main" worktree add -q -b wt-armed "$wt_armed" >/dev/null 2>&1
+mkdir -p "$wt_armed/.claude"
+
+wt_plain_main="$tmp/wt_plain_main"
+git init -q -b main "$wt_plain_main"
+gitcommit "$wt_plain_main"
+mkdir -p "$wt_plain_main/.claude"
+wt="$tmp/wt_plain"
+git -C "$wt_plain_main" worktree add -q -b wt-plain "$wt" >/dev/null 2>&1
+mkdir -p "$wt/.claude"
 green="$tmp/green"
 mkdir -p "$green"
 printf 'test-unit:\n    @true\n' >"$green/justfile"
@@ -79,7 +102,13 @@ for cases in "$tests_dir"/*.cases; do
     expect=${line%%$'\t'*}
     json=${line#*$'\t'}
     project_dir="$root"
-    case "$json" in *'$ROOT_ARMED'*) project_dir="$armed" ;; esac
+    case "$json" in
+      *'$ROOT_WT_ARMED'*) project_dir="$wt_armed" ;;
+      *'$ROOT_WT'*)       project_dir="$wt" ;;
+      *'$ROOT_ARMED'*)    project_dir="$armed" ;;
+    esac
+    json=${json//\$ROOT_WT_ARMED/$wt_armed}
+    json=${json//\$ROOT_WT/$wt}
     json=${json//\$ROOT_ARMED/$armed}
     json=${json//\$ROOT_ON_MAIN/$on_main}
     json=${json//\$ROOT_ON_BRANCH/$on_branch}
