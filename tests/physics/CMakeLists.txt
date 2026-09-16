@@ -11,6 +11,7 @@
 add_executable(astra_physics_tests
   ../support/alloc_counter.cpp
   ballistic_test.cpp
+  dryden_psd_test.cpp
   nesc_case1_test.cpp
   no_alloc_test.cpp
   precession_test.cpp

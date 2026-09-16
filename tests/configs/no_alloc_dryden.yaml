@@ -1,0 +1,16 @@
+# tests/physics/no_alloc_test.cpp (docs/architecture.md §15, PLAN.md M2 PR 2b): the same shape as
+# no_alloc.yaml, with physical.wind = dryden configured -- the per-frame path this PR adds (Rng
+# draws, the two-state filter's Cholesky, the MIL parameter law) must not allocate either.
+sim:
+  dt: 0.001
+  frames: 1000
+vehicle:
+  models:
+    - { plugin: tests/plugins/nan_wrench, force_x: 1.0 }
+physical:
+  earth: plugins/physical/earth/flat
+  gravity: plugins/physical/gravity/constant
+  wind: { plugin: plugins/physical/wind/dryden, seed: 3, w20_knots: 15.0, sigma_high: 3.0 }
+  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 }
+initial:
+  state: { p_n: [0.0, 0.0, -100.0], v_b: [60.0, 0.0, 0.0] }
