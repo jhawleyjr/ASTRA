@@ -6,6 +6,8 @@
 // (mathworks.com/help/aeroblks/drydenwindturbulencemodelcontinuous.html), which states the same
 // MIL-F-8785C constants independently and, for kLowAltitudeVerticalScaleIsAltitude below, in words
 // where the primary document only implies it graphically -- both sources agree on every value here.
+// docs/refs/MIL-F-8785C.pdf itself is NOT committed (docs/refs/README.md): it stays on Joe's disk,
+// cited here by page number rather than carried in git history.
 //
 // Two different roles, by design, not an inconsistency:
 //
@@ -77,12 +79,12 @@ inline constexpr double kMediumHighAltitudeMinFt = 2000.0;
 //   Phi_v(Omega) = Phi_w(Omega) = sigma^2 * (L/pi) * (1 + 3*(L*Omega)^2) / (1 + (L*Omega)^2)^2
 // converted to the temporal form these functions take via Taylor's frozen-turbulence hypothesis,
 // s = j*V*Omega (equivalently omega = V*Omega, a = V/L): dryden_filter.hpp's own header derives and
-// cites this conversion (Joe: verified there, not re-derived here) and states the resulting transfer
-// functions G_u(s) = sigma_u*sqrt(2a)/(s+a), G_vw(s) = sigma*sqrt(a)*(sqrt(3)*s+a)/(s+a)^2, whose
-// squared magnitude over pi is exactly the two closed forms below. a (= V/L, dryden_filter.hpp's
-// gust_rate()) is the caller's to compute and pass in -- that division is V/L plumbing, not part of
-// the document's spectral shape, and stays out of this file the same way it stays out of the
-// constants above.
+// cites this conversion (Joe: verified there, not re-derived here) and states the resulting
+// transfer functions G_u(s) = sigma_u*sqrt(2a)/(s+a), G_vw(s) =
+// sigma*sqrt(a)*(sqrt(3)*s+a)/(s+a)^2, whose squared magnitude over pi is exactly the two closed
+// forms below. a (= V/L, dryden_filter.hpp's gust_rate()) is the caller's to compute and pass in --
+// that division is V/L plumbing, not part of the document's spectral shape, and stays out of this
+// file the same way it stays out of the constants above.
 //
 // Phi_u(omega) = sigma_u^2 * (2*a) / (pi * (a^2 + omega^2))
 [[nodiscard]] inline double phi_u(double omega, double sigma_u, double a) noexcept {
