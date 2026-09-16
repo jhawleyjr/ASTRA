@@ -10,10 +10,12 @@
 #include <vector>
 
 #include "astra/errors.hpp"
+#include "astra/interfaces/atmosphere_model.hpp"
 #include "astra/interfaces/earth_model.hpp"
 #include "astra/interfaces/gravity_model.hpp"
 #include "astra/interfaces/position_representation.hpp"
 #include "astra/kernel/state.hpp"
+#include "astra/kernel/vehicle_state.hpp"
 #include "astra/plugin/loader.hpp"
 #include "astra/util/frames.hpp"
 
@@ -76,9 +78,9 @@ LoadedPlugin load_environment_model(const PluginLoader& loader, const Vehicle::M
 // does not match what the configured Earth model provides -- e.g. gravity/wgs84_j2 paired with
 // earth/flat would otherwise read NED metres as radians. kAny ("does not read p_n's geometry") is
 // always compatible. config_path names the assuming model's own slot ("physical.gravity"); the
-// message also names the Earth slot it disagrees with. The same check will apply to
-// physical.atmosphere once that slot exists (a follow-up PR: AtmosphereModel grew too large to land
-// alongside the Earth/gravity models in one PR, PLAN.md's own size contingency).
+// message also names the Earth slot it disagrees with. physical.atmosphere (M2 PR 1b) does not take
+// this check: AtmosphereModel::at() is handed a plain altitude, never p_n, so no conforming
+// atmosphere model can assume a representation to mismatch in the first place.
 void check_position_representation(PositionRepresentation assumed, PositionRepresentation provided,
                                    const Vehicle::ModelSpec& assuming_spec,
                                    const Vehicle::ModelSpec& earth_spec) {
@@ -166,9 +168,13 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
   }
 
   Vehicle vehicle(0, "v0");
-  // Physics is opt-in, all three slots or none: a config with no "physical" section (PR 2's
-  // dummy-plugin fixture) runs exactly as before this PR, with no EarthModel/GravityModel/
-  // MassPropertiesModel loaded and no Eom, so Vehicle::integrate is a no-op for it.
+  // Physics is opt-in. The three required slots -- earth, gravity, mass -- are the Eom's own
+  // inputs: all three or none (a config with no "physical" section, PR 2's dummy-plugin fixture,
+  // runs exactly as before this PR, with no Eom and Vehicle::integrate a no-op). Atmosphere (and,
+  // from PR 2, wind) are optional environment models, loaded only when the config names them --
+  // nothing in the EOM reads them, and the M2 NESC dragless cases have no atmosphere at all. A
+  // wrench source that requires one and finds none is an init error naming physical.atmosphere,
+  // never a silent rho = 0.
   if (config.has("physical")) {
     const Config physical = config.at("physical");
     const Vehicle::ModelSpec earth_spec = resolve_model_spec(physical.at("earth"));
@@ -193,6 +199,24 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
     sim.environment_plugins_.push_back(std::move(earth_loaded));
     sim.environment_plugins_.push_back(std::move(gravity_loaded));
 
+    // physical.atmosphere (M2 PR 1b): optional, no position-representation check (see
+    // check_position_representation's comment above), not part of Vehicle::PhysicsSpec -- the EOM
+    // has no atmosphere input; PR 3's drag WrenchSource is the first consumer.
+    AtmosphereModel* atmosphere = nullptr;
+    std::string atmosphere_plugin_path;
+    if (physical.has("atmosphere")) {
+      const Vehicle::ModelSpec atmosphere_spec = resolve_model_spec(physical.at("atmosphere"));
+      atmosphere_plugin_path = atmosphere_spec.plugin_path;
+      LoadedPlugin atmosphere_loaded =
+          load_environment_model(loader, atmosphere_spec, sim.registry_);
+      atmosphere = dynamic_cast<AtmosphereModel*>(atmosphere_loaded.model.get());
+      if (atmosphere == nullptr) {
+        throw PluginLoadError(atmosphere_spec.plugin_path, "does not implement AtmosphereModel");
+      }
+      sim.environment_scheduler_.add(*atmosphere, atmosphere_spec.divisor);
+      sim.environment_plugins_.push_back(std::move(atmosphere_loaded));
+    }
+
     const Vehicle::PhysicsSpec physics_spec{std::move(mass_spec), earth, gravity};
     vehicle.init(loader, specs, sim.registry_, &physics_spec);
     vehicle.state() = read_initial_state(config);
@@ -205,6 +229,27 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
     // "radius" (Codex adversarial review): earth's own floor above says nothing about whether the
     // gravity model's own geometry is still well-defined at this altitude.
     gravity->validate_p_n(p_n, initial_state_node);
+    if (atmosphere != nullptr) {
+      // §15: "altitude inside the atmosphere model's valid range". EarthModel::altitude is the one
+      // authority on turning p_n into a height (ADR-0003: p_n's meaning is the Earth model's own).
+      // Init-time only, like the two validate_p_n calls above: a trajectory that leaves the range
+      // mid-run is the per-frame domain gap PR 1 disclosed (STATE.md, PLAN.md), not this check's
+      // job.
+      const double altitude_m = earth->altitude(VehicleState{vehicle.state()});
+      const AltitudeRange range = atmosphere->valid_range();
+      // Same NaN-safety reasoning as isa1976.cpp's own valid_range check -- the "simplified"
+      // a<min||a>max form is false for a NaN altitude, which would silently accept it instead of
+      // rejecting it.
+      // NOLINTNEXTLINE(readability-simplify-boolean-expr)
+      if (!(altitude_m >= range.min_m && altitude_m <= range.max_m)) {
+        const std::string path = initial_state_node.path().empty()
+                                     ? "initial.state.p_n"
+                                     : initial_state_node.path() + ".p_n";
+        throw ConfigError(
+            initial_state_node.origin(), path,
+            "initial altitude is outside " + atmosphere_plugin_path + "'s valid range");
+      }
+    }
   } else {
     vehicle.init(loader, specs, sim.registry_, nullptr);
   }

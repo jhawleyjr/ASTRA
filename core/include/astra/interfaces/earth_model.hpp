@@ -38,9 +38,11 @@ class EarthModel : public Model {
   [[nodiscard]] virtual double altitude(const VehicleState& vs) const noexcept = 0;
 
   // What this Earth model provides (M2): flat -> kFlatNed, round/wgs84_rotating -> kGeodetic. Lets
-  // Simulation::from_config reject a gravity or atmosphere model whose assumed representation
-  // (gravity_model.hpp, atmosphere_model.hpp) does not match, instead of reading p_n's fields under
-  // the wrong meaning.
+  // Simulation::from_config reject a gravity model whose assumed representation (gravity_model.hpp)
+  // does not match, instead of reading p_n's fields under the wrong meaning. AtmosphereModel has no
+  // equivalent check: its at(double altitude_m) (atmosphere_model.hpp) takes a plain altitude,
+  // never p_n, so no conforming atmosphere model can assume a representation to mismatch in the
+  // first place (M2 PR 1b; PR 1 had planned one here before that interface existed).
   [[nodiscard]] virtual PositionRepresentation position_representation() const noexcept = 0;
 
   // Init-path (M2): validates a proposed initial p_n against this Earth model's own representation,

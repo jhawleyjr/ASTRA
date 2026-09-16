@@ -72,9 +72,26 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         review pressure at the tail of an already-large PR; (c) it is disclosed here and in round.cpp's comment, not
         hidden. Joe's call whether this blocks the merge; close it before any milestone flies a trajectory that can
         realistically approach a pole (not M2's drop-test scenarios) — plan-reviewed like M1's EOM and health monitor.
-  - [ ] PR 1b — `AtmosphereModel` + `plugins/physical/atmosphere/isa1976` (declares its valid altitude range; §15's
-        pre-run "altitude inside the atmosphere's range" check joins the HealthMonitor init path); the same
-        position-representation check extended to `physical.atmosphere`. Accept: ISA table points exact.
+  - [ ] PR 1b — `AtmosphereModel` + `plugins/physical/atmosphere/isa1976` (declares its valid altitude range
+        `[-5000, 86000]` m geometric; §15's pre-run "altitude inside the atmosphere's range" check joins
+        `Simulation::from_config` beside PR 1's `validate_p_n` calls, not `HealthMonitor::init` -- that class only
+        parses `sim.health` and registers signals). `physical.atmosphere` is optional, unlike the three required
+        Earth/gravity/mass slots; no position-representation check (`at(double altitude_m)` never sees `p_n`, so no
+        conforming atmosphere model could assume one to mismatch). ISA-1976's eight golden table points are
+        transcribed straight from NASA-TM-X-74335 (NOAA-S/T 76-1562) and checked to printed precision, separately
+        from a dense computed-and-cross-checked set generated in Python
+        (`tests/golden/atmosphere/generate_isa1976_table.py`) that also verifies the seven layer base pressures
+        against the document's own tabulated values. Accept: ISA table points exact.
+        **Known gap, disclosed not fixed** (Codex adversarial review, confirmed on re-review): PR 1's per-frame
+        Earth/gravity domain-validity gap (above) now also covers `physical.atmosphere` -- the altitude check is
+        init-time only, so a trajectory that leaves `[-5000, 86000]` m mid-run is not re-validated. Concretely:
+        `at()` then returns an all-NaN `AtmoState`, but `HealthMonitor` checks state vectors and wrench
+        contributions directly, not `AtmoState` itself, so nothing observes the NaN until (from PR 3 on) a
+        `WrenchSource` reads atmosphere state into a force/moment it hands `check_wrench`. Rejected as in-scope for
+        this PR for the same reasons as PR 1's gap: no test here flies near the boundary, and a correct fix is the
+        same new per-frame domain-validity `HealthMonitor` capability, not a second bolt-on. Must be resolved, or
+        consciously re-accepted, before PR 3's drag `WrenchSource` is the first thing that can actually read a NaN
+        `AtmoState` into the EOM.
   - [ ] PR 2 — `WindModel` (§7 signature) with `plugins/physical/wind/{uniform, dryden}` (seeded `std::mt19937_64`,
         in-house transforms, seed logged). Accept: Dryden PSD matches the MIL-F-8785C spec within statistical bounds
         at a fixed seed; steady-wind NESC cases within tolerance; bit-identical logs across two same-seed runs.
@@ -86,7 +103,13 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         publishes no fixed tolerance, only initial conditions — decide per case whether an independent integration
         or a cross-tool comparison band is the right oracle). Decide from the report whether any case needs a
         rotating spherical Earth (`rotating: true` on `round`, per §4 granularity). Accept: all ten within tolerance
-        under every preset.
+        under every preset. **Carried from PR 1b (Codex adversarial review, disclosed not fixed):**
+        `wgs84_rotating`'s `EarthModel::altitude()` returns height above the WGS-84 ellipsoid (ADR-0003's `p_n(2)`),
+        not a sea-level/geoid reference `isa1976` implicitly assumes; the two differ by the geoid undulation
+        (roughly -105 to +85 m), bounding the resulting density error at about 1.3% via the barometric
+        approximation. Any case here using `wgs84_rotating` + `isa1976`'s drag `WrenchSource` must decide whether
+        that is inside the case's own NESC tolerance; a fix needs a geoid model (EGM96/EGM2008), its own
+        plan-reviewed PR, not a bolt-on. Case 1 (dragless) never exercises this.
 - [ ] **M3 Notional transport** — aero + mass + turbofan plugins; trims at cruise with residual < 1e-6;
       linearized modes match design values; 300 s open-loop run reproduces the golden.
 - [ ] **M4 Lockstep** — shm transport + HAL + straight-and-level autopilot outside the sim tree; 10,000
