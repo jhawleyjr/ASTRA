@@ -90,8 +90,8 @@ TEST(SimulationPhysicalConfig, RejectsInitialTrimAsAnUnknownKey) {
   }
 }
 
-// "atmosphere" is not yet a config slot: AtmosphereModel/isa1976 grew too large to land alongside
-// the Earth/gravity models in this PR (PLAN.md's own size contingency) and are a follow-up PR.
+// physical.atmosphere joined earth/gravity/mass in M2 PR 1b; a slot name none of the four
+// recognize is still rejected as an unconsumed key (§15).
 TEST(SimulationPhysicalConfig, RejectsAnUnknownPhysicalSlotName) {
   const Config config = Config::from_string(
       "sim: { dt: 0.001, frames: 1 }\n"
@@ -101,13 +101,67 @@ TEST(SimulationPhysicalConfig, RejectsAnUnknownPhysicalSlotName) {
       "  gravity: plugins/physical/gravity/constant\n"
       "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 "
       "}\n"
-      "  atmosphere: plugins/physical/atmosphere/isa1976\n",
+      "  wind: plugins/physical/wind/uniform\n",
       "unknown-slot-fixture");
   try {
     static_cast<void>(load(config));
     FAIL() << "expected ConfigError";
   } catch (const ConfigError& error) {
-    EXPECT_TRUE(mentions(error, "physical.atmosphere")) << error.what();
+    EXPECT_TRUE(mentions(error, "physical.wind")) << error.what();
+  }
+}
+
+// physical.atmosphere is optional (M2 PR 1b): a physics config naming it loads like any other slot.
+TEST(SimulationPhysicalConfig, AcceptsAPhysicalSpecWithAtmosphere) {
+  const Config config = Config::from_string(
+      "sim: { dt: 0.001, frames: 0 }\n"
+      "vehicle: { models: [] }\n"
+      "physical:\n"
+      "  earth: plugins/physical/earth/flat\n"
+      "  gravity: plugins/physical/gravity/constant\n"
+      "  atmosphere: plugins/physical/atmosphere/isa1976\n"
+      "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 "
+      "}\n",
+      "with-atmosphere-fixture");
+  static_cast<void>(load(config));  // must not throw
+}
+
+// The converse: every fixture above that omits physical.atmosphere already exercises this, but one
+// test says so explicitly -- the optionality guarantee every M2-PR-1-vintage config relies on.
+TEST(SimulationPhysicalConfig, AcceptsAPhysicalSpecWithoutAtmosphere) {
+  const Config config = Config::from_string(
+      "sim: { dt: 0.001, frames: 0 }\n"
+      "vehicle: { models: [] }\n"
+      "physical:\n"
+      "  earth: plugins/physical/earth/flat\n"
+      "  gravity: plugins/physical/gravity/constant\n"
+      "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 "
+      "}\n",
+      "without-atmosphere-fixture");
+  static_cast<void>(load(config));  // must not throw
+}
+
+// §15: "altitude inside the atmosphere model's valid range". isa1976's range is [-5000, 86000] m
+// geometric (plugins/physical/atmosphere/isa1976/isa1976.cpp); flat Earth's p_n(2) is NED altitude
+// directly, so 90000 is unambiguously outside it.
+TEST(SimulationPhysicalConfig, RejectsAnInitialAltitudeOutsideTheAtmosphereModelsValidRange) {
+  const Config config = Config::from_string(
+      "sim: { dt: 0.001, frames: 1 }\n"
+      "vehicle: { models: [] }\n"
+      "physical:\n"
+      "  earth: plugins/physical/earth/flat\n"
+      "  gravity: plugins/physical/gravity/constant\n"
+      "  atmosphere: plugins/physical/atmosphere/isa1976\n"
+      "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 "
+      "}\n"
+      "initial: { state: { p_n: [0.0, 0.0, -90000.0] } }\n",
+      "altitude-outside-atmosphere-range-fixture");
+  try {
+    static_cast<void>(load(config));
+    FAIL() << "expected ConfigError";
+  } catch (const ConfigError& error) {
+    EXPECT_EQ(error.config_path(), "initial.state.p_n");
+    EXPECT_TRUE(mentions(error, "physical/atmosphere/isa1976")) << error.what();
   }
 }
 

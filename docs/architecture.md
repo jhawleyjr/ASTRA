@@ -183,6 +183,18 @@ struct StepContext { double t; double dt; std::uint64_t frame; };
 
 struct Wrench { Eigen::Vector3d force_b; Eigen::Vector3d moment_b; };  // about CG, body axes
 
+// temperature_k/pressure_pa/density_kg_m3/speed_of_sound_m_s; NaN by default and outside
+// AtmosphereModel::valid_range() (M2 PR 1b) -- a plausible-looking zero-density atmosphere would be
+// a worse failure than a NaN. Not itself monitored: HealthMonitor checks state vectors and Wrench
+// contributions directly, never AtmoState, so this NaN is unobserved until a consuming
+// WrenchSource reads it into a force/moment HealthMonitor's existing check_wrench then sees.
+struct AtmoState { double temperature_k, pressure_pa, density_kg_m3, speed_of_sound_m_s; };
+
+// Both bounds inclusive; the interval AtmosphereModel::at() is valid over (M2 PR 1b). Checked once
+// at init against the initial altitude (§15) -- not re-validated per frame, the same shape as
+// EarthModel/GravityModel's own validate_p_n gap below.
+struct AltitudeRange { double min_m, max_m; };
+
 class Model {
 public:
   virtual ~Model() = default;
@@ -193,7 +205,11 @@ public:
 };
 
 // Environment
-class AtmosphereModel : public Model { public: virtual AtmoState at(double altitude_m) const = 0; };
+class AtmosphereModel : public Model {
+public:
+  virtual AtmoState at(double altitude_m) const noexcept = 0;
+  virtual AltitudeRange valid_range() const noexcept = 0;
+};
 class WindModel       : public Model { public: virtual Eigen::Vector3d wind_n(const StepContext&, const VehicleState&) = 0; };
 class GravityModel    : public Model { public: virtual Eigen::Vector3d g_n(const VehicleState&) const = 0; };
 class EarthModel      : public Model { /* frames, rotation rate, transport rate, geodetic conversions */ };

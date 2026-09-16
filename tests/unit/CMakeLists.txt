@@ -1,5 +1,6 @@
 # The GoogleTest unit suite: fast, run by every preset and by the Stop hook (.claude/hooks/stop-check.sh).
 add_executable(astra_unit_tests
+  atmosphere/isa1976_test.cpp
   config/config_test.cpp
   earth/earth_kinematics_test.cpp
   gravity/wgs84_j2_test.cpp
@@ -20,6 +21,9 @@ target_link_libraries(astra_unit_tests PRIVATE astra::core GTest::gtest_main)
 target_compile_definitions(astra_unit_tests PRIVATE
   "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""
   "ASTRA_TEST_CONFIG_DIR=\"${ASTRA_SOURCE_DIR}/tests/configs\"")
+# tests/golden/atmosphere/isa1976_table.hpp (human-owned) is included as
+# "golden/atmosphere/isa1976_table.hpp" -- the astra_frames_test pattern below.
+target_include_directories(astra_unit_tests PRIVATE "${ASTRA_SOURCE_DIR}/tests")
 gtest_discover_tests(astra_unit_tests DISCOVERY_MODE PRE_TEST PROPERTIES LABELS unit)
 
 # Separate executables so ctest's names carry "frames"/"integrator" for `-R 'frames|integrator'`

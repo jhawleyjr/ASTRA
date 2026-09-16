@@ -35,6 +35,7 @@ add_library(astra_core SHARED
   src/config/config.cpp
   src/core_api.cpp
   src/errors.cpp
+  src/interfaces/atmosphere_model.cpp
   src/interfaces/earth_model.cpp
   src/interfaces/gravity_model.cpp
   src/interfaces/mass_properties_model.cpp
