@@ -224,7 +224,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         re-run adversarial review, not the original Cowork list, went looking for it -- caught
         before merge because `CLAUDE.md` requires the re-run, and caught in full only because that
         re-run was itself re-run once more against its own fix.
-  - [ ] PR 2b — `core/util/random.hpp` (`std::mt19937_64` seeded from config, in-house Box-Muller/uniform
+  - [x] PR 2b — `core/util/random.hpp` (`std::mt19937_64` seeded from config, in-house Box-Muller/uniform
         transforms per `AGENTS.md` -- `std::normal_distribution` is unspecified across libstdc++/libc++)
         and `plugins/physical/wind/dryden` (MIL-F-8785C scale lengths and intensities), built on PR 2's
         `begin_frame`/`wind_n` split: `step()` draws the frame's RNG samples (scheduler-driven, consumer-
