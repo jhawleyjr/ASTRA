@@ -135,6 +135,19 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         exits 0 on every preset. **Does not by itself satisfy M2's own row above**: the Dryden PSD
         criterion moves to PR 2b's line; the steady-wind NESC criterion moves to PR 3's line, since
         `WindModel` had no `WrenchSource` consumer until PR 3's drag model exists.
+        **Known limitation, disclosed not fixed** (Codex adversarial review, three rounds --
+        `WindModel::assumed_position_representation()` added in round 2 to close round 1's finding
+        that `begin_frame`/`wind_n` handing a `WindModel` the full `VehicleState` let a plugin misread
+        `p_n`'s Earth-model-dependent meaning; round 3 correctly pointed out that the declaration is
+        not enforced -- a plugin can declare `kAny` while still reading `vs.p_n()` internally, and
+        nothing catches the mismatch): not a gap this PR introduced --
+        `GravityModel::assumed_position_representation()` (M2 PR 1) has had exactly the same property
+        since it shipped, and no C++ interface in this shape can do better without either dropping
+        `VehicleState` from `wind_n` below what §7 pins for its signature, or a materially heavier
+        capability/audit mechanism that is its own unpinned, expensive-to-unwind design decision, not
+        something to fold in reactively under review pressure. Disclosed in `wind_model.hpp`'s own
+        comment on `assumed_position_representation()`. Joe's call whether this blocks the merge, same
+        framing as PR 1's polar-approach gap and PR 1b's WGS-84/ISA datum gap.
   - [ ] PR 2b — `core/util/random.hpp` (`std::mt19937_64` seeded from config, in-house Box-Muller/uniform
         transforms per `AGENTS.md` -- `std::normal_distribution` is unspecified across libstdc++/libc++)
         and `plugins/physical/wind/dryden` (MIL-F-8785C scale lengths and intensities), built on PR 2's

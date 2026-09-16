@@ -85,6 +85,20 @@ class WindModel : public Model {
   // EarthModel::position_representation() and rejects a mismatch at init, exactly like it already
   // does for physical.gravity. Default: kAny (wind/uniform reads no position at all). Non-pure and
   // defined out of line in wind_model.cpp, so the destructor stays the key function.
+  //
+  // Known limitation, disclosed not fixed (Codex adversarial review, M2 PR 2 round 3; PLAN.md's M2
+  // PR 2 line): this is declarative, not enforced -- a plugin can declare kAny (the default) while
+  // still reading vs.p_n() internally, and nothing here or in Simulation::from_config can tell the
+  // declaration and the implementation disagree. This is not a gap this PR introduced:
+  // GravityModel::assumed_position_representation() (gravity_model.hpp) has had exactly the same
+  // property since M2 PR 1, and no C++ interface in this shape can do better without either
+  // withholding VehicleState entirely (which would drop wind_n's own p_n-independent needs, q_nb
+  // for its body-to-nav rotation, below what docs/architecture.md §7 pins for wind_n's signature)
+  // or a materially heavier mechanism (a capability/audit system) that is its own unpinned,
+  // expensive-to-unwind design decision, not a fix to fold in under review pressure. The trust
+  // boundary is therefore the same one gravity models already operate under: a plugin's declared
+  // assumption is taken at its word, checked only for compatibility with the configured Earth
+  // model, not for whether the plugin's own body honors it.
   [[nodiscard]] virtual PositionRepresentation assumed_position_representation() const noexcept;
 
   // The velocity of the AIR MASS with respect to the Earth, expressed in the local navigation frame
