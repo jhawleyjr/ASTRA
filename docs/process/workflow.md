@@ -61,9 +61,9 @@ One command, **`just check`** (`just` from apt, with CMake presets underneath fo
 Wiring, all deterministic and cheap:
 
 - **Stop hook** runs the fast subset (build + unit tests) and blocks the turn from ending until it passes. Claude Code caps this at 8 consecutive blocks, which is the right amount of stubbornness.
-- **PreToolUse hook** denies edits to `tests/golden/**`, tolerance files, and `docs/decisions/**` unless Joe lifts it: `ASTRA_TOUCH_GOLDENS=1` in the session's environment, or `touch .claude/touch-goldens` while the session runs (the SessionStart hook deletes the marker, so a lifted guard never carries into the next session). This is the one hard precondition in the whole design, and it tests the thing that actually matters: *the oracle does not move without a human deciding it should.* Widened tolerance, narrowed comparison, regenerated golden, or a deleted/weakened test is always a blocking review finding.
+- **PreToolUse hook** denies edits to `tests/golden/**`, tolerance files, and `docs/decisions/**` unless Joe lifts it, two ways: `ASTRA_TOUCH_GOLDENS=1` **on the `claude` launch line** (an `export` inside a running session never reaches the hook, which inherits the `claude` process's environment), or `touch .claude/touch-goldens` while the session runs. The marker counts in **either the session's own root or the main checkout**, so one `touch ~/repos/ASTRA/.claude/touch-goldens` arms a worktree session too -- before 2026-09-16 it did not, because a worktree session's `CLAUDE_PROJECT_DIR` is the worktree and every golden-touching PR runs in one. `disarm-goldens.sh` (SessionStart) deletes both, so a lifted guard never carries into the next session. This is the one hard precondition in the whole design, and it tests the thing that actually matters: *the oracle does not move without a human deciding it should.* Widened tolerance, narrowed comparison, regenerated golden, or a deleted/weakened test is always a blocking review finding.
 - **`/goal`** for unattended runs: "all tests in `tests/physics/` pass and `just check` exits 0, or stop after 20 turns."
-- **CI**: GitHub Actions runs `just check` on every pull request on an `ubuntu-24.04` runner; `main` is protected and requires it.
+- **CI**: GitHub Actions on `ubuntu-24.04`; the job is named `check` and `main` requires it. **`GATE: local` since 2026-09-16** (`.github/workflows/check.yml`): `just check` runs on Joe's machine once, after the task and before the push, and CI runs only what is cheaper there than locally -- today the hook cases. `ctest` is ~556 s per preset (the 7 `physics` tests are ~95% of it), so four presets is ~37 minutes a run: it overran the timeout and does not fit the monthly runner allowance while the same tree is tested locally every task. The gate moved, it did not go away, and the run summary says so on every run. `GATE: full` puts it back; do the `physics`-on-asan-only split first (~28 of the 37 minutes). **PRs open as drafts**: the trigger omits `synchronize`, so pushes are free and `gh pr ready` fires one run on the final tree -- and a later push blocks the merge until it re-runs, so the merged SHA is always the tested one.
 
 **Editor-grade feedback between gate runs (not part of the gate):** the `clangd-lsp` and `pyright-lsp` plugins give Claude diagnostics after every edit and semantic navigation (go-to-definition, find-references, call hierarchy) instead of grep. They shorten the loop but never replace `just check` — clangd's diagnostics are not a `-Werror` sanitizer build. Setup lives in M0: `apt install clangd-18` (aliased so the plugin finds `clangd`), `CMAKE_EXPORT_COMPILE_COMMANDS=ON` in every preset with `compile_commands.json` linked at the repo root (without it clangd reports false errors on every Eigen include), `pyright` pointed at the venv via `pyrightconfig.json`, and nanobind `.pyi` stubs generated at build so pyright sees the compiled module's types. One line in `CLAUDE.md` telling Claude to prefer the LSP tools over grep for symbol lookups.
 
@@ -76,17 +76,20 @@ Review is done by a different model from a fresh context: Codex, via OpenAI's `c
 ## Git
 
 - Branch per task via `claude --worktree <name>` (branches from the current remote default, so "start from fresh main" is automatic; edits to the main checkout are blocked by the tool).
+- **PRs open as drafts** (`gh pr create --draft`). CI triggers on `opened`/`reopened`/`ready_for_review`, never on `synchronize`, so pushes to a draft cost nothing and `gh pr ready` fires exactly one run against the final tree. A push after that leaves the head SHA without a `check` and the merge blocks until `gh pr ready --undo && gh pr ready` re-runs it, so the SHA that merges is always the SHA that was tested.
 - Claude commits, pushes the branch, and opens the PR itself (GitHub is integrated); Joe squash-merges. Commit attribution via `attribution.commit` settings. `main` is protected so nothing lands without the PR.
 - No SHAs anywhere in process files. If two worktrees collide, rebase onto main one at a time; git catches textual conflicts, the gate catches semantic ones.
 
 ## Where Cowork fits
 
-Cowork sessions are for **thinking that produces documents**: architecture, ADRs, research, milestone planning, and occasional fresh-eyes review of a PR when Joe wants a second opinion untainted by having written the code. Their outputs land in the Project and in `docs/`. They are never a required step between two Claude Code sessions. Dispatch can route a "go build M2" from Cowork to a Claude Code session when that's convenient, but it is a convenience, not the process.
+Cowork sessions are for **thinking that produces documents**: architecture, ADRs, research, milestone planning, and occasional fresh-eyes review of a PR when Joe wants a second opinion untainted by having written the code. Their outputs land in the Project and in `docs/`.
+
+**Optional in-loop use, added 2026-09-16 after M2 PR 1b.** Joe may paste a plan into Cowork before approving it, or take a design question there instead of settling it in the coding session. A convenience, never a required hop: no PR waits on it. It pays when a fresh context reads the question better than the session that just wrote the plan -- in 1b it caught a `constexpr std::pow` clang-18 rejects and a golden with no oracle but its own implementation. One pass, then the session owns it; two hops is the old process growing back.
 
 ## Skills (two, small)
 
-- **`/wrap`** — end of session: rewrite `STATE.md`, append to `docs/lessons.md` if anything bit, ensure the branch is pushed and the PR is open, print the one-line opener for next time.
-- **`/retro`** — at each milestone: list rules that have not fired since the last retro and propose deleting them; list things that bit twice and propose one rule. Must be run by Joe; produces a diff or nothing.
+- **`/wrap`** — end of session: rewrite `STATE.md`, append to `docs/lessons.md` if anything bit, ensure the branch is pushed and the PR is open **as a draft** (§Git), print the one-line opener for next time.
+- **`astra-retro`** — at each milestone, run by Joe **from Cowork** (it was a Claude Code `/retro` skill until M2): list rules that have not fired since the last retro and propose deleting them; list things that bit twice and propose at most one rule to add; propose a process change if the milestone showed one. Produces git-apply patches or nothing, and never commits.
 
 ## Model and effort (revised 2026-09-14 after M0; supersedes the 2026-09-14 morning decision)
 
@@ -113,7 +116,7 @@ a problem no one has seen, and correctness comes from the human-owned oracle, no
 
 ## Milestones for v1 (seed for `PLAN.md`)
 
-The authoritative acceptance criteria are in `docs/architecture.md` §16.
+The authoritative acceptance criteria are in `docs/architecture.md` §16, and the live milestone state is `PLAN.md`. The list below is the original 2026-09-14 seed, kept as history: it is **not** maintained, and where it disagrees with `PLAN.md` or §16, they win.
 
 - **M0 Bootstrap** — repo skeleton, CMake presets with `compile_commands.json` exported, `justfile`, `just check` green on an empty core plus one dummy plugin, hooks installed, CI on PRs, `clangd-lsp` + `pyright-lsp` working (nanobind stubs, pyright on the venv), ADR-0001…0011.
 - **M1 Rigid body** — EOM + integrators + mass properties + flat Earth; torque-free and ballistic oracles pass; health monitor halts on injected faults.
@@ -129,6 +132,23 @@ The authoritative acceptance criteria are in `docs/architecture.md` §16.
 3. **M0 starts directly in Claude Code**, with the architecture doc as its only input.
 4. **LSP plugins: yes**, `clangd-lsp` and `pyright-lsp`, set up as part of M0. They are feedback, not the gate.
 5. **CI from M0**, GitHub Actions on `ubuntu-24.04`.
+
+## Reusing this elsewhere
+
+The repo is the documentation -- copy the files and edit them. What is generic and what is ASTRA:
+
+- **Generic**: `.claude/hooks/` (all five, plus `tests/run.sh` and the `.cases` files), `.claude/settings.json`,
+  `.github/workflows/check.yml`, `.github/rulesets/main.json`, the `AGENTS.md`/`CLAUDE.md` split, and the four
+  state files (`PLAN.md`, `STATE.md`, `docs/decisions/`, `docs/lessons.md`) as empty templates.
+- **Change per project**: the gate command and the `justfile` behind it; `guard-oracle.sh`'s guarded-path regex
+  (what counts as the oracle here); `stop-check.sh`'s fast subset; `session-start.sh`'s printout; `check.yml`'s
+  `GATE`, scope allow-list and toolchain step; every word of `AGENTS.md` and `CLAUDE.md`.
+- **Do not port the numbers.** The token measurements, the 556 s, the preset list are this project's. Port the
+  habit of measuring instead.
+
+What must survive the port, or it is the shape without the substance: one command is the definition of done;
+the human owns the oracle and a hook enforces it; state lives in a few small files rewritten not appended; and
+"verified" means a command ran and exited 0 in this session.
 
 ## Sources
 
