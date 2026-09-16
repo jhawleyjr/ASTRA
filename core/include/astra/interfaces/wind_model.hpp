@@ -40,6 +40,7 @@
 #include <Eigen/Core>
 
 #include "astra/interfaces/model.hpp"
+#include "astra/interfaces/position_representation.hpp"
 #include "astra/kernel/vehicle_state.hpp"
 
 namespace astra {
@@ -71,6 +72,20 @@ class WindModel : public Model {
   // exceptions. Defined out of line in wind_model.cpp, so the destructor stays the key function.
   virtual void begin_frame(const StepContext& ctx, const VehicleState& vs,
                            double altitude_m) noexcept;
+
+  // What this wind model needs p_n to mean, WHEN IT READS vs.p_n() AT ALL -- the same contract
+  // GravityModel::assumed_position_representation() makes (gravity_model.hpp), applied here for
+  // the identical reason. altitude_m above already gives a representation-safe altitude, so a
+  // conforming WindModel never needs to read vs.p_n() -- but nothing stops one from doing so anyway
+  // (Codex adversarial review, M2 PR 2 round 2: altitude_m alone does not enforce that choice), and
+  // if one does, this is the same guard gravity already relies on: earth/flat's p_n and
+  // earth/round's/wgs84_rotating's p_n mean different things (NED metres vs geodetic lat/lon/alt),
+  // so a plugin assuming one representation and paired with the other Earth model would silently
+  // misread it without this check. Simulation::from_config compares this against the configured
+  // EarthModel::position_representation() and rejects a mismatch at init, exactly like it already
+  // does for physical.gravity. Default: kAny (wind/uniform reads no position at all). Non-pure and
+  // defined out of line in wind_model.cpp, so the destructor stays the key function.
+  [[nodiscard]] virtual PositionRepresentation assumed_position_representation() const noexcept;
 
   // The velocity of the AIR MASS with respect to the Earth, expressed in the local navigation frame
   // (NED, ADR-0001), metres per second (ADR-0002). This is "wind-to", not "wind-from": a 10 m/s

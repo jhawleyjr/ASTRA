@@ -218,6 +218,45 @@ TEST(SimulationPhysicalConfig, RejectsAWindDivisorOtherThanOne) {
   }
 }
 
+// wind_model.hpp: unlike physical.atmosphere, physical.wind DOES take the position-representation
+// check (Codex adversarial review, M2 PR 2 round 2) -- tests/plugins/geodetic_wind declares
+// kGeodetic, and earth/flat provides kFlatNed, the same mismatch shape as
+// RejectsAGeodeticGravityModelPairedWithFlatEarth below.
+TEST(SimulationPhysicalConfig, RejectsAGeodeticWindModelPairedWithFlatEarth) {
+  const Config config = Config::from_string(
+      "sim: { dt: 0.001, frames: 1 }\n"
+      "vehicle: { models: [] }\n"
+      "physical:\n"
+      "  earth: plugins/physical/earth/flat\n"
+      "  gravity: plugins/physical/gravity/constant\n"
+      "  wind: tests/plugins/geodetic_wind\n"
+      "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 "
+      "}\n",
+      "wind-representation-mismatch-fixture");
+  try {
+    static_cast<void>(load(config));
+    FAIL() << "expected ConfigError";
+  } catch (const ConfigError& error) {
+    EXPECT_EQ(error.config_path(), "physical.wind");
+    EXPECT_TRUE(mentions(error, "physical.earth")) << error.what();
+  }
+}
+
+// The converse: a geodetic WindModel paired with a geodetic Earth model is accepted.
+TEST(SimulationPhysicalConfig, AcceptsAGeodeticWindModelPairedWithRoundEarth) {
+  const Config config = Config::from_string(
+      "sim: { dt: 0.001, frames: 0 }\n"
+      "vehicle: { models: [] }\n"
+      "physical:\n"
+      "  earth: plugins/physical/earth/round\n"
+      "  gravity: plugins/physical/gravity/constant\n"
+      "  wind: tests/plugins/geodetic_wind\n"
+      "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 "
+      "}\n",
+      "wind-representation-match-fixture");
+  static_cast<void>(load(config));  // must not throw
+}
+
 // §15: "altitude inside the atmosphere model's valid range". isa1976's range is [-5000, 86000] m
 // geometric (plugins/physical/atmosphere/isa1976/isa1976.cpp); flat Earth's p_n(2) is NED altitude
 // directly, so 90000 is unambiguously outside it.

@@ -83,8 +83,31 @@ struct LoadedAtmosphere {
   std::string plugin_path;
 };
 
+// M2: rejects a model whose assumed position representation (position_representation.hpp) does not
+// match what the configured Earth model provides -- e.g. gravity/wgs84_j2 paired with earth/flat
+// would otherwise read NED metres as radians. kAny ("does not read p_n's geometry") is always
+// compatible. config_path names the assuming model's own slot ("physical.gravity"); the message
+// also names the Earth slot it disagrees with. physical.atmosphere (M2 PR 1b) does not take this
+// check: AtmosphereModel::at() is handed a plain altitude, never p_n, so no conforming atmosphere
+// model can assume a representation to mismatch in the first place. physical.wind (M2 PR 2) DOES
+// take it, unlike atmosphere: begin_frame hands a WindModel a VehicleState (for v_b/q_nb, both
+// representation-independent) alongside the Earth-derived altitude_m, and nothing stops a plugin
+// from reading vs.p_n() directly instead -- if one does, this is the same guard gravity already
+// relies on (Codex adversarial review, M2 PR 2 round 2).
+void check_position_representation(PositionRepresentation assumed, PositionRepresentation provided,
+                                   const Vehicle::ModelSpec& assuming_spec,
+                                   const Vehicle::ModelSpec& earth_spec) {
+  if (assumed == PositionRepresentation::kAny || assumed == provided) {
+    return;
+  }
+  throw ConfigError(assuming_spec.config.origin(), assuming_spec.config.path(),
+                    assuming_spec.plugin_path + " assumes a position representation that " +
+                        earth_spec.plugin_path + " (" + earth_spec.config.path() +
+                        ") does not provide");
+}
+
 // physical.atmosphere (M2 PR 1b): optional, no position-representation check (see
-// check_position_representation's comment below), not part of Vehicle::PhysicsSpec -- the EOM has
+// check_position_representation's comment above), not part of Vehicle::PhysicsSpec -- the EOM has
 // no atmosphere input; PR 3's drag WrenchSource is the first consumer. Factored out alongside
 // load_wind (M2 PR 2, just below) for the same reason: clang-tidy's
 // readability-function-cognitive-complexity threshold on from_config. Returns a default
@@ -114,16 +137,15 @@ struct LoadedWind {
   std::string plugin_path;
 };
 
-// physical.wind (M2 PR 2): resolves, validates the divisor, loads, and registers one WindModel
+// physical.wind (M2 PR 2): resolves, validates the divisor, loads, checks position-representation
+// compatibility against the configured Earth model (see check_position_representation's own
+// comment above for why wind takes this check, unlike atmosphere), and registers one WindModel
 // with the scheduler. Factored out of from_config (clang-tidy's
 // readability-function-cognitive-complexity threshold) rather than inlined like the required
-// earth/gravity/mass slots -- this is the one optional slot with enough of its own logic (the
-// divisor check) to earn a name. Returns a default LoadedWind{nullptr, ""} when physical.wind is
-// absent. No position-representation check: wind_n never reads p_n directly (wind_model.hpp) --
-// the one WindModel that needs a vehicle's altitude or airspeed gets it through begin_frame's
-// VehicleState, not through an assumed p_n layout, so no conforming WindModel could assume one to
-// mismatch.
-LoadedWind load_wind(const PluginLoader& loader, const Config& physical, Scheduler& scheduler,
+// earth/gravity/mass slots -- this is the one optional slot with enough of its own logic to earn a
+// name. Returns a default LoadedWind{nullptr, ""} when physical.wind is absent.
+LoadedWind load_wind(const PluginLoader& loader, const Config& physical, EarthModel& earth,
+                     const Vehicle::ModelSpec& earth_spec, Scheduler& scheduler,
                      std::vector<LoadedPlugin>& plugins, SignalRegistry& registry) {
   if (!physical.has("wind")) {
     return {};
@@ -144,28 +166,11 @@ LoadedWind load_wind(const PluginLoader& loader, const Config& physical, Schedul
   if (wind == nullptr) {
     throw PluginLoadError(wind_spec.plugin_path, "does not implement WindModel");
   }
+  check_position_representation(wind->assumed_position_representation(),
+                                earth.position_representation(), wind_spec, earth_spec);
   scheduler.add(*wind, wind_spec.divisor);
   plugins.push_back(std::move(wind_loaded));
   return LoadedWind{wind, wind_spec.plugin_path};
-}
-
-// M2: rejects a gravity model whose assumed position representation (position_representation.hpp)
-// does not match what the configured Earth model provides -- e.g. gravity/wgs84_j2 paired with
-// earth/flat would otherwise read NED metres as radians. kAny ("does not read p_n's geometry") is
-// always compatible. config_path names the assuming model's own slot ("physical.gravity"); the
-// message also names the Earth slot it disagrees with. physical.atmosphere (M2 PR 1b) does not take
-// this check: AtmosphereModel::at() is handed a plain altitude, never p_n, so no conforming
-// atmosphere model can assume a representation to mismatch in the first place.
-void check_position_representation(PositionRepresentation assumed, PositionRepresentation provided,
-                                   const Vehicle::ModelSpec& assuming_spec,
-                                   const Vehicle::ModelSpec& earth_spec) {
-  if (assumed == PositionRepresentation::kAny || assumed == provided) {
-    return;
-  }
-  throw ConfigError(assuming_spec.config.origin(), assuming_spec.config.path(),
-                    assuming_spec.plugin_path + " assumes a position representation that " +
-                        earth_spec.plugin_path + " (" + earth_spec.config.path() +
-                        ") does not provide");
 }
 
 // A 3-vector at parent.key, or zero when the key is absent -- "initial.state" reads every field
@@ -288,8 +293,9 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
     AtmosphereModel* const atmosphere = loaded_atmosphere.model;
     const std::string& atmosphere_plugin_path = loaded_atmosphere.plugin_path;
 
-    const LoadedWind loaded_wind = load_wind(loader, physical, sim.environment_scheduler_,
-                                             sim.environment_plugins_, sim.registry_);
+    const LoadedWind loaded_wind =
+        load_wind(loader, physical, *earth, earth_spec, sim.environment_scheduler_,
+                  sim.environment_plugins_, sim.registry_);
     wind = loaded_wind.model;
     wind_plugin_path = loaded_wind.plugin_path;
     sim.wind_ = wind;

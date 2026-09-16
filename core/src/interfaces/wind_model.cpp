@@ -9,6 +9,12 @@ WindModel::~WindModel() = default;
 void WindModel::begin_frame(const StepContext& /*ctx*/, const VehicleState& /*vs*/,
                             double /*altitude_m*/) noexcept {}
 
+// Default: does not read p_n. A stateful wind model that does overrides this to kGeodetic or
+// kFlatNed (wind_model.hpp).
+PositionRepresentation WindModel::assumed_position_representation() const noexcept {
+  return PositionRepresentation::kAny;
+}
+
 // Default: not shareable. A model with internal state its author has not declared safe to share
 // must not silently run under more than one vehicle (wind_model.hpp). wind/uniform overrides this.
 bool WindModel::shareable_across_vehicles() const noexcept { return false; }
