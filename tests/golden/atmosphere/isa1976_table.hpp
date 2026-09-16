@@ -10,9 +10,13 @@
 //     one comparison where the C++ plugin is judged against the document itself, not against
 //     another implementation of the same formula -- two implementations sharing a wrong exponent
 //     or a flipped lapse-rate sign would still agree with each other and pass a computed-only
-//     check. Tolerance is half a unit in each value's last printed digit (see the generator's
-//     TRANSCRIBED_TEMPERATURE_TOLERANCE_K / TRANSCRIBED_RELATIVE_TOLERANCE for the exact
-//     reasoning).
+//     check. Tolerance is per VALUE (each row's temperature_tol_k/pressure_tol_pa/
+//     density_tol_kg_m3 fields): temperature is half a unit in its own last printed digit;
+//     pressure and density are that OR their row's own layer's accumulated printed-precision
+//     margin (the same BASE_PRESSURE_CROSS_CHECK_TOLERANCE below the layer base pressures use),
+//     whichever is looser, plus a named exception on Z=11000's pressure alone -- see
+//     transcribed_pressure_tolerance_pa's comment in the generator for the full derivation and
+//     Z_11000_PRESSURE_RESIDUAL_ALLOWANCE_RELATIVE's comment for that one row.
 //     altitude_m is the document's GEOMETRIC (Z) column; temperature_k is T_M (molecular-scale),
 //     the column plugins/physical/atmosphere/isa1976/isa1976.cpp computes and returns -- see that
 //     file's header comment for why kinetic T is not used. Source: doc pages 52, 59, 61, 63, 65
@@ -36,12 +40,27 @@
 // publication rounding of each P_b independently, not a transcription, constant, or formula error
 // -- so the cross-check's tolerance is itself derived from that same per-layer printed precision,
 // accumulated layer by layer, rather than one flat number loose enough to paper over a real defect.
+//
+// Separately: every transcribed row's pressure/density, not just the seven layer-boundary base
+// pressures above, carries the SAME accumulated printed-precision margin its own layer's
+// BASE_PRESSURE_CROSS_CHECK_TOLERANCE gives -- checked against all eight rows (this session,
+// using each row's FRESH geopotential H, not the document's printed, rounded H column) and found
+// to hold, with real margin to spare, for seven of them. The one exception is Z=11000's pressure:
+// it disagrees with a fresh computation by 4.233e-5 relative even though it is layer 0 and
+// computed from the exact P_0 alone, so the mechanism predicts it NO margin at all. UNEXPLAINED
+// (re-verified at 600 DPI against the source PDF, not a transcription error): two OTHER mechanisms
+// were proposed and FALSIFIED for the table's residuals in general -- per-layer accumulated
+// base-pressure rounding as a COMPLETE explanation (this row itself refutes that, having no P_b to
+// inherit rounding from) and half a unit in the printed digit alone (refuted by the magnitude).
+// Z_11000_PRESSURE_RESIDUAL_ALLOWANCE_RELATIVE in the generator is a named, single-row allowance
+// for this one unexplained residual, not a third mechanism dressed up as fact. The error classes
+// either margin must still catch -- a flipped lapse-rate sign, a wrong pressure exponent, a
+// geopotential/geometric altitude swap -- are of order 1e-3 relative or larger, an order of
+// magnitude past either.
 #pragma once
 
 namespace astra::test::isa1976 {
 
-inline constexpr double kTranscribedTemperatureToleranceK = 0.01;
-inline constexpr double kTranscribedRelativeTolerance = 0.0001;
 inline constexpr double kComputedRelativeTolerance = 1e-06;
 
 // NOLINTBEGIN(modernize-avoid-c-arrays,modernize-use-std-numbers): a data table; C arrays keep the
@@ -53,13 +72,24 @@ struct TranscribedRow {
   double temperature_k;  // T_M
   double pressure_pa;
   double density_kg_m3;
+  // temperature_tol_k: half a unit in this row's own last printed digit. pressure_tol_pa/
+  // density_tol_kg_m3: that OR this row's own layer's accumulated printed-precision margin,
+  // whichever is looser, plus a named exception on Z=11000's pressure alone -- see this file's
+  // own provenance comment above for the full derivation.
+  double temperature_tol_k;
+  double pressure_tol_pa;
+  double density_tol_kg_m3;
 };
 
 inline constexpr TranscribedRow kTranscribedRows[] = {
-    {0.0, 288.15, 101325.0, 1.225},         {11000.0, 216.774, 22699.0, 0.3648},
-    {20000.0, 216.65, 5529.3, 0.08891},     {32000.0, 228.49, 889.06, 0.013555},
-    {47000.0, 269.684, 115.85, 0.0014965},  {51000.0, 270.65, 70.458, 0.0009069},
-    {71000.0, 216.846, 4.4795, 7.1966e-05}, {86000.0, 186.95, 0.37338, 6.958e-06}};
+    {0.0, 288.15, 101325.0, 1.225, 0.0005, 0.5, 5e-05},
+    {11000.0, 216.774, 22699.0, 0.3648, 0.0005, 2.7699000000000003, 5e-06},
+    {20000.0, 216.65, 5529.3, 0.08891, 0.0005, 0.1221566808059385, 1.9642541534110994e-06},
+    {32000.0, 228.49, 889.06, 0.013555, 0.0005, 0.027761223841165573, 5e-07},
+    {47000.0, 269.684, 115.85, 0.0014965, 0.0005, 0.005, 5.5349052519712693e-08},
+    {51000.0, 270.65, 70.458, 0.0009069, 0.0005, 0.005782581839476491, 7.4430490082336e-08},
+    {71000.0, 216.846, 4.4795, 7.1966e-05, 0.0005, 0.00040109859473194735, 6.443902549052198e-09},
+    {86000.0, 186.95, 0.37338, 6.958e-06, 0.005, 3.815147599492656e-05, 7.109592639474503e-10}};
 
 struct ComputedRow {
   double altitude_m;     // geometric

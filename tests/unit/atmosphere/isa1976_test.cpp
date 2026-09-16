@@ -47,11 +47,9 @@ TEST(Isa1976, MatchesTranscribedTablePointsAtPrintedPrecision) {
   for (const auto& row : astra::test::isa1976::kTranscribedRows) {
     SCOPED_TRACE(row.altitude_m);
     const AtmoState state = atmosphere.at(row.altitude_m);
-    const double rel = astra::test::isa1976::kTranscribedRelativeTolerance;
-    EXPECT_NEAR(row.temperature_k, state.temperature_k,
-                astra::test::isa1976::kTranscribedTemperatureToleranceK);
-    EXPECT_NEAR(row.pressure_pa, state.pressure_pa, row.pressure_pa * rel);
-    EXPECT_NEAR(row.density_kg_m3, state.density_kg_m3, row.density_kg_m3 * rel);
+    EXPECT_NEAR(row.temperature_k, state.temperature_k, row.temperature_tol_k);
+    EXPECT_NEAR(row.pressure_pa, state.pressure_pa, row.pressure_tol_pa);
+    EXPECT_NEAR(row.density_kg_m3, state.density_kg_m3, row.density_tol_kg_m3);
   }
 }
 
