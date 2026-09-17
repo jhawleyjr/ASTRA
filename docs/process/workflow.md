@@ -39,7 +39,7 @@ Across Anthropic's current docs, OpenAI's harness-engineering write-up, the mart
 
 | File | Size | Rule |
 |---|---|---|
-| `AGENTS.md` + `CLAUDE.md` | < 100 lines together | `AGENTS.md`: build/test commands, the conventions that are *non-standard* (frame/axis/quaternion conventions, units), pointers to the rest, read by every agent (Codex directly, Claude Code via the `@AGENTS.md` import in `CLAUDE.md`). `CLAUDE.md`: that import plus Claude Code's own process (worktree, model, hooks, review commands). Anything an agent would get right without being told is deleted |
+| `CLAUDE.md` (symlinked as `AGENTS.md`) | < 100 lines | One file: build/test commands, the conventions that are *non-standard* (frame/axis/quaternion conventions, units), pointers to the rest, plus Claude Code's own process (worktree, model, hooks, review commands) under its own marked-Claude-Code-only section. `AGENTS.md` is a symlink to it, so Codex reads the same file directly by its own name. Anything an agent would get right without being told is deleted |
 | `PLAN.md` | one screen | Milestones as checkboxes with a one-line acceptance each. Edited in place; no task IDs, no phase files |
 | `STATE.md` | ≤ 40 lines, rewritten never appended | What's in flight, last verified result, next step, "tried X, failed because Y" |
 | `docs/decisions/NNNN-*.md` | one screen each | ADRs: context, decision, **rejected alternatives**, consequences. Immutable once accepted; supersede, don't edit. The rejected options are what stop an agent relitigating settled choices |
@@ -138,11 +138,11 @@ The authoritative acceptance criteria are in `docs/architecture.md` §16, and th
 The repo is the documentation -- copy the files and edit them. What is generic and what is ASTRA:
 
 - **Generic**: `.claude/hooks/` (all five, plus `tests/run.sh` and the `.cases` files), `.claude/settings.json`,
-  `.github/workflows/check.yml`, `.github/rulesets/main.json`, the `AGENTS.md`/`CLAUDE.md` split, and the four
+  `.github/workflows/check.yml`, `.github/rulesets/main.json`, `CLAUDE.md` symlinked as `AGENTS.md`, and the four
   state files (`PLAN.md`, `STATE.md`, `docs/decisions/`, `docs/lessons.md`) as empty templates.
 - **Change per project**: the gate command and the `justfile` behind it; `guard-oracle.sh`'s guarded-path regex
   (what counts as the oracle here); `stop-check.sh`'s fast subset; `session-start.sh`'s printout; `check.yml`'s
-  `GATE`, scope allow-list and toolchain step; every word of `AGENTS.md` and `CLAUDE.md`.
+  `GATE`, scope allow-list and toolchain step; every word of `CLAUDE.md`.
 - **Do not port the numbers.** The token measurements, the 556 s, the preset list are this project's. Port the
   habit of measuring instead.
 

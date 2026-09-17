@@ -26,6 +26,6 @@ Do not apply the diff; Joe does. No subagents: the tree is small and the point i
    §Model and effort only if a number shows the current rule wrong.
 6. **Follow-ups:** anything the milestone deferred that belongs as a line in the next milestone's PR list in
    PLAN.md. Propose the lines; tick nothing.
-7. Check AGENTS.md + CLAUDE.md stay at or under 100 lines together and STATE.md under 40 after the diff; no SHAs in
-   process files; nothing under docs/decisions/, goldens, or tolerances.
+7. Check CLAUDE.md (symlinked as AGENTS.md, so counted once) stays at or under 100 lines and STATE.md under 40
+   after the diff; no SHAs in process files; nothing under docs/decisions/, goldens, or tolerances.
 8. Print the unified diff, or "nothing to change".

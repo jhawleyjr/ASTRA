@@ -263,18 +263,21 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         that adds the `atmosphere` field back to `Vehicle::EnvironmentAvailability` (`core/include/astra/kernel/
         vehicle.hpp`) -- the two ship together, not as a flag some later PR has to remember to flip. Also decides
         the varying-wind model docs/architecture.md §16's M2 row implies ("steady **and varying** wind"): neither
-        `uniform` nor `dryden` produces a commanded time-varying mean -- choose between a
-        `plugins/physical/wind/table` plugin and a `tests/plugins/` one. `WrenchSource::wrench_b` needs its own
+        `uniform` nor `dryden` produces a commanded time-varying mean. **Settled by ADR-0013:** case 8's wind
+        column is f(h), so this is an altitude-keyed `plugins/physical/wind/table` plugin, not a time-varying one.
+        `WrenchSource::wrench_b` needs its own
         `StepContext` latch (`step()`, mirroring `tests/plugins/nan_wrench`'s existing pattern) to hand `wind_n`
         one, since `wrench_b(vs, env)` itself carries none. **Also the first thing that can carry a NaN
         `wind_n` into the EOM** (PR 2's disclosed gap: `HealthMonitor` has no environment check, so a NaN
         reaching a `WrenchSource` via `EnvironmentSample` halts naming the consumer, not the wind plugin),
         the same way it already is for a NaN `AtmoState`. Reference trajectories
         and per-channel tolerances under `tests/golden/nesc/` are human-owned: Joe places NASA's TM-2015-218675 data
-        files and reads the proposed tolerances with the guard lifted (PR 1's case 1 already shows the report itself
-        publishes no fixed tolerance, only initial conditions — decide per case whether an independent integration
-        or a cross-tool comparison band is the right oracle). Decide from the report whether any case needs a
-        rotating spherical Earth (`rotating: true` on `round`, per §4 granularity). Accept: all ten within tolerance
+        files and reads the proposed tolerances with the guard lifted. **Oracle pipeline settled by ADR-0013**
+        (an ensemble band over the 4-6 participating sims' own trajectories, `k = 3`, generated offline in Python —
+        not an independent integration, and never fitted to ASTRA's own output). "Cases 1-10" is exactly Table
+        6.3-1's sphere-and-brick set; the shipped data has 17 atmospheric cases, 11+ being F-16 and two-stage-rocket,
+        out of scope until M3. **Settled by ADR-0013:** case 5 requires `rotating: true` on `round` (Table 6.3-1
+        pairs case 4 fixed / case 5 rotating with 1/R^2, to isolate Earth rotation). Accept: all ten within tolerance
         under every preset. **Also adds** the transcribed-vs-fresh geopotential consistency check PR 1b's own
         generator left unclaimed: assert `geopotential_from_geometric(Z)` matches each row's transcribed H column
         within 0.5 m, catching a geometric/geopotential column swap at generation time — the highest-risk
@@ -285,7 +288,10 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         (roughly -105 to +85 m), bounding the resulting density error at about 1.3% via the barometric
         approximation. Any case here using `wgs84_rotating` + `isa1976`'s drag `WrenchSource` must decide whether
         that is inside the case's own NESC tolerance; a fix needs a geoid model (EGM96/EGM2008), its own
-        plan-reviewed PR, not a bolt-on. Case 1 (dragless) never exercises this.
+        plan-reviewed PR, not a bolt-on. Case 1 (dragless) never exercises this. **Now load-bearing, not
+        hypothetical (ADR-0013):** the NESC reference column is `altitudeMsl_ft` (MSL), while
+        `wgs84_rotating::altitude()` returns height above the ellipsoid -- affecting all eight WGS-84 cases.
+        Oracle pipeline settled by ADR-0013.
 - [ ] **M3 Notional transport** — aero + mass + turbofan plugins; trims at cruise with residual < 1e-6;
       linearized modes match design values; 300 s open-loop run reproduces the golden.
 - [ ] **M4 Lockstep** — shm transport + HAL + straight-and-level autopilot outside the sim tree; 10,000
