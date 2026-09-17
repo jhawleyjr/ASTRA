@@ -16,5 +16,7 @@ python/astra/_core*.so
 # Claude Code session-local state
 .claude/worktrees/
 .claude/touch-goldens
-# human-placed reference documents (docs/refs/README.md) -- not carried in git
-docs/refs/*.pdf
+# human-placed reference documents (docs/refs/README.md) -- not carried in git, whatever their
+# format (PDF, HTML, plain text, ...)
+docs/refs/*
+!docs/refs/README.md

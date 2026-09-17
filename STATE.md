@@ -5,19 +5,20 @@ Nothing once PR #26 (branch `worktree-m2-environment-2b`) merges. Adds `core/uti
 (seeded `Rng`, AGENTS.md), `core/util/units.hpp` (ADR-0002 boundary conversions), and
 `plugins/physical/wind/dryden` (MIL-F-8785C turbulence) on PR 2's `begin_frame`/`wind_n` split.
 Also lands ADR-0012 (per-frame domain validity, docs only) as its own commit, scheduled as PR 2c.
-Sourcing: `docs/refs/MIL-F-8785C.pdf` (Joe-supplied), page-cited in `dryden_filter.hpp`,
-cross-checked against MathWorks' Dryden block docs; `tests/golden/wind/mil_f_8785c_dryden.hpp` is a
-second, independent transcription the tests check against, not the implementation checked against itself.
+Sourcing: `docs/refs/MIL-F-8785C.pdf` (Joe-supplied, not committed -- `docs/refs/README.md`),
+page-cited in `dryden_filter.hpp`, cross-checked against MathWorks' Dryden docs;
+`tests/golden/wind/mil_f_8785c_dryden.hpp` (constants + the two spectral forms, moved there this
+session from `dryden_psd_test.cpp`, a Codex finding) is the guarded oracle the tests check against.
 **Disclosed, not fixed** (Codex adversarial review): Dryden reads Earth-derived altitude every
 frame with no per-frame domain check -- the same gap PR 1/1b/2 already disclosed, now scheduled as
 PR 2c under ADR-0012, not fixed here (that would be its own, separately-scoped PR).
 
 ## Last verified result
-`just check` exited 0 (`check: OK`, 230/230 tests) every preset, this session. `DrydenPsd` (Welch
-periodogram vs. MIL-F-8785C's closed-form spectra, self-checked first against white noise) passed on
-the first real run. Codex `review` flagged both guarded paths this PR touches; both authorized
-(session armed, ADR content Joe-supplied). Codex `adversarial-review`: one `high` finding, the
-disclosed/scheduled domain-validity gap above, not a new issue.
+`just check` exited 0 (`check: OK`, 230/230 tests) every preset, this session, at HEAD (`e625c32`
+plus this commit's own `.gitignore`/README fix, no code changed since) -- supersedes 0b46ec0's
+claim, stale once 63b02f8/e625c32 landed on top of it. Joe's own review of those two fix commits
+(not re-run here, per instruction): the guard blocks edits/new files under `tests/golden/`, still
+allows `tests/physics/`/`plugins/`; the moved spectral forms match §3.7.1.2 p.47 to 5e-13.
 
 ## Next step
 M2 Environment (PLAN.md) PR 2c: per-frame domain validity (ADR-0012). `EarthModel::in_domain`/
@@ -31,10 +32,9 @@ does not halt; `domain: off` restores current behavior; zero allocations over 10
 `claude --worktree m2-environment-2c --permission-mode plan`
 
 ## Tried / failed
-Two clang-tidy findings (`readability-redundant-inline-specifier` on `inline constexpr`
-*functions*, `clang-analyzer-security.FloatLoopCounter` on a `double` loop variable) and one
-asan/lsan leak (a test helper releasing a `unique_ptr` before a throwing `init()`) each cost one
-extra cycle before `just check` passed clean -- all three now in `docs/lessons.md`.
+Two clang-tidy findings (`inline constexpr` *functions*, a `double` loop counter) and one asan/lsan
+leak (a `unique_ptr` released before a throwing `init()`) each cost one extra cycle before
+`just check` passed clean -- all three now in `docs/lessons.md`.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.

@@ -1,9 +1,10 @@
 # docs/refs/
 
 Human-placed reference documents (specs, standards) that inform this codebase's constants and
-formulas but are deliberately **not committed** to git (`.gitignore`: `docs/refs/*.pdf`) — they are
-large binaries nobody decided to carry in the repository's history. Joe places them here locally;
-an agent session cites them by page number but does not add, remove, or re-fetch them.
+formulas but are deliberately **not committed** to git (`.gitignore`: `docs/refs/*` with
+`!docs/refs/README.md`, whatever the document's format) — they are large files nobody decided to
+carry in the repository's history. Joe places them here locally; an agent session cites them by
+page number but does not add, remove, or re-fetch them.
 
 One line per document: what it is, where it came from, what in the tree cites it.
 
