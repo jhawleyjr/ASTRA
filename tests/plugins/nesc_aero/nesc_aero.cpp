@@ -24,6 +24,12 @@
 // 3, sim_04, t = 10 s and t = 30 s: ratios 1.000030 / 1.000000 / 1.000030 against L/M/N, the
 // residual being that participant's use of exact fractions (2/9 ft^2, 1/3 ft, 2/3 ft) where Vol II
 // Table 5 prints the rounded 0.22222 / 0.33333 / 0.66667.
+//
+// Both cross-checks above are prose, not code: tests/unit/wrench/nesc_aero_test.cpp pins the
+// formulas against clean synthetic values instead of these unit-converted NESC numbers, since an
+// unguarded unit test asserting a golden-derived number would be an oracle with no guard on it
+// (docs/lessons.md's own posture on hand-copied reference values). These two numbers become
+// actually executable once PLAN.md's M2 PR 3b lands tests/golden/nesc/ under the guard.
 #include <cmath>
 #include <memory>
 #include <string_view>

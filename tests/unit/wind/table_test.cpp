@@ -35,7 +35,10 @@ StateVector make_state() {
 
 // A fresh WindModel instance per call, unlike wind_test.cpp's load()/reuse-a-static pattern: some
 // of these tests need init() itself to throw, which a shared static instance's own prior successful
-// init would otherwise mask nothing about (each call here is a distinct object either way).
+// init would otherwise mask nothing about (each call here is a distinct object either way). The
+// static LoadedPlugin is reassigned on every call, so a reference an earlier caller holds dangles
+// the instant `load` is called again -- safe here because every TEST() below calls it exactly
+// once and never retains the reference past its own body.
 WindModel& load(std::string_view yaml, astra::SignalRegistry& registry) {
   static astra::PluginLoader loader{ASTRA_TEST_PLUGIN_DIR};
   static astra::LoadedPlugin loaded;

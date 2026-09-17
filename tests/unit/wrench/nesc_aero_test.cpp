@@ -31,6 +31,11 @@ using astra::WrenchSource;
 
 constexpr double kTolerance = 1e-12;
 
+// The static LoadedPlugin is reassigned on every call, so a reference this function returned to
+// an earlier caller dangles the instant `load` is called again -- exactly the
+// earth_kinematics_test.cpp `load()` pattern this mirrors. Safe here because every TEST() below
+// calls `load` exactly once and does not retain the reference past its own body; a test needing
+// two live instances at once must build its own loader/LoadedPlugin locally instead.
 WrenchSource& load(std::string_view yaml, astra::SignalRegistry& registry) {
   static astra::PluginLoader loader{ASTRA_TEST_PLUGIN_DIR};
   static astra::LoadedPlugin loaded;

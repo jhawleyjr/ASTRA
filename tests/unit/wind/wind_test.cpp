@@ -16,7 +16,6 @@
 
 #include "astra/config/config.hpp"
 #include "astra/errors.hpp"
-#include "astra/interfaces/atmosphere_model.hpp"
 #include "astra/interfaces/earth_model.hpp"
 #include "astra/interfaces/wind_model.hpp"
 #include "astra/kernel/simulation.hpp"
@@ -360,28 +359,15 @@ TEST(WindCallContract, AWrenchSourceRequiringAtmosphereIsAcceptedWhenAtmosphereI
   EXPECT_NEAR(*density, 1.225, 1e-3);
 }
 
-// The out-of-range half of the same coverage: Simulation::step's merged sampling block calls
-// atmosphere_->at(altitude_m) with no clamping of its own (simulation.cpp), so an out-of-range
-// result reaches EnvironmentSample::atmosphere exactly as at() returns it. This test pins that
-// contract directly against the interface at() itself (rather than building an in-range-to-out-of-
-// range trajectory, which no existing scenario flies) -- isa1976_test.cpp already covers at()'s own
-// NaN-outside-valid_range() behavior in isolation; this confirms it is the same AtmoState
-// Simulation::step would forward unmodified, since step()'s own assignment
-// (sample.atmosphere = atmosphere_->at(altitude_m)) performs no clamping or substitution of its
-// own.
-TEST(WindCallContract, AtmosphereOutsideValidRangeIsNeverClampedBeforeReachingEnvironmentSample) {
-  const astra::PluginLoader loader{ASTRA_TEST_PLUGIN_DIR};
-  astra::LoadedPlugin atmosphere_loaded = loader.load("plugins/physical/atmosphere/isa1976");
-  auto* const atmosphere = dynamic_cast<astra::AtmosphereModel*>(atmosphere_loaded.model.get());
-  astra::SignalRegistry atmosphere_registry;
-  atmosphere->init(Config::from_string("{}\n", "isa1976-fixture"), atmosphere_registry);
-  const astra::AltitudeRange range = atmosphere->valid_range();
-  const astra::AtmoState state = atmosphere->at(range.max_m + 1.0);
-  EXPECT_TRUE(std::isnan(state.density_kg_m3));
-  EXPECT_TRUE(std::isnan(state.pressure_pa));
-  EXPECT_TRUE(std::isnan(state.temperature_k));
-  EXPECT_TRUE(std::isnan(state.speed_of_sound_m_s));
-}
+// The out-of-range/misattribution half of this same coverage is NOT tested here: a redundant
+// direct at()-outside-valid_range() check would only repeat isa1976_test.cpp's own
+// AtReturnsAllNanClearlyOutsideValidRange, and "vehicle starts outside valid_range()" is not
+// actually reachable through Simulation::from_config (the init-time altitude check rejects it) or
+// mid-run (ADR-0012 halts on the out-of-domain altitude before a wrench stage sees it) -- the
+// disclosed misattribution gap is pinned instead in
+// tests/unit/kernel/simulation_halt_test.cpp's NanAtmosphereInRangeHaltsNamingTheWrenchConsumer,
+// using a broken AtmosphereModel that returns NaN squarely inside its own valid_range(), the one
+// path that is actually reachable (Codex adversarial review, M2 PR 3).
 
 TEST(WindCallContract, AWrenchSourceRequiringAtmosphereIsStillRejectedWithoutAtmosphereConfigured) {
   const Config config = Config::from_string(
