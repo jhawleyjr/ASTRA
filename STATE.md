@@ -1,40 +1,40 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines; written as true once the PR carrying it has merged)
 
 ## In flight
-Nothing once PR #26 (branch `worktree-m2-environment-2b`) merges. Adds `core/util/random.hpp`
-(seeded `Rng`, AGENTS.md), `core/util/units.hpp` (ADR-0002 boundary conversions), and
-`plugins/physical/wind/dryden` (MIL-F-8785C turbulence) on PR 2's `begin_frame`/`wind_n` split.
-Also lands ADR-0012 (per-frame domain validity, docs only) as its own commit, scheduled as PR 2c.
-Sourcing: `docs/refs/MIL-F-8785C.pdf` (Joe-supplied, not committed -- `docs/refs/README.md`),
-page-cited in `dryden_filter.hpp`, cross-checked against MathWorks' Dryden docs;
-`tests/golden/wind/mil_f_8785c_dryden.hpp` (constants + the two spectral forms, moved there this
-session from `dryden_psd_test.cpp`, a Codex finding) is the guarded oracle the tests check against.
-**Disclosed, not fixed** (Codex adversarial review): Dryden reads Earth-derived altitude every
-frame with no per-frame domain check -- the same gap PR 1/1b/2 already disclosed, now scheduled as
-PR 2c under ADR-0012, not fixed here (that would be its own, separately-scoped PR).
+PR #27 (branch `worktree-m2-environment-2c`), open, awaiting Joe's read (physics diff) and merge.
+Two parts: (1) docs-only commit landing ADR-0013 (NESC oracle: ensemble band, Python-generated,
+human-owned) and restoring `AGENTS.md` as a symlink to `CLAUDE.md` (PR #7's original design, which
+PR #11 inverted) -- one file, 100 lines, `workflow.md`/`SKILL.md` updated to match. (2) M2 PR 2c:
+ADR-0012 per-frame domain validity -- `EarthModel::in_domain`/`GravityModel::in_domain` (incl.
+`wgs84_j2`, whose `validate_p_n` was never a no-op), `HealthCheck::kOutOfDomain` post-step with a
+one-frame lookahead plus a frame-0 pre-step check, the atmosphere `valid_range()` check moved into
+`Simulation::step`. `kCoreApiVersion` bumped 3 -> 4 (Codex review: `in_domain` changes the
+Earth/Gravity vtable). **Known gap, disclosed not fixed** (Codex adversarial review, `PLAN.md`'s PR
+2c line and `Vehicle::check_domain`'s own comment): the lookahead is first-order in velocity: RK4's
+own stages nest acceleration into position at `0.5*|a|*dt^2` (~4.9 um at standard gravity, dt=1ms),
+so a state within that band at near-zero velocity can have a stage evaluate singular math first;
+the NaN/Inf state check remains the backstop. Pinned by a unit test so the band's size moves
+visibly, not silently, if `dt`/the integrator change. Nothing awaits Joe but the read and merge.
 
 ## Last verified result
-`just check` exited 0 (`check: OK`, 230/230 tests) every preset, this session, at HEAD (`e625c32`
-plus this commit's own `.gitignore`/README fix, no code changed since) -- supersedes 0b46ec0's
-claim, stale once 63b02f8/e625c32 landed on top of it. Joe's own review of those two fix commits
-(not re-run here, per instruction): the guard blocks edits/new files under `tests/golden/`, still
-allows `tests/physics/`/`plugins/`; the moved spectral forms match §3.7.1.2 p.47 to 5e-13.
+`just check` exited 0 (`check: OK`, 253/253 tests) every preset, this session, at HEAD (`dee4c86`)
+-- run once per commit across this PR's four; the final run is the one that matters.
 
 ## Next step
-M2 Environment (PLAN.md) PR 2c: per-frame domain validity (ADR-0012). `EarthModel::in_domain`/
-`GravityModel::in_domain`; `validate_p_n` reimplemented as that plus input sanity;
-`HealthCheck::kOutOfDomain` under `sim.health`'s `domain` key, checked post-step against the state
-and a one-frame lookahead; the atmosphere `valid_range()` check moves from init-only to per-frame.
-Closes PR 1's polar-approach gap and PR 1b's atmosphere-range gap. Accept: a trajectory toward
-`kMaxLatitude`/the altitude floor halts naming the offending plugin before any state goes
-non-finite; a `valid_range()` excursion halts naming `physical.atmosphere`; a longitude-pi crossing
-does not halt; `domain: off` restores current behavior; zero allocations over 1000 frames. Opener:
-`claude --worktree m2-environment-2c --permission-mode plan`
+M2 Environment (PLAN.md) PR 3: NESC check-case harness, oracle pipeline now settled by ADR-0013
+(cases 1-10 from Table 6.3-1; case 5 needs `rotating: true`; case 8's wind is an altitude-keyed
+`plugins/physical/wind/table`, not time-varying; the geoid gap is now load-bearing for all eight
+WGS-84 cases, MSL vs. ellipsoidal). Precondition on Joe's machine: PR #27 merged first (M2 PR 3's
+own line requires ADR-0012 landed, since cases 9-10 fly latitude-varying trajectories); Joe places
+NASA/TM-2015-218675's data under `docs/refs/` (gitignored) before the generator can run.
+Opener: `claude --worktree m2-nesc-pr3 --permission-mode plan`
 
 ## Tried / failed
-Two clang-tidy findings (`inline constexpr` *functions*, a `double` loop counter) and one asan/lsan
-leak (a `unique_ptr` released before a throwing `init()`) each cost one extra cycle before
-`just check` passed clean -- all three now in `docs/lessons.md`.
+`Vehicle::check_domain`'s `eom_->earth()/gravity()` accesses failed clang-tidy's
+`bugprone-unchecked-optional-access` despite the caller's own guard (its invariant doesn't cross
+the function boundary) -- fixed with a local `has_value()` guard, one extra `just check` cycle.
+Codex adversarial review's first pass (needs-attention) on the RK4-lookahead gap above cost a
+second commit (disclosure + pinning test) after Joe's explicit direction on how to resolve it.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.
