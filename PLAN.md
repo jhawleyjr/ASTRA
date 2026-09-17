@@ -72,6 +72,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         review pressure at the tail of an already-large PR; (c) it is disclosed here and in round.cpp's comment, not
         hidden. Joe's call whether this blocks the merge; close it before any milestone flies a trajectory that can
         realistically approach a pole (not M2's drop-test scenarios) — plan-reviewed like M1's EOM and health monitor.
+        Scheduled as PR 2c under ADR-0012, not open-ended.
   - [x] PR 1b — `AtmosphereModel` + `plugins/physical/atmosphere/isa1976` (declares its valid altitude range
         `[-5000, 86000]` m geometric; §15's pre-run "altitude inside the atmosphere's range" check joins
         `Simulation::from_config` beside PR 1's `validate_p_n` calls, not `HealthMonitor::init` -- that class only
@@ -91,7 +92,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         this PR for the same reasons as PR 1's gap: no test here flies near the boundary, and a correct fix is the
         same new per-frame domain-validity `HealthMonitor` capability, not a second bolt-on. Must be resolved, or
         consciously re-accepted, before PR 3's drag `WrenchSource` is the first thing that can actually read a NaN
-        `AtmoState` into the EOM.
+        `AtmoState` into the EOM. Scheduled as PR 2c under ADR-0012, not open-ended.
   - [x] PR 2 — `WindModel` (§7 signature, strengthened to `const noexcept` plus `begin_frame`/
         `shareable_across_vehicles`) with `plugins/physical/wind/uniform` and the per-vehicle
         `EnvironmentSample` latch (`core/include/astra/kernel/environment_sample.hpp`) that carries wind
@@ -117,7 +118,8 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         gap (initial state validated, not every frame) was written before `altitude()` had any per-frame
         caller, and now does, with a `WindModel` (from PR 2b, `dryden`) reading that per-frame value. The
         decision PR 1b deferred is re-accepted knowingly here, not silently inherited (Cowork review,
-        post-merge-ready) -- see PR 2b's line for the consequence. Also caught and fixed: the
+        post-merge-ready) -- see PR 2b's line for the consequence; scheduled as PR 2c under ADR-0012,
+        not open-ended. Also caught and fixed: the
         `WrenchSource` ABI change (`requires_environment()` added, `wrench_b`'s signature changed) needed
         `kCoreApiVersion` bumped 1 -> 2 (`core_api.hpp.in`) so a stale out-of-tree plugin is rejected at
         load rather than dispatched through a vtable slot it does not have, bumped again 2 -> 3 once
@@ -222,7 +224,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         re-run adversarial review, not the original Cowork list, went looking for it -- caught
         before merge because `CLAUDE.md` requires the re-run, and caught in full only because that
         re-run was itself re-run once more against its own fix.
-  - [ ] PR 2b — `core/util/random.hpp` (`std::mt19937_64` seeded from config, in-house Box-Muller/uniform
+  - [x] PR 2b — `core/util/random.hpp` (`std::mt19937_64` seeded from config, in-house Box-Muller/uniform
         transforms per `AGENTS.md` -- `std::normal_distribution` is unspecified across libstdc++/libc++)
         and `plugins/physical/wind/dryden` (MIL-F-8785C scale lengths and intensities), built on PR 2's
         `begin_frame`/`wind_n` split: `step()` draws the frame's RNG samples (scheduler-driven, consumer-
@@ -238,10 +240,21 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         `uniform`, a constant model, as plumbing coverage only). **Inherits PR 2's disclosed per-frame
         `EarthModel::altitude()` domain-validity gap**: `altitude_m` is `dryden`'s own coefficient input,
         read every frame from a `p_n` that is not re-validated per frame (PR 1's/PR 1b's gap, re-accepted
-        knowingly by PR 2, not fixed here either). Accept: Dryden PSD matches the
+        knowingly by PR 2, not fixed here either); scheduled as PR 2c under ADR-0012, not open-ended.
+        Accept: Dryden PSD matches the
         MIL-F-8785C spec within statistical bounds at a fixed seed (docs/architecture.md §16's M2 row);
         two same-seed runs are bitwise identical on the gust sequence and the registry snapshot, and
         across `reset()`.
+  - [ ] PR 2c — per-frame domain validity (ADR-0012): `EarthModel::in_domain` /
+        `GravityModel::in_domain`, `validate_p_n` reimplemented as that plus input sanity,
+        `HealthCheck::kOutOfDomain` under `sim.health`'s `domain` key (default halt), checked
+        post-step against the state and a one-frame lookahead, plus the atmosphere `valid_range()`
+        check against `EarthModel::altitude`. Closes PR 1's polar-approach gap and PR 1b's mid-run
+        atmosphere-range gap; does not close PR 1b's geoid datum gap. Accept: a trajectory driven
+        toward `kMaxLatitude` halts naming the Earth plugin at least one frame before any state goes
+        non-finite; same for the altitude floor; a run leaving `valid_range()` mid-run halts naming
+        `physical.atmosphere`; an east-west trajectory crossing longitude pi does not halt;
+        `domain: off` restores current behavior; zero allocations over 1000 frames.
   - [ ] PR 3 — NESC check-case harness: cases 1–10 from YAML under `tests/physics/nesc/` (absorbing PR 1's
         hand-written case 1 into the harness); a `tests/plugins/` `WrenchSource` for the sphere's Cd·A drag and the
         brick's damping (the only M2 consumer of wind and atmosphere, air-relative velocity; steady-wind NESC cases

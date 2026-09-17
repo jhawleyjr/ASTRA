@@ -17,6 +17,10 @@ add_executable(astra_unit_tests
   plugin/loader_test.cpp
   signals/signal_registry_test.cpp
   util/geodesy_test.cpp
+  util/random_test.cpp
+  util/units_test.cpp
+  wind/dryden_filter_test.cpp
+  wind/dryden_test.cpp
   wind/wind_determinism_test.cpp
   wind/wind_test.cpp)
 target_link_libraries(astra_unit_tests PRIVATE astra::core GTest::gtest_main)
