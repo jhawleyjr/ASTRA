@@ -27,13 +27,15 @@ struct EnvironmentSample {
   // PR 1/1b already deferred for AtmoState, not a second bolt-on here.
   Eigen::Vector3d wind_n = Eigen::Vector3d::Zero();
 
-  // All-NaN by default (AtmoState's own designed default, atmosphere_model.hpp). NEVER populated in
-  // M2 PR 2 -- PR 3 is the first PR to write a real value here, in the same change that adds the
-  // "atmosphere" field to Vehicle's EnvironmentAvailability (kernel/vehicle.hpp). Until then, any
-  // WrenchSource declaring EnvironmentRequirements::atmosphere is rejected unconditionally at init
-  // (see EnvironmentAvailability's own comment for why that is unconditional, not "if
-  // physical.atmosphere is absent"), so this field being permanently NaN in M2 PR 2 is never
-  // silently read by anything that needed a real value.
+  // All-NaN by default (AtmoState's own designed default, atmosphere_model.hpp). Populated by
+  // Simulation::step (M2 PR 3) from physical.atmosphere's at(altitude_m), the same per-vehicle,
+  // frame-start latch wind_n already uses -- see Vehicle::EnvironmentAvailability::atmosphere
+  // (kernel/vehicle.hpp) for the matching init-time requirement check. Stays all-NaN when
+  // physical.atmosphere is absent, or when the vehicle's altitude is outside the configured
+  // AtmosphereModel's valid_range() (never clamped, per that interface's own contract) -- either
+  // way, a WrenchSource declaring EnvironmentRequirements::atmosphere with no physical.atmosphere
+  // configured is still rejected at init, so this field is never silently read as NaN by something
+  // that assumed a real value and got none configured at all.
   AtmoState atmosphere{};
 };
 

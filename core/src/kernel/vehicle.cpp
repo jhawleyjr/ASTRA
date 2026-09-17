@@ -34,10 +34,7 @@ void Vehicle::init(const PluginLoader& loader, const std::vector<ModelSpec>& mod
         throw ConfigError(spec.config.origin(), "physical.wind",
                           spec.plugin_path + " requires wind");
       }
-      if (requirements.atmosphere) {
-        // Unconditional, not "if physical.atmosphere is absent": no PR before M2 PR 3 populates
-        // EnvironmentSample::atmosphere (environment_sample.hpp), so even a config naming
-        // physical.atmosphere cannot satisfy this yet -- nothing connects the two before PR 3.
+      if (requirements.atmosphere && !availability.atmosphere) {
         throw ConfigError(spec.config.origin(), "physical.atmosphere",
                           spec.plugin_path + " requires atmosphere");
       }

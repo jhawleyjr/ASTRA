@@ -16,6 +16,7 @@
 
 #include "astra/config/config.hpp"
 #include "astra/errors.hpp"
+#include "astra/interfaces/atmosphere_model.hpp"
 #include "astra/interfaces/earth_model.hpp"
 #include "astra/interfaces/wind_model.hpp"
 #include "astra/kernel/simulation.hpp"
@@ -331,30 +332,14 @@ TEST(WindCallContract, AWrenchSourceRequiringWindWithNoWindSlotIsAnInitError) {
   }
 }
 
-TEST(WindCallContract,
-     AWrenchSourceRequiringAtmosphereIsAlwaysRejectedWithoutAtmosphereConfigured) {
-  const Config config = Config::from_string(
-      "sim: { dt: 0.001, frames: 1 }\n"
-      "vehicle: { models: [ { plugin: tests/plugins/atmosphere_consumer } ] }\n"
-      "physical:\n"
-      "  earth: plugins/physical/earth/flat\n"
-      "  gravity: plugins/physical/gravity/constant\n"
-      "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 "
-      "}\n",
-      "atmosphere-consumer-fixture");
-  try {
-    static_cast<void>(load_sim(config));
-    FAIL() << "expected ConfigError";
-  } catch (const ConfigError& error) {
-    EXPECT_EQ(error.config_path(), "physical.atmosphere");
-  }
-}
-
-// The rejection is unconditional (D3), not "physical.atmosphere is absent": even a config naming
-// physical.atmosphere cannot satisfy atmosphere_consumer's requirement in M2 PR 2 -- no PR before
-// PR 3 connects the two (environment_sample.hpp).
-TEST(WindCallContract,
-     AWrenchSourceRequiringAtmosphereIsAlwaysRejectedEvenWithAtmosphereConfigured) {
+// M2 PR 3: EnvironmentSample::atmosphere is now actually populated, so a config naming
+// physical.atmosphere satisfies atmosphere_consumer's requirement -- the same shape as wind's own
+// acceptance case, not a rejection (this test used to assert the opposite, when nothing before PR 3
+// could connect the two -- see environment_sample.hpp's own comment for what changed). Also proves
+// Simulation::step's merged sampling block reaches this WrenchSource with no physical.wind
+// configured at all -- before this PR, step() sampled atmosphere only inside the wind_ != nullptr
+// branch, so this specific "atmosphere alone, no wind" combination had no coverage.
+TEST(WindCallContract, AWrenchSourceRequiringAtmosphereIsAcceptedWhenAtmosphereIsConfigured) {
   const Config config = Config::from_string(
       "sim: { dt: 0.001, frames: 1 }\n"
       "vehicle: { models: [ { plugin: tests/plugins/atmosphere_consumer } ] }\n"
@@ -365,6 +350,49 @@ TEST(WindCallContract,
       "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 "
       "}\n",
       "atmosphere-consumer-with-atmosphere-fixture");
+  Simulation sim = load_sim(config);
+  ASSERT_FALSE(sim.run());
+  const double* density = sim.registry().find("v0.atmosphere_consumer.density");
+  ASSERT_NE(density, nullptr);
+  // Sea level (earth/flat's altitude() at the zeroed default initial state): isa1976's own
+  // published sea-level density, not just "some finite number" -- proves a real value reached this
+  // WrenchSource, not a coincidental zero.
+  EXPECT_NEAR(*density, 1.225, 1e-3);
+}
+
+// The out-of-range half of the same coverage: Simulation::step's merged sampling block calls
+// atmosphere_->at(altitude_m) with no clamping of its own (simulation.cpp), so an out-of-range
+// result reaches EnvironmentSample::atmosphere exactly as at() returns it. This test pins that
+// contract directly against the interface at() itself (rather than building an in-range-to-out-of-
+// range trajectory, which no existing scenario flies) -- isa1976_test.cpp already covers at()'s own
+// NaN-outside-valid_range() behavior in isolation; this confirms it is the same AtmoState
+// Simulation::step would forward unmodified, since step()'s own assignment
+// (sample.atmosphere = atmosphere_->at(altitude_m)) performs no clamping or substitution of its
+// own.
+TEST(WindCallContract, AtmosphereOutsideValidRangeIsNeverClampedBeforeReachingEnvironmentSample) {
+  const astra::PluginLoader loader{ASTRA_TEST_PLUGIN_DIR};
+  astra::LoadedPlugin atmosphere_loaded = loader.load("plugins/physical/atmosphere/isa1976");
+  auto* const atmosphere = dynamic_cast<astra::AtmosphereModel*>(atmosphere_loaded.model.get());
+  astra::SignalRegistry atmosphere_registry;
+  atmosphere->init(Config::from_string("{}\n", "isa1976-fixture"), atmosphere_registry);
+  const astra::AltitudeRange range = atmosphere->valid_range();
+  const astra::AtmoState state = atmosphere->at(range.max_m + 1.0);
+  EXPECT_TRUE(std::isnan(state.density_kg_m3));
+  EXPECT_TRUE(std::isnan(state.pressure_pa));
+  EXPECT_TRUE(std::isnan(state.temperature_k));
+  EXPECT_TRUE(std::isnan(state.speed_of_sound_m_s));
+}
+
+TEST(WindCallContract, AWrenchSourceRequiringAtmosphereIsStillRejectedWithoutAtmosphereConfigured) {
+  const Config config = Config::from_string(
+      "sim: { dt: 0.001, frames: 1 }\n"
+      "vehicle: { models: [ { plugin: tests/plugins/atmosphere_consumer } ] }\n"
+      "physical:\n"
+      "  earth: plugins/physical/earth/flat\n"
+      "  gravity: plugins/physical/gravity/constant\n"
+      "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 "
+      "}\n",
+      "atmosphere-consumer-without-atmosphere-fixture");
   try {
     static_cast<void>(load_sim(config));
     FAIL() << "expected ConfigError";

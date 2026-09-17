@@ -22,8 +22,10 @@ add_executable(astra_unit_tests
   util/units_test.cpp
   wind/dryden_filter_test.cpp
   wind/dryden_test.cpp
+  wind/table_test.cpp
   wind/wind_determinism_test.cpp
-  wind/wind_test.cpp)
+  wind/wind_test.cpp
+  wrench/nesc_aero_test.cpp)
 target_link_libraries(astra_unit_tests PRIVATE astra::core GTest::gtest_main)
 target_compile_definitions(astra_unit_tests PRIVATE
   "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""
