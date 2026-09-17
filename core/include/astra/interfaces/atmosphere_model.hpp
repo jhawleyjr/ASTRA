@@ -39,10 +39,13 @@ class AtmosphereModel : public Model {
 
   // Per-frame path (§14): no allocation, no exceptions. Returns an all-NaN AtmoState outside
   // valid_range() rather than clamping -- a clamped value would be a plausible density for an
-  // altitude the model does not model. As of M2 PR 1b nothing consumes an AtmoState yet, so this
-  // NaN is not itself observed by anything; from PR 3 on, a WrenchSource that reads it into a
-  // force/moment makes it visible to HealthMonitor's existing check_wrench (HealthMonitor checks
-  // state vectors and wrench contributions directly, never AtmoState itself).
+  // altitude the model does not model. Called once per vehicle per frame by Simulation::step (M2
+  // PR 3), into EnvironmentSample::atmosphere; a WrenchSource that reads a NaN result (whether from
+  // this out-of-range contract or a genuinely broken implementation) into a force/moment makes it
+  // visible to HealthMonitor's existing check_wrench, which names the consuming WrenchSource's
+  // plugin path, not this model's -- HealthMonitor checks state vectors and wrench contributions
+  // directly, never AtmoState itself (environment_sample.hpp's own comment on its `atmosphere`
+  // field has the fuller account of that attribution gap, the same shape wind's NaN already has).
   //
   // altitude_m is exactly whatever the configured EarthModel::altitude() returns -- "height above
   // the Earth model's reference surface" (earth_model.hpp), not independently defined here. For
@@ -59,11 +62,12 @@ class AtmosphereModel : public Model {
   // domain is this one interval, so Simulation::from_config compares it directly against the
   // initial altitude instead of calling back into the model.
   //
-  // Known gap, disclosed not fixed (Codex adversarial review, M2 PR 1b; PLAN.md's M2 PR 1b line):
-  // that comparison is init-time only, the same shape as PR 1's EarthModel/GravityModel
-  // validate_p_n gap -- a trajectory that leaves this range mid-run is not re-validated per frame.
-  // Must be resolved, or consciously re-accepted, before a WrenchSource (PR 3 on) makes at()'s
-  // output actually reach the EOM.
+  // Was a disclosed gap (Codex adversarial review, M2 PR 1b): the from_config comparison above is
+  // init-time only, so a trajectory that left this range mid-run was not re-validated per frame.
+  // Closed by ADR-0012 (M2 PR 2c): Simulation::step re-checks altitude against this range
+  // post-step every frame, halting via HealthMonitor::report_out_of_domain when it is exceeded --
+  // the gate M2 PR 3's drag WrenchSource (the first thing that actually reads at()'s output into
+  // the EOM) needed closed before it could run.
   [[nodiscard]] virtual AltitudeRange valid_range() const noexcept = 0;
 };
 

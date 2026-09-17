@@ -338,7 +338,7 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
     const Vehicle::PhysicsSpec physics_spec{std::move(mass_spec), earth, gravity,
                                             earth_spec.plugin_path, gravity_spec.plugin_path};
     vehicle.init(loader, specs, sim.registry_, &physics_spec,
-                 Vehicle::EnvironmentAvailability{wind != nullptr});
+                 Vehicle::EnvironmentAvailability{wind != nullptr, atmosphere != nullptr});
     vehicle.state() = read_initial_state(config);
 
     const Eigen::Vector3d p_n = vehicle.state().segment<state::kPositionSize>(state::kPosition);
@@ -494,18 +494,28 @@ HaltReason Simulation::step() noexcept {
   for (Vehicle& vehicle : vehicles_) {
     // This frame's environment sample (docs/architecture.md §5, environment_sample.hpp), latched
     // here at frame-start state, before the wrench stage -- the same discipline Eom::begin_frame
-    // and Vehicle::integrate's own VehicleState latch already use. wind_ is the only per-vehicle
-    // evolution/read pair today; PR 3 adds EnvironmentSample::atmosphere the same way. The
-    // AtmosphereModel* member this PR adds (atmosphere_, below) is unrelated to that sampling --
-    // ADR-0012's post-step domain check, not a wrench input.
+    // and Vehicle::integrate's own VehicleState latch already use. wind and atmosphere are sampled
+    // together, from the same frame-start VehicleState and the same single earth_->altitude(vs)
+    // call, but they remain independent slots: either may be configured without the other (M2 PR
+    // 3). This altitude_m is deliberately a different call than the post-step altitude ADR-0012's
+    // domain check below takes -- that one runs after integration, on a different state, and has
+    // nothing to share with this one.
     EnvironmentSample sample;  // wind zero / atmosphere all-NaN by default
-    if (wind_ != nullptr) {
+    if (wind_ != nullptr || atmosphere_ != nullptr) {
       const VehicleState vs{vehicle.state()};
-      // earth_ is always set whenever wind_ is (both are set only under a "physical" section, and
-      // earth loads first, unconditionally -- see the sim.earth_ assignment above in from_config).
+      // earth_ is always set whenever wind_ or atmosphere_ is (all three load only under a
+      // "physical" section, and earth loads first, unconditionally -- see the sim.earth_
+      // assignment above in from_config).
       const double altitude_m = earth_->altitude(vs);
-      wind_->begin_frame(ctx, vs, altitude_m);  // per-vehicle evolution: uses this frame's V, h
-      sample.wind_n = wind_->wind_n(ctx, vs);   // pure read of what begin_frame just latched
+      if (wind_ != nullptr) {
+        wind_->begin_frame(ctx, vs, altitude_m);  // per-vehicle evolution: uses this frame's V, h
+        sample.wind_n = wind_->wind_n(ctx, vs);   // pure read of what begin_frame just latched
+      }
+      if (atmosphere_ != nullptr) {
+        // Never clamped: at() itself returns all-NaN outside valid_range() (atmosphere_model.hpp),
+        // and ADR-0012's post-step check below is the halt path for that, not this assignment.
+        sample.atmosphere = atmosphere_->at(altitude_m);
+      }
     }
     vehicle.set_environment(sample);
     vehicle.step(ctx);

@@ -289,43 +289,85 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         margin-based or acceleration-aware lookahead is an unpinned, expensive-to-unwind design
         (ADR-0012 pins the literal Euler formula) and needs its own plan-reviewed PR, not a
         redesign under review pressure here.
-  - [ ] PR 3 — NESC check-case harness: cases 1–10 from YAML under `tests/physics/nesc/` (absorbing PR 1's
-        hand-written case 1 into the harness); a `tests/plugins/` `WrenchSource` for the sphere's Cd·A drag and the
-        brick's damping (the only M2 consumer of wind and atmosphere, air-relative velocity; steady-wind NESC cases
-        within tolerance, moved from PR 2's line since PR 2 shipped no consumer). Populates
-        `EnvironmentSample::atmosphere` in `Simulation::step` (`core/src/kernel/simulation.cpp`) in the same change
-        that adds the `atmosphere` field back to `Vehicle::EnvironmentAvailability` (`core/include/astra/kernel/
-        vehicle.hpp`) -- the two ship together, not as a flag some later PR has to remember to flip. Also decides
-        the varying-wind model docs/architecture.md §16's M2 row implies ("steady **and varying** wind"): neither
-        `uniform` nor `dryden` produces a commanded time-varying mean. **Settled by ADR-0013:** case 8's wind
-        column is f(h), so this is an altitude-keyed `plugins/physical/wind/table` plugin, not a time-varying one.
-        `WrenchSource::wrench_b` needs its own
-        `StepContext` latch (`step()`, mirroring `tests/plugins/nan_wrench`'s existing pattern) to hand `wind_n`
-        one, since `wrench_b(vs, env)` itself carries none. **Also the first thing that can carry a NaN
-        `wind_n` into the EOM** (PR 2's disclosed gap: `HealthMonitor` has no environment check, so a NaN
-        reaching a `WrenchSource` via `EnvironmentSample` halts naming the consumer, not the wind plugin),
-        the same way it already is for a NaN `AtmoState`. Reference trajectories
-        and per-channel tolerances under `tests/golden/nesc/` are human-owned: Joe places NASA's TM-2015-218675 data
-        files and reads the proposed tolerances with the guard lifted. **Oracle pipeline settled by ADR-0013**
-        (an ensemble band over the 4-6 participating sims' own trajectories, `k = 3`, generated offline in Python —
-        not an independent integration, and never fitted to ASTRA's own output). "Cases 1-10" is exactly Table
-        6.3-1's sphere-and-brick set; the shipped data has 17 atmospheric cases, 11+ being F-16 and two-stage-rocket,
-        out of scope until M3. **Settled by ADR-0013:** case 5 requires `rotating: true` on `round` (Table 6.3-1
-        pairs case 4 fixed / case 5 rotating with 1/R^2, to isolate Earth rotation). Accept: all ten within tolerance
-        under every preset. **Also adds** the transcribed-vs-fresh geopotential consistency check PR 1b's own
-        generator left unclaimed: assert `geopotential_from_geometric(Z)` matches each row's transcribed H column
-        within 0.5 m, catching a geometric/geopotential column swap at generation time — the highest-risk
-        transcription error in the NESC tables too (same class of mistake as `docs/lessons.md`'s 2026-09-15
-        entry on NASA-TM-X-74335's dual-column Table I). **Carried from PR 1b (Codex adversarial review, disclosed not fixed):**
-        `wgs84_rotating`'s `EarthModel::altitude()` returns height above the WGS-84 ellipsoid (ADR-0003's `p_n(2)`),
-        not a sea-level/geoid reference `isa1976` implicitly assumes; the two differ by the geoid undulation
-        (roughly -105 to +85 m), bounding the resulting density error at about 1.3% via the barometric
-        approximation. Any case here using `wgs84_rotating` + `isa1976`'s drag `WrenchSource` must decide whether
-        that is inside the case's own NESC tolerance; a fix needs a geoid model (EGM96/EGM2008), its own
-        plan-reviewed PR, not a bolt-on. Case 1 (dragless) never exercises this. **Now load-bearing, not
-        hypothetical (ADR-0013):** the NESC reference column is `altitudeMsl_ft` (MSL), while
-        `wgs84_rotating::altitude()` returns height above the ellipsoid -- affecting all eight WGS-84 cases.
-        Oracle pipeline settled by ADR-0013.
+  - [ ] PR 3a — populates `EnvironmentSample::atmosphere` in `Simulation::step` (one shared
+        `earth_->altitude(vs)` call feeds both `wind_n` and `atmosphere`, independent of which slot is
+        configured, never clamped outside `valid_range()`); `Vehicle::EnvironmentAvailability::atmosphere`
+        (conditional rejection naming `physical.atmosphere`, replacing PR 2's unconditional one, since
+        nothing before this PR connected the two); `plugins/physical/earth/round`'s `rotating: <bool>`
+        (default false; the same `omega_ie_n(lat)` formula `wgs84_rotating` uses unconditionally -- case 5
+        needs it, Table 6.3-1 pairing case 4 fixed / case 5 rotating with 1/R^2 to isolate Earth rotation);
+        new `plugins/physical/wind/table` (piecewise-linear wind vs. altitude from a config point table,
+        clamped not extrapolated outside its own range, `shareable_across_vehicles() == true` despite
+        holding per-frame state since it is memoryless, `assumed_position_representation() == kAny` --
+        settles docs/architecture.md §16's "steady **and varying** wind" per ADR-0013: case 8's wind is
+        altitude-keyed, not time-varying, so no `WrenchSource`-side `StepContext` latch is needed); new
+        `tests/plugins/nesc_aero` (`WrenchSource`: sphere drag `F_b = -C_D*0.5*rho*S*|v_rel_b|*v_rel_b`
+        and brick rate damping `L/M/N = 0.25*rho*V*S*{b,cbar,b}^2*C_{lp,mq,nr}*{p,q,r}` using the
+        inertial-referenced body rates `VehicleState::omega_b` already stores; both forms checked against
+        NASA/TM-2015-218675 Vol II's own published values, case 7 `sim_03`'s drag at t=0 and case 3
+        `sim_04`'s damping at t=10/30 s; `requires_wind` is config-driven, not unconditional, since eight
+        of the ten NESC cases correctly configure no `physical.wind` at all -- caught in plan review
+        before writing any config, since `Vehicle::init` calls a `WrenchSource`'s own `init()`, so it has
+        its config, before querying `requires_environment()`). No `kCoreApiVersion` bump: no plugin-facing
+        ABI change. **Split from this PR's own original scope** (~1750 combined lines; PR 1's own
+        precedent split at ~1200): PR 3a is the consumer half `just check` proves with no goldens, no
+        guard, no NESC data; PR 3b below is the harness. Codex review: clean. Adversarial review
+        (ADR-0001/0002/0003/0011): one needs-attention finding, atmosphere's NaN reaching a `WrenchSource`
+        misattributed to the consumer, not the atmosphere plugin -- the identical shape wind's own already-
+        disclosed gap has (disclosed, not fixed, `environment_sample.hpp`/`atmosphere_model.hpp`; PR
+        1/1b/2's precedent for this exact class of gap says the real fix is one new per-frame domain-
+        validity `HealthMonitor` capability validating `EnvironmentSample` as a whole, not a per-field
+        bolt-on). PR #29.
+  - [ ] PR 3b — the ten-case harness: YAML under `tests/physics/nesc/` (absorbing PR 1's hand-written
+        case 1); `tests/golden/nesc/generate_nesc_band.py` (human-owned, never run by `just check`): SI
+        conversion with Vol II Table 73's exact forms, 10 Hz grid by nearest-sample selection within 1e-6 s
+        (`sim_05` decimated x10), per-file header-name column keying (column counts vary by SIM FILE, not
+        by case -- 22/27/31/32/37/38 across the ten cases' 54 files; ADR-0013's own "cases 4 and 5 publish
+        27" describes two specific participants' files, not every file in those cases), a `sim_05`
+        duplicate-`feVelocity_ft_s_Z`-column assert, Vol II Tables 77/78's own exclusions (SIM 2's Euler
+        angles and aero moments in every case, SIM 2's X-force in cases 4-5, SIM 3's Y-force in cases 6-8),
+        plus a new t=0-only exclusion of `sim_06` (both wind cases) and `sim_03` (case 8) from every
+        airspeed-derived channel -- both publish a physically-wrong zero airspeed at their own first
+        sample in a wind case, which would otherwise set a case's whole tolerance band from one bad
+        instant (case 8's `Fy` band alone would widen 1.7x). **Settled: ADR-0014**, elaborating ADR-0013
+        with the second judgment number its formula doesn't have -- a per-channel-kind resolution floor
+        (`tol_abs = max(k*max_t(spread), floor)`; 1e-12 rad, 1e-9 m, 1e-9 m/s, 1e-12 rad/s, 1e-12 N/N.m, or
+        1e-12 relative for density/pressure/temperature/speed of sound) so a channel analytically zero for
+        its case (case 1's latitude, every aero force in cases 1-3) does not fail on the ensemble's own
+        floating-point roundoff -- checked, not merely asserted, against every degenerate channel in the
+        data (the tightest genuinely non-zero band found, case 9's yaw, sits 20x above the floor).
+        **Settled: the sampling fix** -- `wrench_b` is called on the PRE-step state, so a plain
+        `sim.run(100)` per sample leaves force/moment signals one frame stale (up to 3.4% of the k=3 band
+        on case 3's moment N); `nesc_cases_test.cpp` instead reads state, `sim.run(1)` (using the state
+        just read), reads wrench, then `sim.run(99)` to the next sample (skipped after sample 300) --
+        30,001 frames total, not 30,000. **Settled: case 8's `wind/table` nodes at 0 and 40,000 ft**, not
+        0/30,000 -- the case starts exactly ON a 30,000 ft node (its own fall distance is 4178.5 m, not
+        case 1's dragless 4389 m), so 0/40,000 keeps the flown band strictly interior and the clamp policy
+        unexercised by any of the ten cases. **Settled: no geoid model needed** -- measured this session by
+        inverting every sim's own ECEF to geodetic: NESC's `altitudeMsl_ft` column IS ellipsoidal height
+        for all ten cases (<=6.1e-5 m difference for the eight WGS-84 cases; cases 4/5 are height above
+        Table 73's own sphere, matching their spherical Earth model exactly), so `wgs84_rotating::
+        altitude()` feeding `isa1976` unchanged is correct; the disclosed geoid gap in
+        `atmosphere_model.hpp` stays disclosed as a general property of `wgs84_rotating`, not a blocker
+        here (a future case with a real MSL reference gets its own plan-reviewed PR with a geoid model).
+        Also adds the transcribed-vs-fresh geopotential consistency check PR 1b's own generator left
+        unclaimed (`abs(geopotential_from_geometric(Z) - transcribed_H) <= half_ulp(0)`, i.e. 0.5 m; worst
+        residual measured 0.281 m) -- the same class of mistake as `docs/lessons.md`'s 2026-09-15 entry on
+        NASA-TM-X-74335's dual-column Table I. Config gotchas: `inverse_square`'s own defaults do not
+        reproduce cases 4/5 (Table 73's sphere radius 6371007.1809 m and mu=3.986004418e14 give
+        `g0 = mu/R^2 = 9.820228349842926`, not standard gravity); `omega_b` in the configs is inertial-
+        referenced, not the Earth-relative values Tables 25-34 print; Earth rate is Table 73's
+        7.292115e-5 rad/s, not the initial-conditions workbook's rounded back-conversion;
+        `localGravity_ft_s2` is never a compared channel (it is pure Newtonian gravitation, not the
+        apparent gravity -- with the centrifugal correction -- `wgs84_j2::g_n()` correctly computes for
+        the EOM). Precondition on Joe's machine: `touch .claude/touch-goldens` before ANY file under
+        `tests/golden/` or `docs/decisions/` (the new ADR-0014) can be written -- the generator itself
+        lives under the guarded `tests/golden/nesc/`, so the lift must come first, not after it is
+        written, and stays armed through the whole guarded window (generator, its output, the ISA
+        generator's geopotential edit, ADR-0014, the case1 deletions), not four separate lifts. First
+        implementation step, before any code: time `nesc_case1_test.cpp` once and multiply by ten, since
+        `just check`'s wall-time budget is why the gate runs locally at all and this design's addition to
+        it was estimated, not measured. Accept: all ten within tolerance under every preset.
 - [ ] **M3 Notional transport** — aero + mass + turbofan plugins; trims at cruise with residual < 1e-6;
       linearized modes match design values; 300 s open-loop run reproduces the golden.
 - [ ] **M4 Lockstep** — shm transport + HAL + straight-and-level autopilot outside the sim tree; 10,000

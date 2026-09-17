@@ -1,10 +1,14 @@
-// A spherical, non-rotating Earth (docs/architecture.md §6, ADR-0003, PLAN.md M2 PR 1): p_n is
-// geodetic (latitude, longitude in rad; altitude above the sphere in m). omega_ie_n is identically
-// zero (non-rotating); omega_en_n is the transport rate of n from motion over the curved surface.
-// The kinematics below are the standard flat-non-rotating-sphere navigation equations (Stevens &
-// Lewis / Titterton & Weston), with R everywhere in place of round Earth's constant radius --
-// wgs84_rotating (plugins/physical/earth/wgs84_rotating) is the same shape with the meridian and
-// prime-vertical radii of curvature in place of R and a nonzero omega_ie_n.
+// A spherical Earth (docs/architecture.md §6, ADR-0003, PLAN.md M2 PR 1): p_n is geodetic
+// (latitude, longitude in rad; altitude above the sphere in m). omega_en_n is the transport rate of
+// n from motion over the curved surface, always. omega_ie_n is zero by default (non-rotating,
+// PLAN.md M2 PR 1's own scope) or the Earth's own rotation when `rotating: true` (M2 PR 3, NESC
+// check-case 5: Table 6.3-1 pairs case 4 fixed with case 5 rotating, same 1/R^2 gravity, to isolate
+// the effect of Earth rotation alone) -- the same omega_ie_n(lat) formula wgs84_rotating uses,
+// since that formula depends only on latitude, not on which radius of curvature the rest of this
+// model's kinematics use. The kinematics below are the standard flat-non-rotating-sphere navigation
+// equations (Stevens & Lewis / Titterton & Weston), with R everywhere in place of round Earth's
+// constant radius -- wgs84_rotating (plugins/physical/earth/wgs84_rotating) is the same shape with
+// the meridian and prime-vertical radii of curvature in place of R, and rotating unconditionally.
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -77,6 +81,7 @@ class RoundEarth final : public astra::EarthModel {
     if (radius_ <= 0.0) {
       throw ConfigError(config.origin(), keyed_path(config, "radius"), "radius must be positive");
     }
+    rotating_ = config.boolean("rotating", false);
   }
   void reset() override {}
   void step(const astra::StepContext& /*ctx*/) override {}
@@ -91,9 +96,14 @@ class RoundEarth final : public astra::EarthModel {
     const double r_h = radius_ + h;
     return {v_n(0) / r_h, v_n(1) / (r_h * std::cos(lat)), -v_n(2)};
   }
-  [[nodiscard]] Eigen::Vector3d omega_ie_n(
-      const astra::VehicleState& /*vs*/) const noexcept override {
-    return Eigen::Vector3d::Zero();
+  [[nodiscard]] Eigen::Vector3d omega_ie_n(const astra::VehicleState& vs) const noexcept override {
+    if (!rotating_) {
+      return Eigen::Vector3d::Zero();
+    }
+    // Same formula as wgs84_rotating::omega_ie_n -- depends only on latitude, not on which radius
+    // of curvature this model's own p_n_dot/omega_en_n use.
+    const double lat = vs.p_n()(0);  // NOLINT(readability-magic-numbers): p_n's latitude component
+    return astra::geodesy::kOmegaIe * Eigen::Vector3d{std::cos(lat), 0.0, -std::sin(lat)};
   }
   [[nodiscard]] Eigen::Vector3d omega_en_n(const astra::VehicleState& vs) const noexcept override {
     const double lat = vs.p_n()(0);
@@ -161,6 +171,7 @@ class RoundEarth final : public astra::EarthModel {
 
  private:
   double radius_ = kDefaultRadius;
+  bool rotating_ = false;
 };
 
 std::unique_ptr<astra::Model> create() { return std::make_unique<RoundEarth>(); }

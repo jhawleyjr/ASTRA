@@ -71,7 +71,12 @@ class Simulation {
   // EarthModel::in_domain/GravityModel::in_domain check DOES run against whatever earth/gravity are
   // passed in, the same way check_wrench/check_state already do against for_testing's vehicles --
   // it needs no Config either, and every existing caller's fixture (wind_test.cpp) stays inside
-  // both models' domain regardless.
+  // both models' domain regardless. M2 PR 3: this same absence is now also the only thing standing
+  // between a future atmosphere parameter and the wind+null-earth crash the next paragraph
+  // documents fixing -- step()'s merged wind/atmosphere sampling block (simulation.cpp) guards its
+  // one earth_->altitude(vs) call on wind_ != nullptr || atmosphere_ != nullptr, inside step()'s
+  // own noexcept, so a future for_testing atmosphere parameter needs the identical earth-required
+  // Error wind already got below, not a second, independent discovery of the same crash.
   //
   // Never called by from_config; does not change what from_config itself does with a real config.
   // wind/earth may both be null (matching physical.wind/physical.earth both being absent) -- but a

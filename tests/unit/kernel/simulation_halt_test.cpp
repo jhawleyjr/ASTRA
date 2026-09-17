@@ -2,7 +2,9 @@
 // checks/actions/naming rules live in tests/unit/health/health_monitor_test.cpp): a test plugin
 // injecting a NaN wrench at frame 500 halts naming that plugin; q set to norm 1.1 halts naming
 // v0.state.q_nb. Also the Codex review finding on this PR: two finite wrench contributions that
-// overflow to Inf on summation.
+// overflow to Inf on summation. M2 PR 3 adds the disclosed atmosphere-NaN misattribution
+// regression (Codex adversarial review): the halt names the WRENCH consumer, not the
+// AtmosphereModel that actually produced the NaN.
 #include <gtest/gtest.h>
 
 #include <cmath>
@@ -97,6 +99,44 @@ physical:
   ASSERT_TRUE(halt);
   EXPECT_EQ(halt.check, HealthCheck::kNonFiniteWrench);
   EXPECT_EQ(halt.source, "v0.wrench_total");
+}
+
+// Disclosed-gap regression test (Codex adversarial review, M2 PR 3;
+// environment_sample.hpp's own comment on EnvironmentSample::atmosphere): a broken
+// AtmosphereModel that returns NaN squarely INSIDE its own declared valid_range() (so ADR-0012's
+// out-of-domain check, which fires post-step on an out-of-RANGE altitude, never applies) reaches
+// tests/plugins/nesc_aero as env.atmosphere.density_kg_m3 == NaN; nesc_aero's own drag/damping
+// forms multiply that NaN through every term (0 * NaN == NaN in IEEE754, so this happens even with
+// nesc_aero's own all-zero-coefficient default config), and HealthMonitor::check_wrench catches
+// the resulting non-finite wrench. The halt names tests/plugins/nesc_aero -- the WRENCH source --
+// never tests/plugins/nan_atmosphere, the plugin that actually produced the NaN. This is the
+// disclosed misattribution itself, not a bug in this test: it exists so a future fix (the new
+// per-frame domain-validity HealthMonitor capability environment_sample.hpp's own comment names)
+// changes what this test asserts, visibly, rather than the gap staying silently true forever.
+TEST(SimulationHalt, NanAtmosphereInRangeHaltsNamingTheWrenchConsumerNotTheAtmospherePlugin) {
+  const Config config = Config::from_string(R"(
+sim:
+  dt: 0.001
+  frames: 1
+vehicle:
+  models:
+    - { plugin: tests/plugins/nesc_aero }
+physical:
+  earth: plugins/physical/earth/flat
+  gravity: plugins/physical/gravity/constant
+  atmosphere: tests/plugins/nan_atmosphere
+  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 }
+)",
+                                            "nan-atmosphere-fixture");
+  Simulation sim = load(config);
+
+  const HaltReason halt = sim.run();
+
+  ASSERT_TRUE(halt);
+  EXPECT_EQ(halt.check, HealthCheck::kNonFiniteWrench);
+  EXPECT_EQ(halt.source, "tests/plugins/nesc_aero")
+      << "misattributed by design (disclosed, not fixed): the halt names the wrench consumer, "
+         "not tests/plugins/nan_atmosphere, which is the plugin that actually produced the NaN";
 }
 
 // The default (halt) proven above; this is the loosened side of §15's "a config can loosen them per

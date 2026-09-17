@@ -54,10 +54,13 @@ class Vehicle {
 
   // Which optional environment slots Simulation::step will actually populate into EnvironmentSample
   // this frame (environment_sample.hpp). init() rejects a WrenchSource whose requires_environment()
-  // asks for wind when this is false, naming physical.wind. Deliberately no "atmosphere" field yet:
-  // see init()'s own comment for why that requirement is rejected unconditionally instead.
+  // asks for wind or atmosphere when the matching field here is false, naming physical.wind or
+  // physical.atmosphere respectively (M2 PR 3: atmosphere joins wind here once
+  // EnvironmentSample::atmosphere is actually populated -- see init()'s own comment for the
+  // rejection this replaced, unconditional before this field existed).
   struct EnvironmentAvailability {
     bool wind = false;
+    bool atmosphere = false;
   };
 
   // name is the signal-namespace prefix ("v0"); state starts zeroed until init()'s caller sets it
@@ -71,9 +74,10 @@ class Vehicle {
   // "dummy.steps" is published as "v0.dummy.steps" (ADR-0011). As each WrenchSource is discovered,
   // checks its requires_environment() (wrench_source.hpp) against availability: a wind requirement
   // with availability.wind false throws ConfigError naming physical.wind; an atmosphere requirement
-  // throws unconditionally naming physical.atmosphere -- no PR before M2 PR 3 can populate
-  // EnvironmentSample::atmosphere (environment_sample.hpp), so no config, not even one naming
-  // physical.atmosphere, can satisfy that requirement yet. Init-time only: may allocate, may throw
+  // with availability.atmosphere false throws ConfigError naming physical.atmosphere -- the same
+  // shape as wind, since M2 PR 3 populates EnvironmentSample::atmosphere the same way it already
+  // populates wind_n (before this PR, the atmosphere check was unconditional: no PR could satisfy
+  // it, since nothing connected the two yet). Init-time only: may allocate, may throw
   // (PluginError, ConfigError).
   void init(const PluginLoader& loader, const std::vector<ModelSpec>& models,
             SignalRegistry& registry, const PhysicsSpec* physics,

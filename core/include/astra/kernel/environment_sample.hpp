@@ -27,13 +27,28 @@ struct EnvironmentSample {
   // PR 1/1b already deferred for AtmoState, not a second bolt-on here.
   Eigen::Vector3d wind_n = Eigen::Vector3d::Zero();
 
-  // All-NaN by default (AtmoState's own designed default, atmosphere_model.hpp). NEVER populated in
-  // M2 PR 2 -- PR 3 is the first PR to write a real value here, in the same change that adds the
-  // "atmosphere" field to Vehicle's EnvironmentAvailability (kernel/vehicle.hpp). Until then, any
-  // WrenchSource declaring EnvironmentRequirements::atmosphere is rejected unconditionally at init
-  // (see EnvironmentAvailability's own comment for why that is unconditional, not "if
-  // physical.atmosphere is absent"), so this field being permanently NaN in M2 PR 2 is never
-  // silently read by anything that needed a real value.
+  // All-NaN by default (AtmoState's own designed default, atmosphere_model.hpp). Populated by
+  // Simulation::step (M2 PR 3) from physical.atmosphere's at(altitude_m), the same per-vehicle,
+  // frame-start latch wind_n already uses -- see Vehicle::EnvironmentAvailability::atmosphere
+  // (kernel/vehicle.hpp) for the matching init-time requirement check. Stays all-NaN when
+  // physical.atmosphere is absent (rejected at init for a WrenchSource that requires it, so never
+  // silently read by something that assumed a real value and got none configured), or when the
+  // vehicle's altitude is outside the configured AtmosphereModel's valid_range() -- never clamped,
+  // per that interface's own contract.
+  //
+  // Known gap, disclosed not fixed (Codex adversarial review, M2 PR 3), the identical shape as
+  // wind_n's own disclosed gap above, and not narrower than it: whatever the reason -- out of
+  // range by design, or a genuinely broken AtmosphereModel returning NaN at an altitude squarely
+  // inside its own declared valid_range() -- this NaN is not itself checked. HealthMonitor has no
+  // environment check, only check_wrench and check_state. A WrenchSource that reads it into a
+  // force/moment does make it visible, via check_wrench, but check_wrench names the WRENCH's
+  // source (the consuming WrenchSource's plugin path), never the atmosphere plugin that actually
+  // produced the NaN -- contrary to §15's "with the offending plugin named," and, for a
+  // non-wrench or NaN-tolerant consumer, not surfaced at all. A correct fix is the same new
+  // per-frame domain-validity HealthMonitor capability wind_n's own comment already defers, not a
+  // second, atmosphere-specific bolt-on: it needs to validate EnvironmentSample as a whole,
+  // reporting a halt naming the atmosphere or wind plugin path Simulation::step already retains
+  // (atmosphere_plugin_path_), before the two disclosed gaps above are fixed twice.
   AtmoState atmosphere{};
 };
 

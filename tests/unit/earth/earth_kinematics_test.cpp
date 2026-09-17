@@ -51,6 +51,14 @@ EarthModel& load_wgs84() {
               Config::from_string("{}\n", "wgs84-fixture"));
 }
 
+// M2 PR 3, NESC check-case 5: `rotating: true` is round Earth's own opt-in to a nonzero
+// omega_ie_n, off by default (PLAN.md M2 PR 1's own scope).
+EarthModel& load_round_rotating(double radius = 6371000.0) {
+  return load("plugins/physical/earth/round",
+              Config::from_string("radius: " + std::to_string(radius) + "\nrotating: true\n",
+                                  "round-rotating-fixture"));
+}
+
 // A level-attitude, wings-level VehicleState at the given latitude/longitude/altitude with body
 // velocity v_b: at identity q_nb, rotate_b_to_n is the identity, so v_n == v_b componentwise, which
 // keeps every closed form below in terms of v_b's own (u, v, w) directly.
@@ -121,6 +129,38 @@ TEST(EarthKinematics, RoundAltitudeIsPnThirdComponent) {
   EarthModel& earth = load_round();
   const StateVector y = make_state(0.1, 0.2, 12345.0, Eigen::Vector3d::Zero());
   EXPECT_DOUBLE_EQ(12345.0, earth.altitude(VehicleState{y}));
+}
+
+// M2 PR 3: `rotating: true` gives round Earth the same omega_ie_n(lat) formula wgs84_rotating uses
+// unconditionally -- depends only on latitude, so the round-vs-ellipsoid distinction (which affects
+// p_n_dot/omega_en_n's radius of curvature) does not enter here at all.
+TEST(EarthKinematics, RoundRotatingOmegaIeAtEquatorPointsFullyNorth) {
+  EarthModel& earth = load_round_rotating();
+  const StateVector y = make_state(0.0, 0.0, 0.0, Eigen::Vector3d::Zero());
+  const Eigen::Vector3d omega_ie = earth.omega_ie_n(VehicleState{y});
+  EXPECT_NEAR(astra::geodesy::kOmegaIe, omega_ie(0), kTolerance);
+  EXPECT_NEAR(0.0, omega_ie(1), kTolerance);
+  EXPECT_NEAR(0.0, omega_ie(2), kTolerance);
+}
+
+TEST(EarthKinematics, RoundRotatingOmegaIeAtMidLatitudeMatchesClosedForm) {
+  EarthModel& earth = load_round_rotating();
+  const double lat = 45.0 * std::numbers::pi / 180.0;
+  const StateVector y = make_state(lat, 0.0, 0.0, Eigen::Vector3d::Zero());
+  const Eigen::Vector3d omega_ie = earth.omega_ie_n(VehicleState{y});
+  EXPECT_NEAR(astra::geodesy::kOmegaIe * std::cos(lat), omega_ie(0), kTolerance);
+  EXPECT_NEAR(0.0, omega_ie(1), kTolerance);
+  EXPECT_NEAR(-astra::geodesy::kOmegaIe * std::sin(lat), omega_ie(2), kTolerance);
+}
+
+// The default is still non-rotating -- `rotating` defaults to false, matching PLAN.md M2 PR 1's
+// original scope (RoundDueNorthMatchesClosedFormAtSeveralLatitudes above already pins this for
+// load_round()'s own default; this pins it explicitly against the same fixture the two tests
+// above use, so a future default flip is caught here too).
+TEST(EarthKinematics, RoundRotatingDefaultsToFalse) {
+  EarthModel& earth = load_round();
+  const StateVector y = make_state(0.5, 0.0, 0.0, Eigen::Vector3d::Zero());
+  EXPECT_TRUE(earth.omega_ie_n(VehicleState{y}).isZero());
 }
 
 TEST(EarthKinematics, Wgs84OmegaIeAtEquatorPointsFullyNorth) {
