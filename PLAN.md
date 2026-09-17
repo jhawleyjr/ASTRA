@@ -260,11 +260,35 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         close PR 1b's geoid datum gap. **Also caught and fixed** (Codex review): `in_domain` changes
         `EarthModel`/`GravityModel`'s vtable layout, so `kCoreApiVersion` bumped 3 -> 4, the same
         reasoning as PR 2's own 1 -> 2 -> 3 (`core_api.hpp.in`). Accept: a trajectory driven toward
-        `kMaxLatitude` halts naming
-        the Earth plugin at least one frame before any state goes non-finite; same for the altitude
-        floor; a run leaving `valid_range()` mid-run halts naming `physical.atmosphere`; an east-west
-        trajectory crossing longitude pi does not halt; `domain: off` restores current behavior; zero
-        allocations over 1000 frames.
+        `kMaxLatitude` halts naming the Earth plugin at least one frame before any state goes
+        non-finite; same for the altitude floor; a run leaving `valid_range()` mid-run halts naming
+        `physical.atmosphere`; an east-west trajectory crossing longitude pi does not halt; `domain:
+        off` restores current behavior; zero allocations over 1000 frames.
+        **Known gap, disclosed not fixed** (Codex adversarial review, this PR): `check_domain`'s
+        lookahead, `p_n + dt * p_n_dot(state)`, is first-order in velocity. RK4's own stages nest
+        acceleration into a position estimate at `0.5 * |a| * dt^2` -- ~4.9 um at standard gravity
+        and ADR-0010's fixed `dt = 1 ms` (pinned by a unit test against the real `Eom`+`Integrator`,
+        not a hand-derived duplicate, so this number moves visibly, not silently, if `dt` or the
+        integrator ever changes -- it scales as `dt^2`). A state within that ~5 um band of a domain
+        boundary, **and** with near-zero velocity toward it (a nonzero closing velocity is exactly
+        what the lookahead's own `dt * p_n_dot` term already predicts and catches a frame early),
+        can have an RK4 stage evaluate the singular math before `check_domain`'s post-step check
+        ever runs. Inside that band, ADR-0012's own "halts naming the [Earth/gravity] plugin at
+        least one frame before any state vector goes non-finite" is not strictly met: the run may
+        instead halt one frame later, naming the generic `kNonFiniteState` check M1 PR 4 already
+        has, not `kOutOfDomain`. That check remains the backstop regardless -- nothing escapes
+        undetected, only the halt's timing and naming degrade inside the band. ADR-0012's own
+        Rejected Alternatives names exactly this class ("if a future model has a domain a single
+        frame can jump clean across, this decision is superseded, not patched"); shown here to also
+        apply, within this band, to `earth/round` + `gravity/constant` today, not only a
+        hypothetical future model. Not fixed here: before this PR a continuously approaching
+        trajectory ran on degraded kinematics indefinitely with no per-frame check at all (PR 1's
+        own gap); after it, that is caught except possibly one frame late and misnamed, in a band
+        requiring both the ~5 um proximity and near-zero closing velocity together -- a strict
+        improvement, and blocking on the smaller gap to avoid it would leave the larger one. A
+        margin-based or acceleration-aware lookahead is an unpinned, expensive-to-unwind design
+        (ADR-0012 pins the literal Euler formula) and needs its own plan-reviewed PR, not a
+        redesign under review pressure here.
   - [ ] PR 3 — NESC check-case harness: cases 1–10 from YAML under `tests/physics/nesc/` (absorbing PR 1's
         hand-written case 1 into the harness); a `tests/plugins/` `WrenchSource` for the sphere's Cd·A drag and the
         brick's damping (the only M2 consumer of wind and atmosphere, air-relative velocity; steady-wind NESC cases

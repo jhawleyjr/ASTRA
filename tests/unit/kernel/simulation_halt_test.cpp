@@ -396,4 +396,51 @@ physical:
   EXPECT_DOUBLE_EQ(sim.vehicles().front().state()(astra::state::kPosition), initial_lat);
 }
 
+// Codex adversarial review (this PR), disclosed in Vehicle::check_domain's own comment and
+// PLAN.md's PR 2c line: check_domain's lookahead is first-order in velocity
+// (p_n + dt * p_n_dot(state)), but the Integrator's RK4 stages nest ACCELERATION into a position
+// estimate at 0.5 * |a| * dt^2 -- a state within that band of a boundary, at near-zero velocity
+// toward it, can have an RK4 stage evaluate singular math before check_domain ever runs. This
+// test pins that magnitude against the REAL Eom + Integrator (round Earth, constant gravity, at
+// rest, one RK4 step) rather than a hand-derived duplicate of the formula, so the disclosed gap's
+// size changes visibly, not silently, if dt (ADR-0010) or the integrator (ADR-0004) ever changes.
+// Started at altitude 0.0, not some large value, so the difference below is not itself lost to
+// floating-point cancellation between two ~1e3-magnitude doubles that agree to 1 part in 1e8.
+//
+// Exact under this fixture's own dynamics, not merely approximate: with zero horizontal velocity
+// and round Earth non-rotating, every rate-of-transport term (p_n_dot's lat/lon components,
+// omega_en_n entirely) is identically zero, so q_nb stays exactly the identity quaternion for the
+// whole step and v_b_dot is exactly the constant vector g_b -- v_b(t), and therefore p_n(2)(t), is
+// an exact low-degree polynomial in t that RK4 integrates to machine precision, not merely to
+// fourth order.
+TEST(SimulationHalt, OneRk4StepUnderConstantGravityMatchesTheClassicalFallingBodyFormula) {
+  constexpr double kG = 9.80665;
+  constexpr double kDt = 0.001;
+  const Config config = Config::from_string(R"(
+sim:
+  dt: 0.001
+  frames: 1
+vehicle:
+  models: []
+physical:
+  earth: plugins/physical/earth/round
+  gravity: plugins/physical/gravity/constant
+  mass: { plugin: plugins/physical/mass/constant, mass: 1.0, ixx: 1.0, iyy: 1.0, izz: 1.0 }
+initial:
+  state:
+    p_n: [0.0, 0.0, 0.0]
+)",
+                                            "rk4-overshoot-magnitude-fixture");
+  Simulation sim = load(config);
+
+  const HaltReason halt = sim.step();
+
+  ASSERT_FALSE(halt);
+  const double altitude_after = sim.vehicles().front().state()(astra::state::kPosition + 2);
+  const double expected_overshoot = 0.5 * kG * kDt * kDt;  // the ~4.9 um the disclosure names
+  EXPECT_NEAR(-altitude_after, expected_overshoot, 1e-12)
+      << "the exact magnitude of the per-frame acceleration-driven position change "
+         "check_domain's velocity-only lookahead cannot see -- see the disclosure above";
+}
+
 }  // namespace

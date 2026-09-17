@@ -131,6 +131,21 @@ class Vehicle {
   // under clang-tidy's readability-function-cognitive-complexity threshold on integrate() itself.
   // Per-frame path: no allocation, no exceptions. Only ever called when eom_.has_value() and
   // health.domain_enabled().
+  //
+  // Known gap, disclosed not fixed (Codex adversarial review, M2 PR 2c; PLAN.md's own line has
+  // the full account): the lookahead above is first-order in velocity, but the Integrator's RK4
+  // stages (integrator.hpp) nest ACCELERATION into a position estimate at 0.5 * |a| * dt^2 (~4.9
+  // um at standard gravity and ADR-0010's dt = 1 ms, pinned against the real Eom+Integrator by
+  // tests/unit/kernel/simulation_halt_test.cpp's
+  // OneRk4StepUnderConstantGravityMatchesTheClassicalFallingBodyFormula so this scales visibly, not
+  // silently, with dt). A state within that band of a boundary, with near-zero velocity toward it,
+  // can have an RK4 stage evaluate the singular math before this check ever runs -- ADR-0012's own
+  // Rejected Alternatives names this class ("a domain a single frame can jump clean across"), shown
+  // here to apply, within this band, to earth/round + gravity/constant today. The pre-existing
+  // NaN/Inf state check (health_monitor.hpp) remains the backstop: the run still halts, just
+  // possibly one frame later and naming kNonFiniteState rather than kOutOfDomain. A margin-based or
+  // acceleration-aware lookahead would supersede ADR-0012's pinned Euler formula and needs its own
+  // plan-reviewed PR, not a change here.
   [[nodiscard]] HaltReason check_domain(const StateVector& y, const StepContext& ctx,
                                         HealthMonitor& health) noexcept;
 
