@@ -257,7 +257,10 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         already-checked post-step state but frame 0's own RK4 stages have no earlier check behind
         them -- closing that gap rather than leaving it open. Closes PR 1's polar-approach gap and PR
         1b's mid-run atmosphere-range gap (both re-accepted by PR 2/PR 2b, closed here); does not
-        close PR 1b's geoid datum gap. Accept: a trajectory driven toward `kMaxLatitude` halts naming
+        close PR 1b's geoid datum gap. **Also caught and fixed** (Codex review): `in_domain` changes
+        `EarthModel`/`GravityModel`'s vtable layout, so `kCoreApiVersion` bumped 3 -> 4, the same
+        reasoning as PR 2's own 1 -> 2 -> 3 (`core_api.hpp.in`). Accept: a trajectory driven toward
+        `kMaxLatitude` halts naming
         the Earth plugin at least one frame before any state goes non-finite; same for the altitude
         floor; a run leaving `valid_range()` mid-run halts naming `physical.atmosphere`; an east-west
         trajectory crossing longitude pi does not halt; `domain: off` restores current behavior; zero
