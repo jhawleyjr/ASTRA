@@ -59,13 +59,54 @@ void Vehicle::init(const PluginLoader& loader, const std::vector<ModelSpec>& mod
     scheduler_.add(*mass_model, physics->mass.divisor);
     eom_.emplace(*physics->earth, *physics->gravity, *mass_model);
     plugins_.push_back(std::move(mass_loaded));
+    // ADR-0012: what a domain halt names. Eom (just above) retains the Earth/gravity pointers
+    // themselves; this vehicle retains their names, the same lifetime discipline as
+    // state_names_/wrench_total_name_.
+    earth_plugin_path_ = physics->earth_plugin_path;
+    gravity_plugin_path_ = physics->gravity_plugin_path;
   }
+}
+
+// ADR-0012: checked at p_n and the one-frame lookahead p_n + dt * p_n_dot(y) -- the lookahead is
+// what makes a post-step check sufficient (a state close enough to a boundary that the next
+// frame's RK4 stages would cross it fails THIS frame, before any stage evaluates there). Earth is
+// checked before gravity, matching Simulation::from_config's own earth-then-gravity validate_p_n
+// order; whichever fails first is the one named. Only ever called when eom_.has_value() (both call
+// sites in integrate() below are already behind that function's own early return); the guard here
+// is redundant for correctness but keeps clang-tidy's bugprone-unchecked-optional-access satisfied
+// within this function's own body, the same way integrate()'s pre-existing guard satisfies it for
+// eom_->set_applied_wrench()/begin_frame() there.
+HaltReason Vehicle::check_domain(const StateVector& y, const StepContext& ctx,
+                                 HealthMonitor& health) noexcept {
+  if (!eom_.has_value()) {
+    return {};
+  }
+  const VehicleState vs{y};
+  const Eigen::Vector3d p_n = vs.p_n();
+  const Eigen::Vector3d p_next = p_n + ctx.dt * eom_->earth().p_n_dot(vs);
+  if (!eom_->earth().in_domain(p_n) || !eom_->earth().in_domain(p_next)) {
+    return health.report_out_of_domain(earth_plugin_path_, ctx, index_);
+  }
+  if (!eom_->gravity().in_domain(p_n) || !eom_->gravity().in_domain(p_next)) {
+    return health.report_out_of_domain(gravity_plugin_path_, ctx, index_);
+  }
+  return {};
 }
 
 HaltReason Vehicle::integrate(const Integrator& integrator, const StepContext& ctx,
                               HealthMonitor& health) noexcept {
   if (!eom_.has_value()) {
     return {};
+  }
+
+  // ADR-0012: frame 0's pre-step state has no earlier frame's post-step check behind it -- from
+  // frame 1 on, a frame's pre-step state IS the previous frame's already-checked post-step state,
+  // so this call is needed only here, once, to make the post-step-plus-lookahead invariant hold
+  // from the very first RK4 stage the integrator ever evaluates.
+  if (ctx.frame == 0 && health.domain_enabled()) {
+    if (const HaltReason halt = check_domain(state_, ctx, health); halt) {
+      return halt;  // state_ untouched, like a halting wrench check below.
+    }
   }
 
   Wrench total;
@@ -93,11 +134,15 @@ HaltReason Vehicle::integrate(const Integrator& integrator, const StepContext& c
 
   const StateNames names{state_names_[0], state_names_[1], state_names_[2], state_names_[3]};
   const HaltReason state_halt = health.check_state(state_, names, ctx, index_);
+  // ADR-0012: the post-step check, with its one-frame lookahead -- skipped when the state check
+  // already halted (nothing new to name; a non-finite p_n cannot usefully be domain-checked).
+  const HaltReason domain_halt =
+      (!state_halt && health.domain_enabled()) ? check_domain(state_, ctx, health) : HaltReason{};
   // Unconditional: ADR-0001 pins renormalization after every integrator step, halt or not. A
   // non-finite quaternion leaves post_step_renormalize's own false return, and q untouched -- there
   // is nothing to normalize to, and the halt above already names it.
   static_cast<void>(post_step_renormalize(state_));
-  return state_halt;
+  return state_halt ? state_halt : domain_halt;
 }
 
 }  // namespace astra

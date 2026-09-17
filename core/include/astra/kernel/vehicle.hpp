@@ -40,11 +40,16 @@ class Vehicle {
   // other vehicle.models entry) plus the shared earth and gravity models Simulation owns
   // (ADR-0011: environment models are shared across vehicles). init() constructs this vehicle's Eom
   // from all three; null when a config has no "physical" section (PR 2's dummy-plugin fixture keeps
-  // running with no physics, exactly as before).
+  // running with no physics, exactly as before). earth_plugin_path/gravity_plugin_path (ADR-0012)
+  // are what a domain halt names -- Eom retains the pointers (via its own earth()/gravity()
+  // accessors) but not a name, the same reason mass's own plugin_path travels separately from its
+  // ModelSpec everywhere else in this file.
   struct PhysicsSpec {
     ModelSpec mass;
     EarthModel* earth;
     GravityModel* gravity;
+    std::string earth_plugin_path;
+    std::string gravity_plugin_path;
   };
 
   // Which optional environment slots Simulation::step will actually populate into EnvironmentSample
@@ -84,15 +89,23 @@ class Vehicle {
 
   // Runs this frame's wrench accumulation, EOM derivative, integrator step, and post-step
   // renormalize (docs/architecture.md §5): a no-op returning a falsey HaltReason when this vehicle
-  // has no Eom (physics off). Order: health-check each WrenchSource's contribution before summing
-  // it (a halt here leaves state() untouched -- the EOM never sees a bad wrench); health-check the
-  // accumulated total too (Codex review: individually finite contributions can overflow to Inf on
-  // summation, e.g. two sources each near DBL_MAX -- a check per contribution alone would miss
-  // that and hand the EOM a broken wrench with no wrench fault ever reported); integrate; health-
-  // check the resulting state before renormalization (PLAN.md M1 PR 4: "|q| drift > 1e-6 before
-  // renormalization"); renormalize unconditionally, halt or not (ADR-0001: renormalized after every
-  // integrator step, an invariant a halt does not suspend); return the state check's halt, if any.
-  // Per-frame path: no allocation, no exceptions.
+  // has no Eom (physics off) -- a no-physics vehicle has no Earth model and no position
+  // representation to be out of domain in, so ADR-0012's check does not apply to it either; that
+  // is this early return's job already, not something to special-case below. Order: (ADR-0012)
+  // domain-check the PRE-step state, but only on frame 0 -- every later frame's pre-step state is
+  // the previous frame's already-checked post-step state (see check_domain's own comment), so this
+  // is the one call that makes the post-step-plus-lookahead invariant hold from the very first RK4
+  // stage the integrator ever evaluates; health-check each WrenchSource's contribution before
+  // summing it (a halt here leaves state() untouched -- the EOM never sees a bad wrench);
+  // health-check the accumulated total too (Codex review: individually finite contributions can
+  // overflow to Inf on summation, e.g. two sources each near DBL_MAX -- a check per contribution
+  // alone would miss that and hand the EOM a broken wrench with no wrench fault ever reported);
+  // integrate; health-check the resulting state before renormalization (PLAN.md M1 PR 4: "|q| drift
+  // > 1e-6 before renormalization"); domain-check the POST-step state with the one-frame lookahead,
+  // skipped when the state check already halted; renormalize unconditionally, halt or not
+  // (ADR-0001: renormalized after every integrator step, an invariant a halt does not suspend);
+  // return whichever check halted (the state check wins over the domain check when both would
+  // fire the same frame). Per-frame path: no allocation, no exceptions.
   [[nodiscard]] HaltReason integrate(const Integrator& integrator, const StepContext& ctx,
                                      HealthMonitor& health) noexcept;
 
@@ -110,6 +123,17 @@ class Vehicle {
     std::string plugin_path;
   };
 
+  // ADR-0012: domain-checks state at p_n and the one-frame lookahead p_n + dt * p_n_dot(state),
+  // against both Eom's earth() and gravity() (each may be the first to fail; earth is checked
+  // first, matching Simulation::from_config's own earth-before-gravity validate_p_n order), and
+  // reports through health.report_out_of_domain naming whichever plugin failed. Called from
+  // integrate() both pre-step (frame 0 only) and post-step (every frame); factored out to stay
+  // under clang-tidy's readability-function-cognitive-complexity threshold on integrate() itself.
+  // Per-frame path: no allocation, no exceptions. Only ever called when eom_.has_value() and
+  // health.domain_enabled().
+  [[nodiscard]] HaltReason check_domain(const StateVector& y, const StepContext& ctx,
+                                        HealthMonitor& health) noexcept;
+
   std::uint32_t index_;
   std::string name_;
   StateVector state_ = StateVector::Zero();
@@ -125,6 +149,11 @@ class Vehicle {
   // fault to name (Codex review finding above) -- a sum can be non-finite even when every summed
   // contribution was finite.
   std::string wrench_total_name_;
+  // ADR-0012: what a domain halt names, copied from PhysicsSpec at init (run-lifetime storage,
+  // same discipline as state_names_/wrench_total_name_ above) -- Eom retains the Earth/gravity
+  // pointers themselves, not a name for either.
+  std::string earth_plugin_path_;
+  std::string gravity_plugin_path_;
 };
 
 }  // namespace astra

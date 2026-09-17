@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <limits>
 #include <numbers>
 #include <string_view>
 
@@ -244,6 +245,53 @@ TEST(EarthKinematics, Wgs84ValidatePnUsesTheMeridianRadiusAsItsSurfaceBound) {
 TEST(EarthKinematics, RoundAndWgs84BothProvideGeodeticPositionRepresentation) {
   EXPECT_EQ(astra::PositionRepresentation::kGeodetic, load_round().position_representation());
   EXPECT_EQ(astra::PositionRepresentation::kGeodetic, load_wgs84().position_representation());
+}
+
+// ADR-0012: in_domain is the SINGULARITY subset of validate_p_n -- true inside the domain, false
+// at each of validate_p_n's own singularity checks, but (unlike validate_p_n) NOT at an
+// input-sanity failure (a degree-valued latitude or an out-of-[-pi,pi] longitude), since neither
+// makes p_n_dot/omega_en_n's math undefined. This is the split ADR-0012 is built on, so it is
+// tested as such: a value validate_p_n rejects but in_domain accepts.
+TEST(EarthKinematics, RoundInDomainTrueInsideAndFalseAtEachSingularity) {
+  EarthModel& earth = load_round(1000.0);  // small radius, matching earlier radius-floor tests
+  EXPECT_TRUE(earth.in_domain({0.3, 0.0, 500.0}));
+  EXPECT_FALSE(earth.in_domain({std::numbers::pi / 2.0, 0.0, 0.0}))  // polar margin
+      << "at the pole";
+  EXPECT_FALSE(earth.in_domain({0.0, 0.0, -1000.0})) << "at the altitude floor";
+  EXPECT_FALSE(earth.in_domain({std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0}))
+      << "non-finite";
+}
+
+TEST(EarthKinematics, RoundInDomainIsTrueForALongitudeValidatePnStillRejects) {
+  EarthModel& earth = load_round();
+  const Eigen::Vector3d p_n{0.0, 4.0, 0.0};  // 4 rad is outside [-pi, pi]
+  EXPECT_TRUE(earth.in_domain(p_n)) << "longitude range is input sanity, not a domain excursion "
+                                       "(ADR-0012) -- must not fire per frame";
+  const Config node = Config::from_string("{}\n", "longitude-in-domain-fixture");
+  EXPECT_THROW(earth.validate_p_n(p_n, node), ConfigError)
+      << "but validate_p_n still rejects it at init, unchanged";
+}
+
+TEST(EarthKinematics, Wgs84InDomainTrueInsideAndFalseAtTheMeridianRadiusFloor) {
+  EarthModel& earth = load_wgs84();
+  const double m_at_equator = astra::geodesy::meridian_radius(0.0);
+  EXPECT_TRUE(earth.in_domain({0.0, 0.0, 500.0}));
+  EXPECT_FALSE(earth.in_domain({0.0, 0.0, -m_at_equator - 1.0}));
+  EXPECT_FALSE(earth.in_domain({astra::geodesy::kMaxLatitude + 1e-3, 0.0, 0.0}));
+  // The same regression earth_kinematics_test's own
+  // Wgs84ValidatePnUsesTheMeridianRadiusAsItsSurfaceBound proves for validate_p_n: an altitude
+  // between -N(0) and -M(0) is out of domain against the more restrictive M(lat) bound, not merely
+  // against the looser N(lat) one.
+  const double n_at_equator = astra::geodesy::prime_vertical_radius(0.0);
+  EXPECT_FALSE(earth.in_domain({0.0, 0.0, -(m_at_equator + n_at_equator) / 2.0}));
+}
+
+TEST(EarthKinematics, Wgs84InDomainIsTrueForALongitudeValidatePnStillRejects) {
+  EarthModel& earth = load_wgs84();
+  const Eigen::Vector3d p_n{0.0, 4.0, 0.0};
+  EXPECT_TRUE(earth.in_domain(p_n));
+  const Config node = Config::from_string("{}\n", "wgs84-longitude-in-domain-fixture");
+  EXPECT_THROW(earth.validate_p_n(p_n, node), ConfigError);
 }
 
 }  // namespace

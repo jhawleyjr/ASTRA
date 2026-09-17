@@ -1,0 +1,23 @@
+# tests/physics/no_alloc_test.cpp (ADR-0012, PLAN.md M2 PR 2c): the same shape as no_alloc.yaml
+# and no_alloc_dryden.yaml, with the check active on the most expensive pairing -- earth/
+# wgs84_rotating (meridian/prime-vertical radii of curvature, per-frame p_n_dot lookahead) and
+# gravity/wgs84_j2 (a geodetic_to_ecef per in_domain call, twice per frame with the lookahead),
+# plus physical.atmosphere's post-step altitude-vs-valid_range comparison. Mid-latitude, 1000 m,
+# 50 m/s: comfortably inside every domain (earth's M(lat) floor, gravity's ECEF-radius floor,
+# isa1976's [-5000, 86000] m) for the full 1000 frames -- the run must complete, not merely
+# allocate nothing while halting early (a fixture that drifts out of domain would pass the
+# allocation assertion having measured far fewer frames than it claims).
+sim:
+  dt: 0.001
+  frames: 1000
+vehicle:
+  models: []
+physical:
+  earth: plugins/physical/earth/wgs84_rotating
+  gravity: plugins/physical/gravity/wgs84_j2
+  atmosphere: plugins/physical/atmosphere/isa1976
+  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 }
+initial:
+  state:
+    p_n: [0.785398163, 0.0, 1000.0]
+    v_b: [50.0, 0.0, 0.0]

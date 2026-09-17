@@ -122,4 +122,27 @@ TEST(Wgs84J2Gravity, ValidatePnRejectsAnEcefRadiusThatCollapsesNearThePolarMargi
   EXPECT_NO_THROW(gravity.validate_p_n({lat, 0.0, 10000.0}, node));
 }
 
+// ADR-0012 (M2 PR 2c): this plugin's own validate_p_n was never a no-op -- decision 5b's fix,
+// not this ADR's default. in_domain is the same ECEF-radius check, exposed as a pure predicate;
+// the collapsing case above is exactly docs/lessons.md's own numeric example, and this is also
+// where earth/wgs84_rotating's in_domain (tests/unit/earth/earth_kinematics_test.cpp's
+// Wgs84InDomainTrueInsideAndFalseAtTheMeridianRadiusFloor) is TRUE at the very same p_n -- proof
+// the two models' domains are genuinely independent, the whole reason gravity/wgs84_j2 needs its
+// own predicate rather than trusting earth/wgs84_rotating's M(lat) floor.
+TEST(Wgs84J2Gravity, InDomainMatchesValidatePnAtThePolarCollapseAndIsIndependentOfEarthsFloor) {
+  GravityModel& gravity = load();
+  const double lat = astra::geodesy::kMaxLatitude;
+  const double collapsing_alt =
+      -astra::geodesy::prime_vertical_radius(lat) * (1.0 - astra::geodesy::kEccentricitySquared);
+  EXPECT_FALSE(gravity.in_domain({lat, 0.0, collapsing_alt}));
+  EXPECT_TRUE(gravity.in_domain({lat, 0.0, 10000.0}));
+
+  // earth/wgs84_rotating's own floor is -M(lat), and collapsing_alt (~ -N(lat)*(1-e^2)) is well
+  // above it at this near-polar latitude (M(lat) < N(lat)*(1-e^2) there) -- so the Earth model
+  // alone would accept this p_n.
+  EXPECT_GT(collapsing_alt, -astra::geodesy::meridian_radius(lat))
+      << "collapsing_alt must be inside earth/wgs84_rotating's own floor for this to be the "
+         "independent-singularity case the plugin's own comment describes";
+}
+
 }  // namespace

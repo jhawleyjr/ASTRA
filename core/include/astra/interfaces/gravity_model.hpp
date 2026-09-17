@@ -29,14 +29,23 @@ class GravityModel : public Model {
   // and defined out of line in gravity_model.cpp, so the destructor above stays the key function.
   [[nodiscard]] virtual PositionRepresentation assumed_position_representation() const noexcept;
 
+  // The SINGULARITY subset of validate_p_n below (ADR-0012): is this model's own g_n defined at
+  // p_n? Default true (gravity/constant reads no geometry). gravity/inverse_square and
+  // gravity/wgs84_j2 override it, each against its own geometry (see decision comments on their
+  // validate_p_n below). Per-frame path: noexcept, no allocation. Defined out of line in
+  // gravity_model.cpp, not pure, so the destructor stays the key function.
+  [[nodiscard]] virtual bool in_domain(const Eigen::Vector3d& p_n) const noexcept;
+
   // Init-path (may throw ConfigError): validates a proposed initial p_n against this gravity
-  // model's *own* configured geometry, the same shape as EarthModel::validate_p_n. Needed because
-  // the Earth and gravity models each carry their own, independently configurable notion of
-  // "radius" (Codex adversarial review, M2 PR 1): earth/round's altitude floor uses *its* radius,
-  // which says nothing about whether gravity/inverse_square's own, separately configured radius
-  // still makes (radius + altitude) positive at that same altitude. Default no-op (gravity/constant
-  // and gravity/wgs84_j2, whose fixed WGS-84 geometry is already bounded by the paired Earth
-  // model's own floor). Defined out of line, so the destructor stays the key function.
+  // model's *own* configured geometry, the same shape as EarthModel::validate_p_n -- ADR-0012:
+  // in_domain's singularity check plus any input-sanity checks (none of gravity's three models
+  // have one; latitude/longitude sanity is EarthModel::validate_p_n's job, checked first).
+  // Needed because the Earth and gravity models each carry their own, independently configurable
+  // notion of "radius" (Codex adversarial review, M2 PR 1): earth/round's altitude floor uses
+  // *its* radius, which says nothing about whether gravity/inverse_square's own, separately
+  // configured radius still makes (radius + altitude) positive at that same altitude. Default
+  // no-op (gravity/constant, whose in_domain default is already true everywhere). Defined out of
+  // line, so the destructor stays the key function.
   virtual void validate_p_n(const Eigen::Vector3d& p_n, const Config& node) const;
 };
 

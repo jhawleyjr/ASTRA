@@ -43,4 +43,29 @@ TEST(NoAlloc, ZeroHeapAllocationsOverOneThousandFramesWithDrydenWind) {
   EXPECT_EQ(after, before) << "zero allocations over 1000 frames (docs/architecture.md §14/§15)";
 }
 
+// ADR-0012, PLAN.md M2 PR 2c: the per-frame domain check (Earth/gravity in_domain plus the
+// one-frame lookahead, and physical.atmosphere's altitude-vs-valid_range comparison) must not
+// allocate either, on the most expensive pairing that exercises all three
+// (tests/configs/no_alloc_domain.yaml's own comment). Asserts both zero allocations AND that the
+// run actually completed all 1000 frames with no halt -- a fixture whose trajectory drifted out of
+// domain would halt early and pass the allocation assertion having measured far fewer frames than
+// it claims (Joe's own correction on this PR's plan).
+TEST(NoAlloc, ZeroHeapAllocationsOverOneThousandFramesWithTheDomainCheckActive) {
+  const astra::Config config =
+      astra::Config::from_file(std::string{ASTRA_TEST_CONFIG_DIR} + "/no_alloc_domain.yaml");
+  astra::Simulation sim = astra::Simulation::from_config(config, ASTRA_TEST_PLUGIN_DIR);
+  ASSERT_EQ(sim.frames(), 1000U);
+
+  const std::size_t before = astra_test::allocation_count();
+  const astra::HaltReason halt = sim.run();
+  const std::size_t after = astra_test::allocation_count();
+
+  EXPECT_FALSE(halt) << "the fixture is chosen to stay in domain for the full run -- a halt here "
+                        "means the allocation count below was measured over fewer than 1000 frames";
+  EXPECT_EQ(sim.clock().frame(), 1000U) << "the run must complete, not merely allocate nothing "
+                                           "while halting early";
+  EXPECT_EQ(after, before) << "zero allocations over 1000 frames with the domain check active "
+                              "(docs/architecture.md §14/§15, ADR-0012)";
+}
+
 }  // namespace

@@ -37,6 +37,15 @@ class EarthModel : public Model {
   // concrete rather than a comment.
   [[nodiscard]] virtual double altitude(const VehicleState& vs) const noexcept = 0;
 
+  // The SINGULARITY subset of validate_p_n below (ADR-0012): is this model's own math (p_n_dot,
+  // omega_ie_n, omega_en_n) defined at p_n? Excludes validate_p_n's input-sanity checks (longitude
+  // range, degrees-vs-radians) -- those are properties of a config value, not of the kinematics,
+  // and must stay init-only (a mid-run antimeridian crossing is not a domain excursion). Default
+  // true: flat Earth's kinematics have no singularity. Per-frame path (HealthMonitor's post-step
+  // check, one-frame lookahead): noexcept, no allocation. Defined out of line in earth_model.cpp,
+  // not pure, so the destructor above stays the key function.
+  [[nodiscard]] virtual bool in_domain(const Eigen::Vector3d& p_n) const noexcept;
+
   // What this Earth model provides (M2): flat -> kFlatNed, round/wgs84_rotating -> kGeodetic. Lets
   // Simulation::from_config reject a gravity model whose assumed representation (gravity_model.hpp)
   // does not match, instead of reading p_n's fields under the wrong meaning. AtmosphereModel has no
@@ -47,9 +56,12 @@ class EarthModel : public Model {
 
   // Init-path (M2): validates a proposed initial p_n against this Earth model's own representation,
   // throwing ConfigError (naming node's path) on a value that would be meaningless or would make
-  // the position kinematics singular. Default no-op: flat Earth accepts any finite NED triple (its
-  // p_n_dot/omega_en_n have no singularity). Defined out of line in earth_model.cpp, not pure, so
-  // the destructor above stays the key function.
+  // the position kinematics singular. ADR-0012: this is in_domain's singularity check PLUS the
+  // input-sanity checks that stay init-only -- one definition of "singular" per model, so the two
+  // paths cannot drift apart. Default no-op: flat Earth accepts any finite NED triple (its
+  // p_n_dot/omega_en_n have no singularity, and in_domain's default is already true everywhere).
+  // Defined out of line in earth_model.cpp, not pure, so the destructor above stays the key
+  // function.
   virtual void validate_p_n(const Eigen::Vector3d& p_n, const Config& node) const;
 };
 

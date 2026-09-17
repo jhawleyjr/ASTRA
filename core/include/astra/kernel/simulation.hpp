@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <memory>
 #include <span>
+#include <string>
 #include <vector>
 
 #include "astra/config/config.hpp"
@@ -24,8 +25,9 @@
 
 namespace astra {
 
-class EarthModel;  // core/include/astra/interfaces/earth_model.hpp
-class WindModel;   // core/include/astra/interfaces/wind_model.hpp
+class AtmosphereModel;  // core/include/astra/interfaces/atmosphere_model.hpp
+class EarthModel;       // core/include/astra/interfaces/earth_model.hpp
+class WindModel;        // core/include/astra/interfaces/wind_model.hpp
 
 class Simulation {
  public:
@@ -62,6 +64,14 @@ class Simulation {
   // from a state one of those checks would reject (e.g. to prove a downstream health check catches
   // what an init check would have) is a legitimate use of this helper, not a bug in it. A test that
   // needs production-equivalent validation should call from_config, not for_testing.
+  //
+  // ADR-0012 (M2 PR 2c) adds a fourth to this list, by the same reasoning: no atmosphere parameter
+  // here at all, so a for_testing-built Simulation never sets atmosphere_ and step()'s post-step
+  // domain check on it is unconditionally skipped (atmosphere_ == nullptr). The per-frame
+  // EarthModel::in_domain/GravityModel::in_domain check DOES run against whatever earth/gravity are
+  // passed in, the same way check_wrench/check_state already do against for_testing's vehicles --
+  // it needs no Config either, and every existing caller's fixture (wind_test.cpp) stays inside
+  // both models' domain regardless.
   //
   // Never called by from_config; does not change what from_config itself does with a real config.
   // wind/earth may both be null (matching physical.wind/physical.earth both being absent) -- but a
@@ -147,6 +157,15 @@ class Simulation {
   // Non-owning: the model lives in environment_plugins_ above. nullptr when physical.wind is not
   // configured -- Simulation::step then samples still air (EnvironmentSample's own default).
   WindModel* wind_ = nullptr;
+  // ADR-0012: nullptr when physical.atmosphere is not configured -- step() then skips the
+  // post-step altitude-vs-valid_range check entirely, matching from_config's own init-time check
+  // (which also runs only when atmosphere != nullptr there). Non-owning: the model lives in
+  // environment_plugins_ above (init()'s own LoadedAtmosphere went out of scope before this PR;
+  // this is that same model retained past init, the same way earth_/wind_ already are).
+  AtmosphereModel* atmosphere_ = nullptr;
+  // What a domain halt on atmosphere names -- atmosphere_'s own plugin_path, kept alongside it for
+  // the same reason earth_plugin_path_/gravity_plugin_path_ travel alongside Vehicle's Eom.
+  std::string atmosphere_plugin_path_;
   // unique_ptr, not by value: from_config returns Simulation by value, and HealthMonitor::init
   // registers &counter_ pointers into registry_, so the monitor's address must survive every move
   // this Simulation goes through (a by-value member would dangle those pointers on the first move).

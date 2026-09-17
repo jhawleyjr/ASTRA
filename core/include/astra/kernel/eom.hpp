@@ -32,8 +32,19 @@ class Eom {
   void set_applied_wrench(const Wrench& wrench) noexcept { applied_wrench_ = wrench; }
 
   // The single derivative ADR-0004 requires: f(t, y) -> ydot, satisfying Integrator's
-  // StateDerivative concept (noexcept, returns StateVector by value).
+  // StateDerivative concept (noexcept, returns StateVector by value). Unchanged by ADR-0012: the
+  // accessors below exist precisely so Vehicle's per-frame domain check can reach the Earth and
+  // gravity models Eom already holds, without this signature or this class's derivative logic
+  // changing at all.
   [[nodiscard]] StateVector operator()(double t, const StateVector& y) const noexcept;
+
+  // ADR-0012: Vehicle::check_domain's own read of this frame's Earth/gravity models, so
+  // per-frame domain validity needs no second, retained copy of the pointers PhysicsSpec already
+  // handed to this constructor (PhysicsSpec's own pointers are consumed at init and not kept).
+  // const-qualified: the domain check only reads in_domain()/p_n_dot(), never mutates either
+  // model.
+  [[nodiscard]] const EarthModel& earth() const noexcept { return earth_; }
+  [[nodiscard]] const GravityModel& gravity() const noexcept { return gravity_; }
 
  private:
   EarthModel& earth_;

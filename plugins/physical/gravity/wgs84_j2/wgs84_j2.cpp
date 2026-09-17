@@ -61,23 +61,33 @@ class Wgs84J2Gravity final : public astra::GravityModel {
     return astra::PositionRepresentation::kGeodetic;
   }
 
-  // Codex adversarial review: earth/wgs84_rotating's own validate_p_n bounds altitude against the
-  // meridian radius M(lat), which keeps its *own* p_n_dot/omega_en_n well-defined, but says nothing
-  // about g_n's ECEF radius mag_r above. Near the polar margin, a geodetic (lat, alt) pair can pass
-  // that M(lat) floor while still making the *ECEF* radius from the center collapse toward zero:
+  // ADR-0012: per-frame domain validity. Unlike earth/round's or gravity/inverse_square's, this
+  // model's singularity has no input-sanity counterpart to interleave with (latitude/longitude
+  // sanity is EarthModel::validate_p_n's job, checked first), so in_domain is the whole check and
+  // validate_p_n is just its init-time throwing form -- no shared enum needed. Codex adversarial
+  // review: earth/wgs84_rotating's own validate_p_n bounds altitude against the meridian radius
+  // M(lat), which keeps its *own* p_n_dot/omega_en_n well-defined, but says nothing about g_n's
+  // ECEF radius mag_r above. Near the polar margin, a geodetic (lat, alt) pair can pass that
+  // M(lat) floor while still making the *ECEF* radius from the center collapse toward zero:
   // verified numerically (this session) that lat = kMaxLatitude, alt = -N(lat)*(1-e^2) gives
   // mag_r ~ 0.043 m -- the ECEF z-component vanishes exactly there while x and y are already tiny
   // from cos(lat), a genuinely different singularity from the M(lat)/N(lat) floor, since it is the
   // *combination* of near-polar latitude and a specific altitude that collapses all three ECEF
   // components at once. Bounded well below any physically sensible altitude's mag_r (which stays
   // on the order of thousands of kilometres near the real Earth) so this only excludes genuinely
-  // degenerate configurations.
-  void validate_p_n(const Eigen::Vector3d& p_n, const astra::Config& node) const override {
+  // degenerate configurations. The `>=` positive form is NaN-safe (a non-finite p_n reads as
+  // out-of-domain rather than silently passing the `< kMinSafeRadius` form this replaced, which was
+  // false for NaN -- unreachable in practice since EarthModel::validate_p_n rejects non-finite p_n
+  // first, but strictly correct now regardless of call order).
+  [[nodiscard]] bool in_domain(const Eigen::Vector3d& p_n) const noexcept override {
     const double lat = p_n(0);  // NOLINT(readability-magic-numbers): p_n's lat/lon/alt components
     const double lon = p_n(1);
     const double alt = p_n(2);
-    const double mag_r = astra::geodesy::geodetic_to_ecef(lat, lon, alt).norm();
-    if (mag_r < kMinSafeRadius) {
+    return astra::geodesy::geodetic_to_ecef(lat, lon, alt).norm() >= kMinSafeRadius;
+  }
+
+  void validate_p_n(const Eigen::Vector3d& p_n, const astra::Config& node) const override {
+    if (!in_domain(p_n)) {
       const std::string path = node.path().empty() ? "initial.state.p_n" : node.path() + ".p_n";
       throw astra::ConfigError(
           node.origin(), path,

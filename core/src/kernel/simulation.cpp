@@ -322,6 +322,11 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
         loader, physical, sim.environment_scheduler_, sim.environment_plugins_, sim.registry_);
     AtmosphereModel* const atmosphere = loaded_atmosphere.model;
     const std::string& atmosphere_plugin_path = loaded_atmosphere.plugin_path;
+    // ADR-0012: retained past this function's own LoadedAtmosphere local (which used to go out of
+    // scope right after the init-time valid_range() check below) so Simulation::step's post-step
+    // domain check has both the model and what a halt on it names.
+    sim.atmosphere_ = atmosphere;
+    sim.atmosphere_plugin_path_ = atmosphere_plugin_path;
 
     const LoadedWind loaded_wind =
         load_wind(loader, physical, *earth, earth_spec, sim.environment_scheduler_,
@@ -330,7 +335,8 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
     wind_plugin_path = loaded_wind.plugin_path;
     sim.wind_ = wind;
 
-    const Vehicle::PhysicsSpec physics_spec{std::move(mass_spec), earth, gravity};
+    const Vehicle::PhysicsSpec physics_spec{std::move(mass_spec), earth, gravity,
+                                            earth_spec.plugin_path, gravity_spec.plugin_path};
     vehicle.init(loader, specs, sim.registry_, &physics_spec,
                  Vehicle::EnvironmentAvailability{wind != nullptr});
     vehicle.state() = read_initial_state(config);
@@ -346,9 +352,10 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
     if (atmosphere != nullptr) {
       // §15: "altitude inside the atmosphere model's valid range". EarthModel::altitude is the one
       // authority on turning p_n into a height (ADR-0003: p_n's meaning is the Earth model's own).
-      // Init-time only, like the two validate_p_n calls above: a trajectory that leaves the range
-      // mid-run is the per-frame domain gap PR 1 disclosed (STATE.md, PLAN.md), not this check's
-      // job.
+      // Init-time only, like the two validate_p_n calls above: this checks p_n(0) alone. A
+      // trajectory that leaves the range mid-run is checked post-step by Simulation::step below
+      // (ADR-0012), against sim.atmosphere_ set just above -- the gap PR 1b disclosed, closed by
+      // PR 2c, not this check's job.
       const double altitude_m = earth->altitude(VehicleState{vehicle.state()});
       const AltitudeRange range = atmosphere->valid_range();
       // Same NaN-safety reasoning as isa1976.cpp's own valid_range check -- the "simplified"
@@ -454,7 +461,12 @@ Simulation Simulation::for_testing(const PluginLoader& loader,
       // Constructed fresh per vehicle (mass is loaded fresh from mass_spec inside Vehicle::init,
       // exactly as from_config's own single vehicle gets its own mass model) rather than hoisted
       // out of the loop, since Vehicle::PhysicsSpec has no default constructor to hoist it past.
-      const Vehicle::PhysicsSpec physics_spec{*mass_spec, earth, gravity};
+      // earth_plugin_path/gravity_plugin_path (ADR-0012) get placeholder names, the same
+      // "for_testing's wind" idiom check_wind_shareable already uses below -- for_testing takes a
+      // live EarthModel*/GravityModel*, not a Config, so there is no real plugin path to give a
+      // domain halt here.
+      const Vehicle::PhysicsSpec physics_spec{*mass_spec, earth, gravity, "for_testing's earth",
+                                              "for_testing's gravity"};
       vehicle.init(loader, models, sim.registry_, &physics_spec,
                    Vehicle::EnvironmentAvailability{wind != nullptr});
     } else {
@@ -483,8 +495,9 @@ HaltReason Simulation::step() noexcept {
     // This frame's environment sample (docs/architecture.md §5, environment_sample.hpp), latched
     // here at frame-start state, before the wrench stage -- the same discipline Eom::begin_frame
     // and Vehicle::integrate's own VehicleState latch already use. wind_ is the only per-vehicle
-    // evolution/read pair today; PR 3 adds atmosphere the same way, from an AtmosphereModel* member
-    // sampled here too.
+    // evolution/read pair today; PR 3 adds EnvironmentSample::atmosphere the same way. The
+    // AtmosphereModel* member this PR adds (atmosphere_, below) is unrelated to that sampling --
+    // ADR-0012's post-step domain check, not a wrench input.
     EnvironmentSample sample;  // wind zero / atmosphere all-NaN by default
     if (wind_ != nullptr) {
       const VehicleState vs{vehicle.state()};
@@ -500,6 +513,30 @@ HaltReason Simulation::step() noexcept {
       // The clock does not advance: halt.frame == clock_.frame() and this frame's other vehicles
       // (ADR-0011: there can be more than one) do not step -- a halt stops the run.
       return halt;
+    }
+    // ADR-0012: the post-step altitude check, against the POST-step state -- a different state
+    // than the frame-start altitude_m computed above for wind (that read happens before
+    // vehicle.integrate(); this one after), so there is no call to share between the two. No
+    // lookahead here (unlike Vehicle::check_domain's Earth/gravity check): an out-of-range
+    // altitude is not a singularity, at() simply returns an all-NaN AtmoState, and Vehicle::
+    // integrate's own domain check already covers the p_n singularities on this same post-step
+    // state. Skipped entirely when atmosphere_ is null (no physical.atmosphere configured) or
+    // health_->domain_enabled() is false -- no altitude() call, matching "domain: off restores
+    // current behavior".
+    if (atmosphere_ != nullptr && health_->domain_enabled()) {
+      const double altitude_m = earth_->altitude(VehicleState{vehicle.state()});
+      const AltitudeRange range = atmosphere_->valid_range();
+      // Same NaN-safety reasoning as isa1976.cpp's own valid_range check and from_config's
+      // init-time twin above: the "simplified" a<min||a>max form is false for a NaN altitude,
+      // which would silently accept it instead of rejecting it.
+      // NOLINTNEXTLINE(readability-simplify-boolean-expr)
+      if (!(altitude_m >= range.min_m && altitude_m <= range.max_m)) {
+        if (const HaltReason halt =
+                health_->report_out_of_domain(atmosphere_plugin_path_, ctx, vehicle.index());
+            halt) {
+          return halt;
+        }
+      }
     }
   }
   clock_.advance();
