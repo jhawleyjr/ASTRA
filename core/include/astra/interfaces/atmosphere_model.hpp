@@ -40,11 +40,12 @@ class AtmosphereModel : public Model {
   // Per-frame path (§14): no allocation, no exceptions. Returns an all-NaN AtmoState outside
   // valid_range() rather than clamping -- a clamped value would be a plausible density for an
   // altitude the model does not model. Called once per vehicle per frame by Simulation::step (M2
-  // PR 3), into EnvironmentSample::atmosphere; a WrenchSource that reads an out-of-range NaN into a
-  // force/moment makes it visible to HealthMonitor's existing check_wrench, which names the
-  // consuming WrenchSource's plugin path, not this model's -- HealthMonitor checks state vectors
-  // and wrench contributions directly, never AtmoState itself (environment_sample.hpp's own
-  // comment has the fuller account of that attribution gap, the same shape wind's NaN already has).
+  // PR 3), into EnvironmentSample::atmosphere; a WrenchSource that reads a NaN result (whether from
+  // this out-of-range contract or a genuinely broken implementation) into a force/moment makes it
+  // visible to HealthMonitor's existing check_wrench, which names the consuming WrenchSource's
+  // plugin path, not this model's -- HealthMonitor checks state vectors and wrench contributions
+  // directly, never AtmoState itself (environment_sample.hpp's own comment on its `atmosphere`
+  // field has the fuller account of that attribution gap, the same shape wind's NaN already has).
   //
   // altitude_m is exactly whatever the configured EarthModel::altitude() returns -- "height above
   // the Earth model's reference surface" (earth_model.hpp), not independently defined here. For
