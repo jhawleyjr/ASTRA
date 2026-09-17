@@ -218,6 +218,88 @@ TEST(HealthMonitor, RejectsANonMapSimHealth) {
   EXPECT_THROW(monitor.init(config, registry), ConfigError);
 }
 
+// ADR-0012: report_out_of_domain is the same apply()-through-a-counter shape as the other three
+// checks, with the predicate itself evaluated by the caller (Vehicle::check_domain,
+// Simulation::step) -- this monitor holds no Earth/gravity/atmosphere model pointers, so the
+// caller has already decided the report fires before this call, at most once per vehicle per
+// frame.
+TEST(HealthMonitor, ReportOutOfDomainHaltsNamingTheGivenSourceAndFrame) {
+  SignalRegistry registry;
+  HealthMonitor monitor = make_monitor(registry);
+
+  const HaltReason halt = monitor.report_out_of_domain(
+      "plugins/physical/earth/round", StepContext{.t = 0.5, .dt = 0.001, .frame = 500}, 2);
+  ASSERT_TRUE(halt);
+  EXPECT_EQ(halt.check, HealthCheck::kOutOfDomain);
+  EXPECT_EQ(halt.source, "plugins/physical/earth/round");
+  EXPECT_EQ(halt.frame, 500U);
+  EXPECT_EQ(halt.vehicle_index, 2U);
+}
+
+TEST(HealthMonitor, DomainDefaultsToHaltAndCountsUnderHaltAndWarnLikeTheOtherThreeChecks) {
+  {
+    SignalRegistry registry;
+    HealthMonitor monitor = make_monitor(registry);  // no sim.health block at all
+    const double* domain_count = registry.find("health.domain");
+    ASSERT_NE(domain_count, nullptr);
+    const HaltReason halt =
+        monitor.report_out_of_domain("src", StepContext{.t = 0.0, .dt = 0.001, .frame = 0}, 0);
+    EXPECT_TRUE(halt) << "default action is halt, same as nan/quaternion";
+    EXPECT_EQ(*domain_count, 1.0);
+  }
+  {
+    SignalRegistry registry;
+    HealthMonitor monitor = make_monitor(registry, "domain: warn");
+    const double* domain_count = registry.find("health.domain");
+    ASSERT_NE(domain_count, nullptr);
+    const HaltReason halt =
+        monitor.report_out_of_domain("src", StepContext{.t = 0.0, .dt = 0.001, .frame = 0}, 0);
+    EXPECT_FALSE(halt);
+    EXPECT_EQ(*domain_count, 1.0);
+  }
+}
+
+TEST(HealthMonitor, DomainOffNeitherCountsNorHaltsAndDisablesTheCheck) {
+  SignalRegistry registry;
+  HealthMonitor monitor = make_monitor(registry, "domain: off");
+  const double* domain_count = registry.find("health.domain");
+  ASSERT_NE(domain_count, nullptr);
+  EXPECT_FALSE(monitor.domain_enabled())
+      << "what makes 'domain: off restores current behavior' true -- a caller checks this before "
+         "ever evaluating an in_domain predicate";
+
+  const HaltReason halt =
+      monitor.report_out_of_domain("src", StepContext{.t = 0.0, .dt = 0.001, .frame = 0}, 0);
+  EXPECT_FALSE(halt);
+  EXPECT_EQ(*domain_count, 0.0);
+}
+
+TEST(HealthMonitor, DomainEnabledIsTrueUnderTheDefaultAndUnderWarn) {
+  {
+    SignalRegistry registry;
+    HealthMonitor monitor = make_monitor(registry);
+    EXPECT_TRUE(monitor.domain_enabled());
+  }
+  {
+    SignalRegistry registry;
+    HealthMonitor monitor = make_monitor(registry, "domain: warn");
+    EXPECT_TRUE(monitor.domain_enabled());
+  }
+}
+
+TEST(HealthMonitor, RejectsAnUnrecognizedDomainActionStringNamingTheKey) {
+  SignalRegistry registry;
+  const Config config =
+      Config::from_string("sim: { health: { domain: loud } }\n", "bad-domain-action-fixture");
+  HealthMonitor monitor;
+  try {
+    monitor.init(config, registry);
+    FAIL() << "expected ConfigError";
+  } catch (const ConfigError& error) {
+    EXPECT_EQ(error.config_path(), "sim.health.domain");
+  }
+}
+
 // ADR-0011: nothing may assume there is exactly one vehicle named "v0" -- the names a halt reports
 // come entirely from what the caller passes in, never a literal this class owns.
 TEST(HealthMonitor, SourceNamesComeFromTheCallerNotAV0Literal) {

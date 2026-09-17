@@ -6,6 +6,7 @@
 // wgs84_rotating (plugins/physical/earth/wgs84_rotating) is the same shape with the meridian and
 // prime-vertical radii of curvature in place of R and a nonzero omega_ie_n.
 #include <cmath>
+#include <cstdint>
 #include <memory>
 #include <numbers>
 #include <string>
@@ -40,6 +41,33 @@ double checked_finite(const Config& config, std::string_view key, double value) 
                       std::string{key} + " must be finite");
   }
   return value;
+}
+
+// The three faults p_n_dot/omega_en_n's own math can hit -- the SINGULARITY subset of
+// validate_p_n's checks (ADR-0012), shared between in_domain (per frame) and validate_p_n (init),
+// so there is exactly one definition of "singular" for this model. Deliberately excludes
+// validate_p_n's own input-sanity checks (degree-valued latitude, longitude range): those are
+// properties of a config value, not of where the kinematics are defined, and must stay init-only
+// -- re-running them per frame would halt any antimeridian crossing (ADR-0012's Context).
+enum class DomainFault : std::uint8_t { kNone, kNonFinite, kPolarSingularity, kBelowSurfaceCenter };
+
+// Positive-form comparisons throughout (NaN-safe): a non-finite p_n reads as kNonFinite rather
+// than silently passing a `>`/`<=` comparison that is false for NaN. Priority order matches
+// validate_p_n's own domain-check order (finite, then polar, then altitude floor) with its
+// input-sanity checks omitted -- see validate_p_n below for how the two interleave.
+DomainFault domain_fault(const Eigen::Vector3d& p_n, double radius) noexcept {
+  if (!p_n.allFinite()) {
+    return DomainFault::kNonFinite;
+  }
+  const double lat = p_n(0);  // NOLINT(readability-magic-numbers): p_n's lat/lon/alt components
+  const double alt = p_n(2);
+  if (std::abs(lat) > astra::geodesy::kMaxLatitude) {
+    return DomainFault::kPolarSingularity;
+  }
+  if (alt <= -radius) {
+    return DomainFault::kBelowSurfaceCenter;
+  }
+  return DomainFault::kNone;
 }
 
 class RoundEarth final : public astra::EarthModel {
@@ -83,52 +111,47 @@ class RoundEarth final : public astra::EarthModel {
     return astra::PositionRepresentation::kGeodetic;
   }
 
-  // Longitude in [-pi, pi]; latitude bounded away from the poles (astra::geodesy::kMaxLatitude:
-  // p_n_dot's cos(lat) divisor and omega_en_n's tan(lat) term are singular at |lat| = pi/2), with a
-  // separate message for the obvious failure mode of a degree-valued latitude; altitude finite and
-  // above -radius_ (below that, (radius_ + h) itself goes through zero -- a chart singularity, not
-  // a terrain check; the atmosphere model's valid_range() is the authority on whether an altitude
-  // makes physical sense for a run). This is an init-time check only: it validates the initial
-  // state, not every state the integrator visits mid-run (Codex adversarial review, two rounds).
-  // What is actually verified (tests/unit/earth/earth_kinematics_test.cpp), and what is not:
-  //   - Landing exactly on the altitude floor hits an exact floating-point zero in (radius_ + h),
-  //     producing literal Inf in p_n_dot/omega_en_n, which HealthMonitor's existing per-frame
-  //     NaN/Inf check (M1 PR 4) catches immediately as a named halt.
-  //   - Landing exactly on the polar margin instead produces an enormous but still *finite* value
-  //     (cos(lat) near a double's representation of pi/2 is ~1e-17, not exactly zero) -- not itself
-  //     a halt.
-  //   - NOT verified end-to-end: a trajectory that *continuously approaches* either boundary,
-  //     without ever landing on the exact singular value in one frame, could in principle produce a
-  //     run of large-but-finite, physically-degraded states before anything overflows to Inf/NaN or
-  //     trips the quaternion-norm-drift check. Per-frame Earth-domain validity (a state-halting
-  //     capability HealthMonitor does not have) is deliberately out of scope for this PR -- it is a
-  //     new architectural capability, not a bug fix, and none of this PR's own tests fly a
-  //     trajectory anywhere near either boundary. Disclosed in PLAN.md as a known gap rather than
-  //     silently left unmentioned; the right time to close it is whichever milestone first flies a
-  //     trajectory that can realistically approach a pole (not M2's drop-test scenarios).
-  // NOLINTBEGIN(readability-magic-numbers): 0/1/2 are the p_n vector's lat/lon/alt components.
+  // ADR-0012: per-frame domain validity. p_n_dot's cos(lat) divisor and omega_en_n's tan(lat) term
+  // are singular at |lat| = pi/2 (bounded here at astra::geodesy::kMaxLatitude); both also divide
+  // by (radius_ + h), singular at alt = -radius_. HealthMonitor checks this post-step, with a
+  // one-frame lookahead, so a trajectory approaching either boundary halts before its kinematics
+  // ever go non-finite (closes the gap PR 1 disclosed and this file used to document at length).
+  [[nodiscard]] bool in_domain(const Eigen::Vector3d& p_n) const noexcept override {
+    return domain_fault(p_n, radius_) == DomainFault::kNone;
+  }
+
+  // Longitude in [-pi, pi]; latitude bounded away from the poles, with a separate message for the
+  // obvious failure mode of a degree-valued latitude; altitude finite and above -radius_ (the
+  // atmosphere model's valid_range() is the authority on whether an altitude makes physical sense
+  // for a run, not this check). ADR-0012: this is domain_fault's three singularity checks above,
+  // interleaved with the two input-sanity checks that stay init-only (degrees-vs-radians, longitude
+  // range) in their original priority order -- finite, degrees, polar margin, longitude, altitude
+  // floor -- so a single domain_fault() call, examined at each domain-check slot, reproduces every
+  // message and every ordering exactly. Init-time only: this validates the initial state; the
+  // per-frame check above validates every subsequent one.
+  // NOLINTBEGIN(readability-magic-numbers): 0/1 are the p_n vector's lat/lon components.
   void validate_p_n(const Eigen::Vector3d& p_n, const Config& node) const override {
-    const double lat = p_n(0);
-    const double lon = p_n(1);
-    const double alt = p_n(2);
     const std::string path = node.path().empty() ? "initial.state.p_n" : node.path() + ".p_n";
-    if (!std::isfinite(lat) || !std::isfinite(lon) || !std::isfinite(alt)) {
+    const DomainFault fault = domain_fault(p_n, radius_);
+    if (fault == DomainFault::kNonFinite) {
       throw ConfigError(node.origin(), path, "p_n must be finite");
     }
+    const double lat = p_n(0);
     if (std::abs(lat) > std::numbers::pi / 2.0) {
       throw ConfigError(node.origin(), path,
                         "p_n's latitude magnitude exceeds pi/2 rad -- latitude is radians, not "
                         "degrees (ADR-0003)");
     }
-    if (std::abs(lat) > astra::geodesy::kMaxLatitude) {
+    if (fault == DomainFault::kPolarSingularity) {
       throw ConfigError(node.origin(), path,
                         "p_n's latitude is within the polar singularity margin of +-pi/2 rad; "
                         "the geodetic chart is undefined there");
     }
+    const double lon = p_n(1);
     if (lon < -std::numbers::pi || lon > std::numbers::pi) {
       throw ConfigError(node.origin(), path, "p_n's longitude must be within [-pi, pi] rad");
     }
-    if (alt <= -radius_) {
+    if (fault == DomainFault::kBelowSurfaceCenter) {
       throw ConfigError(node.origin(), path,
                         "p_n's altitude is at or below the Earth model's center -- the position "
                         "kinematics divide by (radius + altitude)");

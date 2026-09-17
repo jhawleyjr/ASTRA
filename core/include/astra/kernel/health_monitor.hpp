@@ -1,12 +1,14 @@
 // Health checks that run during the frame loop (docs/architecture.md §15, PLAN.md M1 PR 4): NaN/Inf
-// in the state vector or in any wrench contribution, and quaternion norm drift beyond 1e-6 before
-// renormalization. Each check has a configured action -- off, warn, or halt -- read from the
-// optional "sim.health" config block (keys "nan" and "quaternion", both defaulting to "halt"), and
-// each fires a registered signal ("health.nan", "health.quaternion", "health.max_q_drift") so the
-// event lands in the log regardless of what the check did. This class' shape is not pinned by any
-// ADR (workflow.md's M1 plan-review trigger list); it is the one place that reads "sim.health" and
-// decides warn/halt/off -- Vehicle and Simulation only report observations and propagate the
-// result.
+// in the state vector or in any wrench contribution, quaternion norm drift beyond 1e-6 before
+// renormalization, and (ADR-0012) per-frame domain validity against a model-owned predicate. Each
+// check has a configured action -- off, warn, or halt -- read from the optional "sim.health" config
+// block (keys "nan", "quaternion", "domain", each defaulting to "halt"), and each fires a
+// registered signal ("health.nan", "health.quaternion", "health.max_q_drift", "health.domain") so
+// the event lands in the log regardless of what the check did. This class' shape is not pinned by
+// any ADR (workflow.md's M1 plan-review trigger list) EXCEPT for the domain check's own split,
+// which ADR-0012 does pin: it is the one place that reads "sim.health" and decides warn/halt/off --
+// Vehicle and Simulation own the domain predicates themselves (the Earth, gravity, and atmosphere
+// models) and only report observations here, never model pointers.
 #pragma once
 
 #include <cstdint>
@@ -21,7 +23,13 @@ namespace astra {
 class Config;          // core/include/astra/config/config.hpp
 class SignalRegistry;  // core/include/astra/signals/signal_registry.hpp
 
-enum class HealthCheck : std::uint8_t { kNone, kNonFiniteState, kNonFiniteWrench, kQuaternionNorm };
+enum class HealthCheck : std::uint8_t {
+  kNone,
+  kNonFiniteState,
+  kNonFiniteWrench,
+  kQuaternionNorm,
+  kOutOfDomain
+};
 enum class HealthAction : std::uint8_t { kOff, kWarn, kHalt };
 
 // Names for the four ADR-0003 state segments, built once at init by whoever calls check_state
@@ -49,10 +57,10 @@ struct HaltReason {
 
 class HealthMonitor {
  public:
-  // Reads the optional "sim.health" map ("nan", "quaternion", each "off"/"warn"/"halt", default
-  // "halt") and registers this monitor's three signals. Init-time only: may throw ConfigError
-  // (unrecognized action string, or "sim.health" present but not a map); must run before
-  // registry.freeze() and before Config::unknown_keys() is checked.
+  // Reads the optional "sim.health" map ("nan", "quaternion", "domain", each "off"/"warn"/"halt",
+  // default "halt") and registers this monitor's four signals. Init-time only: may throw
+  // ConfigError (unrecognized action string, or "sim.health" present but not a map); must run
+  // before registry.freeze() and before Config::unknown_keys() is checked.
   void init(const Config& config, SignalRegistry& registry);
 
   // Checks one wrench contribution for NaN/Inf, naming source (the contributing plugin's path) on a
@@ -68,12 +76,37 @@ class HealthMonitor {
                                        const StepContext& ctx,
                                        std::uint32_t vehicle_index) noexcept;
 
+  // ADR-0012: "a HealthMonitor check over a model-owned predicate" -- the predicate itself
+  // (EarthModel::in_domain/GravityModel::in_domain with the one-frame lookahead, or the atmosphere
+  // altitude-vs-valid_range comparison) is evaluated by the caller (Vehicle::check_domain,
+  // Simulation::step), because this monitor holds no Earth/gravity/atmosphere model pointers -- it
+  // never has (see the class comment above). This is not a deviation from the ADR's design, only
+  // from its literal phrasing "the monitor ... checks earth->altitude(vs) against
+  // atmosphere->valid_range()": putting the predicate at the call site is what keeps it
+  // model-owned, since the alternative is handing this class three pointers to hold. Named
+  // report_, not check_, for that reason: the caller has already decided the predicate failed, at
+  // most once per vehicle per frame; this call only turns that into the configured action, the
+  // count, and the signal, exactly like apply() does for the other three checks. Per-frame path:
+  // no allocation, no exceptions.
+  [[nodiscard]] HaltReason report_out_of_domain(std::string_view source, const StepContext& ctx,
+                                                std::uint32_t vehicle_index) noexcept;
+
+  // Whether the domain check should run at all -- what makes "domain: off restores current
+  // behavior" literally true: a caller that checks this first pays no in_domain call, no extra
+  // p_n_dot, no altitude() when the action is off, rather than evaluating the predicate and
+  // discarding a falsey report.
+  [[nodiscard]] bool domain_enabled() const noexcept {
+    return domain_action_ != HealthAction::kOff;
+  }
+
  private:
   HealthAction nan_action_ = HealthAction::kHalt;
   HealthAction quaternion_action_ = HealthAction::kHalt;
+  HealthAction domain_action_ = HealthAction::kHalt;
   double nan_count_ = 0.0;
   double quaternion_count_ = 0.0;
   double max_quaternion_drift_ = 0.0;
+  double domain_count_ = 0.0;
 };
 
 }  // namespace astra

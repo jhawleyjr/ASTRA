@@ -15,7 +15,11 @@ namespace astra {
 // review rounds added begin_frame's altitude_m parameter and assumed_position_representation();
 // bumped once more so the version this PR ships with names WindModel's one, final layout, not an
 // intermediate shape that existed only for a few commits inside this same unmerged branch.
-inline constexpr std::uint32_t kCoreApiVersion = 3;
+// 4 (M2 PR 2c, ADR-0012): EarthModel and GravityModel each gained a new non-pure virtual
+// (in_domain), changing both interfaces' vtable layout -- an out-of-tree plugin built against
+// version 3 must be rejected, not dispatched through a vtable slot it does not have (Codex
+// review, same reasoning as version 2's bump above).
+inline constexpr std::uint32_t kCoreApiVersion = 4;
 
 // The toolchain and configuration this tree was configured with. A plugin built by a different configure
 // carries a different string and is rejected at load; it can only come from a stale build directory.

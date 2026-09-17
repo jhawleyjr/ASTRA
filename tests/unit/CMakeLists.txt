@@ -3,6 +3,7 @@ add_executable(astra_unit_tests
   atmosphere/isa1976_test.cpp
   config/config_test.cpp
   earth/earth_kinematics_test.cpp
+  gravity/inverse_square_test.cpp
   gravity/wgs84_j2_test.cpp
   health/health_monitor_test.cpp
   icd/icd_test.cpp
