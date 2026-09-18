@@ -1,17 +1,22 @@
 # One case per line: <expected exit>\t<JSON piped to stop-check.sh on stdin>. $ROOT_GREEN holds a stub justfile
 # whose `test-unit` recipe passes, $ROOT_RED one whose `test-unit` fails the way ctest does. Every case names a cwd:
-# without one the hook would run the real `just test` inside the gate.
-# PASS: plan mode is never checked; a green tree passes whatever stop_hook_active says; only plan mode skips
+# without one the hook would run the real `just test-unit` inside the gate.
+# PASS: plan mode skips; green initial check passes; hook continuation allows a handoff without validation
 0	{"hook_event_name":"Stop","permission_mode":"plan","cwd":"$ROOT_RED","stop_hook_active":false}
 0	{"hook_event_name":"Stop","permission_mode":"default","cwd":"$ROOT_GREEN","stop_hook_active":false}
 0	{"hook_event_name":"Stop","permission_mode":"acceptEdits","cwd":"$ROOT_GREEN","stop_hook_active":true}
 0	{"hook_event_name":"Stop","cwd":"$ROOT_GREEN"}
-# BLOCK: a red tree blocks, with no early exit when the hook already blocked once this turn
+# BLOCK: initial failures block. A continued turn can report the failure without another forced retry.
 2	{"hook_event_name":"Stop","permission_mode":"default","cwd":"$ROOT_RED","stop_hook_active":false}
-2	{"hook_event_name":"Stop","permission_mode":"acceptEdits","cwd":"$ROOT_RED","stop_hook_active":true}
+0	{"hook_event_name":"Stop","permission_mode":"acceptEdits","cwd":"$ROOT_RED","stop_hook_active":true}
 2	{"hook_event_name":"Stop","cwd":"$ROOT_RED"}
 # BLOCK: a `just test-unit` that outlives the budget is a block (exit 124 from timeout), not a silent pass
 2	{"hook_event_name":"Stop","cwd":"$ROOT_SLOW"}
 # BLOCK: a `just` process already running under the tree blocks before any test runs (the busy-tree guard; the
 # tree is green, so only the guard can produce the block)
 2	{"hook_event_name":"Stop","cwd":"$ROOT_BUSY"}
+# Handoff remains possible after a timeout/busy-tree block; no repeated check is launched.
+0	{"hook_event_name":"Stop","cwd":"$ROOT_SLOW","stop_hook_active":true}
+0	{"hook_event_name":"Stop","cwd":"$ROOT_BUSY","stop_hook_active":true}
+# A string is not the boolean continuation flag and cannot suppress the initial failure.
+2	{"hook_event_name":"Stop","cwd":"$ROOT_RED","stop_hook_active":"true"}

@@ -1,6 +1,6 @@
 # ASTRA — Architecture v1
 
-Status: **accepted**, 2026-09-14 (rev 6: M0 defaults — style, CI, time representation, single-vehicle-as-list, Python models; **accepted by Joe 2026-09-14**). This is the sole input to milestone M0 in Claude Code. It is bound by `decisions/2026-09-14-founding-decisions.md` and built under `process/workflow-proposal.md`. Where this document makes a choice that a later ADR will own, it says so; M0's first job is to turn those into `docs/decisions/` records with the rejected alternatives written down.
+Status: **accepted**, 2026-09-14 (rev 6: M0 defaults — style, CI, time representation, single-vehicle-as-list, Python models; **accepted by Joe 2026-09-14**). This is the sole input to milestone M0 in Claude Code. It is bound by `decisions/0000-founding-decisions.md` and built under `process/workflow.md`. Where this document makes a choice that a later ADR will own, it says so; M0's first job is to turn those into `docs/decisions/` records with the rejected alternatives written down.
 
 ---
 

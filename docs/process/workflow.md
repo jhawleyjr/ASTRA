@@ -1,163 +1,204 @@
-# ASTRA Development Workflow (v2, 2026-09-14)
+# ASTRA development workflow — v3
 
-Status: **accepted** 2026-09-14. Replaces the 6DoF-Digital phase/task process without copying it.
+Baseline requested by Joe, September 2026. Replaces v2's prohibition on feature artifacts with
+optional templates and risk-based depth. Preserves `just check`, human-owned oracles, oracle/main protection
+hooks, model settings, draft PRs, and Joe's squash-merge authority. `/wrap` is revised for stage-aware
+handoff; its old mandatory push/open-PR closeout no longer applies. Git retains the v2 rationale.
 
-## What the research said, in one paragraph
+## Sources of truth and lightweight state
 
-Across Anthropic's current docs, OpenAI's harness-engineering write-up, the martinfowler.com spec-driven-development critiques, and the practitioners who aren't selling a framework (Cherny, Willison, Reed, Osmani), the same shape emerges: **short standing instructions, executable checks, fresh contexts, tiny durable state files.** What consistently rots is ceremony — long specs written before code exists ("writing the program twice"), mandated artifacts per step, and hard preconditions. Anthropic's best-practices page now leads with verification, not planning: "Give Claude a check it can run… It's the difference between a session you watch and one you walk away from," and adds "If you could describe the diff in one sentence, skip the plan." The frameworks that went heavy (BMAD, spec-kit, Superpowers) have all since shipped "lite" modes, which is the tell. Two empirical results matter for us: repository instruction files mostly don't improve task success but do raise cost, *except* for non-standard conventions (ETH, Feb 2026); and agent-written tests are mostly observational rather than verifying (Feb 2026), so **the human owns the oracle**.
+[Architecture](../architecture.md) and accepted [ADRs](../decisions/) govern design.
+[PLAN.md](../../PLAN.md) is the milestone checklist; [STATE.md](../../STATE.md) is the current handoff
+(40 lines maximum, rewritten). Verify Git/PR state: a handoff can be stale after a merge.
+[AGENTS.md](../../AGENTS.md) is the canonical shared rule file; `CLAUDE.md` imports it. Together they
+stay under 100 lines. [Agent procedures](../agents/README.md) hold repeatable details.
 
-## Why the old process was slow — and the design response
+A small task still needs only 3–10 lines of intent, acceptance commands, and binding ADR pointers.
+Use [templates](../templates/README.md) for information that would otherwise be lost; never create
+seven empty documents to satisfy a checklist. Specs describe behavior; plans describe implementation.
+`docs/tasks/<feature>/STATUS.md` coordinates multi-package work only. Do not duplicate the milestone
+checklist there. Keep transient revision pins out of standing rules. Check/review evidence records
+exact base/head revisions; task/session handoffs may cite these when needed to identify validated
+work. Prefer links to evidence over duplicated, stale pins. Reference data/goldens retain provenance.
 
-| Old 6DoF-Digital | Why it hurt | v2 response |
+## The twelve steps
+
+| Step | Action and durable result | Exit condition |
 |---|---|---|
-| Task brief = "the entire brief… if it's not in here, it does not exist": verbatim spec excerpts, exact interfaces, complete file list → `scope.json`, named tests with values, wrong-implementations table, gate list, plus 1–2 adversarial review passes — all written in Cowork with no compiler | Front-loaded the hardest thinking to the point of least information. Opus-hours spent on paperwork; a short brief was treated as a defect | A task is **3–10 lines**: intent, acceptance check as a command, pointers to the ADRs that bind it. The agent does its own recon in the repo with plan mode. Detail emerges from code and tests, not prose |
-| Seven mandated hops per task across Cowork and Claude Code, each ending in a handoff ritual | Every hop = context rebuild + a `STATE.md` rewrite + a doc sweep | **One surface.** Claude Code on Joe's machine plans, builds, tests, reviews, and commits. Cowork is for design conversations and research, never a gate in the loop |
-| Task pinned to a commit SHA; `scope.json` hook; `.claude/current-task.json` arming; amend-only revise rounds; `--no-optional-locks` everywhere | Preconditions that tested *state* instead of *outcomes*. A push to origin broke the run | **Precondition: the worktree is cut from current `main`, which is green by construction (CI-gated). Postcondition: `check` passes and the task's acceptance command passes.** The gate runs once, after the work, never before it. Nothing is pinned by hash except reference data and goldens (which are not allowed to change silently — see rules) |
-| Retrospective must produce a diff to skills/rules | Rules accumulated faster than they were tested; drift between tree copy and account copy of skills had to be token-diffed | Rules are added only after something bites, in one place (`CLAUDE.md` or `.claude/rules/`), and reviewed for deletion each milestone |
+| 1. Intent and architecture | Joe states outcome, boundaries, invariants; cite architecture/ADRs | Consequential ambiguities resolved |
+| 2. Specification | Testable requirements, inputs/outputs, units/frames, edge/failure cases, non-goals | Required human spec approval recorded |
+| 3. Repository-aware plan | Inspect code/tooling; map requirements to changes and checks | Risks/interfaces resolved; required plan approval recorded |
+| 4. Decomposition | One package by default; dependencies and file ownership when splitting | Stable contracts, one writer per path/worktree |
+| 5. Repository instructions | Read shared root rules and task inputs | No conflict with accepted design |
+| 6. Reusable procedures | Use [Claude skills and role procedures](../agents/README.md#invocable-claude-skills) with existing checks | Bounded role, inputs, outputs, escalation known |
+| 7. Validation | Fast loop, then full gate and task-specific acceptance | Commands finish successfully; evidence recorded |
+| 8. Independent review | Different model, fresh context, actual diff plus spec/tests | Evidence-backed findings recorded |
+| 9. Fix and retest | Builder resolves findings, reviewer verifies deltas | No unresolved critical/major findings; validation current |
+| 10. Human review | Prepare [packet](../templates/human-review.md); Joe reads consequential changes | Explicit decision against the current candidate |
+| 11. Merge and release | Draft PR → ready → Joe squash-merges; separate release decision | Current validation/review, protected merge, release checklist |
+| 12. Coordination | Keep next action/owner visible in STATE or feature status | Handoff recoverable without chat; stop when complete |
 
-## The loop
+## Risk tiers
 
-```
-  Joe + Claude (Cowork or Claude Code)         Claude Code, one session per task
-  ────────────────────────────────────          ─────────────────────────────────────────────
-  PLAN.md: milestones as checkboxes    ──►     opener → STATE.md + git log already in context (hook)
-  ADRs when a decision is made                        → plan mode: recon + 5-line approach, Joe OKs
-                                                      → worktree branch from fresh main
-                                                      → implement against the acceptance check
-                                                      → Stop hook: fast check must pass
-                                                      → /codex:review --base origin/main (other model)
-                                                      → commit, push branch, open PR
-                                               /wrap  → STATE.md rewritten, lessons appended
-  Joe merges (skim physics; trust the gate)   ◄──     
-```
+Assign the highest applicable tier with a one-line reason. Joe may raise it. Missing evidence or
+uncertain numerical impact is reason to raise risk, not silently downgrade it.
 
-**Task size:** one PR, one verifiable outcome, one context window. Examples: "quaternion attitude propagation; torque-free spin keeps |q| and angular momentum within 1e-9 over 1000 s"; "lockstep shared-memory transport; autopilot process steps in lockstep for 10k frames with zero missed frames." If the diff can be described in one sentence, skip plan mode and just do it.
-
-**Fresh context per task.** After two failed corrections in a session, `/clear` and rewrite the opening prompt instead of arguing.
-
-## Files that carry state (the whole set)
-
-| File | Size | Rule |
+| Tier | ASTRA examples | Minimum process |
 |---|---|---|
-| `AGENTS.md` + `CLAUDE.md` | < 100 lines together | `AGENTS.md`: build/test commands, the conventions that are *non-standard* (frame/axis/quaternion conventions, units), pointers to the rest, read by every agent (Codex directly, Claude Code via the `@AGENTS.md` import in `CLAUDE.md`). `CLAUDE.md`: that import plus Claude Code's own process (worktree, model, hooks, review commands), which Codex never sees; this is the layout Anthropic's memory docs give for a repo with Claude-specific content, and Codex treats everything in `AGENTS.md` as addressed to it. Anything an agent would get right without being told is deleted |
-| `PLAN.md` | one screen | Milestones as checkboxes with a one-line acceptance each. Edited in place; no task IDs, no phase files |
-| `STATE.md` | ≤ 40 lines, rewritten never appended | What's in flight, last verified result, next step, "tried X, failed because Y" |
-| `docs/decisions/NNNN-*.md` | one screen each | ADRs: context, decision, **rejected alternatives**, consequences. Immutable once accepted; supersede, don't edit. The rejected options are what stop an agent relitigating settled choices |
-| `docs/lessons.md` | append-only | Numerical/build gotchas that bit us. Compound-engineering's "each unit of work makes the next easier" |
-| Auto-memory | automatic | Claude Code's own; corrections land here without ceremony |
+| 0 — editorial | Prose, comments; no executable or policy behavior | Brief + links/consistency check; Joe's merge decision |
+| 1 — low | Small internal change with no interface/numerical effect | Brief, focused checks + full gate, independent review |
+| 2 — normal | Feature, build/CI/hook/workflow behavior, dependency proposal | Spec/plan (may share one short artifact), Joe approves intent/plan, full gate + acceptance, independent review, human packet |
+| 3 — high | `core/kernel/`, numerical `core/util/`, `plugins/physical/`, `icd/`, transport/concurrency, health behavior, goldens/tolerances | Full relevant artifacts, Joe approves spec/plan, independent numerical/adversarial review and oracles, full gate, Joe reads critical diff/tests |
 
-Kept from the old process because it earned its place: `STATE.md` with the honesty rules ("a trace matched" ≠ "verified"), decision records, acceptance-as-command, and the append-only lessons log. Dropped: `PHASE.md`, per-task `.md` briefs, `runs/<Tid>/{REPORT,REVIEW}.md`, `gates.json`, `scope.json`, `CLOSEOUT.md`, `LOG.md`, and the account-vs-tree skill diffing.
+New dependencies, architecture/API decisions, security, and release authority always need Joe's
+approval regardless of tier. Existing explicit authorization counts; do not request it again for
+routine implementation choices. Tier 0 may omit the expensive product gate only when no execution,
+build, test, or policy behavior changes; record the scope and checks instead of claiming a full pass.
 
-## Verification: the gate, not the spec
+## Git and worktrees
 
-One command, **`just check`** (`just` from apt, with CMake presets underneath for the build configurations), is the definition of done and the only thing anyone argues about:
+- Inspect `git status --short --branch`, `git worktree list`, and relevant history first. Never reset,
+  clean, or stash another task's changes. One task/PR per session; keep existing branch conventions.
+- Start new Claude tasks with `claude --worktree <name>`; generic agents may use the equivalent:
+  `git fetch origin`, then `git worktree add .claude/worktrees/<name> -b worktree-<name> origin/main`.
+  Replace placeholders; verify fetched main is the intended base. An explicitly assigned task branch wins.
+- One writer per checkout. Each worktree has its own build directories and venv; never share those
+  mutable outputs. Gitignored `docs/refs/` inputs must be read from the main checkout explicitly.
+- Parallel builders are optional, only for independent owned paths with stable contracts and an
+  explicit assignment. Prefer dependency waves; one integrator combines completed packages and runs
+  full validation on the combined tree. Resolve semantic conflicts with the spec owner.
+- Use coherent, descriptive commits. Open draft PRs; push only the task branch. Joe squash-merges.
+  No agent merges, force-pushes shared history, changes branch protection, or publishes a release
+  without explicit authorization. Permission to implement locally is not permission to send messages.
 
-1. Configure + build with clang-18, `-Werror`, ASan/UBSan preset.
-2. Unit tests (GoogleTest) and Python tests (pytest).
-3. **Physics oracle tests** — the human-owned part. Conservation laws (energy and angular momentum in torque-free motion, quaternion norm), analytic solutions (symmetric-top precession, ballistic arc in vacuum, phugoid period of the linearized notional transport), trim residual, and the NASA 6-DoF check cases (NASA/TM-2015-218675) once the core exists, with JSBSim as a cross-check.
-4. Golden-trajectory regression with per-channel absolute + relative tolerances, stored as data.
-5. `clang-tidy` and `clang-format --dry-run --Werror`.
+## Verification
 
-Wiring, all deterministic and cheap:
+[Validation commands and coverage](validation.md) are wrappers over the existing `justfile`.
+Fast is `just test-unit`; full is `just check`. Run the full gate once on the final candidate,
+then rerun after substantive fixes/integration. Redirect noisy output to a log, wait for the real
+process to exit, read its status and `check: OK`; record failures and missing coverage honestly.
+Do not run concurrent checks in one checkout. A timeout or absent dependency is not a pass.
 
-- **Stop hook** runs the fast subset (build + unit tests) and blocks the turn from ending until it passes. Claude Code caps this at 8 consecutive blocks, which is the right amount of stubbornness.
-- **PreToolUse hook** denies edits to `tests/golden/**`, tolerance files, and `docs/decisions/**` unless Joe lifts it, two ways: `ASTRA_TOUCH_GOLDENS=1` **on the `claude` launch line** (an `export` inside a running session never reaches the hook, which inherits the `claude` process's environment), or `touch .claude/touch-goldens` while the session runs. The marker counts in **either the session's own root or the main checkout**, so one `touch ~/repos/ASTRA/.claude/touch-goldens` arms a worktree session too -- before 2026-09-16 it did not, because a worktree session's `CLAUDE_PROJECT_DIR` is the worktree and every golden-touching PR runs in one. `disarm-goldens.sh` (SessionStart) deletes both, so a lifted guard never carries into the next session. This is the one hard precondition in the whole design, and it tests the thing that actually matters: *the oracle does not move without a human deciding it should.* Widened tolerance, narrowed comparison, regenerated golden, or a deleted/weakened test is always a blocking review finding.
-- **`/goal`** for unattended runs: "all tests in `tests/physics/` pass and `just check` exits 0, or stop after 20 turns."
-- **CI**: GitHub Actions on `ubuntu-24.04`; the job is named `check` and `main` requires it. **`GATE: local` since 2026-09-16** (`.github/workflows/check.yml`): `just check` runs on Joe's machine once, after the task and before the push, and CI runs only what is cheaper there than locally -- today the hook cases. `ctest` is ~556 s per preset (the 7 `physics` tests are ~95% of it), so four presets is ~37 minutes a run: it overran the timeout and does not fit the monthly runner allowance while the same tree is tested locally every task. The gate moved, it did not go away, and the run summary says so on every run. `GATE: full` puts it back; do the `physics`-on-asan-only split first (~28 of the 37 minutes). **PRs open as drafts**: the trigger omits `synchronize`, so pushes are free and `gh pr ready` fires one run on the final tree -- and a later push blocks the merge until it re-runs, so the merged SHA is always the tested one.
-
-**Editor-grade feedback between gate runs (not part of the gate):** the `clangd-lsp` and `pyright-lsp` plugins give Claude diagnostics after every edit and semantic navigation (go-to-definition, find-references, call hierarchy) instead of grep. They shorten the loop but never replace `just check` — clangd's diagnostics are not a `-Werror` sanitizer build. Setup lives in M0: `apt install clangd-18` (aliased so the plugin finds `clangd`), `CMAKE_EXPORT_COMPILE_COMMANDS=ON` in every preset with `compile_commands.json` linked at the repo root (without it clangd reports false errors on every Eigen include), `pyright` pointed at the venv via `pyrightconfig.json`, and nanobind `.pyi` stubs generated at build so pyright sees the compiled module's types. One line in `CLAUDE.md` telling Claude to prefer the LSP tools over grep for symbol lookups.
+The oracle remains human-owned: `tests/golden/**`, tolerance files, and `docs/decisions/**`.
+Claude's PreToolUse guard requires Joe to authorize and lift it via `ASTRA_TOUCH_GOLDENS=1` on the
+launch environment or `.claude/touch-goldens` in the session or main checkout. SessionStart removes
+both markers. Agents must not arm their own bypass. Other tools must honor this rule even without
+Claude hooks. Widening tolerance, narrowing comparison, regenerating a golden, or weakening a test
+is a blocking finding unless Joe explicitly approves the underlying requirement/oracle change.
 
 ## Review
 
-Review is done by a different model from a fresh context: Codex, via OpenAI's `codex` plugin (Codex reads `AGENTS.md`, the shared conventions file, so it knows them). The session runs it itself from Bash — `node <plugin>/scripts/codex-companion.mjs review --base origin/main --wait` — because the `/codex:review` and `/codex:adversarial-review` slash commands carry `disable-model-invocation` and are only wrappers of that script. Codex's tokens are on the OpenAI plan; Claude spends only what it takes to launch the review and read the result. For **physics-touching** diffs add the script's `adversarial-review --base origin/main --wait` with focus text naming the ADRs and oracles the change must satisfy (signs per ADR-0001, units per ADR-0002, no per-frame allocation, determinism). The plugin's stop-time review gate stays **off**: a review on every turn is the endless-review failure mode, and the Stop hook is for the fast check. Findings are treated as claims to verify against the code, not as instructions (Anthropic's own warning: a reviewer asked to find gaps will find some even when the work is sound).
+Joe's role assignment: **Claude owns planning, implementation, tests/validation, fixes, integration,
+and handoff; Codex owns independent review and adversarial review**, including the one-off critique
+of consequential plans below. These roles are not interchangeable unless Joe explicitly changes the
+assignment. Joe remains the requirement owner, architect, human approver and merge/release authority.
+Use fresh review context and record the actual model.
+Review receives the spec/plan, base/head, diff, relevant surrounding code, tests, and validation
+results, not just the builder's rationale. Reviewer is read-only; builder owns fixes.
+See [review procedure](../agents/review.md) and [findings template](../templates/review-findings.md).
 
-**Plan review, from M1.** When a plan makes a design choice that architecture.md and the ADRs do not already pin, and being wrong would be expensive to unwind (in M1: the EOM and quaternion kinematics, the integrator interface, the health monitor; not mass properties, flat Earth, or test scaffolding), Claude runs one `/codex:rescue` round *inside plan mode, before the plan is shown to Joe*: the plan text and the acceptance command inlined (Codex cannot see the plan file), with "state what must be true for this plan to satisfy the acceptance command and ADR-XXXX…; check each; report only what fails." One round. Findings that hold are folded into the plan; rejected findings are named in the plan with the reason, so Joe reads the plan and the critique together when approving it. Plans touching only pinned designs skip this. Still never automated on every plan, and never a critique subagent — the trigger above is the whole point: a critique on every plan is how costs run away in the other direction. For **physics-touching** changes — anything under `core/kernel/`, `core/util/` (frames, quaternions, geodesy), `plugins/physical/`, or `tests/golden/` — Joe reads the diff. For everything else, the gate is the review. No separate review session, no `REVIEW.md`, no ACCEPT/REVISE state machine; a review finding is either fixed in the same session or becomes a line in `PLAN.md`.
+Claude runs [`/review-cycle`](../../.claude/skills/review-cycle/SKILL.md) using the installed companion;
+[dispatch instructions](../agents/review-dispatch.md) cover working-tree/branch/mixed candidates.
+Physics diffs also need adversarial review focused on ADRs, units/signs, domain validity, allocation,
+and determinism. Joe reads these diffs. Review is not run on every turn; the Stop hook is the fast
+check. If Codex review is unavailable, say so and leave review pending; self-review is not
+independent review. An accepted human exception must be recorded explicitly.
 
-## Git
+For an unpinned design expensive to unwind, do one independent plan critique before Joe sees the
+plan, including acceptance commands and ADRs. Resolve supported findings; explain rejected ones.
+Skip this extra critique when the architecture already pins the design. Cowork/design chat is an
+optional input, never a required hop.
 
-- Branch per task via `claude --worktree <name>` (branches from the current remote default, so "start from fresh main" is automatic; edits to the main checkout are blocked by the tool).
-- **PRs open as drafts** (`gh pr create --draft`). CI triggers on `opened`/`reopened`/`ready_for_review`, never on `synchronize`, so pushes to a draft cost nothing and `gh pr ready` fires exactly one run against the final tree. A push after that leaves the head SHA without a `check` and the merge blocks until `gh pr ready --undo && gh pr ready` re-runs it, so the SHA that merges is always the SHA that was tested.
-- Claude commits, pushes the branch, and opens the PR itself (GitHub is integrated); Joe squash-merges. Commit attribution via `attribution.commit` settings. `main` is protected so nothing lands without the PR.
-- No SHAs anywhere in process files. If two worktrees collide, rebase onto main one at a time; git catches textual conflicts, the gate catches semantic ones.
+## Review-fix limits and failure routing
 
-## Where Cowork fits
+Track each finding: ID, severity, file/line, concrete failure, evidence, requested outcome,
+builder response, and reviewer verification. Status: open, fixed-unverified, verified, rejected,
+deferred, or needs-human. Rejection needs evidence and reviewer agreement; disagreement goes to Joe.
+Critical/major items cannot silently become follow-ups. Joe must explicitly accept any exception;
+record its risk and owner. Minor improvements can be deferred without extending scope.
 
-Cowork sessions are for **thinking that produces documents**: architecture, ADRs, research, milestone planning, and occasional fresh-eyes review of a PR when Joe wants a second opinion untainted by having written the code. Their outputs land in the Project and in `docs/`.
+Batch fixes; add a meaningful regression test where behavior changes, rerun affected checks and the
+full gate before final approval, and re-review changed areas plus affected invariants. Any substantive
+push invalidates prior review/validation for affected work. Do not weaken requirements or tests.
 
-**Optional in-loop use, added 2026-09-16 after M2 PR 1b.** Joe may paste a plan into Cowork before approving it, or take a design question there instead of settling it in the coding session. A convenience, never a required hop: no PR waits on it. It pays when a fresh context reads the question better than the session that just wrote the plan -- in 1b it caught a `constexpr std::pow` clang-18 rejects and a golden with no oracle but its own implementation. One pass, then the session owns it; two hops is the old process growing back.
+- At most two autonomous correction/review-fix rounds per task; a finding surviving both escalates.
+- At most two failed integration attempts. No infinite retry, review ping-pong, or reviewer refactoring.
+- Build/test defect → builder. Infrastructure failure → tooling diagnosis. Spec ambiguity → Joe.
+  Architecture conflict/scope expansion → Joe. Exhausted budget → summary of attempts and next choice.
+- A fresh context after two failed corrections is useful, but does not reset the budget or approval.
+  Claude's Stop hook blocks the first failed stop attempt, then allows an honest handoff on
+  `stop_hook_active` continuation without rechecking. Its exit 0 is not validation evidence or task
+  completion; retain failures and run any necessary checks explicitly. It grants no extra fix rounds.
 
-## Skills (two, small)
+## Human approval and merge/release gates
 
-- **`/wrap`** — end of session: rewrite `STATE.md`, append to `docs/lessons.md` if anything bit, ensure the branch is pushed and the PR is open **as a draft** (§Git), print the one-line opener for next time.
-- **`astra-retro`** — at each milestone, run by Joe **from Cowork** (it was a Claude Code `/retro` skill until M2): list rules that have not fired since the last retro and propose deleting them; list things that bit twice and propose at most one rule to add; propose a process change if the milestone showed one. Produces git-apply patches or nothing, and never commits.
+Use [`/human-review`](../../.claude/skills/human-review/SKILL.md) to prepare a
+[human review packet](../templates/human-review.md) before requesting approval: behavior,
+requirements, diff scope, current check results/logs, findings, assumptions, critical files, rollback.
+Joe approves the current PR candidate; later substantive changes require renewed review. Human
+approval, AI review, validation, merge, and release are separate states, never inferred from labels.
 
-## Model and effort (revised 2026-09-14 after M0; supersedes the 2026-09-14 morning decision)
+**Checked-in configuration, not a claim about live GitHub settings:**
+`.github/rulesets/main.json` requires PRs, squash merges, up-to-date `check`, no force pushes or deletion.
+It intentionally requires **zero approving reviews**: Joe is the sole maintainer and approves by
+reviewing the candidate and explicitly deciding to merge (or performing the squash-merge himself).
+No separate GitHub approving-review badge or second human is required. The checked-in rules do not
+automatically dismiss stale approvals or require thread resolution; Joe still inspects substantive
+changes after his earlier review. Audit live settings before relying on protection; this baseline
+does not change host rules or add approval checks.
 
-M0 ran on `fable` at `high`/`xhigh` with subagents inheriting the model. One day cost about 3.7M output tokens and
-100M cache-read tokens, roughly $300 of API-equivalent, and Fable burns Max-plan usage about twice as fast as Opus
-with a 50%-of-weekly cap. That is not sustainable on a 20x plan and was not buying correctness: nothing in M0-M5 is
-a problem no one has seen, and correctness comes from the human-owned oracle, not from thinking tokens.
+`.github/workflows/check.yml` intentionally has **GATE=local** to conserve Joe's GitHub Actions
+minutes: CI does not run the full product gate.
+A green `check` must be paired with recorded local full-validation evidence for code/policy changes.
+It triggers on opened/reopened/ready_for_review (not synchronize) and manual dispatch. After a later
+push, rerun the checks on the new candidate: `gh pr ready --undo`, then `gh pr ready`; inspect the
+actual current-head check results before merge. Do not treat an older green run as current evidence.
+Returning to GATE=full is a separate cost/runtime decision; measure physics runtime before changing
+coverage or timeouts. Existing CI and hook configuration remain the enforcement mechanisms.
 
-- **Standing default: `opusplan` at `high`**, pinned in `.claude/settings.json`: Opus 5 in plan mode, Sonnet 5
-  once the plan is approved. Anthropic's guidance: use the model's default effort; higher effort generates roughly
-  7x the tokens. If the automatic switch does not happen, `/model sonnet` right after approving the plan.
-- **Subagents on Sonnet** (`CLAUDE_CODE_SUBAGENT_MODEL=sonnet` in the settings `env` block). No recon subagents on
-  a tree this size; the session reads the files itself.
-- **Escalation is Joe's, by Anthropic's rule**: if Claude had the context and tried and still got it wrong, the
-  model is too small (`/model opus` for the rest of the session, `/model fable` only after Opus has failed);
-  if it got it wrong by skipping a file or not running the tests, the effort is too low (`/effort xhigh` for the
-  rest of the session). Neither is a standing setting. `max` never.
-- **Physics-touching diffs** are checked by Joe reading them and by the oracle tests, not by a higher effort level.
-- **Context is the multiplier.** Cache reads scale with context size times turns. Build and test output goes to a
-  file with only the tail shown; one PR per session; `/clear` rather than continuing after a merge.
-- **Review** is Codex (§Review), on the OpenAI plan, so it costs Claude usage almost nothing.
-- Measure: the per-session token script (transcripts under `~/.claude/projects/*ASTRA*/**/*.jsonl`) after each
-  PR; `/usage` for the 5-hour and weekly windows.
+ASTRA has no release/deployment pipeline yet. Before the first release:
 
-## Milestones for v1 (seed for `PLAN.md`)
+1. Joe authorizes scope/version and rollback target; resolve current blocking findings.
+2. Validate the clean merged tree with full gate and scenario/physics acceptance. A squash/merge
+   creates a new revision; link its validation to the release evidence.
+3. Record toolchain/dependency versions, config/seed/reference-data provenance, test results and
+   limitations. The CMake project version is the existing source for Python's version.
+4. Respect the source-built plugin/ICD contract: Python is editable-only today; do not invent a wheel
+   or binary distribution. If artifacts are introduced, record checksums and reproducible build inputs.
+5. Joe authorizes tagging/publishing/deploying and any signing credentials. Record release notes,
+   smoke checks and rollback steps; verify the intended version after release. No automatic deployment.
+6. Agree who observes the result and for how long; a regression becomes a test/lesson and a new task.
 
-The authoritative acceptance criteria are in `docs/architecture.md` §16, and the live milestone state is `PLAN.md`. The list below is the original 2026-09-14 seed, kept as history: it is **not** maintained, and where it disagrees with `PLAN.md` or §16, they win.
+## Coordination and handoff
 
-- **M0 Bootstrap** — repo skeleton, CMake presets with `compile_commands.json` exported, `justfile`, `just check` green on an empty core plus one dummy plugin, hooks installed, CI on PRs, `clangd-lsp` + `pyright-lsp` working (nanobind stubs, pyright on the venv), ADR-0001…0011.
-- **M1 Rigid body** — EOM + integrators + mass properties + flat Earth; torque-free and ballistic oracles pass; health monitor halts on injected faults.
-- **M2 Environment** — ISA atmosphere, gravity, wind/turbulence, selectable Earth (flat/round/WGS-84); NASA check cases 1–10.
-- **M3 Notional transport** — aero + propulsion plugins and the notional narrow-body; trim and linearize at cruise; phugoid/short-period match the linear model.
-- **M4 Lockstep** — shared-memory transport, straight-and-level autopilot as a separate process outside the sim tree; 10k-frame lockstep with zero missed frames; transport-health halt when the peer dies.
-- **M5 Tooling** — HDF5 logging + replay, scenario harness, FlightGear bridge, Monte Carlo runner.
+Use human-readable states, not an orchestration service:
+`draft → ready → implementing → validating → reviewing ↔ fixing → human-review → ready-to-merge → merged`.
+`ready` means required spec/plan decisions are approved; `reviewing` requires passing validation;
+`human-review` requires no unresolved critical/major findings; `ready-to-merge` requires Joe's
+current decision and checks (his own squash-merge may record that decision); only observed GitHub state establishes `merged`. Track release separately.
+`blocked` includes reason, owner, and next action. Labels/status prose do not bypass a gate.
 
-## Decisions on the open items (all decided 2026-09-14)
+Use [task status](../templates/task-status.md) for multiple packages; otherwise STATE/PR suffice.
+Use the revised [`/wrap`](../../.claude/skills/wrap/SKILL.md) when Claude pauses or finishes meaningful
+work at any stage, including a local-only handoff or blocked validation. It records the first unfinished
+gate, actual evidence, Codex findings/retry counts, human decisions and next action; it prepares the
+human packet when appropriate. It does not force commit/push/PR creation, infer approval from tests,
+or move to the next milestone while the current task is unfinished. Previously authorized Git actions
+remain authorized; handoff alone does not authorize them. Append lessons only when something actually
+bit. Review process cost when useful from existing evidence; the obsolete retrospective skill is
+removed and no retro ceremony blocks a milestone. Add automation only for demonstrated repetitive work.
 
-1. **`just check`** is the single entry point; CMake presets underneath.
-2. **Claude pushes branches and opens PRs itself**; Joe merges. GitHub is integrated.
-3. **M0 starts directly in Claude Code**, with the architecture doc as its only input.
-4. **LSP plugins: yes**, `clangd-lsp` and `pyright-lsp`, set up as part of M0. They are feedback, not the gate.
-5. **CI from M0**, GitHub Actions on `ubuntu-24.04`.
+## Model and effort
 
-## Reusing this elsewhere
+Preserve `.claude/settings.json`: `opusplan`, `high`, Sonnet subagents. No recon subagents for this
+repository. Model/effort escalation is Joe's decision; physics correctness comes from independent
+oracles and review. One PR per context; log verbose output. Templates record the assigned provider/model
+without changing provider settings. Claude does the work; Codex reviews it. No new agent service or dependency is needed.
 
-The repo is the documentation -- copy the files and edit them. What is generic and what is ASTRA:
+## Implementation boundaries
 
-- **Generic**: `.claude/hooks/` (all five, plus `tests/run.sh` and the `.cases` files), `.claude/settings.json`,
-  `.github/workflows/check.yml`, `.github/rulesets/main.json`, the `AGENTS.md`/`CLAUDE.md` split, and the four
-  state files (`PLAN.md`, `STATE.md`, `docs/decisions/`, `docs/lessons.md`) as empty templates.
-- **Change per project**: the gate command and the `justfile` behind it; `guard-oracle.sh`'s guarded-path regex
-  (what counts as the oracle here); `stop-check.sh`'s fast subset; `session-start.sh`'s printout; `check.yml`'s
-  `GATE`, scope allow-list and toolchain step; every word of `CLAUDE.md`.
-- **Do not port the numbers.** The token measurements, the 556 s, the preset list are this project's. Port the
-  habit of measuring instead.
-
-What must survive the port, or it is the shape without the substance: one command is the definition of done;
-the human owns the oracle and a hook enforces it; state lives in a few small files rewritten not appended; and
-"verified" means a command ran and exited 0 in this session.
-
-## Sources
-
-- Anthropic best practices, `/goal`, hooks, worktrees, memory, code review: https://code.claude.com/docs/en/best-practices · https://code.claude.com/docs/en/goal · https://code.claude.com/docs/en/hooks-guide · https://code.claude.com/docs/en/worktrees · https://code.claude.com/docs/en/memory · https://code.claude.com/docs/en/code-review · https://code.claude.com/docs/en/desktop
-- LSP plugins: https://claude.com/plugins/clangd-lsp · https://claude.com/plugins/pyright-lsp · https://karanbansal.in/blog/claude-code-lsp/ · https://www.amazingcto.com/lsp-in-claude/
-- Anthropic engineering: https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents · https://www.anthropic.com/engineering/harness-design-long-running-apps · https://www.anthropic.com/engineering/building-c-compiler · https://claude.com/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models
-- OpenAI harness engineering: https://openai.com/index/harness-engineering/
-- Spec-driven development critiques: https://www.martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html · https://ranthebuilder.cloud/blog/i-tested-three-spec-driven-ai-tools-here-s-my-honest-take/ · https://addyosmani.com/blog/agentic-engineering/
-- Framework pain reports: https://github.com/obra/superpowers/issues/1260 · https://dev.to/arch4g/my-experience-using-the-bmad-framework-on-a-personal-project-patience-required-28aa · https://www.pulumi.com/blog/claude-code-orchestration-frameworks/ · https://ralphloop.sh/blog/ralph-loop-failure-modes
-- Practitioners: https://infoq.com/news/2026/01/claude-code-creator-workflow/ · https://harper.blog/2025/05/08/basic-claude-code/ · https://simonwillison.net/2025/Oct/7/vibe-engineering/ · https://every.to/chain-of-thought/compound-engineering-how-every-codes-with-agents · https://towardsdatascience.com/governed-context-managing-context-rot-in-claude-code/
-- Evidence on instruction files and agent-written tests: https://arxiv.org/abs/2602.11988 · https://arxiv.org/html/2602.07900v1 · https://htek.dev/articles/vibe-testing-when-ai-agents-goodhart-your-test-suite
-- Numerical validation: https://arxiv.org/html/2605.09360v1 · https://arxiv.org/html/2512.21373 · https://ntrs.nasa.gov/citations/20150001263 · https://github.com/JSBSim-Team/jsbsim · https://github.com/mpusz/mp-units
+The project skills are instructions invoked by Claude; they do not themselves enforce a merge/release
+state machine. Local validation, Codex output, human decisions and actual Git state supply the evidence.
+The Stop hook supplies feedback, not approval. Its bounded continuation behavior follows the
+[Claude hook contract](https://code.claude.com/docs/en/hooks#stop); project skill discovery follows the
+[Claude skill contract](https://code.claude.com/docs/en/skills). No autonomous dispatcher is installed.

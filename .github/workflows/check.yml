@@ -23,9 +23,9 @@ name: check
 on:
   pull_request:
     # Deliberately not `synchronize`: open the PR as a draft (`gh pr create --draft`), push as often as
-    # you like for free, then `gh pr ready` fires exactly one run against the final tree. A push after
-    # that leaves the new head SHA without a `check`, so the merge blocks until
-    # `gh pr ready --undo && gh pr ready` re-runs it -- the merged SHA is always the tested one.
+    # you like without synchronize runs, then `gh pr ready` requests checks on the candidate.
+    # After later pushes, rerun via `gh pr ready --undo && gh pr ready` and inspect the actual
+    # current-head check results. Local validation/review evidence must also match that candidate.
     types: [opened, reopened, ready_for_review]
   workflow_dispatch:
 
@@ -45,6 +45,9 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+
+      - name: Validation wrapper syntax
+        run: bash -n scripts/check-fast.sh scripts/check-full.sh
 
       # Two questions, not one: does this diff touch anything the gate would build, and does it touch
       # the hooks (whose only real test is the case runner, which needs no build at all)?
@@ -71,6 +74,7 @@ jobs:
       # `just` alone, not scripts/setup-ubuntu.sh: the case runner needs the binary for its busy-tree
       # case and nothing else, so this is seconds rather than the full clang/Eigen/yaml-cpp toolchain.
       - name: "Hook cases: just hooks-test"
+        id: hooks_gate
         if: steps.scope.outputs.hooks == 'true'
         run: |
           sudo apt-get update -qq
@@ -86,27 +90,29 @@ jobs:
         run: sudo sysctl -w vm.mmap_rnd_bits=28
 
       - name: just check
+        id: full_gate
         if: env.GATE == 'full' && steps.scope.outputs.code == 'true'
         run: just check
 
-      # Always last, so the run summary states what this green check actually means. A `check` that
-      # passed without running the gate must never read as one that ran it.
+      # Report actual step outcomes, including failed/skipped prerequisites; never infer a pass
+      # from the planned scope. The job and GATE=local remain unchanged.
       - name: Say what was run
         if: always()
+        env:
+          FULL_OUTCOME: ${{ steps.full_gate.outcome }}
+          HOOKS_OUTCOME: ${{ steps.hooks_gate.outcome }}
         run: |
           {
             echo "### check: GATE=${GATE}"
             if [ "$GATE" = full ]; then
-              if [ "${{ steps.scope.outputs.code }}" = true ]; then
-                echo "- \`just check\` ran here: this tree is verified by CI."
-              else
-                echo "- No buildable file changed; the gate was skipped."
-              fi
+              case "$FULL_OUTCOME" in
+                success) echo '- `just check` passed in CI.' ;;
+                failure) echo '- `just check` failed in CI; this candidate is not validated.' ;;
+                *) echo "- Full gate did not complete successfully (outcome: ${FULL_OUTCOME:-not run}); inspect prerequisite steps." ;;
+              esac
             else
-              echo "- **The gate did NOT run in CI.** The authoritative result is \`just check\` on Joe's"
-              echo "  machine, run once after the task and before the push (workflow.md §Verification)."
-              echo "- A green \`check\` on this PR means the ruleset is satisfied, not that CI tested the tree."
+              echo '- **The full gate did NOT run in CI.** It runs locally to conserve GitHub minutes.'
+              echo '- Current-candidate local validation and review evidence are required; a green CI badge is not a full-gate result.'
             fi
-            [ "${{ steps.scope.outputs.hooks }}" = true ] && echo "- Hook cases ran (\`just hooks-test\`)."
-            true
+            echo "- Hook cases outcome: ${HOOKS_OUTCOME:-not run}."
           } >> "$GITHUB_STEP_SUMMARY"
