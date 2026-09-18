@@ -201,9 +201,10 @@ any prior round:
 
 Severity: major (Codex: medium — "Preserve tolerance protection for writes after changing
 directories")
-Status: open (see R-009's entry: the core multiline-continuation bypass is fixed, but a
-narrower variant — a pipeline comment containing its own `;` — remains a confirmed, undispatched
-bypass; genuinely open until fixed or accepted)
+Status: open — accepted as documented residual risk by Joe, 2026-09-18 (see "Joe's 2026-09-18
+acceptance decision" near the end of this file). Not fixed, not further pursued this batch; the
+core multiline-continuation bypass is fixed (see R-009's entry), but a narrower variant — a
+pipeline comment containing its own `;` — remains a real, reproduced, unfixed bypass.
 Location (pre-fix): `.claude/hooks/guard-oracle.sh:50-51` (the Bash write-target matcher `g`).
 Requirement/ADR: the oracle-guard boundary itself (`workflow.md` §Verification).
 Failure: by static inspection, `cd tests/physics && sed -i 's/1e-6/1e-3/' tolerances.yaml`
@@ -361,9 +362,11 @@ Human exception if needed: none requested; not applicable.
 ## Finding R-008
 
 Severity: major
-Status: open (see R-011/R-012's entries: every reported/narrowed shape through Round 7 is
-fixed, but an `xargs`-piped target and a GNU sed address modifier (`/x/I`) before the command
-letter remain confirmed, undispatched bypasses; genuinely open until fixed or accepted)
+Status: open — accepted as documented residual risk by Joe, 2026-09-18 (see "Joe's 2026-09-18
+acceptance decision" near the end of this file). Not fixed, not further pursued this batch;
+every reported/narrowed shape through Round 7 is fixed (see R-011/R-012's entries), but an
+`xargs`-piped target and a GNU sed address modifier (`/x/I`) before the command letter remain
+real, reproduced, unfixed bypasses.
 Location: `.claude/hooks/guard-oracle.sh`'s Bash-branch Python helper, `command_arg_targets`
 (pre-fix: `sed` was unconditionally in `FILE_ARG_VERBS`, so every non-flag argument — including
 a plain read target — was treated as a write target once resolved).
@@ -460,10 +463,11 @@ real file written) before being fixed, per the same evidence discipline as R-007
 ## Finding R-009
 
 Severity: high (Codex)
-Status: open (Round 5/6 closed the plain multiline-continuation shape, but Codex's 4th pass
-found a narrower variant — a pipeline comment containing its own `;` — still open; not fixed,
-recorded as a disclosed gap in `guard-oracle.cases`, undispatched to Codex per this session's
-authorization bound)
+Status: open — accepted as documented residual risk by Joe, 2026-09-18 (see "Joe's 2026-09-18
+acceptance decision" near the end of this file). Round 5/6 closed the plain multiline-
+continuation shape, but Codex's 4th pass found a narrower variant — a pipeline comment
+containing its own `;` — still open; not fixed, recorded as a disclosed gap in
+`guard-oracle.cases`.
 Location: `.claude/hooks/guard-oracle.sh`'s `split_statements`/`evaluate` (pipeline handling).
 Reported by: Codex (adversarial fix-verification pass on `e115c75`).
 Failure: R-006's directory-tracking fix treated every statement-separator (`;`, `&&`, `||`,
@@ -538,10 +542,11 @@ Human exception if needed: none requested; not applicable.
 ## Finding R-011
 
 Severity: high (Codex)
-Status: open (every reported/narrowed shape through Round 6 is Codex-verified fixed on
-`7c9f20f`, but that same pass found two more: an `xargs`-piped target and a GNU sed address
-modifier `/x/I` — neither fixed, both pinned as disclosed gaps in `guard-oracle.cases`,
-undispatched to Codex per this session's authorization bound)
+Status: open — accepted as documented residual risk by Joe, 2026-09-18 (see "Joe's 2026-09-18
+acceptance decision" near the end of this file). Every reported/narrowed shape through Round 6
+is Codex-verified fixed on `7c9f20f`, but that same pass found two more: an `xargs`-piped
+target and a GNU sed address modifier `/x/I` — neither fixed, both pinned as disclosed gaps in
+`guard-oracle.cases`.
 Location: `.claude/hooks/guard-oracle.sh`'s `command_arg_targets` sed branch (pre-fix: treated
 sed as write-capable only via `sed_is_inplace`).
 Reported by: Codex (adversarial fix-verification pass on `e115c75`).
@@ -993,3 +998,26 @@ very plausibly surface a fifth — closing the tail completely likely needs eith
 today's much-reduced residual risk as a documented limitation, or a different approach entirely
 (real sed/shell parsing, or reverting to a conservative "block first" stance for sed near
 guarded directories) rather than continued incremental regex patching.
+
+## Joe's 2026-09-18 acceptance decision
+
+Joe, verbatim: "I accept the documented residual guard limitations listed in the current
+human-review packet. Record that acceptance explicitly; do not mark the unresolved findings
+fixed or Round 7 independently verified. No further guard fixes, reviews, or full-gate runs
+for this batch. Prepare the workflow PR for my final merge decision, preserving the existing
+validation evidence. Do not merge or begin M2 PR 3b yet."
+
+This accepts, as documented residual risk, exactly the three still-open findings and the one
+disclosed false block recorded above and in `docs/reviews/workflow-v3-human-review.md`'s
+Decision record (which has the full accepted-risk table with owner/follow-up-trigger per item):
+R-006/R-009's pipeline-comment-with-`;` bypass, R-008/R-011's `xargs`-piped-target and sed
+address-modifier bypasses, and R-008/R-013's `/w probe/p` false block. **This acceptance does
+not change any finding's `Status:` field to `verified` or `fixed`** — each remains `Status:
+open`, now annotated "accepted as documented residual risk by Joe, 2026-09-18" at its own
+entry above, per Joe's explicit instruction not to mark them fixed or Round 7 independently
+verified. No guard-oracle.sh changes, Codex dispatches, or full local gate runs were performed
+in response to this message — the candidate, evidence, and every finding's substantive state
+are exactly as Round 7 (`4956c13`) left them. Joe's acceptance is recorded as the Decision
+record's `State: approved` (findings-disposition scope only) in the human-review packet;
+**merge itself remains a separate, still-pending decision**, to be made on the PR this
+acceptance authorizes preparing (not merging).

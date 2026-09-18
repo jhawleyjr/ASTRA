@@ -1,19 +1,20 @@
 # Human review packet: workflow-v3 (12-step workflow, process/tooling candidate)
 
 PR / candidate base and head: `origin/main`=`40b484b` (confirmed current tip of `main` at
-packet time — no PR yet, no rebase pending), head `4956c13` on branch `workflow-v3`, clean tree
-(nothing uncommitted). 13 commits ahead of `main`. This is a **process/tooling candidate**: the
-twelve-step workflow docs, `.claude/hooks/guard-oracle.sh`, its regression-case fixture,
-`scripts/docs_check.py`, `justfile`/CI wiring, and templates — not a physics/product change.
-Spec/plan/task: no repository feature spec (workflow tooling, not a `PLAN.md` milestone item);
-`docs/reviews/workflow-v3-review.md` is the running findings/evidence record for this whole
-candidate (see its "Final status" section for the fullest detail; this packet summarizes it).
+packet time — no PR yet, no rebase pending), head `a942475` on branch `workflow-v3`. This is a
+**process/tooling candidate**: the twelve-step workflow docs, `.claude/hooks/guard-oracle.sh`,
+its regression-case fixture, `scripts/docs_check.py`, `justfile`/CI wiring, and templates — not
+a physics/product change. Spec/plan/task: no repository feature spec (workflow tooling, not a
+`PLAN.md` milestone item); `docs/reviews/workflow-v3-review.md` is the running findings/
+evidence record for this whole candidate (see its "Final status" section for the fullest
+detail; this packet summarizes it).
 Risk: process/tooling, but `.claude/hooks/guard-oracle.sh` guards `tests/golden/**`,
 `docs/decisions/**`, and tolerance files — the repository's human-owned oracle boundary — so a
 defect there has real consequence even though nothing here touches physics/product code.
-Decision requested: **not a clean approval request**. This candidate has narrowed but still-open
-findings in the guard-oracle hook (below); the request is Joe's disposition of those findings —
-accept as documented residual risk, authorize a differently-scoped fix, or another decision.
+Decision requested: originally, Joe's disposition of the still-open guard-oracle findings —
+**answered 2026-09-18: Joe accepts the documented residual limitations as-is** (see Decision
+record below); no further guard fixes/review/full-gate work follows from that acceptance. The
+**separate, still-pending** decision is the actual merge, on the PR this packet accompanies.
 
 ## What changes and why
 
@@ -127,9 +128,17 @@ active production or safety defect.
 
 ## Decision record
 
-State: pending
-Human decision/date/reference: pending
-Approved candidate/scope: pending
+State: approved (findings disposition only — see below; merge itself is a separate, still-
+pending decision on the PR)
+Human decision/date/reference: Joe, 2026-09-18 — "I accept the documented residual guard
+limitations listed in the current human-review packet. Record that acceptance explicitly; do
+not mark the unresolved findings fixed or Round 7 independently verified. No further guard
+fixes, reviews, or full-gate runs for this batch. Prepare the workflow PR for my final merge
+decision, preserving the existing validation evidence. Do not merge or begin M2 PR 3b yet."
+Approved candidate/scope: `origin/main`=`40b484b` base, head `a942475` (this packet's own
+candidate at acceptance time) — the three open findings and the one accepted false block below,
+exactly as disclosed; **not** re-verified or re-tested as part of recording this acceptance,
+per Joe's explicit instruction.
 Merge observed: not merged
 Release authorization: pending / not requested
 
@@ -137,18 +146,32 @@ Significant tradeoff rationale: this session chose to stop the fix-verify cycle 
 rather than continue chasing Codex's fourth pass's findings with a fifth autonomous round, per
 both Codex's own explicit conclusion and this session's authorization bound — the tradeoff was
 disclosure of a small, specific, well-evidenced remaining surface over continuing to chase a
-fully green state without renewed authorization from Joe.
-Accepted risks: none formally accepted yet — the three open items above are unresolved, not
-risk-accepted; this decision is Joe's to make. The `/w probe/p` false block is a candidate for
-"accept as-is" given it is a false block, not a bypass, and is already recoverable via the
-marker.
-Nonblocking follow-ups: none recorded (each open item above is either a blocker or the one
-explicitly-flagged accept-candidate false block, not a deferred minor).
+fully green state without renewed authorization from Joe. Joe's 2026-09-18 decision accepts
+that tradeoff's outcome rather than requesting a further round.
+Accepted risks (Joe, 2026-09-18): all three still-open findings, plus the one already-disclosed
+false block, exactly as this packet's Independent Review section states them — no rewording,
+no re-verification:
+  - R-006/R-009: a pipeline comment containing its own `;` can still corrupt directory tracking
+    and reach a guarded write. Owner: repository maintainer (Joe). Follow-up trigger: revisit
+    if `.claude/hooks/guard-oracle.sh`'s pipeline/statement-splitting logic is touched again, or
+    if this shape is ever seen in an actual session transcript.
+  - R-008/R-011: an `xargs`-piped sed target, or a GNU sed address modifier (`/x/I`) before the
+    command letter, can still reach a guarded write undetected. Owner: repository maintainer
+    (Joe). Follow-up trigger: revisit if `.claude/hooks/guard-oracle.sh`'s sed classification is
+    touched again, or if evidence emerges that either shape is actually used.
+  - R-008/R-013's disclosed limitation: a `w` inside regex/pattern text containing real
+    whitespace (`/w probe/p`) still false-blocks a read-only sed inspection. Owner: repository
+    maintainer (Joe). Follow-up trigger: only if this false block is actually hit and becomes a
+    real friction point (recoverable immediately via the existing marker in the meantime).
+No further guard-oracle.sh fixes, Codex dispatches, or full local gate runs were performed to
+record this acceptance, per Joe's explicit instruction; all validation evidence in this packet
+and `docs/reviews/workflow-v3-review.md` is exactly as it stood at Round 7 (`4956c13`)/this
+packet's prior version.
+Nonblocking follow-ups: the three accepted-risk items above, each with its own follow-up
+trigger; none block merge.
 Architectural decisions: none — no ADR implicated by this candidate.
 
-If `changes-required`: these are implementation defects (guard-oracle.sh correctness gaps),
-routing to step 9 (fix, retest, re-review) if and when Joe authorizes a differently-scoped
-batch — not a planning defect, requirements gap, or architecture conflict.
-
-Joe's explicit decision or squash-merge records approval in this solo-maintainer repo; no
-GitHub approving-review badge is required. This packet is not itself a request to merge.
+Joe's explicit decision records the findings-disposition approval in this solo-maintainer repo;
+no GitHub approving-review badge is required. **This packet's approval is not merge
+authorization** — Joe's own words above explicitly separate "prepare the PR for my final merge
+decision" from this acceptance; the PR itself, once opened, carries the actual merge decision.
