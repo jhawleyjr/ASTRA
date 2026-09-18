@@ -78,8 +78,19 @@ def split_statements(text):
     # Best-effort split on shell control operators outside quotes; not a shell parser (a
     # separator inside an unquoted subshell/command-substitution can still be mis-split, in
     # which case the affected statement fails to tokenize below and falls back to a plain
-    # substring check instead of being silently skipped).
+    # substring check instead of being silently skipped). Returns (statement, in_pipeline)
+    # pairs: in_pipeline is True for a statement adjacent to a `|` on either side, since bash
+    # runs every stage of a pipeline (including a lone `cd`) in a subshell by default -- that
+    # `cd` does not persist to any statement after the pipeline, unlike one joined by
+    # `;`/`&&`/`||`/newline.
     stmts, buf, i, n, quote = [], [], 0, len(text), None
+    seps = []
+
+    def flush(sep):
+        stmts.append("".join(buf))
+        seps.append(sep)
+        buf.clear()
+
     while i < n:
         c = text[i]
         if quote:
@@ -99,13 +110,20 @@ def split_statements(text):
             i += 2
             continue
         if text[i:i + 2] in ("&&", "||"):
-            stmts.append("".join(buf)); buf = []; i += 2; continue
-        if c in (";", "\n", "|"):
-            stmts.append("".join(buf)); buf = []; i += 1; continue
+            flush(";"); i += 2; continue
+        if c in (";", "\n"):
+            flush(";"); i += 1; continue
+        if c == "|":
+            flush("|"); i += 1; continue
         buf.append(c); i += 1
-    if buf:
+    if buf or not stmts:
         stmts.append("".join(buf))
-    return stmts
+    result = []
+    for idx, stmt in enumerate(stmts):
+        before_pipe = idx > 0 and seps[idx - 1] == "|"
+        after_pipe = idx < len(seps) and seps[idx] == "|"
+        result.append((stmt, before_pipe or after_pipe))
+    return result
 
 
 def space_out_redirects(s):
@@ -142,19 +160,57 @@ LITERAL_TARGET_RE = re.compile(r"^[A-Za-z0-9_./-]+$")
 FILE_ARG_VERBS = {"tee", "rm", "mv", "cp", "touch", "truncate"}
 GIT_WRITE_SUBS = {"rm", "mv", "checkout", "restore"}
 # bash's builtin `cd [-L|[-P [-e]] [-@]] [--] [dir]`: recognized options that precede the
-# directory operand, plus the `--` separator itself.
-CD_OPTS = {"-L", "-P", "-e", "-@"}
+# directory operand, plus the `--` separator itself. bash accepts these clustered in one
+# token (`-Pe` same as `-P -e`), same as it accepts them separately.
+CD_OPT_CLUSTER_RE = re.compile(r"^-[LPe@]+$")
+
+# sed's own short-option classes (GNU sed): a no-arg flag keeps scanning the same clustered
+# token; a value-taking flag consumes the rest of the token (if any) or else the next
+# separate token as its argument, and that argument is never itself scanned for flags.
+SED_NOARG_SHORT = "nsuzErq"
+SED_VALUE_SHORT = "efl"
 
 
-def sed_is_inplace(tok):
-    """True for a flag token that selects sed's in-place-edit mode: `-i`, a short cluster
-    containing it (`-ni`), GNU's attached optional suffix (`-i.bak`), or the long form
-    (`--in-place`, `--in-place=SUFFIX`)."""
-    if tok == "--in-place" or tok.startswith("--in-place="):
-        return True
-    if tok.startswith("--") or not tok.startswith("-") or tok == "-":
-        return False
-    return "i" in re.match(r"^-([a-zA-Z]*)", tok).group(1)
+def sed_is_inplace(args):
+    """True when sed's own option parsing would select in-place-edit mode: `-i`, a short
+    cluster containing it (`-ni`), GNU's attached optional suffix (`-i.bak`), or the long
+    form (`--in-place`, `--in-place=SUFFIX`). Walks each token's option cluster character by
+    character so a value-taking flag's attached argument (`-eiprobe` is `-e` with the script
+    "iprobe", not a clustered `-i`) is never mistaken for a flag."""
+    i = 0
+    while i < len(args):
+        tok = args[i]
+        if tok == "--":
+            return False
+        if tok == "--in-place" or tok.startswith("--in-place="):
+            return True
+        if tok.startswith("--") or not tok.startswith("-") or tok == "-":
+            i += 1
+            continue
+        j = 1
+        while j < len(tok):
+            c = tok[j]
+            if c == "i":
+                return True
+            if c in SED_VALUE_SHORT:
+                if j == len(tok) - 1:
+                    i += 1  # no attached value in this token -- the next token is it
+                break
+            j += 1
+        i += 1
+    return False
+
+
+# A bare `w`/`W` sed command, or an `s///...w file` substitution flag, writes to a named
+# file even with no `-i` -- heuristic, not a sed parser: a `w`/`W` not part of a longer word,
+# followed (immediately or after spaces) by another non-space token, anywhere in sed's
+# script/expression/file arguments (scanning file arguments too is a harmless simplification;
+# ASTRA paths never contain the pattern this looks for).
+SED_WRITE_CMD_RE = re.compile(r"(?<![A-Za-z0-9_])[wW]\s*\S")
+
+
+def sed_script_has_write_command(args):
+    return any(SED_WRITE_CMD_RE.search(a) for a in args)
 
 
 def resolve(base, target):
@@ -203,10 +259,11 @@ def command_arg_targets(stmt):
         sub = next((t for t in args if t in GIT_WRITE_SUBS), None)
         return [] if sub is None else [t for t in args if t != sub and not is_flag(t)]
     if verb == "sed":
-        # sed's non-flag arguments are a script/expression plus the file(s) it reads -- only a
-        # write target when an in-place flag selects that mode; a plain `sed 'script' file` (or
-        # `sed -n ...`) only reads and prints to stdout.
-        if not any(sed_is_inplace(a) for a in args):
+        # sed's non-flag arguments are a script/expression plus the file(s) it reads -- a
+        # write target only when an in-place flag selects that mode, or the script itself
+        # contains a `w`/`W` write command; a plain `sed 'script' file` (or `sed -n ...`)
+        # with neither only reads and prints to stdout.
+        if not sed_is_inplace(args) and not sed_script_has_write_command(args):
             return []
         return [t for t in args if not is_flag(t)]
     if verb in FILE_ARG_VERBS:
@@ -230,7 +287,7 @@ def statement_targets_guarded(stmt, cur):
 
 def evaluate():
     cur = start_cwd
-    for raw in split_statements(cmd):
+    for raw, in_pipeline in split_statements(cmd):
         stmt = raw.strip()
         if not stmt:
             continue
@@ -241,12 +298,21 @@ def evaluate():
                 return True
             continue
         if toks and toks[0] == "cd":
-            # Skip recognized options (`-L`/`-P`/`-e`/`-@`) and an optional `--` separator
+            # A `cd` that is part of a pipeline (`cd dir | cmd`, on either side of any `|`)
+            # runs in a subshell by default and never changes the invoking shell's directory
+            # at all -- tracking it here would let a `cd` timed around a pipeline stage
+            # silently reset `cur` for everything after it, which is worse than not tracking
+            # it (see guard-oracle.cases for the `cd tests/golden; cd ../.. | cat; printf ...`
+            # shape this closes).
+            if in_pipeline:
+                continue
+            # Skip recognized options -- individually or clustered in one token, as bash's
+            # own `cd` accepts (`-Pe` same as `-P -e`) -- and an optional `--` separator
             # before reading the directory operand -- previously the raw second token was
             # taken as the target unconditionally, so `cd -- tests/golden` resolved `cur` to a
             # bogus "<cwd>/--" directory instead of following `tests/golden` at all.
             args, i, saw_sep = toks[1:], 0, False
-            while i < len(args) and not saw_sep and args[i] in CD_OPTS:
+            while i < len(args) and not saw_sep and CD_OPT_CLUSTER_RE.match(args[i]):
                 i += 1
             if i < len(args) and args[i] == "--":
                 saw_sep = True

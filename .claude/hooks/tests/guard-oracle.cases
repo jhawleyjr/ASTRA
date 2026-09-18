@@ -114,3 +114,36 @@
 2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed --in-place s/a/b/ nesc/case1_dragless_sphere.hpp"}}
 # BLOCK: an in-place flag bundled with another short option (`-ni`) still counts as in-place
 2	{"tool_name":"Bash","tool_input":{"command":"sed -ni '1p' tests/golden/nesc/case1_dragless_sphere.hpp"}}
+
+# --- Codex fix-verification findings on the two batches above (R-007/R-008 fix-verification) ---
+# BLOCK: a `cd` that is part of a pipeline runs in a subshell and does not persist -- the
+# guard used to apply it anyway, resetting `cur` to the repo root and missing that the write
+# below actually still lands inside the directory the last *non-piped* `cd` reached
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden; cd ../.. | cat; printf x > probe.hpp"}}
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd docs/decisions; cd .. | cat; rm 0004-fixed-step-rk4-in-house.md"}}
+# PASS: the same pipelined-`cd` shape when the untracked pipeline stage does not matter --
+# the real (non-piped) `cd` already left the write outside any guarded directory
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd /tmp; cd tests/golden | cat; printf x > probe.hpp"}}
+# BLOCK: bash accepts `cd`'s options clustered in one token (`-Pe` same as `-P -e`); the guard
+# must recognize the cluster too, not just each option spelled out separately
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd -Pe -- tests/golden && printf x > probe.hpp"}}
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd -eP tests/golden && printf x > probe.hpp"}}
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd -Pe -- /tmp && printf x > probe.hpp"}}
+# BLOCK: a bare `w`/`W` sed command, or an `s///...w file` substitution flag, writes to a
+# named file even with no `-i` -- `sed`'s in-place-only classification missed this; reached via
+# a guarded cwd (the heuristic does not isolate the exact w-target from the rest of the
+# script/read arguments, so it conservatively treats the whole statement as write-shaped,
+# consistent with the file's existing "block on ambiguity" direction elsewhere)
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed -n 'w probe.hpp' /dev/null"}}
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed 's/x/y/w probe.hpp' nesc/case1_dragless_sphere.hpp"}}
+# PASS: the same `w`-command shape when neither the script's `w`-target nor anything else it
+# names is anywhere near a guarded directory
+0	{"tool_name":"Bash","tool_input":{"command":"sed -n 'w probe.hpp' /dev/null"}}
+# PASS: `-e`'s attached script argument is a value, not a clustered flag -- a script that
+# happens to start with the letter `i` (a real sed `i`nsert command, e.g. `-eiprobe`) is not
+# mistaken for `-i` in-place mode; this only reads and prints to stdout
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed -eiprobe nesc/case1_dragless_sphere.hpp"}}
+0	{"tool_name":"Bash","tool_input":{"command":"sed -e iprobe tests/golden/nesc/case1_dragless_sphere.hpp"}}
+# BLOCK: the same attached-argument parsing must still recognize a real clustered `-i` that
+# follows a no-arg flag in the same token
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed -ni.bak '1p' nesc/case1_dragless_sphere.hpp"}}
