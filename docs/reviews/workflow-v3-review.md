@@ -201,7 +201,8 @@ any prior round:
 
 Severity: major (Codex: medium — "Preserve tolerance protection for writes after changing
 directories")
-Status: fixed-unverified
+Status: open (reopened — see History; R-009 closed the single-line pipeline shape but a
+multiline `cd`-after-`|`-then-newline still resets tracked `cur`, confirmed against `60caf9b`)
 Location (pre-fix): `.claude/hooks/guard-oracle.sh:50-51` (the Bash write-target matcher `g`).
 Requirement/ADR: the oracle-guard boundary itself (`workflow.md` §Verification).
 Failure: by static inspection, `cd tests/physics && sed -i 's/1e-6/1e-3/' tolerances.yaml`
@@ -249,10 +250,14 @@ History: found by Codex's adversarial fix-verification pass on `b2ef1ac` → con
 independently by the builder → deferred, not fixed, per explicit scope confinement (Round 3) →
 implemented and locally validated, committed as `1a12623` (a later, separately authorized
 batch) → this entry corrected to match that implementation after an audit found `STATE.md`
-and this record had drifted out of sync → independent verification still pending.
+and this record had drifted out of sync → Codex's adversarial pass on `e115c75` found the
+single-line-pipeline gap (filed as R-009) → R-009's fix committed in `60caf9b` → Codex's final
+re-verification pass on `60caf9b` found a multiline pipeline-continuation shape still open,
+confirmed directly this session → **reopened**, unresolved.
 Human exception if needed: none requested; not applicable. Joe explicitly authorized
-implementing this previously-deferred fix (see Builder response); that authorization covers
-the fix itself, not a substitute for the independent verification still pending.
+implementing this previously-deferred fix (see Builder response); that authorization does not
+extend to a further autonomous fix round for the newly confirmed multiline gap — this session's
+last authorized review pass is complete, and the remaining gap is handed to Joe.
 
 ## Round 3: two Joe-reported findings (CI docs-scope gap, same-page anchor validation)
 
@@ -316,7 +321,7 @@ per Joe's explicit instruction; nothing else in `.claude/hooks/guard-oracle.sh` 
 ## Finding R-007
 
 Severity: major
-Status: fixed-unverified
+Status: verified
 Location: `.claude/hooks/guard-oracle.sh`'s Bash-branch Python helper, the `cd` handling inside
 `evaluate()` (pre-fix: unconditionally treated `toks[1]` as the directory operand).
 Reported by: Joe.
@@ -343,15 +348,21 @@ consistent with the file's existing documented-gap style for a `cd` target it do
 (variable/glob/`~`/`-`). 8 new `guard-oracle.cases` lines: `--` and a recognized option into
 each of `tests/golden`/`docs/decisions`, both forms on an unrelated directory (must stay PASS),
 and the unrecognized-flag gap case (documented, not silent).
-Verification: pending Codex dispatch (see this round's dispatch below).
+Verification: **verified**. Codex's fix-verification pass on `e115c75` found a real remaining
+gap for *clustered* options (filed as R-010, separately verified there); for the originally
+reported `--`/individually-spelled-option forms this finding itself covers, Codex's final
+re-verification pass on `60caf9b`: "R-007: holds for the recorded option/separator forms."
 History: reported by Joe (this request) → reproduced against the pre-fix hook → fixed and
-locally verified (this batch).
+locally verified (this batch) → **verified** by Codex's final re-verification pass on
+`60caf9b` for the forms this finding covers (the clustered-option gap Codex separately found is
+tracked as R-010).
 Human exception if needed: none requested; not applicable.
 
 ## Finding R-008
 
 Severity: major
-Status: fixed-unverified
+Status: open (reopened — see History; R-011/R-012 closed the originally reported shapes but
+several equivalent sed write/read forms remain unresolved, confirmed against `60caf9b`)
 Location: `.claude/hooks/guard-oracle.sh`'s Bash-branch Python helper, `command_arg_targets`
 (pre-fix: `sed` was unconditionally in `FILE_ARG_VERBS`, so every non-flag argument — including
 a plain read target — was treated as a write target once resolved).
@@ -378,10 +389,17 @@ regardless of flags (there is no analogous "read-only mode" for any of them), so
 the same treatment. 8 new `guard-oracle.cases` lines: read-only `sed -n` via `cd` into both
 `tests/golden` and `docs/decisions`, the same read-only shape with a literal path and no `cd`,
 `sed -i`/`-i.bak`/`--in-place`/`-ni` all still blocked via `cd` or a literal path.
-Verification: pending Codex dispatch (see this round's dispatch below).
+Verification: **reopened**. Codex's adversarial pass on `e115c75` found the sed-`w`-command and
+`-e`-attached-script gaps (filed as R-011/R-012); their fixes landed in `60caf9b`. Codex's
+final re-verification pass on `60caf9b` found both still incomplete — a digit/flag-addressed
+`w`, the long `--expression=` form, and the coarse Bash-text pre-filter's own `-i`-substring
+match on an attached `-e` script all confirmed directly this session. See R-011/R-012/R-013.
 History: reported by Joe (this request) → reproduced against the pre-fix hook → fixed and
-locally verified (this batch).
-Human exception if needed: none requested; not applicable.
+locally verified (this batch) → Codex found sed-write and attached-script gaps (R-011/R-012) →
+those fixed in `60caf9b` → Codex's final re-verification pass found the fixes still incomplete,
+confirmed directly this session → **reopened**, unresolved.
+Human exception if needed: none requested; not applicable. This session's last authorized
+review pass is complete; the remaining gap is handed to Joe, not chased further autonomously.
 
 Validation this round: `just hooks-test` 92/92 (up from 77 — 15 new lines: 8 for R-007, 8 for
 R-008, minus one shared header comment line); `just docs-check` OK (24 Markdown files,
@@ -441,7 +459,8 @@ real file written) before being fixed, per the same evidence discipline as R-007
 ## Finding R-009
 
 Severity: high (Codex)
-Status: fixed-unverified
+Status: open (reopened — see History; closed the single-line pipeline shape, but a multiline
+`cd`-after-`|`-then-newline still resets tracked `cur`, confirmed against `60caf9b`)
 Location: `.claude/hooks/guard-oracle.sh`'s `split_statements`/`evaluate` (pipeline handling).
 Reported by: Codex (adversarial fix-verification pass on `e115c75`).
 Failure: R-006's directory-tracking fix treated every statement-separator (`;`, `&&`, `||`,
@@ -461,10 +480,17 @@ best-effort resolution, since the real directory change never happens in the par
 either). 3 new `guard-oracle.cases` lines: the reported shape and an ADR-directory equivalent
 (BLOCK), plus a PASS case where the untracked pipeline stage doesn't matter because the real
 (non-piped) `cd` already left the write outside any guarded directory.
-Verification: pending the next Codex dispatch (see Next step in STATE.md).
+Verification: **reopened**. Codex's final re-verification pass on `60caf9b` found a multiline
+continuation (`|` immediately followed by a newline) still resets `cur`: the splitter treats
+the newline as its own boundary rather than preserving pipeline membership across it. Confirmed
+directly this session (no real file written): `cd tests/golden; printf x |` + newline +
+`cd ../..; printf x > probe.hpp` exits `0` (should block).
 History: found by Codex's adversarial fix-verification pass on `e115c75` → reproduced
-independently → fixed and locally verified (this batch).
-Human exception if needed: none requested; not applicable.
+independently → fixed and locally verified (this batch, committed `60caf9b`) → Codex's final
+re-verification pass found a multiline-continuation shape still open, confirmed directly this
+session → **reopened**, unresolved.
+Human exception if needed: none requested; not applicable. This session's last authorized
+review pass is complete; the remaining gap is handed to Joe, not chased further autonomously.
 
 ## Finding R-010
 
@@ -488,15 +514,19 @@ Builder response: `CD_OPTS`'s exact-set membership check replaced with
 and the directory operand. 3 new `guard-oracle.cases` lines: two clustered-option BLOCK cases
 (`-Pe --`, `-eP`) into `tests/golden`, one clustered-option PASS case into an unrelated
 directory.
-Verification: pending the next Codex dispatch (see Next step in STATE.md).
+Verification: **verified**. Codex's final re-verification pass on `60caf9b`: "R-010: holds;
+CD_OPT_CLUSTER_RE recognizes supported clusters."
 History: found by Codex's adversarial fix-verification pass on `e115c75` → reproduced
-independently → fixed and locally verified (this batch).
+independently → fixed and locally verified (this batch) → **verified** by Codex's final
+re-verification pass on `60caf9b`.
 Human exception if needed: none requested; not applicable.
 
 ## Finding R-011
 
 Severity: high (Codex)
-Status: fixed-unverified
+Status: open (reopened — see History; closed the reported bare-`w`/`s///w` shapes but a
+digit/flag-addressed `w`, the long `--expression=` form, and target extraction remain broken,
+confirmed against `60caf9b`)
 Location: `.claude/hooks/guard-oracle.sh`'s `command_arg_targets` sed branch (pre-fix: treated
 sed as write-capable only via `sed_is_inplace`).
 Reported by: Codex (adversarial fix-verification pass on `e115c75`).
@@ -519,15 +549,32 @@ the whole statement even when the write itself names an unrelated path elsewhere
 in the safe direction, not a new bypass. 3 new `guard-oracle.cases` lines: a bare `w`-command
 and an `s///w` substitution flag, both reached via `cd` into `tests/golden` (BLOCK), and the
 same `w`-command shape with nothing anywhere near a guarded directory (PASS).
-Verification: pending the next Codex dispatch (see Next step in STATE.md).
+Verification: **reopened**. Codex's final re-verification pass on `60caf9b` found three
+remaining gaps, all confirmed directly this session (no real file written): a digit-addressed
+`w` (`sed -n '1w probe.hpp' /dev/null` from a guarded cwd exits `0`, should block — `1w` isn't
+"a `w`/`W` not part of a longer word" per `SED_WRITE_CMD_RE`'s current lookbehind, which only
+excludes a preceding *letter*/digit/underscore via `[A-Za-z0-9_]`... actually a digit *is*
+excluded by that class, meaning `1w` is correctly NOT matched by the regex at all — this is a
+real coverage gap, not a regex bug: the heuristic simply never considered a leading address);
+a flag-prefixed `w` on a substitution (`sed 's/x/y/gw probe.hpp' ...` similarly exits `0`,
+should block — the same coverage gap, `gw` isn't preceded by a non-word character either); and
+the long `--expression=` form (`sed -n --expression='w probe.hpp' /dev/null` exits `0`, should
+block — here the heuristic *does* match, but `command_arg_targets`'s flag/non-flag split
+discards the whole `--expression=...` token as a flag, so the recognized write's actual target
+is never checked).
 History: found by Codex's adversarial fix-verification pass on `e115c75` → reproduced
-independently → fixed and locally verified (this batch).
-Human exception if needed: none requested; not applicable.
+independently → fixed and locally verified (this batch, committed `60caf9b`) → Codex's final
+re-verification pass found three further gaps, confirmed directly this session → **reopened**,
+unresolved.
+Human exception if needed: none requested; not applicable. This session's last authorized
+review pass is complete; the remaining gaps are handed to Joe, not chased further autonomously.
 
 ## Finding R-012
 
 Severity: medium (Codex)
-Status: fixed-unverified
+Status: open (reopened — see History; the Python-side `sed_is_inplace` fix is correct in
+isolation, but a separate, earlier Bash-text pre-filter regex still false-blocks the same
+attached-script shape on a direct literal path, confirmed against `60caf9b`)
 Location: `.claude/hooks/guard-oracle.sh`'s `sed_is_inplace` (pre-fix: scanned every letter
 after a token's leading `-` for the character `i`, regardless of option semantics).
 Reported by: Codex (adversarial fix-verification pass on `e115c75`).
@@ -551,10 +598,24 @@ value, and that value is never itself scanned for flags; `--` ends option scanni
 `guard-oracle.cases` lines: the reported attached-script PASS case (both via `cd` and with a
 separated `-e iprobe`), plus a BLOCK case confirming a real clustered `-i` following a no-arg
 flag in the same token (`-ni.bak`) still works after the parsing rewrite.
-Verification: pending the next Codex dispatch (see Next step in STATE.md).
+Verification: **reopened**. Codex's final re-verification pass on `60caf9b` found this finding
+incomplete end-to-end: `sed_is_inplace`'s corrected character-by-character walk is itself
+correct (confirmed: `sed -e iprobe tests/golden/nesc/case1_dragless_sphere.hpp`, a *separated*
+`-e`, passes), but it never runs for the **attached**, **no-`cd`**, direct-literal-path shape —
+a separate, earlier Bash-text substring pre-filter (`.claude/hooks/guard-oracle.sh`'s coarse
+`grep -Eq` regex, `\bsed\b[^|;&]*[[:space:]]-[a-zA-Z]*i[^|;&]*$g`, unrelated to and untouched by
+R-008/R-012's Python-side fix) matches the literal `i` inside `-eiprobe` next to a literally-
+spelled guarded path and blocks before `sed_is_inplace` is ever reached. Confirmed directly
+this session, no real file written: `sed -eiprobe tests/golden/nesc/case1_dragless_sphere.hpp`
+exits `2` (should pass) — and this reproduced even against my own literal shell invocation of
+the verification command in this session, since that same pre-filter runs on every real Bash
+tool call in this checkout, not only the simulated JSON cases in `guard-oracle.cases`.
 History: found by Codex's adversarial fix-verification pass on `e115c75` → reproduced
-independently → fixed and locally verified (this batch).
-Human exception if needed: none requested; not applicable.
+independently → fixed and locally verified (this batch, committed `60caf9b`) — but only the
+Python-side classifier, not the separate coarse pre-filter → Codex's final re-verification pass
+found the pre-filter gap, confirmed directly this session → **reopened**, unresolved.
+Human exception if needed: none requested; not applicable. This session's last authorized
+review pass is complete; the remaining gap is handed to Joe, not chased further autonomously.
 
 Validation this batch: `just hooks-test` 104/104 (up from 92 — 12 new R-009–R-012 lines,
 corrected once after an initial mis-constructed case for R-011 was caught by testing it against
@@ -565,35 +626,99 @@ result `EXITSTATUS=0`, `check: OK`, `100% tests passed, 0 tests failed out of 27
 the four presets; elapsed wall-clock 4:20.61. Retained verbatim (2589 lines) at
 `docs/reviews/evidence/round4-fixverify-full-gate.log`.
 
-## Completion (through the Round 4 fix-verification batch)
+## Final Codex re-verification on `60caf9b` (R-006 through R-012)
 
-R-001, R-002, R-003: **verified** (fresh Codex review of `b2ef1ac`; Status fields corrected to
-match in this reconciliation). R-004, R-005: **verified** (fresh Codex review of `e115c75`
-confirms both hold). R-006, R-007, R-008: **fixed-unverified**, each closed further by this
-batch (R-009 closes R-006's remaining pipeline gap; R-010 closes R-007's remaining clustered-
-option gap; R-011 and R-012 close R-008's remaining sed-write and false-block gaps) —
-**needs-attention** from Codex's own last pass on each, not yet re-verified against the fixes
-in this batch. R-009, R-010, R-011, R-012: **fixed-unverified**, same status, first pass.
+`codex-cli` 0.154.0, model `gpt-6-astra`, reasoning effort `low`; fresh context; adversarial
+fix-verification, base `origin/main`, focus naming R-006 through R-012 by ID against head
+`60caf9b`. Raw output retained verbatim: `docs/reviews/evidence/60caf9b-codex-r006-r012.log`
+(job `review-mu6khoqo-lcr27o`, thread `01a0b32a-65c5-7b71-9970-5fb708b2ab48`). Verdict:
+**needs-attention**.
 
-**Correction rounds: 2/2 — budget exhausted**, unchanged. This entire Round 4 sequence (R-007
-through R-012, plus the STATE.md/review-doc reconciliation) is the single bounded fix batch this
-request explicitly authorized beyond that exhausted budget — it does not consume a 3rd
-autonomous round, and per the request's own text ("this authorization does not permit unlimited
-correction rounds") this batch's fix-verify cycle is not open-ended: one more Codex
-verification dispatch is planned (see STATE.md's Next step) and, absent a newly reported
-defect, closes this round regardless of outcome — an unresolved finding at that point is
-recorded and handed to Joe, not chased through further autonomous rounds. No findings rejected.
-Zero critical findings at any point (R-009/R-010/R-011 are high per Codex's own scale, mapped
-to this template's "major" tier, not "critical" — the template reserves critical for a
-different class of failure and none of these meet it: all four are guard-tooling correctness
-gaps with a safe/conservative fallback already in place for the read-side false-positive cases,
-not an active production or safety defect).
+R-007 and R-010: **holds** — clustered/separated `cd` option and `--` parsing verified correct.
+R-006, R-008, R-009, R-011, R-012: **incomplete** — the earlier fixes narrowed each gap but did
+not close it. Codex reported four specific shapes; **all four, plus its one new finding, were
+reproduced directly against the `60caf9b` hook in this session** (JSON-on-stdin, no real file
+written) before being recorded, per this file's established evidence discipline:
 
-**Correction rounds: 2/2 — budget exhausted**, unchanged by this round. Round 1 (D1-D4/D6-D8,
-`b7978e3`) verified clean. Round 2 (R-002/R-003 completion + D5 + cleanup + `tokens.py`
-retirement, `b2ef1ac`) verified R-001-003 clean but surfaced R-006. The Round-3 batch (R-004,
-R-005), R-006's later fix, and this Round 4 batch (R-007, R-008, plus the STATE.md/review-doc
-reconciliation) are each **explicitly authorized by Joe beyond the exhausted autonomous
-budget** — none consumes a third autonomous round on its own initiative; this request's own
-text says so explicitly for R-007/R-008 and the oracle-guard changes. No findings rejected.
-Zero critical findings at any point.
+- Multiline pipeline continuation (R-006/R-009, `.claude/hooks/guard-oracle.sh` pipeline
+  tracking): a `cd` after a `|` followed by an actual newline is not marked `in_pipeline` by
+  the current splitter (an empty segment/semicolon boundary is inserted at the newline instead
+  of preserving pipeline membership across it), so it resets `cur` same as before R-009.
+  Confirmed: `cd tests/golden; printf x |` + newline + `cd ../..; printf x > probe.hpp` exits
+  `0` (should block).
+- Additional sed write forms bypass classification (R-008/R-011): a digit-addressed `w`
+  (`1w probe.hpp`), a flag-prefixed `w` on a substitution (`s/x/y/gw probe.hpp`), and the long
+  `--expression=` form all either evade `SED_WRITE_CMD_RE` or, once matched, have their actual
+  target filtered out by `command_arg_targets` treating the whole expression token as a flag.
+  Confirmed: all three exit `0` from a guarded cwd (should block).
+- The coarse Bash-text pre-filter, not the Python fixed in R-012, still false-blocks an
+  attached read-only `-e` script on a **direct literal path** (R-008/R-012): the substring
+  regex at the top of the Bash branch (`\bsed\b[^|;&]*[[:space:]]-[a-zA-Z]*i[^|;&]*$g`) matches
+  `-i` inside `-eiprobe` before `sed_is_inplace`'s corrected parsing ever runs. Confirmed:
+  `sed -eiprobe tests/golden/nesc/case1_dragless_sphere.hpp` (no `cd`) exits `2` (should pass).
+- **New finding (R-013)**: `SED_WRITE_CMD_RE`'s heuristic matches a `w` inside ordinary regex
+  text, not only a real `w` command — `cd tests/golden && sed -n '/warning/p'
+  nesc/case1_dragless_sphere.hpp` (a plain address-restricted print, no write anywhere) is
+  newly blocked because "warning" contains "w" followed by a space-then-token later in the
+  same script argument. Confirmed: exits `2` (should pass) — this is R-008's own preserve-
+  read-only-inspection requirement regressed by R-011's fix, not merely a new edge case.
+
+## Finding R-013
+
+Severity: minor (Codex: medium — a false block, recoverable via the existing marker/
+authorization override, not a bypass; downgraded from Codex's severity for that reason, per
+this template's convention of distinguishing a bypass from a false block)
+Status: open
+Location: `.claude/hooks/guard-oracle.sh`'s `SED_WRITE_CMD_RE` (R-011's write-command
+heuristic).
+Reported by: Codex (final adversarial re-verification pass on `60caf9b`).
+Failure: `SED_WRITE_CMD_RE` (`(?<![A-Za-z0-9_])[wW]\s*\S`) matches a `w`/`W` anywhere in sed's
+script text, including inside an address/regex or literal replacement text that is not a `w`
+command at all. `cd tests/golden && sed -n '/warning/p' nesc/case1_dragless_sphere.hpp` — a
+plain address-restricted print, purely read-only — is blocked because "warning" contains a "w"
+that the regex reads as a candidate write command, followed later in the same argument by
+another non-space token. This is a regression R-011 introduced against R-008's own
+"preserve read-only inspection" requirement, not a pre-existing gap.
+**Verified directly**: reproduced against the current (`60caf9b`) hook — exits `2` (should
+pass); no real file written (JSON-on-stdin interface only).
+Requested outcome (Codex): distinguish address/regex and literal-text regions from actual
+command positions before recognizing `w`/`W`; retain read-only cases containing words beginning
+with `w`/`W`.
+Builder response: none yet — not fixed in this session. This session's last authorized review
+pass is complete; recorded for Joe's disposition rather than triggering a further autonomous
+fix round.
+Verification: not applicable (not yet fixed).
+History: found by Codex's final adversarial re-verification pass on `60caf9b` → reproduced
+independently, confirmed directly this session → open, unresolved, not yet attempted.
+Human exception if needed: none requested; not applicable — pending Joe's decision on whether
+and when to authorize a fix.
+
+## Findings reopened: R-006, R-008, R-009, R-011, R-012; new: R-013
+
+Per this session's evidence discipline, each finding above listed as `Status: fixed-unverified`
+is reopened to `Status: open` (History updated in place at each finding's own entry; the fix
+attempts and their partial progress are retained, not deleted) except where superseded by a
+later, more complete finding: R-009's fix narrowed but did not close R-006's pipeline gap;
+R-011/R-012's fixes narrowed but did not close R-008's sed gap. R-013 (the read-only regex
+false-block) is filed new, since it is a regression R-011 introduced rather than a pre-existing
+gap. Severity: R-006/R-008/R-009/R-011 major (write-boundary bypasses, Codex's own "high");
+R-012/R-013 minor (false blocks — recoverable via the existing marker/authorization override,
+not a bypass). No fix is attempted for any of these in this session: this was explicitly the
+last authorized review pass for this batch ("this authorization does not permit unlimited
+correction rounds"; Codex's own conclusion: "this authorized review batch is complete... hand
+the unresolved findings ... to Joe for disposition").
+
+**Correction rounds: 2/2 — budget exhausted**, unchanged. Round 1 (D1-D4/D6-D8, `b7978e3`)
+verified clean. Round 2 (`b2ef1ac`) verified R-001-003 clean but surfaced R-006. The Round-3
+batch (R-004/R-005) and this entire Round 4 sequence (R-007 through R-013, plus the
+STATE.md/review-doc reconciliation) are each explicitly Joe-authorized beyond that exhausted
+budget — none consumes a 3rd autonomous round on its own initiative. This session's fix-verify
+cycle is now closed per its own stated bound: R-006, R-008, R-009, R-011, R-012, R-013 are
+**open, unresolved, and require Joe's decision** (fix in a newly authorized batch, accept as a
+documented residual risk, or something else) before this candidate's guard-oracle changes can
+be considered done. R-007 and R-010 are verified. No findings rejected. Zero critical findings
+(all six open items are guard-tooling correctness gaps — five bypasses in the human-owned-
+oracle guard, one false-block — not an active production or safety defect, but the bypasses
+mean `.claude/hooks/guard-oracle.sh`'s protection of `tests/golden/**`/`docs/decisions/**`/
+tolerance files is **weaker than its own documentation claims** until fixed; see STATE.md and
+the human-review packet for the disclosure Joe should see before deciding).
