@@ -1,131 +1,129 @@
 # Human review packet: workflow-v3 (12-step workflow, process/tooling candidate)
 
 PR / candidate base and head: `origin/main`=`40b484b` (confirmed current tip of `main` at
-packet time — no PR yet, no rebase pending), head `e9e25a3` on branch `workflow-v3`, clean tree
-(nothing uncommitted). 8 commits ahead of `main`. This is a **process/tooling candidate**: the
+packet time — no PR yet, no rebase pending), head `4956c13` on branch `workflow-v3`, clean tree
+(nothing uncommitted). 13 commits ahead of `main`. This is a **process/tooling candidate**: the
 twelve-step workflow docs, `.claude/hooks/guard-oracle.sh`, its regression-case fixture,
 `scripts/docs_check.py`, `justfile`/CI wiring, and templates — not a physics/product change.
 Spec/plan/task: no repository feature spec (workflow tooling, not a `PLAN.md` milestone item);
 `docs/reviews/workflow-v3-review.md` is the running findings/evidence record for this whole
-candidate.
+candidate (see its "Final status" section for the fullest detail; this packet summarizes it).
 Risk: process/tooling, but `.claude/hooks/guard-oracle.sh` guards `tests/golden/**`,
 `docs/decisions/**`, and tolerance files — the repository's human-owned oracle boundary — so a
 defect there has real consequence even though nothing here touches physics/product code.
-Decision requested: **not a clean approval request**. This candidate has open major findings in
-the guard-oracle hook (below); the request is Joe's disposition of those findings — accept as
-documented residual risk, authorize a further bounded fix batch, or another decision — before
-this can be considered for merge.
+Decision requested: **not a clean approval request**. This candidate has narrowed but still-open
+findings in the guard-oracle hook (below); the request is Joe's disposition of those findings —
+accept as documented residual risk, authorize a differently-scoped fix, or another decision.
 
 ## What changes and why
 
-Four fix rounds on top of the original `22a5009` "New workflow" commit, all previously reviewed
-except this session's own work:
+Updates the prior packet for this same candidate (still on file at this path, now superseded):
+Joe read that packet and replied "authorize a bounded fix batch for R-006/R-008/R-009/R-011/
+R-012/R-013" — the six findings it disclosed as open. This session ran three fix-and-verify
+rounds against that authorization:
 
-1. Process-gap fixes to the twelve-step workflow docs, review-dispatch recipe, `docs-check`
-   tooling, and CI scope classification (D1-D8, R-001–R-005) — **all verified** by fresh Codex
-   review, several rounds ago.
-2. **This session**: found and corrected a stale handoff — `STATE.md` still described a prior
-   session's doc reconciliation as uncommitted after it had actually already been committed
-   (`e081d88`), and `docs/reviews/workflow-v3-review.md`'s R-001–003 `Status:` fields still read
-   "fixed-unverified" after Codex had already verified all three — both corrected in place,
-   history preserved.
-3. **This session**: fixed two Joe-reported `guard-oracle.sh` bugs, each reproduced directly
-   against the pre-fix hook before fixing (no real file written, JSON-on-stdin interface only):
-   - R-007: `cd`'s second token was read as the directory literally; `cd -- tests/golden && ...`
-     misread `--` as the target and bypassed the guard.
-   - R-008: a read-only `sed -n ...` (no `-i`) reached via a guarded directory was blocked as if
-     it were a write.
-4. **This session**: dispatched fresh Codex review of the R-007/R-008 candidate (`e115c75`).
-   General review: clean. Adversarial fix-verification: R-004/R-005 confirmed holding, but
-   R-006 (an earlier, already-committed fix), R-007, and R-008 were each found still
-   incomplete — four new findings (R-009–R-012). All four reproduced directly and fixed in a
-   second batch (`60caf9b`).
-5. **This session**: dispatched one more — the last authorized — Codex re-verification pass
-   against `60caf9b`. R-007 and R-010 confirmed holding. **R-006, R-008, R-009, R-011, and
-   R-012 were found still incomplete again**, plus one new false-block (R-013). All six
-   reproduced directly against the current hook. Per this session's explicit bound ("this
-   authorization does not permit unlimited correction rounds") and Codex's own conclusion
-   ("this authorized review batch is complete"), no further autonomous fix was attempted.
+1. **Round 5**: fixed the originally-reported shape of each of the six findings. Fresh Codex
+   review (general clean; adversarial fix-verification) found R-007/R-010 held, but R-006,
+   R-008, R-009, R-011, R-012 were each still incomplete, plus **two genuine regressions this
+   round itself introduced** (removing sed from a coarse fast-path pre-filter, to fix a false
+   block, also silently dropped that pre-filter's coverage for command prefixes like `env`/
+   `LC_ALL=C` and for absolute paths outside the session's own root).
+2. **Round 6**: fixed the newly-found gaps, including both self-introduced regressions. Fresh
+   Codex review found R-007/R-010/R-012 (attached/separated forms)/R-013 (ordinary-word forms)
+   held, but reported **one more regression** (shell control-flow keywords like `then`/`do`/
+   brace-groups also weren't recognized as command prefixes) plus narrower remaining variants
+   of R-006/R-009 (a pipeline comment) and R-008/R-011 (a sed address modifier, nested/combined
+   prefix forms).
+3. **Round 7**: fixed the keyword-prefix regression and, as a direct side effect of how that fix
+   was written (a loop instead of a single check), also closed the combined/nested-prefix
+   variants without further code changes. **Stopped here**: Codex's own explicit conclusion on
+   this round's predecessor was "this authorized batch is complete; no further autonomous
+   correction round," and this session's own authorization said the same ("does not permit
+   unlimited correction rounds"). Round 7's fixes are locally verified only, not redispatched.
+
+Every fix in every round was independently reproduced against the actual current hook before
+being recorded (JSON-on-stdin interface, no real file ever written) — none taken on Codex's
+word or on reasoning alone.
 
 ## Evidence
 
 | Check / acceptance | Result / date / duration | Log or retained artifact / candidate |
 |---|---|---|
-| `just hooks-test` | 104/104 passed, this session | reproducible via `.claude/hooks/tests/run.sh`; not separately logged |
+| `just hooks-test` | 144/144 passed, this session | reproducible via `.claude/hooks/tests/run.sh`; not separately logged |
 | `just docs-check` | OK, 24 Markdown files, this session | reproducible; not separately logged |
-| Full local gate (`./scripts/check-full.sh`) on `e115c75` | `EXITSTATUS=0`, `check: OK`, 274/274×4, elapsed 4:25.61, this session | `docs/reviews/evidence/round4-full-gate.log` |
-| Full local gate on `60caf9b` | `EXITSTATUS=0`, `check: OK`, 274/274×4, elapsed 4:20.61, this session | `docs/reviews/evidence/round4-fixverify-full-gate.log` |
-| Full local gate on `1a12623` (prior session) | `EXITSTATUS=0`, `check: OK`, 274/274×4, cited from commit message, duration not recorded | `docs/reviews/evidence/1a12623-full-gate.log` (retained this session before being overwritten) |
-| Codex general review of `e115c75` | no actionable regressions | `docs/reviews/evidence/e115c75-codex-review-general.log` |
-| Codex adversarial fix-verification, `e115c75`, R-004–R-008 | needs-attention (4 new findings) | `docs/reviews/evidence/e115c75-codex-adversarial-r004-r008.log` |
-| Codex adversarial fix-verification, `60caf9b`, R-006–R-012 | needs-attention (5 reopened, 1 new) | `docs/reviews/evidence/60caf9b-codex-r006-r012.log` |
+| Full local gate on `bbded20` (Round 5) | `EXITSTATUS=0`, `check: OK`, 274/274×4, elapsed 4:25.59 | `docs/reviews/evidence/round5-full-gate.log` |
+| Full local gate on `7c9f20f` (Round 6) | `EXITSTATUS=0`, `check: OK`, 274/274×4, elapsed 4:25.29 | `docs/reviews/evidence/round6-full-gate.log` |
+| Full local gate on `4956c13` (Round 7, current head) | `EXITSTATUS=0`, `check: OK`, 274/274×4, elapsed 4:29.57 | `docs/reviews/evidence/round7-full-gate.log` |
+| Codex general + adversarial, `bbded20` | needs-attention (2 regressions + 3 variants found) | `docs/reviews/evidence/bbded20-codex-*.log` |
+| Codex general + adversarial, `7c9f20f` | needs-attention (1 regression + 3 variants found) | `docs/reviews/evidence/7c9f20f-codex-*.log` |
+| Prior rounds (R-001–R-005, R-007, R-010, R-012, R-013 verification) | see table in prior packet history | `docs/reviews/evidence/e115c75-*.log`, `60caf9b-codex-r006-r012.log` |
 
 Toolchain: AGENTS.md-pinned Ubuntu 24.04, clang-18, CMake 3.28+, Eigen 3.4, HDF5, yaml-cpp,
 GoogleTest, Python 3.12+. `codex-cli` 0.154.0, model `gpt-6-astra`, reasoning effort `low` for
-every Codex dispatch this session. `GATE=local` throughout — CI is intentionally local-gate
-mode; no green GitHub check was substituted for a full-gate result. No numerical/physics
-changes in this candidate; nothing to plot.
+every Codex dispatch. `GATE=local` throughout. No numerical/physics changes; nothing to plot.
 
 ## Independent review
 
-Builder: Claude (Sonnet 5, `opusplan` at high effort per `.claude/settings.json`). Reviewer:
-Codex (`codex-cli` 0.154.0, `gpt-6-astra`), fresh context each dispatch, general + adversarial.
-Findings record: `docs/reviews/workflow-v3-review.md` (the authoritative, most detailed source —
-this packet summarizes it).
+Builder: Claude (Sonnet 5, `opusplan` at high effort). Reviewer: Codex (`codex-cli` 0.154.0,
+`gpt-6-astra`), fresh context each dispatch, general + adversarial. Four independent passes on
+this candidate across Rounds 4–6 (`e115c75`, `60caf9b`, `bbded20`, `7c9f20f`); Round 7 verified
+by this session only. Full detail: `docs/reviews/workflow-v3-review.md`.
 
-**Verified** (no further action needed): R-001, R-002, R-003 (Codex review of `b2ef1ac`),
-R-004, R-005 (Codex review of `e115c75`), R-007, R-010 (Codex review of `60caf9b`).
+**Verified by Codex, no further action needed**: R-001–R-005, R-007, R-010, R-012, R-013 (each
+finding's own originally-reported scope — R-013's verification explicitly excludes the
+separately-disclosed limitation below, which was never its own numbered finding).
 
-**Open — major, in `.claude/hooks/guard-oracle.sh`, all reproduced directly this session**:
+**Still open — real, reproduced bypasses, narrower than what Joe originally authorized this
+batch against, not yet Codex-verified as fixed**:
 
-- **R-006 / R-009** (pipeline `cd` tracking): `cd tests/golden; cd ../.. | cat; printf x >
-  probe.hpp` is blocked correctly (fixed by R-009), but the same shape with an actual newline
-  after the pipe (`cd tests/golden; printf x |` + newline + `cd ../..; printf x > probe.hpp`)
-  still bypasses the guard — exits `0` (should block).
-- **R-008 / R-011** (sed write-command detection): a bare `w`/`s///w` sed write is now caught
-  (fixed by R-011), but a digit-addressed `w` (`sed -n '1w probe.hpp' ...`), a flag-prefixed `w`
-  on a substitution (`s/x/y/gw probe.hpp`), and the long `sed --expression=` form all still
-  bypass detection or have their target discarded — each exits `0` from a guarded cwd (should
+- **R-006 / R-009** (pipeline `cd` tracking): the originally-reported shapes and a plain
+  multiline-continuation variant are fixed and Codex-confirmed. A narrower variant remains: a
+  pipeline comment containing its own `;` (`cd tests/golden; printf x | # note;` + newline +
+  `cd ../..; printf x > probe.hpp`) still corrupts directory tracking — exits `0` (should
   block).
-- **R-008 / R-012** (sed `-i` misclassification): the Python-side fix is correct in isolation,
-  but a separate, earlier Bash-text substring pre-filter (independent of the Python fix) still
-  misreads `-i` inside an attached `-e` script and false-blocks a read-only direct-path
-  inspection (`sed -eiprobe tests/golden/nesc/case1_dragless_sphere.hpp`, no `cd`) — exits `2`
-  (should pass). This one is a false block (safe direction), not a bypass, but still violates
-  this candidate's own stated goal of preserving read-only inspection.
+- **R-008 / R-011** (sed write-command detection): every specifically-reported write form
+  (bare `w`, `s///w`, digit-addressed, flag-clustered, long `--expression=`) is fixed and
+  Codex-confirmed. Two narrower gaps remain: a target that reaches sed only via an `xargs` pipe
+  (never appears as a literal command-line token at all, so this guard — which only ever
+  inspects the command's own text — cannot see it); and a GNU sed address modifier (`/x/I`,
+  case-insensitive) between an address and its command letter, which still defeats both
+  write-command regexes' adjacency assumptions.
 
-**Open — minor**:
+**Still open — a false block (safe direction), not a bypass, explicitly accepted rather than
+chased further**: a `w` inside a regex/pattern region that happens to contain real whitespace
+(`/w probe/p` — matching the literal text "w probe", not a write command) is still misread as a
+write command. Recoverable immediately via the existing `.claude/touch-goldens` marker /
+`ASTRA_TOUCH_GOLDENS=1` override.
 
-- **R-013** (new): the R-011 write-command heuristic matches "w" inside ordinary sed
-  address/regex text, false-blocking a plain read-only `sed -n '/warning/p' ...` — exits `2`
-  (should pass). Recoverable via the existing marker/authorization override; not a bypass.
-
-No findings rejected. No critical findings at any point — all open items are guard-tooling
-correctness gaps in a hook whose failure mode is either an over-permissive bypass (blast radius
-limited to writes an agent's own session attempts against `tests/golden/**`/
-`docs/decisions/**`/tolerance files — still recoverable via git, and every write in this repo
-passes through review before merge regardless) or an over-restrictive false block (recoverable
-immediately via the existing marker), not an active production or safety defect.
+No findings rejected. No critical findings at any point — every open item is a guard-tooling
+correctness gap (an over-permissive bypass, blast radius limited to a write an agent's own
+session attempts, still recoverable via git and caught by ordinary review before any merge; or
+an over-restrictive false block, recoverable immediately via the existing marker), not an
+active production or safety defect.
 
 ## Joe's attention
 
-- **`.claude/hooks/guard-oracle.sh` is weaker than its own documentation and this candidate's
-  own commit messages currently claim.** The R-006/R-008/R-009/R-011/R-012 bypasses mean an
-  agent session (with no malicious intent, just an unusual but valid shell construction) could
-  currently write to a guarded path without the marker/authorization override catching it. This
-  is the single most consequential thing in this candidate.
+- **The pattern across four Codex passes is itself the most important thing here, more than any
+  single remaining finding.** Each round's fix closed the reported shape but Codex's next pass
+  found a narrower variant or (twice) a fresh regression from the fix itself. The remaining
+  surface is now small and specific (three items, all disclosed above with exact reproduction
+  commands), but this session's own assessment is that a fifth round would plausibly find a
+  fifth narrower gap — token/regex-based classification of arbitrary shell/sed syntax has a
+  long tail that incremental patching does not obviously terminate. See the review doc's "Final
+  status" section for this session's explicit (non-default) recommendation: either accept
+  today's much-reduced residual risk as a documented limitation, or invest in a fundamentally
+  different approach (real sed/shell parsing, or a conservative "block first" stance for sed
+  near guarded directories) rather than a fifth incremental round.
 - Every open finding above was independently reproduced against the actual current hook in this
-  session (not taken on Codex's word) — the evidence is concrete command strings and exit
-  codes, all in `docs/reviews/workflow-v3-review.md`.
+  session (not taken on Codex's word) — concrete command strings and exit codes, all in
+  `docs/reviews/workflow-v3-review.md`.
 - No dependency, interface, or compatibility changes. No deleted behavior of consequence beyond
-  `scripts/tokens.py`'s retirement (already reviewed/approved in an earlier round, R-002/D5
-  section of the findings doc).
-- Rollback: this entire candidate is 8 commits on an unmerged branch; reverting is `git checkout
-  main` / discarding the branch, no product code or `main` history affected either way.
-- `docs/reviews/evidence/` (5 retained log files, ~10,600 lines total) is new: durable,
-  git-tracked validation/review evidence that previously lived only in gitignored
-  `build/validation/`. This is itself part of this candidate's diff and worth a glance if Joe
-  wants to confirm the retention approach before it becomes the standing pattern.
+  `scripts/tokens.py`'s retirement (already reviewed/approved in an earlier round).
+- Rollback: this entire candidate is 13 commits on an unmerged branch; reverting is `git
+  checkout main` / discarding the branch, no product code or `main` history affected either way.
+- `docs/reviews/evidence/` now holds 15 retained log files (full-gate runs and Codex review
+  transcripts) — durable, git-tracked validation/review evidence that previously lived only in
+  gitignored `build/validation/`.
 
 ## Decision record
 
@@ -135,20 +133,22 @@ Approved candidate/scope: pending
 Merge observed: not merged
 Release authorization: pending / not requested
 
-Significant tradeoff rationale: this session chose to stop at the explicitly authorized bound
-("this authorization does not permit unlimited correction rounds") rather than continue
-autonomous fix rounds against Codex's own newly-found issues, even though the guard-oracle gaps
-are real and arguably fixable quickly — the tradeoff was disclosure-and-handoff over chasing a
-fully green state without renewed authorization.
-Accepted risks: none accepted yet — the six open findings above are unresolved, not
-risk-accepted; this decision is Joe's to make.
-Nonblocking follow-ups: none recorded (every open item above is a blocker, not a deferred
-minor, except R-013 which is minor/recoverable but still open).
+Significant tradeoff rationale: this session chose to stop the fix-verify cycle at Round 7
+rather than continue chasing Codex's fourth pass's findings with a fifth autonomous round, per
+both Codex's own explicit conclusion and this session's authorization bound — the tradeoff was
+disclosure of a small, specific, well-evidenced remaining surface over continuing to chase a
+fully green state without renewed authorization from Joe.
+Accepted risks: none formally accepted yet — the three open items above are unresolved, not
+risk-accepted; this decision is Joe's to make. The `/w probe/p` false block is a candidate for
+"accept as-is" given it is a false block, not a bypass, and is already recoverable via the
+marker.
+Nonblocking follow-ups: none recorded (each open item above is either a blocker or the one
+explicitly-flagged accept-candidate false block, not a deferred minor).
 Architectural decisions: none — no ADR implicated by this candidate.
 
 If `changes-required`: these are implementation defects (guard-oracle.sh correctness gaps),
-routing to step 9 (fix, retest, re-review) once Joe authorizes a further bounded batch — not a
-planning defect, requirements gap, or architecture conflict.
+routing to step 9 (fix, retest, re-review) if and when Joe authorizes a differently-scoped
+batch — not a planning defect, requirements gap, or architecture conflict.
 
 Joe's explicit decision or squash-merge records approval in this solo-maintainer repo; no
 GitHub approving-review badge is required. This packet is not itself a request to merge.
