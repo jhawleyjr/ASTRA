@@ -8,7 +8,10 @@ Plan approval: [Joe's existing authorization/decision reference or pending]
 ## Repository findings
 
 [Existing abstractions, affected paths and callers, ownership/lifetime, tests, build/toolchain/CI
-constraints. Distinguish implemented paths from future architecture. Note current Git/unrelated work.]
+constraints. Distinguish implemented paths from future architecture. Note current Git/unrelated work.
+Separate observed facts from assumptions and from proposed changes; cite file/symbol for a
+consequential observation, not every routine one. Check the spec's assumptions against what is
+actually here; record a mismatch and its consequence rather than silently rewriting the requirement.]
 
 ## Mapping and sequence
 

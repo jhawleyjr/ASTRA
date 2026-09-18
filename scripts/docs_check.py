@@ -2,7 +2,7 @@
 """Reproducible check for the workflow constraints docs/process/validation.md prescribes for
 workflow edits (Markdown links/anchors, SKILL.md metadata, the root instruction line budget,
 and doc/script command names) so they run from `just docs-check` / CI instead of being asked
-of an agent's memory. Stdlib only, like scripts/tokens.py.
+of an agent's memory. Stdlib only.
 
 Usage: python3 scripts/docs_check.py [--root DIR]
 Exit 0 with a summary line, or exit 1 printing every problem found.
@@ -38,9 +38,6 @@ WORKFLOW_DOC_ROOTS = [
     "docs/process",
     "docs/agents",
     "docs/templates",
-    "docs/specs/README.md",
-    "docs/plans/README.md",
-    "docs/tasks/README.md",
     "docs/reviews/README.md",
     ".claude/skills",
 ]

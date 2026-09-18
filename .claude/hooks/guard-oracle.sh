@@ -23,7 +23,14 @@ if [ "${ASTRA_TOUCH_GOLDENS:-0}" = "1" ] || [ -e "$root/.claude/touch-goldens" ]
    || [ -e "$main_root/.claude/touch-goldens" ]; then exit 0; fi
 
 tool=$(printf '%s' "$input" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("tool_name",""))' 2>/dev/null)
-guarded='(^|/)(docs/decisions/|tests/golden/)|tolerance'
+# The third alternative used to be a bare `tolerance`, unanchored, matching anywhere in a path
+# or command -- it blocked a prose plan doc (docs/plans/nesc-tolerances.md), a hypothetical
+# source utility (core/util/tolerance.hpp), and a log redirect (build/tolerance.log), none of
+# them a human-owned oracle. A real tolerance file lives under tests/ (e.g. the planned
+# tests/physics/nesc/tolerances.yaml); anchor to that so the false positives above pass while
+# every real protected asset (inventoried: tests/golden/**, docs/decisions/**, and any
+# tests/**/*tolerance* file) stays blocked. See guard-oracle.cases for both directions pinned.
+guarded='(^|/)(docs/decisions/|tests/golden/|tests/[A-Za-z0-9_./-]*tolerance)'
 
 block() { echo "BLOCKED by guard-oracle: $1 is human-owned (tests/golden/**, tolerance files, docs/decisions/**). Only a session Joe armed may change it (touch .claude/touch-goldens in this tree or in the main checkout, or launch with ASTRA_TOUCH_GOLDENS=1); ADRs are superseded, never edited." >&2; exit 2; }
 
@@ -40,7 +47,7 @@ case "$tool" in
     # Block only when a guarded path is the TARGET of a write: after a redirect, tee, sed -i,
     # rm/mv/cp/touch/truncate, or git rm/mv/checkout/restore. Merely naming the path (ls, cat, grep,
     # a commit message, `2>/dev/null`) is fine. Writes hidden inside scripts are caught by the Edit/Write matcher or by review.
-    g='(docs/decisions/|tests/golden/|tolerance)'
+    g='(docs/decisions/|tests/golden/|tests/[A-Za-z0-9_./-]*tolerance)'
     if printf '%s' "$cmd" | grep -Eq "(>>?[[:space:]]*[^[:space:]|;&]*$g|\btee\b([[:space:]]+-[a-z]+)*[[:space:]]+[^[:space:]|;&]*$g|\bsed\b[^|;&]*[[:space:]]-[a-zA-Z]*i[^|;&]*$g|\b(rm|mv|cp|touch|truncate)\b[^|;&]*$g|\bgit\b[^|;&]*\b(rm|mv|checkout|restore)\b[^|;&]*$g)"; then
       block "a write target in this command"
     fi

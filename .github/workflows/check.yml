@@ -47,7 +47,11 @@ jobs:
           fetch-depth: 0
 
       - name: Validation wrapper syntax
-        run: bash -n scripts/check-fast.sh scripts/check-full.sh
+        # Two separate invocations: `bash -n a b` only parses `a`; `b` becomes an unused
+        # positional argument to it and is never syntax-checked (caught by Codex review).
+        run: |
+          bash -n scripts/check-fast.sh
+          bash -n scripts/check-full.sh
 
       # Three questions, not one: does this diff touch anything the gate would build, does it touch
       # the hooks (whose only real test is the case runner, which needs no build at all), and does it

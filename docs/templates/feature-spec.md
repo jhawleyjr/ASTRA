@@ -5,10 +5,15 @@ Owner: [human requirement owner]
 Risk: [0–3 and reason]
 Intent/approval: [Joe's instruction or decision reference; pending if absent]
 Architecture/ADRs: [links]
+System context: [where this fits in the existing data/scheduler flow; what produces its inputs
+and what consumes its outputs. Link the relevant architecture section instead of restating it.]
 
 ## Outcome and boundaries
 
 [Problem, user-visible result, motivation, non-goals, invariants, compatibility constraints.]
+
+Assumptions: [what must already be true for this to work; what upstream components/models
+guarantee rather than this feature re-checking; what this feature does not itself validate.]
 
 ## Contract and failure behavior
 

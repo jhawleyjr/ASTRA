@@ -1,6 +1,11 @@
 # One case per line: <expected exit>\t<JSON piped to guard-oracle.sh on stdin>. Lines starting with # are ignored.
 # PASS: reads, mentions, redirects elsewhere
 0	{"tool_name":"Bash","tool_input":{"command":"ls docs/decisions/ > /tmp/x"}}
+# PASS: a path merely containing "tolerance" outside tests/ is not a human-owned oracle file
+# (previously false-blocked by the old unanchored `tolerance` alternative)
+0	{"tool_name":"Write","tool_input":{"file_path":"$ROOT/docs/plans/nesc-tolerances.md"}}
+0	{"tool_name":"Write","tool_input":{"file_path":"$ROOT/core/util/tolerance.hpp"}}
+0	{"tool_name":"Bash","tool_input":{"command":"ctest --preset asan -R nesc > build/tolerance.log 2>&1"}}
 0	{"tool_name":"Bash","tool_input":{"command":"git commit -m \"ADRs in docs/decisions/\" 2>&1"}}
 0	{"tool_name":"Bash","tool_input":{"command":"cat tests/golden/cruise.h5 | head"}}
 0	{"tool_name":"Bash","tool_input":{"command":"grep -rn tolerance tests/ 2>/dev/null"}}
@@ -26,6 +31,9 @@
 2	{"tool_name":"Write","tool_input":{"file_path":"$ROOT/docs/decisions/0012-x.md"}}
 2	{"tool_name":"Edit","tool_input":{"file_path":"$ROOT/tests/golden/cruise.csv"}}
 2	{"tool_name":"Edit","tool_input":{"file_path":"$ROOT/tests/physics/tolerances.yaml"}}
+# BLOCK: a real tolerance file under tests/ (any extension, any subdirectory) stays protected
+2	{"tool_name":"Write","tool_input":{"file_path":"$ROOT/tests/physics/nesc/tolerances.yaml"}}
+2	{"tool_name":"Bash","tool_input":{"command":"cat x >> tests/physics/nesc/tolerances.yaml"}}
 # PASS: a worktree session armed by a marker in the MAIN CHECKOUT (the shape every golden PR runs in;
 # before this, `touch .claude/touch-goldens` in ~/repos/ASTRA armed nothing at all -- docs/lessons.md)
 0	{"tool_name":"Write","tool_input":{"file_path":"$ROOT_WT_ARMED/tests/golden/atmosphere/isa1976_table.hpp"}}

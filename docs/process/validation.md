@@ -61,8 +61,9 @@ before handoff. Approval and check evidence must identify the candidate they eva
 For workflow edits, run `just docs-check` (`scripts/docs_check.py`): Markdown links/anchors across
 `docs/process/`, `docs/agents/`, `docs/templates/`, `.claude/skills/` and the root instruction files;
 `.claude/skills/*/SKILL.md` frontmatter and name-matches-directory; the AGENTS.md+CLAUDE.md line
-budget; `just`/`./scripts/` command names referenced from those docs; `bash -n
-scripts/check-fast.sh scripts/check-full.sh`; and `git diff --check`. `just check` runs it on every
+budget; `just`/`./scripts/` command names referenced from those docs; `bash -n` on each wrapper
+separately (`bash -n a b` only parses `a`; `b` becomes an unused positional argument, not a second
+file checked); and `git diff --check`. `just check` runs it on every
 full gate; CI also runs it as its own step whenever a pull request touches that surface, so a
 docs/skills-only PR is checked without the full toolchain (see [the workflow](workflow.md) for
 `GATE=local`'s scope and host protection; wrappers do not turn local results into remote required

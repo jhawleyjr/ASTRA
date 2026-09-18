@@ -50,7 +50,7 @@ Three processes matter in v1: the **sim** (C++ core, driven from Python or a CLI
 ```
 astra/
 ├── CLAUDE.md  PLAN.md  STATE.md  justfile  CMakeLists.txt  CMakePresets.json  pyproject.toml
-├── .claude/                hooks, skills (/task /wrap /retro), rules
+├── .claude/                hooks, skills (plan-feature, review-cycle, human-review, wrap), rules
 ├── docs/
 │   ├── architecture.md     this document, kept current
 │   ├── decisions/          ADRs NNNN-title.md, immutable once accepted

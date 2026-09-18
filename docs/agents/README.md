@@ -5,7 +5,9 @@ These are portable procedures, not a new agent framework or automatic dispatch c
 
 - Claude planner: inspect Git, architecture/ADRs, affected source/tests, `justfile`, CMake and CI. Map each
   requirement to a change and executable acceptance. Use the [plan](../templates/implementation-plan.md).
-  Resolve unstable interfaces before splitting work; plan-only assignments do not edit product code.
+  Resolve unstable interfaces before splitting work. A plan-only assignment may write the assigned
+  spec/plan/brief, never product code, tests, or build/CI configuration; a written plan does not
+  itself authorize implementation, which still follows the workflow's existing risk-based approval.
 - Claude builder: [bounded implementation procedure](build.md).
 - Claude validator: run [existing checks](../process/validation.md), independently check acceptance against the
   spec, and record actual outcomes and missing coverage. Do not change oracles to agree with output.

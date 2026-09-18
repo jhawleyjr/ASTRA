@@ -87,7 +87,8 @@ hooks-test:
 # shell syntax, working-tree whitespace), made reproducible instead of asked of an agent's memory.
 docs-check:
     python3 scripts/docs_check.py
-    bash -n scripts/check-fast.sh scripts/check-full.sh
+    bash -n scripts/check-fast.sh
+    bash -n scripts/check-full.sh
     git diff --check
 
 clean:
