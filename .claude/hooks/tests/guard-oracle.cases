@@ -147,3 +147,36 @@
 # BLOCK: the same attached-argument parsing must still recognize a real clustered `-i` that
 # follows a no-arg flag in the same token
 2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed -ni.bak '1p' nesc/case1_dragless_sphere.hpp"}}
+
+# --- Round 5 (R-006/R-009, R-008/R-011, R-008/R-012, R-013): findings Codex's final ---
+# --- authorized re-verification pass found still open after Round 4's fixes ---
+# BLOCK: a `cd` after a pipeline `|` followed by an actual newline is pipeline continuation in
+# real bash (one two-stage pipeline, not `cmd | ; cd`) and must not reset the tracked directory
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden; printf x |\ncd ../..; printf x > probe.hpp"}}
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden; printf x |\ncat |\ncd ../..; printf x > probe.hpp"}}
+# PASS: the same multiline-pipeline shape when the untracked stage doesn't matter -- the real
+# (non-piped) `cd` already left the write outside any guarded directory
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd /tmp; printf x |\ncd tests/golden; printf x > probe.hpp"}}
+# BLOCK: a digit-addressed `w` (`1w file`) and a flag-prefixed `w` on a substitution (`s///gw
+# file`) both write to a named file; the write-command heuristic previously missed both because
+# `w` was excluded whenever *any* non-letter (digit) or *any* letter (flag cluster) preceded it
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed -n '1w probe.hpp' /dev/null"}}
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed 's/x/y/gw probe.hpp' /dev/null"}}
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed 's#x#y#gw probe.hpp' /dev/null"}}
+# BLOCK: the long `--expression=`/`--file=` forms are recognized as write-capable but their
+# value used to be discarded entirely (treated as an opaque flag), so the recognized write's
+# actual target was never checked
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed -n --expression='w probe.hpp' /dev/null"}}
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed -n --expression='1w nesc/case1_dragless_sphere.hpp' /dev/null"}}
+# PASS: an unrelated --file= target elsewhere stays unguarded
+0	{"tool_name":"Bash","tool_input":{"command":"sed -n --file=/tmp/script.sed /dev/null"}}
+# PASS: an attached `-e` script on a DIRECT literal path (no `cd`) reads only -- a separate,
+# earlier Bash-text pre-filter (independent of the Python sed classification) used to
+# false-block this exact shape by matching "-i" as a substring inside "-eiprobe"
+0	{"tool_name":"Bash","tool_input":{"command":"sed -eiprobe tests/golden/nesc/case1_dragless_sphere.hpp"}}
+# PASS: a `w` that is part of an ordinary word in read-only script/regex text (not a write
+# command) no longer false-blocks -- the heuristic now requires real whitespace before the
+# filename, which "warning"/"flow"/"raw" (no space after their "w") never have
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed -n '/warning/p' nesc/case1_dragless_sphere.hpp"}}
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed -n '/flow/p' nesc/case1_dragless_sphere.hpp"}}
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed 's/raw/cooked/' nesc/case1_dragless_sphere.hpp"}}

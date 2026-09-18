@@ -49,11 +49,18 @@ case "$tool" in
     # The harness's own "cwd" field is the directory this command actually runs in (persisted
     # across Bash calls in a session, same field no-main.sh/stop-check.sh already read).
     cwd=$(printf '%s' "$input" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("cwd",""))' 2>/dev/null)
-    # Block only when a guarded path is the TARGET of a write: after a redirect, tee, sed -i,
+    # Block only when a guarded path is the TARGET of a write: after a redirect, tee,
     # rm/mv/cp/touch/truncate, or git rm/mv/checkout/restore. Merely naming the path (ls, cat, grep,
     # a commit message, `2>/dev/null`) is fine. Writes hidden inside scripts are caught by the Edit/Write matcher or by review.
+    # `sed` is deliberately NOT matched here (R-008/R-012): a fast substring alternative
+    # (`\bsed\b...-[a-zA-Z]*i...`) used to false-block a read-only attached `-e` script whose
+    # text happened to contain the letter `i` next to a literally-spelled guarded path (e.g.
+    # `sed -eiprobe tests/golden/...`); the Python stage below has full, tested sed
+    # classification (in-place flags and `w`/`W` write commands, both via `cd` and via a
+    # direct literal path) and runs unconditionally regardless of this fast pre-filter, so
+    # removing sed from the coarse filter loses no real coverage.
     g='(docs/decisions/|tests/golden/|tests/[A-Za-z0-9_./-]*tolerance)'
-    if printf '%s' "$cmd" | grep -Eq "(>>?[[:space:]]*[^[:space:]|;&]*$g|\btee\b([[:space:]]+-[a-z]+)*[[:space:]]+[^[:space:]|;&]*$g|\bsed\b[^|;&]*[[:space:]]-[a-zA-Z]*i[^|;&]*$g|\b(rm|mv|cp|touch|truncate)\b[^|;&]*$g|\bgit\b[^|;&]*\b(rm|mv|checkout|restore)\b[^|;&]*$g)"; then
+    if printf '%s' "$cmd" | grep -Eq "(>>?[[:space:]]*[^[:space:]|;&]*$g|\btee\b([[:space:]]+-[a-z]+)*[[:space:]]+[^[:space:]|;&]*$g|\b(rm|mv|cp|touch|truncate)\b[^|;&]*$g|\bgit\b[^|;&]*\b(rm|mv|checkout|restore)\b[^|;&]*$g)"; then
       block "a write target in this command"
     fi
     # The check above only catches a guarded path literally spelled out next to its write. A
@@ -111,7 +118,16 @@ def split_statements(text):
             continue
         if text[i:i + 2] in ("&&", "||"):
             flush(";"); i += 2; continue
-        if c in (";", "\n"):
+        if c == "\n":
+            # A newline immediately after a `|` (nothing but whitespace/further newlines
+            # since) is pipeline line-continuation, not a statement terminator -- bash reads
+            # `cmd1 |\ncmd2` as one two-stage pipeline, not `cmd1 | ; cmd2`. Swallowing it
+            # keeps the next real statement correctly tracked as pipeline-adjacent instead of
+            # inserting a synthetic `;`-separated empty statement that would sever the chain.
+            if not "".join(buf).strip() and seps and seps[-1] == "|":
+                i += 1; continue
+            flush(";"); i += 1; continue
+        if c == ";":
             flush(";"); i += 1; continue
         if c == "|":
             flush("|"); i += 1; continue
@@ -201,16 +217,72 @@ def sed_is_inplace(args):
     return False
 
 
-# A bare `w`/`W` sed command, or an `s///...w file` substitution flag, writes to a named
-# file even with no `-i` -- heuristic, not a sed parser: a `w`/`W` not part of a longer word,
-# followed (immediately or after spaces) by another non-space token, anywhere in sed's
-# script/expression/file arguments (scanning file arguments too is a harmless simplification;
-# ASTRA paths never contain the pattern this looks for).
-SED_WRITE_CMD_RE = re.compile(r"(?<![A-Za-z0-9_])[wW]\s*\S")
+# A bare `w`/`W` sed command writes to a named file even with no `-i` -- heuristic, not a sed
+# parser: a `w`/`W` not preceded by a letter (a digit/`$`/`,`/`;`/`/`/whitespace/start is a
+# legitimate address or command boundary in sed's own grammar -- `1w file`, `/re/w file`; a
+# preceding *letter* means it is part of a longer word, e.g. "flow"/"raw"/"warning"), followed
+# by REQUIRED whitespace then another non-space token -- sed's own `w` command and the `s///w`
+# flag below both need visible separation before the filename, so "warning" (no space after
+# its "w") does not match even though its "w" is not letter-preceded (R-013: this used to be
+# `\s*`, matching "warning" too and false-blocking a plain read-only address/regex).
+SED_BARE_W_CMD_RE = re.compile(r"(?<![A-Za-z])[wW]\s+\S")
+# An `s<delim>pattern<delim>replacement<delim>flags` substitution whose flags include `w`/`W`
+# (e.g. `s/x/y/gw file`, flags cluster "gw" -- the `w` here is letter-preceded, by design, so
+# the bare-command regex above deliberately does not match it): matched separately, anchored to
+# sed's actual delimiter (`/` is conventional but sed accepts any character), so a `w` inside
+# ordinary pattern/replacement text is never mistaken for a flag.
+SED_SUBST_W_FLAG_RE = re.compile(r"\bs(.)(?:\\.|(?!\1).)*?\1(?:\\.|(?!\1).)*?\1[a-zA-Z0-9]*[wW]\s+\S")
 
 
 def sed_script_has_write_command(args):
-    return any(SED_WRITE_CMD_RE.search(a) for a in args)
+    return any(
+        SED_BARE_W_CMD_RE.search(a) or SED_SUBST_W_FLAG_RE.search(a) for a in args
+    )
+
+
+SED_LONG_VALUE_OPTS = ("--expression=", "--file=")
+
+
+def sed_arg_targets(args):
+    """Every argument sed's own option parsing would treat as a value -- a positional
+    script/filename, a value-taking short option's attached-or-separate argument, or a long
+    `--expression=`/`--file=` value -- so a write command recognized inside an attached or
+    long-option value is not silently dropped by keeping only "non-flag" tokens (previously:
+    `--expression='w probe.hpp'` was classified write-capable but the whole token was then
+    discarded as a flag, so its actual target was never checked against the guarded pattern)."""
+    targets, i = [], 0
+    while i < len(args):
+        tok = args[i]
+        if tok == "--":
+            targets.extend(args[i + 1:])
+            break
+        long_val = next((tok[len(opt):] for opt in SED_LONG_VALUE_OPTS if tok.startswith(opt)), None)
+        if long_val is not None:
+            targets.append(long_val)
+            i += 1
+            continue
+        if tok.startswith("--"):
+            i += 1
+            continue
+        if not tok.startswith("-") or tok == "-":
+            targets.append(tok)
+            i += 1
+            continue
+        j = 1
+        while j < len(tok):
+            c = tok[j]
+            if c == "i":
+                break  # an optional attached suffix, not a target
+            if c in SED_VALUE_SHORT:
+                if j < len(tok) - 1:
+                    targets.append(tok[j + 1:])
+                elif i + 1 < len(args):
+                    targets.append(args[i + 1])
+                    i += 1
+                break
+            j += 1
+        i += 1
+    return targets
 
 
 def resolve(base, target):
@@ -265,7 +337,7 @@ def command_arg_targets(stmt):
         # with neither only reads and prints to stdout.
         if not sed_is_inplace(args) and not sed_script_has_write_command(args):
             return []
-        return [t for t in args if not is_flag(t)]
+        return sed_arg_targets(args)
     if verb in FILE_ARG_VERBS:
         return [t for t in args if not is_flag(t)]
     return []
