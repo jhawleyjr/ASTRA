@@ -81,3 +81,36 @@
 0	{"tool_name":"Write","tool_input":{"file_path":"$ROOT/tests/other/../notreally-golden/x.hpp"}}
 # BLOCK: same shape, but the ".." actually lands back inside a guarded directory
 2	{"tool_name":"Write","tool_input":{"file_path":"$ROOT/tests/other/../golden/x.hpp"}}
+
+# --- `cd`'s literal-target parsing: options and `--` before the directory operand ---
+# BLOCK: `cd --` used to be misread as "cd into a directory named --", leaving the real target
+# (`tests/golden`) unconsumed and `cur` resolved to a bogus "<cwd>/--" -- the write below then
+# checked against that bogus directory instead of the real one and passed uncaught.
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd -- tests/golden && printf x > probe.hpp"}}
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd -- docs/decisions && rm 0004-fixed-step-rk4-in-house.md"}}
+# BLOCK: a recognized `cd` option (bash's `-L`/`-P`/`-e`/`-@`) before the directory operand,
+# with or without a following `--`, still resolves to the real target
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd -P tests/golden && printf x > probe.hpp"}}
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd -L -- tests/golden && printf x > probe.hpp"}}
+# PASS: the same option/`--` handling on an unrelated directory still reaches an unguarded path
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd -- /tmp && printf x > probe.hpp"}}
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd -P /tmp && printf x > probe.hpp"}}
+# PASS (documented gap, not a silent one): an unrecognized `cd` flag (not `-L`/`-P`/`-e`/`-@`,
+# no `--`) is not treated as a literal directory target either -- `cur` is left unchanged, so
+# the write below is checked against the command's starting cwd, not the real target directory
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd -v tests/golden && printf x > probe.hpp"}}
+
+# --- `sed` without an in-place flag only reads; it is not a write target ---
+# PASS: read-only `sed -n` (no `-i`), reached via an inline `cd` into a guarded directory
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed -n '1,20p' nesc/case1_dragless_sphere.hpp"}}
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd docs/decisions && sed -n '1,5p' 0001-frames-and-attitude.md"}}
+# PASS: same read-only shape with the guarded path spelled out literally, no `cd` at all
+0	{"tool_name":"Bash","tool_input":{"command":"sed -n '1,20p' tests/golden/nesc/case1_dragless_sphere.hpp"}}
+0	{"tool_name":"Bash","tool_input":{"command":"sed 's/x/y/' tests/golden/nesc/case1_dragless_sphere.hpp"}}
+# BLOCK: `sed -i` (in-place) reached via `cd` into a guarded directory stays blocked
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed -i s/a/b/ nesc/case1_dragless_sphere.hpp"}}
+# BLOCK: GNU's attached in-place suffix (`-i.bak`, no space) and the long `--in-place` form
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed -i.bak s/a/b/ nesc/case1_dragless_sphere.hpp"}}
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed --in-place s/a/b/ nesc/case1_dragless_sphere.hpp"}}
+# BLOCK: an in-place flag bundled with another short option (`-ni`) still counts as in-place
+2	{"tool_name":"Bash","tool_input":{"command":"sed -ni '1p' tests/golden/nesc/case1_dragless_sphere.hpp"}}

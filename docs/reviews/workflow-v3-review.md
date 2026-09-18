@@ -30,7 +30,7 @@ a claim that either is safety-critical).
 ## Finding R-001
 
 Severity: major (Codex: medium)
-Status: fixed-unverified
+Status: verified
 Location: `docs/agents/review-dispatch.md:19-23` (pre-fix) — fresh dispatch commands pass
 only a diff target.
 Requirement/ADR: `docs/process/workflow.md` §Review-fix limits (reviewer verification and
@@ -57,7 +57,7 @@ Human exception if needed: none requested; not applicable.
 ## Finding R-002
 
 Severity: major (Codex: medium)
-Status: fixed-unverified
+Status: verified
 Location: `docs/process/validation.md:61-64` (pre-fix) — prescribed Markdown-link, command-
 name and line-budget checks had no executable form; `.claude/skills/**` was validated by
 neither the local gate nor CI.
@@ -82,22 +82,23 @@ classification (`docs/process/`, `docs/agents/`, `docs/templates/`, `.claude/ski
 root instruction files) and a `docs_gate` step that runs `just docs-check` whenever that scope
 is touched — not merely folded into the existing `hooks` classifier, which triggers a
 different check. Reworded `docs/process/validation.md` to name the command.
-Verification: **fixed-unverified, corrected after an inaccurate disposition**. The fresh
-Codex adversarial pass found this finding only partially resolved: at that review's time,
-`STATE.md` still carried the pre-fix "All four active skill validators … passed" sentence
-and a stale full-gate status, even though this file's builder response already claimed
-"STATE.md's wording is corrected" — that claim was written before the edit was actually
-made, which was inaccurate and is corrected here. `STATE.md` has now actually been rewritten
-with the real command name and this session's real full-gate result. Pending one more fresh
-Codex pass to confirm.
+Verification: **verified**. The fresh Codex adversarial pass on `b2ef1ac` first found this
+finding only partially resolved: at that review's time, `STATE.md` still carried the pre-fix
+"All four active skill validators … passed" sentence and a stale full-gate status, even though
+this file's builder response already claimed "STATE.md's wording is corrected" — that claim
+was written before the edit was actually made, which was inaccurate and was corrected in the
+same pass. `STATE.md` was then actually rewritten with the real command name and that
+session's real full-gate result, and the subsequent fresh Codex review of `b2ef1ac` (see
+Round 2's "Fresh Codex review" note below) confirmed it: "resolved by retained validation
+tooling, local/CI wiring, and corrected STATE evidence."
 History: initial (Codex, medium) → fix 1 (this round) → partially resolved, STATE.md gap
-found by Codex → STATE.md corrected (this pass) → re-verification pending.
+found by Codex → STATE.md corrected (this pass) → verified (fresh Codex review of `b2ef1ac`).
 Human exception if needed: none requested; not applicable.
 
 ## Finding R-003
 
 Severity: minor (Codex: P2)
-Status: fixed-unverified
+Status: verified
 Location: `justfile:90` (pre-fix, in this round's own `docs-check` recipe) and
 `.github/workflows/check.yml:50` (pre-existing, unmodified by `22a5009` or this round until now).
 Requirement/ADR: `docs/process/validation.md`'s "for workflow edits" checklist (shell syntax).
@@ -114,9 +115,10 @@ Builder response: split into two separate `bash -n` invocations in both `justfil
 `docs/process/validation.md` to state the one-invocation-per-file rule explicitly, with the
 mechanism, so it cannot regress the same way silently again. Re-proved against a scratch
 fixture (a broken `check-full.sh` stand-in) that the fixed form now catches it.
-Verification: pending the next fresh Codex pass.
+Verification: **verified**. Fresh Codex adversarial fix-verification pass on `b2ef1ac`:
+"resolved by separate bash syntax-check invocations."
 History: found by Codex's general review of the complete candidate (this round, same pass as
-R-001/R-002's fix-verification) → fixed (this pass).
+R-001/R-002's fix-verification) → fixed (this pass) → verified (fresh Codex review of `b2ef1ac`).
 Human exception if needed: none requested; not applicable.
 
 ## Additional changes in this round (not reviewer findings; self-identified, for context)
@@ -304,23 +306,137 @@ Verification: pending Codex dispatch — not sent this batch, per Joe's explicit
 History: reported by Joe → fixed and locally verified with new regression coverage (this batch).
 Human exception if needed: none requested; not applicable.
 
-## Completion (through Round 3+)
+## Round 4: two Joe-reported guard-oracle findings (literal-`cd` parsing, read-only `sed`)
 
-R-001, R-002, R-003: **verified** by fresh Codex review of `b2ef1ac`. R-004, R-005, R-006: all
-**fixed-unverified** — R-004/R-005 implemented and locally validated in the Round 3 batch;
-R-006 implemented and locally validated in a subsequent, separately authorized batch, committed
-as `1a12623` (see R-006's own entry for what changed and its evidence). Codex verification is
-intentionally not yet dispatched for any of the three, per Joe's explicit "stop after
-validation" instructions each time — this file is that summary, corrected here after an audit
-found `STATE.md` already reflected R-006's fix while this record still called it open.
+Scope: base `origin/main` = `40b484b`; candidate head `e081d88` (the branch's actual current
+head — see the STATE.md correction alongside this round: the prior record here understated
+scope as `1a12623`, one commit behind). Exactly these two findings and their tests/evidence,
+per Joe's explicit instruction; nothing else in `.claude/hooks/guard-oracle.sh` was touched.
 
-**Correction rounds: 2/2 — budget exhausted.** Round 1 (D1-D4/D6-D8, `b7978e3`) verified clean.
-Round 2 (R-002/R-003 completion + D5 + cleanup + `tokens.py` retirement, `b2ef1ac`) verified
-R-001-003 clean but surfaced R-006. The Round-3 batch (R-004, R-005) and R-006's later fix are
-each **explicitly authorized by Joe beyond the exhausted autonomous budget** ("this request
-authorizes this specific fix batch if the autonomous budget has been exhausted" for R-004/R-005;
-"this request authorizes these bounded fixes, including the previously deferred guard issue"
-for R-006) — neither consumes a third autonomous round on its own initiative. No findings
-rejected. Zero critical findings at any point. R-004/R-005's full local gate result is recorded
-in `STATE.md`; R-006's is in `1a12623`'s commit message, with `hooks-test` (only, no code
-changed since) reconfirmed fresh during this reconciliation — neither duplicated here.
+## Finding R-007
+
+Severity: major
+Status: fixed-unverified
+Location: `.claude/hooks/guard-oracle.sh`'s Bash-branch Python helper, the `cd` handling inside
+`evaluate()` (pre-fix: unconditionally treated `toks[1]` as the directory operand).
+Reported by: Joe.
+Failure: `cd`'s second token was read as the directory literally, with no awareness of `cd`'s
+own option syntax. `cd -- tests/golden && printf x > probe.hpp` reads `--` as the target,
+resolves `cur` to a bogus `"<cwd>/--"` directory, and never advances into `tests/golden` at
+all — the subsequent write is then checked against the wrong directory and passes. The
+equivalent command without `--` (`cd tests/golden && ...`) was already correctly blocked by
+`1a12623`'s D5/R-006 fix; only the option-bearing form bypassed it.
+**Verified directly**: fed the exact command through the pre-fix hook (`git show
+HEAD:.claude/hooks/guard-oracle.sh` at the commit before this round) — `cd -- tests/golden &&
+printf x > probe.hpp` exits `0` (should block); the fixed hook exits `2` for the identical
+input. No real file was written in either run; both used the hook's own JSON-on-stdin
+interface with a command string naming `probe.hpp`, which was never created.
+Requested outcome: correctly parse `cd`'s ordinary supported forms (`-L`/`-P`/`-e`/`-@`, and a
+`--` operand separator) before reading the directory target, without turning the guard into a
+general shell interpreter.
+Builder response: `evaluate()`'s `cd` handling now skips a run of recognized `CD_OPTS`
+(`-L`/`-P`/`-e`/`-@`) and, once seen, an explicit `--`, before reading the next token as the
+directory operand; that operand is followed only when it does not itself look like an
+unrecognized option (starts with `-`) unless a `--` was already consumed — an unrecognized
+flag (e.g. `cd -v tests/golden`) is left untracked rather than misread as a literal directory,
+consistent with the file's existing documented-gap style for a `cd` target it does not follow
+(variable/glob/`~`/`-`). 8 new `guard-oracle.cases` lines: `--` and a recognized option into
+each of `tests/golden`/`docs/decisions`, both forms on an unrelated directory (must stay PASS),
+and the unrecognized-flag gap case (documented, not silent).
+Verification: pending Codex dispatch (see this round's dispatch below).
+History: reported by Joe (this request) → reproduced against the pre-fix hook → fixed and
+locally verified (this batch).
+Human exception if needed: none requested; not applicable.
+
+## Finding R-008
+
+Severity: major
+Status: fixed-unverified
+Location: `.claude/hooks/guard-oracle.sh`'s Bash-branch Python helper, `command_arg_targets`
+(pre-fix: `sed` was unconditionally in `FILE_ARG_VERBS`, so every non-flag argument — including
+a plain read target — was treated as a write target once resolved).
+Reported by: Joe.
+Failure: a read-only `sed` invocation (no in-place flag) reached a guarded directory was
+blocked as if it were a write. Example: `cd tests/golden && sed -n '1,20p'
+nesc/case1_dragless_sphere.hpp` — pure inspection, no `-i` — was blocked because `sed`'s own
+non-flag arguments (the script and the filename) were resolved against `cur` and matched the
+guarded pattern regardless of whether `-i` was present. The same false block applied to a
+direct literal path with no `cd` at all (`sed -n '1,20p' tests/golden/...`).
+**Verified directly**: fed the exact command through the pre-fix hook — exits `2` (should
+pass, read-only); the fixed hook exits `0` for the identical input. Read-only; no file was
+modified by either run.
+Requested outcome: distinguish read-only `sed` from in-place editing; keep `sed -i` (and its
+GNU/long-option variants) blocked; inspect the same target-classification logic for closely
+related regressions.
+Builder response: `sed` is no longer in the generic `FILE_ARG_VERBS` set. A new
+`sed_is_inplace(tok)` helper recognizes `-i`, a short-option cluster containing it (`-ni`),
+GNU's attached optional suffix (`-i.bak`), and the long `--in-place`/`--in-place=SUFFIX` forms;
+`command_arg_targets` now treats `sed`'s arguments as write targets only when at least one
+token matches. Inspected the other `FILE_ARG_VERBS` members (`tee`, `rm`, `mv`, `cp`, `touch`,
+`truncate`) for the same class of regression: each always writes to its non-flag arguments
+regardless of flags (there is no analogous "read-only mode" for any of them), so none needed
+the same treatment. 8 new `guard-oracle.cases` lines: read-only `sed -n` via `cd` into both
+`tests/golden` and `docs/decisions`, the same read-only shape with a literal path and no `cd`,
+`sed -i`/`-i.bak`/`--in-place`/`-ni` all still blocked via `cd` or a literal path.
+Verification: pending Codex dispatch (see this round's dispatch below).
+History: reported by Joe (this request) → reproduced against the pre-fix hook → fixed and
+locally verified (this batch).
+Human exception if needed: none requested; not applicable.
+
+Validation this round: `just hooks-test` 92/92 (up from 77 — 15 new lines: 8 for R-007, 8 for
+R-008, minus one shared header comment line); `just docs-check` OK (24 Markdown files,
+unchanged). Full local gate rerun for the corrected candidate (R-007/R-008 plus the unrelated
+Step 10/11/Step-12 documentation changes already in `e081d88`) — see the "Full local gate"
+evidence note under Completion below.
+
+### Evidence retention: the `1a12623` full-gate log
+
+The previous full local-gate result for `1a12623` (`EXITSTATUS=0`, `check: OK`, all four
+presets 274/274) existed only in the gitignored `build/validation/full.log`, which this
+session's fresh full-gate run (below) would have overwritten with no durable record left —
+`docs/process/validation.md`'s own rule ("ignored logs are not durable shared evidence")
+applies to prior-session evidence as much as new evidence. Before rerunning, that log was
+copied verbatim into the tracked `docs/reviews/evidence/1a12623-full-gate.log` (2539 lines).
+Metadata for that retained artifact, recorded here because the log itself carries none:
+command `./scripts/check-full.sh` (`just check`) from the repository root; result `EXIT=0`,
+`check: OK`, `100% tests passed, 0 tests failed out of 274` on each of the four presets
+(debug/release/static-plugins/asan); candidate scope `origin/main`=`40b484b` base, head
+`1a12623`, clean tree; toolchain the AGENTS.md-pinned Ubuntu 24.04 clang-18 stack (not
+reprinted in the log itself — CMake's configure step ran against an already-populated cache);
+duration not recorded (the run was not wrapped in `time`). This is a **prior-session claim
+being made durable, not a check re-run in this session** — it stands as historical evidence
+for `1a12623`'s own candidate state, superseded for the current candidate by the fresh run
+recorded under Completion below.
+
+## Completion (through Round 4)
+
+R-001, R-002, R-003: **verified** by fresh Codex review of `b2ef1ac` (Status fields above
+corrected to match in this reconciliation; they previously still read "fixed-unverified" after
+verification had already happened). R-004, R-005, R-006, R-007, R-008: all **fixed-unverified**
+— R-004/R-005 implemented and locally validated in the Round 3 batch; R-006 implemented and
+locally validated in a subsequent, separately authorized batch, committed as `1a12623`; R-007
+and R-008 implemented and locally validated in Round 4 (this batch), on top of `e081d88` (the
+Step 10/11/Step-12 documentation-only commit that landed between `1a12623` and this round, now
+folded into this round's candidate scope). Codex verification is being dispatched fresh for the
+complete current candidate and all five open findings as part of this round (see the dispatch
+record below); until that returns, none of the five should be read as Codex-verified.
+
+**Full local gate, corrected candidate** run to completion this session, after R-007/R-008 and
+the rest of this round's doc edits: command `./scripts/check-full.sh` (`just check`) from the
+repository root, wrapped in `/usr/bin/time -v`; result `EXITSTATUS=0`, `check: OK`, `100% tests
+passed, 0 tests failed out of 274` on each of the four presets (debug/release/static-plugins/
+asan); elapsed wall-clock 4:25.61 (user 1296.33s, 494% CPU — parallel build/test); candidate
+scope base `origin/main`=`40b484b`, head this round's pending commit (on top of `e081d88`),
+working tree as of this round's edits (guard-oracle.sh, guard-oracle.cases, this file,
+`docs/reviews/evidence/`, `STATE.md`); toolchain the AGENTS.md-pinned Ubuntu 24.04 clang-18
+stack. Retained verbatim (2577 lines) at `docs/reviews/evidence/round4-full-gate.log`. This
+check *was* run in this session, not cited from an earlier one.
+
+**Correction rounds: 2/2 — budget exhausted**, unchanged by this round. Round 1 (D1-D4/D6-D8,
+`b7978e3`) verified clean. Round 2 (R-002/R-003 completion + D5 + cleanup + `tokens.py`
+retirement, `b2ef1ac`) verified R-001-003 clean but surfaced R-006. The Round-3 batch (R-004,
+R-005), R-006's later fix, and this Round 4 batch (R-007, R-008, plus the STATE.md/review-doc
+reconciliation) are each **explicitly authorized by Joe beyond the exhausted autonomous
+budget** — none consumes a third autonomous round on its own initiative; this request's own
+text says so explicitly for R-007/R-008 and the oracle-guard changes. No findings rejected.
+Zero critical findings at any point.

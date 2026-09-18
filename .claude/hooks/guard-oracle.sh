@@ -138,8 +138,23 @@ def space_out_redirects(s):
 # Only a plain literal is followed; a variable/glob/tilde/empty target leaves `cur` unchanged.
 LITERAL_TARGET_RE = re.compile(r"^[A-Za-z0-9_./-]+$")
 # Commands whose own non-flag arguments are inherently file paths, not just redirect targets.
-FILE_ARG_VERBS = {"tee", "sed", "rm", "mv", "cp", "touch", "truncate"}
+# `sed` is handled separately below (only its in-place form writes; see `sed_is_inplace`).
+FILE_ARG_VERBS = {"tee", "rm", "mv", "cp", "touch", "truncate"}
 GIT_WRITE_SUBS = {"rm", "mv", "checkout", "restore"}
+# bash's builtin `cd [-L|[-P [-e]] [-@]] [--] [dir]`: recognized options that precede the
+# directory operand, plus the `--` separator itself.
+CD_OPTS = {"-L", "-P", "-e", "-@"}
+
+
+def sed_is_inplace(tok):
+    """True for a flag token that selects sed's in-place-edit mode: `-i`, a short cluster
+    containing it (`-ni`), GNU's attached optional suffix (`-i.bak`), or the long form
+    (`--in-place`, `--in-place=SUFFIX`)."""
+    if tok == "--in-place" or tok.startswith("--in-place="):
+        return True
+    if tok.startswith("--") or not tok.startswith("-") or tok == "-":
+        return False
+    return "i" in re.match(r"^-([a-zA-Z]*)", tok).group(1)
 
 
 def resolve(base, target):
@@ -187,6 +202,13 @@ def command_arg_targets(stmt):
     if verb == "git":
         sub = next((t for t in args if t in GIT_WRITE_SUBS), None)
         return [] if sub is None else [t for t in args if t != sub and not is_flag(t)]
+    if verb == "sed":
+        # sed's non-flag arguments are a script/expression plus the file(s) it reads -- only a
+        # write target when an in-place flag selects that mode; a plain `sed 'script' file` (or
+        # `sed -n ...`) only reads and prints to stdout.
+        if not any(sed_is_inplace(a) for a in args):
+            return []
+        return [t for t in args if not is_flag(t)]
     if verb in FILE_ARG_VERBS:
         return [t for t in args if not is_flag(t)]
     return []
@@ -219,10 +241,26 @@ def evaluate():
                 return True
             continue
         if toks and toks[0] == "cd":
-            target = toks[1] if len(toks) > 1 else None
-            if target and target != "-" and LITERAL_TARGET_RE.match(target):
+            # Skip recognized options (`-L`/`-P`/`-e`/`-@`) and an optional `--` separator
+            # before reading the directory operand -- previously the raw second token was
+            # taken as the target unconditionally, so `cd -- tests/golden` resolved `cur` to a
+            # bogus "<cwd>/--" directory instead of following `tests/golden` at all.
+            args, i, saw_sep = toks[1:], 0, False
+            while i < len(args) and not saw_sep and args[i] in CD_OPTS:
+                i += 1
+            if i < len(args) and args[i] == "--":
+                saw_sep = True
+                i += 1
+            target = args[i] if i < len(args) else None
+            if (
+                target
+                and target != "-"
+                and (saw_sep or not target.startswith("-"))
+                and LITERAL_TARGET_RE.match(target)
+            ):
                 cur = resolve(cur, target)
-            # else: untracked cd target (variable/glob/`-`/empty) -- leave cur unchanged.
+            # else: untracked cd target (variable/glob/`-`/an unrecognized option/empty) --
+            # leave cur unchanged.
             continue
         if statement_targets_guarded(stmt, cur):
             return True
