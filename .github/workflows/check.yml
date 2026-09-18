@@ -75,7 +75,7 @@ jobs:
             hooks=true
           fi
           if printf '%s\n' "$changed" \
-               | grep -qE '^(docs/process/|docs/agents/|docs/templates/|\.claude/skills/)|^(AGENTS|CLAUDE|README)\.md$'; then
+               | grep -qE '^(docs/process/|docs/agents/|docs/templates/|\.claude/skills/)|^(AGENTS|CLAUDE|README)\.md$|^docs/(README|reviews/README)\.md$|^(scripts/docs_check\.py|justfile|\.github/workflows/check\.yml)$'; then
             docs=true
           fi
           echo "code=$code" >> "$GITHUB_OUTPUT"

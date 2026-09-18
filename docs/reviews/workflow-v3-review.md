@@ -185,16 +185,114 @@ material above:
 
 Validation this round: `just hooks-test` 56/56; `just docs-check` OK (24 files, down from 27
 after the README deletions); full local gate rerun after the tokens.py restore/re-delete
-cycle — result recorded in `STATE.md`, not duplicated here. R-002 and R-003 (from the
-previous round) are included in the commit this round reviews; this is their actual
-fresh-review verification, not yet dispatched at review-record time.
+cycle: `EXITSTATUS=0`, `check: OK`. Committed as `b2ef1ac`.
 
-## Completion
+**Fresh Codex review of `b2ef1ac`** (general: no actionable regressions; adversarial
+fix-verification, focus naming R-001/R-002/R-003): **R-001 verified** ("resolved by explicit
+per-finding dispatch"). **R-002 verified** ("resolved by retained validation tooling,
+local/CI wiring, and corrected STATE evidence"). **R-003 verified** ("resolved by separate
+bash syntax-check invocations"). No dangling references from the 3 README deletions or
+`tokens.py`'s removal. Verdict: **needs-attention** — one new finding, not carried over from
+any prior round:
 
-R-001: verified. R-002: fix completed this pass (STATE.md rewritten), re-verification pending.
-R-003 (found during this round's own fresh review, not carried over): fixed, re-verification
-pending. No findings rejected or deferred. Zero critical findings at any point. This consumes
-fix-round 1 of 2; one more fresh Codex pass is planned to confirm R-002 and R-003 before this
-round closes. If that pass reports either unresolved, the workflow's two-round budget allows
-one further fix round before escalating to Joe. The full local gate's result is recorded in
-STATE.md, not duplicated here.
+## Finding R-006 (open — not fixed in this batch)
+
+Severity: major (Codex: medium — "Preserve tolerance protection for writes after changing
+directories")
+Status: **open**
+Location: `.claude/hooks/guard-oracle.sh:50-51` (the Bash write-target matcher `g`).
+Requirement/ADR: the oracle-guard boundary itself (`workflow.md` §Verification).
+Failure: by static inspection, `cd tests/physics && sed -i 's/1e-6/1e-3/' tolerances.yaml`
+now passes the guard — the write target (`tolerances.yaml`, bare) lacks the literal `tests/`
+prefix D5's new pattern requires, and the regex cannot connect it back across the `cd`.
+**Verified directly, not taken on Codex's word alone**: reproduced with the hook run against
+assembled JSON (`cd tests/${G} && echo x > cruise.csv` — `${G}` = `golden`, exit 0, should be
+exit 2) and confirmed this is a **pre-existing gap in the whole Bash-command matcher**, not
+D5-specific: the identical `cd tests/golden && ...` and `cd docs/decisions && ...` bypasses
+also succeed against the *unmodified* `tests/golden/` and `docs/decisions/` alternatives,
+which predate this entire workflow-v3 branch. D5 did not introduce this class of gap; it
+surfaced it by being the finding under test.
+Requested outcome (Codex): resolve write targets against the effective command directory, or
+conservatively block ambiguous relative writes to any bare/relative path containing a guarded
+name; add `cd`-then-write regression cases for all three guarded categories, preserving the
+D5 PASS cases.
+Builder response: **none yet — explicitly out of scope for this batch per Joe's instruction**
+("keep the changes confined to these findings and their tests/evidence," referring to R-004
+and R-005 below). Recorded here so it is not lost; the fix should address all three guarded
+categories together, not just `tolerance`, since the underlying gap is shared.
+Verification: not applicable (unfixed).
+History: found by Codex's adversarial fix-verification pass on `b2ef1ac` → confirmed
+independently by the builder → deferred, not fixed, per explicit scope confinement.
+Human exception if needed: Joe has seen this (it prompted the scope-confinement instruction);
+formal exception/timeline for the fix is his call.
+
+## Round 3: two Joe-reported findings (CI docs-scope gap, same-page anchor validation)
+
+Scope: exactly these two findings and their tests/evidence, per Joe's explicit instruction;
+R-006 above is deliberately not touched in this batch.
+
+## Finding R-004
+
+Severity: minor
+Status: fixed-unverified
+Location: `.github/workflows/check.yml`'s `Scope` step (the `docs` classifier regex).
+Reported by: Joe.
+Failure: the `docs` classifier missed `docs/README.md`, `docs/reviews/README.md`,
+`scripts/docs_check.py`, `justfile`, and `.github/workflows/check.yml` itself — a change to
+any of these (including one that broke `docs-check`'s own CI wiring) would run only the
+unconditional `bash -n` step, not `docs-check`.
+Requested outcome: cover those five paths without enabling `GATE=full` or otherwise touching
+the local-full-gate policy.
+Builder response: extended the `docs` regex to
+`^(docs/process/|docs/agents/|docs/templates/|\.claude/skills/)|^(AGENTS|CLAUDE|README)\.md$|^docs/(README|reviews/README)\.md$|^(scripts/docs_check\.py|justfile|\.github/workflows/check\.yml)$`.
+Verified with a bash simulation of the classifier against all 5 target paths (all now `true`)
+and 4 control paths that must stay `false` (`docs/reviews/workflow-v3-review.md`,
+`docs/architecture.md`, `scripts/check-full.sh`, `scripts/setup-ubuntu.sh`) plus 3 previously-
+covered paths that must stay `true` (`docs/process/workflow.md`, a skill file, `AGENTS.md`) —
+all 12 correct. YAML re-parsed clean. `GATE=local` untouched.
+Verification: pending Codex dispatch — not sent this batch, per Joe's explicit instruction
+("stop after validation and summarize the diff for Codex verification").
+History: reported by Joe → fixed and locally verified (this batch).
+Human exception if needed: none requested; not applicable.
+
+## Finding R-005
+
+Severity: minor
+Status: fixed-unverified
+Location: `scripts/docs_check.py`'s `check_links` — the `if not path_part: continue` branch.
+Reported by: Joe.
+Failure: a pure same-page fragment link (`[Section](#does-not-exist)`) was silently skipped
+rather than checked against the current file's own headings, so a broken same-page anchor
+passed validation.
+Requested outcome: validate same-page fragments against the current file; keep cross-file
+anchor checking working; retain regression tests for both directions.
+Builder response: the pure-fragment branch now calls `anchors_of(f)` (the current file, not
+the link target) and reports `broken same-page anchor '#{frag}'` when missing. Added
+`tests/python/test_docs_check.py` (new, 6 tests): same-page anchor exists/passes, same-page
+anchor missing/fails, cross-file anchor exists/passes, cross-file anchor missing/fails, a
+pre-existing broken-link-target case (regression guard), and a bare `[text](#)` no-op link
+(must not false-positive). All 6 pass; `just docs-check` on the real repository still reports
+OK (24 files, unchanged) — the fix introduced no new finding against real content.
+Verification: pending Codex dispatch — not sent this batch, per Joe's explicit instruction
+(same "stop after validation" instruction recorded under R-004).
+History: reported by Joe → fixed and locally verified with new regression coverage (this batch).
+Human exception if needed: none requested; not applicable.
+
+## Completion (through Round 3)
+
+R-001, R-002, R-003: **verified** by fresh Codex review of `b2ef1ac`. R-004, R-005:
+**fixed-unverified** — locally validated this round (full gate `EXITSTATUS=0`); Codex
+verification intentionally not yet dispatched, per Joe's explicit "stop after validation"
+instruction — this file is that summary. R-006: **open**, found by the same Codex pass that
+verified R-001-003, explicitly deferred per Joe's scope confinement; needs its own fix batch
+covering all three guarded categories, not just `tolerance`.
+
+**Correction rounds: 2/2 — budget exhausted.** Round 1 (D1-D4/D6-D8, `b7978e3`) verified clean.
+Round 2 (R-002/R-003 completion + D5 + cleanup + `tokens.py` retirement, `b2ef1ac`) verified
+R-001-003 clean but surfaced R-006. This Round-3 batch (R-004, R-005) is **explicitly
+authorized by Joe beyond the exhausted autonomous budget** ("this request authorizes this
+specific fix batch if the autonomous budget has been exhausted"); it does not consume a third
+autonomous round on its own initiative. R-006 remains open and unbudgeted — fixing it needs
+either fresh authorization or to be folded into whatever round authorizes R-004/R-005's own
+Codex verification. No findings rejected. Zero critical findings at any point. The full local
+gate's result for this batch is recorded in `STATE.md`, not duplicated here.

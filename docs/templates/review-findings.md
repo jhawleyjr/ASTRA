@@ -23,5 +23,8 @@ Human exception if needed: [actual decision, risk, follow-up owner; otherwise pe
 ## Completion
 
 [Critical/major open count, rejected findings independently checked, minor deferrals, scope not
-reviewed, validation gaps. Zero findings is valid; never invent a quota. Reviewer recommendation
-is not Joe's approval. Subsequent substantive changes require renewed review and validation.]
+reviewed, validation gaps. New findings from this pass's own fix-delta/callers/invariants
+inspection: "none", or each one recorded above like any other finding (location, requirement,
+evidence) rather than left only in this summary. Zero findings is valid; never invent a quota.
+Reviewer recommendation is not Joe's approval. Subsequent substantive changes require renewed
+review and validation.]

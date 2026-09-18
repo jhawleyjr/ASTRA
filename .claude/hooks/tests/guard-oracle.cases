@@ -41,3 +41,43 @@
 # BLOCK: the same worktree shape with no marker anywhere
 2	{"tool_name":"Write","tool_input":{"file_path":"$ROOT_WT/tests/golden/atmosphere/isa1976_table.hpp"}}
 2	{"cwd":"$ROOT_WT","tool_name":"Bash","tool_input":{"command":"python gen.py > tests/golden/x.csv"}}
+
+# --- Directory-relative write gap (the guarded path never appears literally next to its write) ---
+# BLOCK: an inline `cd` into a guarded directory, then a bare relative write naming no guarded path
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && printf x > example.hpp"}}
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && echo x >> example.hpp"}}
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd docs/decisions && rm 0004-fixed-step-rk4-in-house.md"}}
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/physics/nesc && sed -i s/1/2/ tolerances.yaml"}}
+# BLOCK: chained/relative `cd` segments and a `..`-relative `cd` still resolve into a guarded dir
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests && cd golden && printf x > example.hpp"}}
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/decisions/../golden && printf x > example.hpp"}}
+# BLOCK: the session's Bash cwd already persisted inside a guarded dir from an earlier call --
+# this command names no guarded path at all, only the hook's own "cwd" field says where it runs
+2	{"cwd":"$ROOT/tests/golden","tool_name":"Bash","tool_input":{"command":"printf x > example.hpp"}}
+2	{"cwd":"$ROOT/tests/golden/frames","tool_name":"Bash","tool_input":{"command":"echo x >> adr0001_cases.hpp"}}
+# BLOCK: destination-only commands (cp/mv/touch) still catch a guarded relative destination
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && cp /tmp/new.csv example.csv"}}
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && touch new.csv"}}
+# BLOCK: the authorization marker does not also disable this path -- it is checked earlier in the
+# script (the ASTRA_TOUCH_GOLDENS/touch-goldens branch exits 0 before any of this runs) and a
+# session without it must still be blocked from the directory-relative route, not only the direct one
+2	{"cwd":"$ROOT_WT/tests/golden","tool_name":"Bash","tool_input":{"command":"printf x > example.hpp"}}
+
+# PASS: `cd` back out before writing, or an absolute target elsewhere, still reach an unguarded path
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && cd /tmp && printf x > example.hpp"}}
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && printf x > /tmp/example.hpp"}}
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && cd .. && printf x > example.hpp"}}
+0	{"cwd":"$ROOT/tests/golden","tool_name":"Bash","tool_input":{"command":"cd /tmp && printf x > example.hpp"}}
+# PASS: a read from inside a guarded directory, whether reached by cwd or by an inline cd, is fine
+0	{"cwd":"$ROOT/tests/golden","tool_name":"Bash","tool_input":{"command":"cat example.hpp"}}
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && ls"}}
+# PASS (documented gap, not a silent one): a `cd` to an unliteral target -- a command
+# substitution, or `-` for the previous directory -- is not followed; the write below is checked
+# against the command's starting cwd (outside any guarded directory), not the real one
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd \"$(mktemp -d)\" && printf x > scratch.log"}}
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd - && printf x > scratch.log"}}
+
+# PASS: a ".." segment in an Edit/Write file_path cannot dodge the substring check either
+0	{"tool_name":"Write","tool_input":{"file_path":"$ROOT/tests/other/../notreally-golden/x.hpp"}}
+# BLOCK: same shape, but the ".." actually lands back inside a guarded directory
+2	{"tool_name":"Write","tool_input":{"file_path":"$ROOT/tests/other/../golden/x.hpp"}}

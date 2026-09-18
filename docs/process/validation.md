@@ -73,3 +73,49 @@ The Stop hook's first attempt runs the fast subset and reports failure; a hook c
 with an honest blocked handoff without rechecking. This prevents repeated hook-driven retries and
 is never evidence that fast/full validation passed. Claude must preserve the actual result and run
 necessary checks explicitly before claiming completion.
+
+## Numerical and physics validation
+
+Applies to any change to `core/kernel/`, numerical `core/util/`, `plugins/physical/`, `aircraft/**`
+models, the ICD, or a test/golden under `tests/physics/`, `tests/unit/`, `tests/golden/`. Required
+inputs: the assigned spec/plan's acceptance criteria, the binding ADRs for the changed behavior (at
+minimum ADR-0001 frames, ADR-0002 units, ADR-0003 state layout, ADR-0004 RK4, ADR-0010 time,
+ADR-0012 domain validity, ADR-0013 oracle construction, as applicable), and AGENTS.md's
+Non-standard conventions.
+
+1. Search `tests/physics/`, `tests/unit/`, `tests/golden/**` and `tests/configs/` for an existing
+   case covering the changed behavior, frame, unit, or domain boundary before adding one. Trace any
+   golden or reference dataset to its own generator and citation (e.g.
+   `tests/golden/atmosphere/generate_isa1976_table.py`, ADR-0013 for `tests/golden/nesc/`) rather
+   than trusting a committed number on sight; a dataset with no traceable generator or citation is a
+   gap to report, not to fill by guessing.
+2. Confirm the change honors AGENTS.md's Frames, State vector, Units, Time, Randomness, Floating
+   point, and Per-frame path conventions, plus what those don't already spell out:
+   - **Domain/finite behavior** (ADR-0012): a per-frame check must bound the actual expression the
+     model is singular at, never a sibling model's unrelated bound or a velocity-only lookahead
+     alone; assert a trig/algebraic singularity by magnitude threshold, never exact non-finiteness.
+   - **Invariants**: quaternion renormalization after every integrator step; conserved quantities
+     (energy/momentum) where the physics implies them.
+   - **RK4 coupling** (ADR-0004): a changed derivative must be correct at all four stages, not only
+     evaluated once at the frame boundary.
+   - **Per-frame constraints**: no heap allocation, exceptions, blocking I/O, `std::string`, or
+     `dlopen` on the `step`/`compute`/integrator/transport/logger path (`no_alloc_test.cpp`-style
+     coverage is the existing check).
+3. Never invent or relax a threshold. Accepted tolerances and their rationale live in the committed
+   golden/tolerance data and the ADR that accepted it (e.g. ADR-0013's ensemble-band `k = 3`); a
+   test may cite an existing tolerance but never widen, narrow, or regenerate one — the human-owned
+   oracle boundary in AGENTS.md and workflow.md's Verification section.
+4. Run the targeted command first (`ctest --preset asan -R <name>`), then the full gate before
+   review (`./scripts/check-full.sh`); read the actual exit status and `check: OK` per this
+   document's Evidence section above, never a background wrapper's status.
+5. Record in the handoff/review artifact: candidate scope (base/head), the commands run and their
+   actual results, each reference dataset's provenance, the tolerance applied and its source, gaps
+   (untested boundary, deferred case, environment limitation), and unresolved findings.
+6. Escalate to Joe instead of resolving unilaterally when the spec/ADR states no acceptance value or
+   tolerance for the behavior under test, an existing tolerance or golden looks wrong or inconsistent
+   with its cited source, or a new case has no independent reference — never derive a tolerance from
+   ASTRA's own output.
+
+Claude's [builder procedure](../agents/build.md) applies this to numerical/physics changes during
+validation; Codex's [review procedure](../agents/review.md) step 3 uses it as the checklist behind
+"FRD/NED ... RK4 coupling ... independent reference tolerances."

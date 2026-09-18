@@ -88,7 +88,11 @@ def check_links(md_files: list[Path], root: Path, problems: list[str]) -> None:
                 continue
             path_part, _, frag = target.partition("#")
             if not path_part:
-                continue  # pure in-page fragment
+                # Pure in-page fragment (e.g. [Section](#does-not-exist)): validate against
+                # this same file's own headings instead of skipping it.
+                if frag and frag not in anchors_of(f):
+                    problems.append(f"{f.relative_to(root)}: broken same-page anchor '#{frag}'")
+                continue
             resolved = (f.parent / path_part).resolve()
             if not resolved.exists():
                 problems.append(f"{f.relative_to(root)}: broken link target '{target}'")

@@ -10,9 +10,12 @@ py := venv / "bin/python"
 
 default: check
 
-# The whole gate: every preset builds and tests; the Python package builds and installs into the venv; then
-# clang-tidy, clang-format, the hook/docs test cases, ruff, pyright (strict on python/astra/), and pytest.
-check: (test "debug") (test "release") (test "static-plugins") (test "asan") python link-db tidy format-check docs-check hooks-test ruff pyright pytest
+# The whole gate. Cheap, build-independent checks (formatting, docs/link validation, hook regression
+# cases, Python lint) run first so a trivial mistake fails fast instead of after tens of minutes of
+# building every preset four times; every preset then builds and tests; the Python package builds and
+# installs into the venv; then clang-tidy, pyright (strict on python/astra/), and pytest, each after the
+# build its own analysis needs. Same checks, same failure propagation -- only the order changed.
+check: format-check docs-check hooks-test ruff (test "debug") (test "release") (test "static-plugins") (test "asan") python link-db tidy pyright pytest
     @echo "check: OK"
 
 configure preset="asan":

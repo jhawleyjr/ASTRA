@@ -62,13 +62,10 @@ printf 'exit=%s\n' "$status"
 ```
 
 Backticks and `$()` inside a **double-quoted** argument are expanded by the shell before
-`node` runs, not by the reviewer: a focus that mentions a command in backticks (for example,
-a sentence about `` `just check` ``) executes that command right there and splices its
-captured output into the argument. This is a real incident, not a hypothetical: during the
-workflow-v3 review, a double-quoted focus containing a backticked `just check` ran the full
-local gate, and the substituted output overran the shell's argument length limit, so `node`
-never started at all — see `docs/lessons.md`. A single-quoted string or a quoted heredoc
-delimiter suppresses this and every other form of shell expansion in the text.
+`node` runs, not by the reviewer, and can execute an unintended command and overrun the
+argument length limit before the reviewer ever starts. See the 2026-09-17 backtick-expansion
+entry in `docs/lessons.md` for the concrete incident this happened to. A single-quoted string
+or a quoted heredoc delimiter suppresses this and every other form of shell expansion in the text.
 
 Keep focus text compact and reference repository files and revisions instead of embedding
 whole documents: name paths (e.g. `docs/reviews/<feature>-review.md`), base/head revisions,
@@ -99,14 +96,27 @@ disposition in `docs/reviews/<feature>-review.md` (the [findings template](../te
 what changed) for anything marked fixed. Then dispatch a normal `adversarial-review` (never
 `review`, which takes no focus text) with a compact focus, built per the rules above, naming
 that file's path, the base/head revisions under verification, and the specific finding IDs to
-check:
+check. The focus must require the reviewer to:
+
+- Return an explicit verdict for every named finding, including any recorded as rejected —
+  silence about a finding is unverified, never agreement.
+- Inspect the fix delta itself, plus its affected callers and invariants, for newly introduced
+  substantive defects or requirement violations — a targeted check of what changed, not a
+  second full-candidate review.
+- Report either "New findings: none" or a structured list of actionable new findings (location,
+  requirement, evidence) — never reopen an unrelated stylistic preference or optional cleanup
+  that was not itself a named finding.
 
 ```sh
 focus=$(cat <<'FOCUS'
 Verify findings R-001 and R-002 recorded in docs/reviews/<feature>-review.md against base
-<sha1> head <sha2>. For each, report whether the recorded fix actually resolves it in the
-current diff, or state why not; do not treat an unmentioned finding as agreed. Do not edit
-files or run builds/tests.
+<sha1> head <sha2>. For each named finding, including any recorded as rejected, report an
+explicit verdict: whether the recorded fix or rejection actually holds in the current diff, or
+state why not; an unmentioned finding is unverified, never agreed. Separately, inspect the fix
+delta and its affected callers/invariants for newly introduced substantive defects or
+requirement violations; report "New findings: none" or a structured list (location,
+requirement, evidence) of actionable ones only -- do not reopen unrelated stylistic preferences
+or optional cleanup that was not a named finding. Do not edit files or run builds/tests.
 FOCUS
 )
 node "$CODEX_COMPANION" adversarial-review --base origin/main --wait "$focus" \
@@ -116,9 +126,13 @@ tail -n 60 review.log
 printf 'exit=%s\n' "$status"
 ```
 
-Require an explicit per-finding verdict; silence about a finding is unverified, never
-agreement. Record the reviewer's verdicts back into the findings file's `Verification:` field
-and update each finding's status and round history.
+Require an explicit per-finding verdict and the new-findings report described above; silence
+about a finding is unverified, never agreement, and a verification pass with no new-findings
+result is incomplete, not clean. Record the reviewer's verdicts back into the findings file's
+`Verification:` field, its new-findings result in the review file's `Completion` section, and
+update each finding's status and round history. This is still the same bounded fix-verification
+dispatch, not an additional review pass or approval gate: it replaces one unfocused re-review
+with one focused one that also covers the fix delta's own blast radius.
 
 ## Plan critique
 

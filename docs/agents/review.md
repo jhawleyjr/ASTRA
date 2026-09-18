@@ -9,7 +9,9 @@ record Claude as builder and Codex as reviewer. Output: [findings](../templates/
    plugin loading, ICD compatibility, regressions and test/oracle changes. Review surrounding callers.
 3. For numerical/physics changes inspect FRD/NED and `q_nb` direction, units, Earth position semantics,
    finite/domain behavior, invariants, fixed-frame time, random seeds/transforms, RK4 coupling,
-   allocations/exceptions on the per-frame path, and independent reference tolerances. Cite binding ADRs.
+   allocations/exceptions on the per-frame path, and independent reference tolerances, per
+   [numerical and physics validation](../process/validation.md#numerical-and-physics-validation).
+   Cite binding ADRs.
 4. Report only actionable defects supported by a location, triggering scenario, impact, and evidence.
    Critical: severe safety/data/security or fundamental correctness failure. Major: requirement failure,
    regression or missing required check. Minor: bounded maintainability/clarity issue. Mark suggestions
