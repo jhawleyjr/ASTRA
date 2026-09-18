@@ -1,0 +1,36 @@
+[codex] Starting Codex review thread.
+[codex] Thread ready (01a0b342-1a72-7dd1-a254-58cd4c465d6a).
+[codex] Reviewer started: changes against 'origin/main'
+[codex] Running command: /bin/bash -lc 'git status --short; git diff --stat 40b484b02416b989f7f9e52e69ec8e3faa0b895d; ...
+[codex] Command completed: /bin/bash -lc 'git status --short; git diff --stat 40b484b02416b989f7f9e52e69ec8e3faa0b895d; ... (exit 0)
+[codex] Running command: /bin/bash -lc 'cat AGENTS.md docs/architecture.md docs/agents/review.md docs/process/workflow...
+[codex] Command completed: /bin/bash -lc 'cat AGENTS.md docs/architecture.md docs/agents/review.md docs/process/workflow... (exit 0)
+[codex] Running command: /bin/bash -lc 'cat .claude/hooks/guard-oracle.sh'
+[codex] Command completed: /bin/bash -lc 'cat .claude/hooks/guard-oracle.sh' (exit 0)
+[codex] Running command: /bin/bash -lc 'git diff 40b484b02416b989f7f9e52e69ec8e3faa0b895d -- .github/workflows/check.y...
+[codex] Command completed: /bin/bash -lc 'git diff 40b484b02416b989f7f9e52e69ec8e3faa0b895d -- .github/workflows/check.y... (exit 0)
+[codex] Running command: /bin/bash -lc 'cat docs/process/workflow.md docs/agents/review-dispatch.md .claude/skills/{pl...
+[codex] Command completed: /bin/bash -lc 'cat docs/process/workflow.md docs/agents/review-dispatch.md .claude/skills/{pl... (exit 0)
+[codex] Running command: /bin/bash -lc "python3 - <<'PY' import json,subprocess,os base=subprocess.check_output(['git'...
+[codex] Command completed: /bin/bash -lc "python3 - <<'PY' import json,subprocess,os base=subprocess.check_output(['git'... (exit 0)
+[codex] Running command: /bin/bash -lc "git diff 40b484b02416b989f7f9e52e69ec8e3faa0b895d -- .claude/hooks/guard-oracl...
+[codex] Command completed: /bin/bash -lc "git diff 40b484b02416b989f7f9e52e69ec8e3faa0b895d -- .claude/hooks/guard-oracl... (exit 0)
+[codex] Running command: /bin/bash -lc "python3 - <<'PY' import json,subprocess,os base=subprocess.check_output(['git'...
+[codex] Command completed: /bin/bash -lc "python3 - <<'PY' import json,subprocess,os base=subprocess.check_output(['git'... (exit 0)
+[codex] Review output captured.
+[codex] Reviewer finished.
+[codex] Assistant message captured: Two reproduced regressions allow previously blocked oracle writes through the hook. The docum...
+[codex] Turn completed.
+# Codex Review
+
+Target: branch diff against origin/main
+
+Two reproduced regressions allow previously blocked oracle writes through the hook. The documentation checker and diff whitespace check passed; the full gate was not run in this read-only review.
+
+Full review comments:
+
+- [P2] Recognize prefixed sed invocations before classifying writes — /home/joe/repos/ASTRA/.claude/hooks/guard-oracle.sh:329-333
+  With the oracle guard unarmed, `LC_ALL=C sed -i 's/x/y/' tests/golden/probe.hpp` now exits 0, whereas the base hook exits 2. Removing sed from the coarse filter leaves this parser as its only protection, but it treats `LC_ALL=C` as the executable; `command sed` also bypasses it. Normalize ordinary command prefixes before classifying sed so these literal in-place writes still require authorization under [AGENTS.md:27–29](AGENTS.md#L27-L29).
+
+- [P2] Preserve protection for oracle paths outside the session root — /home/joe/repos/ASTRA/.claude/hooks/guard-oracle.sh:353-355
+  From a worktree session, `sed -i 's/x/y/' /home/joe/repos/ASTRA/tests/golden/nesc/case1_dragless_sphere.hpp` now passes the unarmed hook because `rel_to_root()` returns `None` for the main checkout. The base hook blocks this same absolute-path write. Check resolved targets against protected paths in the main checkout and other worktrees rather than dropping targets outside `CLAUDE_PROJECT_DIR`; the oracle-authorization rule is not limited to the current worktree ([AGENTS.md:27–29](AGENTS.md#L27-L29)).

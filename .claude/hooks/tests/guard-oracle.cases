@@ -180,3 +180,46 @@
 0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed -n '/warning/p' nesc/case1_dragless_sphere.hpp"}}
 0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed -n '/flow/p' nesc/case1_dragless_sphere.hpp"}}
 0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed 's/raw/cooked/' nesc/case1_dragless_sphere.hpp"}}
+
+# --- Round 6: fixes for defects Codex's Round 5 review found (two independent passes) ---
+# BLOCK: an ordinary command-prefix (`env`, `command`, a `NAME=VALUE` assignment, or a
+# path-qualified name) must not dodge sed's own write classification -- the coarse pre-filter
+# used to catch these via blind substring matching; removing it (Round 5) briefly regressed
+# this until `resolve_verb()` restored it at the Python layer
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"env sed -i 's/x/y/' tests/golden/probe.hpp"}}
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"LC_ALL=C sed -i 's/x/y/' tests/golden/probe.hpp"}}
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"command sed -i 's/x/y/' tests/golden/probe.hpp"}}
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"/usr/bin/sed -i 's/x/y/' tests/golden/probe.hpp"}}
+# PASS: the same prefixes on an unrelated/read-only command still pass
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"env ls tests/golden/"}}
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"env sed -n '1,5p' tests/golden/nesc/case1_dragless_sphere.hpp"}}
+# BLOCK: a single simple statement wrapped in one layer of `(...)` subshell -- the coarse
+# pre-filter's substring match did not care about shell syntax at all, so this also regressed
+# briefly when sed left that pre-filter (Round 5); peeled explicitly in `evaluate()` now
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"(sed -i 's/x/y/' tests/golden/nesc/case1_dragless_sphere.hpp)"}}
+# PASS: the same subshell wrapping on an unrelated read
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"(cat tests/golden/nesc/case1_dragless_sphere.hpp)"}}
+# BLOCK: a write target resolved to an absolute path OUTSIDE this session's own root (the
+# main checkout's absolute path, referenced from what the harness's `cwd`/root treats as a
+# worktree) -- the coarse pre-filter matched this by blind substring regardless of root; the
+# Python resolver's root-relative-only check missed it until this round's outside-root fallback
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"sed -i 's/x/y/' /home/joe/repos/ASTRA/tests/golden/nesc/case1_dragless_sphere.hpp"}}
+# PASS: an absolute path elsewhere (nothing guarded in it) still passes
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"sed -i 's/x/y/' /tmp/not-guarded/file.txt"}}
+# BLOCK: a pipeline `|` followed by a comment (`# ...`) then a newline is still pipeline
+# continuation in real bash -- the comment text defeated the plain "is the pending text blank"
+# check that closed the plain-newline case in Round 5
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden; printf x | # continuation\ncd ../..; printf x > probe.hpp"}}
+# BLOCK: a sed address (a leading digit) immediately before an `s///...w` substitution, and the
+# same shape with the `s` command attached directly to `-e` (no space) -- both previously
+# evaded the flags-cluster regex, which anchored `s` to a word boundary that a preceding digit
+# or an attached option's flag character does not create
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed -n '1s/x/y/gw probe.hpp' /dev/null"}}
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed -n -es/x/y/gw' probe.hpp' /dev/null"}}
+# BLOCK (documented gap, not a silent one -- pins the safe-direction false block, not a
+# bypass): a `w` inside an address/pattern REGION that happens to contain real whitespace
+# ("/w probe/p" -- a regex matching the literal text "w probe", not a write command) still
+# false-blocks a read-only invocation; distinguishing a delimited regex/pattern region from an
+# actual command position needs real sed-delimiter tracking, out of proportion to this guard's
+# stated "shell-pattern guard, not a parser" scope -- recoverable via the existing marker.
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed -n '/w probe/p' nesc/case1_dragless_sphere.hpp"}}

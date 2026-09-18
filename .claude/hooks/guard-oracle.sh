@@ -55,10 +55,13 @@ case "$tool" in
     # `sed` is deliberately NOT matched here (R-008/R-012): a fast substring alternative
     # (`\bsed\b...-[a-zA-Z]*i...`) used to false-block a read-only attached `-e` script whose
     # text happened to contain the letter `i` next to a literally-spelled guarded path (e.g.
-    # `sed -eiprobe tests/golden/...`); the Python stage below has full, tested sed
-    # classification (in-place flags and `w`/`W` write commands, both via `cd` and via a
-    # direct literal path) and runs unconditionally regardless of this fast pre-filter, so
-    # removing sed from the coarse filter loses no real coverage.
+    # `sed -eiprobe tests/golden/...`). The Python stage below has full, tested sed
+    # classification and runs unconditionally regardless of this fast pre-filter -- but removing
+    # sed here first (Round 5) also silently dropped this coarse filter's substring-only
+    # matching, which did not care about `env`/`command`/`NAME=VALUE` prefixes or whether a
+    # literally-spelled absolute path was under this session's own root; Python's
+    # `resolve_verb()` and `statement_targets_guarded()`'s outside-root fallback now cover both
+    # of those, so no real coverage is lost, but this took two authorized fix rounds to reach.
     g='(docs/decisions/|tests/golden/|tests/[A-Za-z0-9_./-]*tolerance)'
     if printf '%s' "$cmd" | grep -Eq "(>>?[[:space:]]*[^[:space:]|;&]*$g|\btee\b([[:space:]]+-[a-z]+)*[[:space:]]+[^[:space:]|;&]*$g|\b(rm|mv|cp|touch|truncate)\b[^|;&]*$g|\bgit\b[^|;&]*\b(rm|mv|checkout|restore)\b[^|;&]*$g)"; then
       block "a write target in this command"
@@ -79,6 +82,12 @@ cmd = os.environ.get("GUARD_CMD", "")
 root = os.environ.get("GUARD_ROOT", "")
 start_cwd = os.environ.get("GUARD_CWD", "") or root
 pattern = re.compile(os.environ.get("GUARD_PATTERN", ""))
+
+
+# A pipeline-continuation newline may be preceded by nothing but whitespace, optionally
+# followed by a shell comment (`#` at the start of a word, running to end of line) -- a `#`
+# elsewhere (stuck to a preceding non-whitespace character) is ordinary text, not a comment.
+PIPE_CONTINUATION_RE = re.compile(r"^\s*(#.*)?$")
 
 
 def split_statements(text):
@@ -119,12 +128,15 @@ def split_statements(text):
         if text[i:i + 2] in ("&&", "||"):
             flush(";"); i += 2; continue
         if c == "\n":
-            # A newline immediately after a `|` (nothing but whitespace/further newlines
-            # since) is pipeline line-continuation, not a statement terminator -- bash reads
-            # `cmd1 |\ncmd2` as one two-stage pipeline, not `cmd1 | ; cmd2`. Swallowing it
-            # keeps the next real statement correctly tracked as pipeline-adjacent instead of
-            # inserting a synthetic `;`-separated empty statement that would sever the chain.
-            if not "".join(buf).strip() and seps and seps[-1] == "|":
+            # A newline immediately after a `|` (nothing but whitespace, or a whitespace-only
+            # `#comment` -- itself outside quotes here, since the quote branch above already
+            # consumed anything quoted -- since) is pipeline line-continuation, not a statement
+            # terminator: bash reads `cmd1 |\ncmd2` and `cmd1 | # note\ncmd2` both as one
+            # two-stage pipeline, never as `cmd1 | ; cmd2`. Swallowing it keeps the next real
+            # statement correctly tracked as pipeline-adjacent instead of inserting a synthetic
+            # `;`-separated empty statement that would sever the chain.
+            pending = "".join(buf)
+            if PIPE_CONTINUATION_RE.match(pending) and seps and seps[-1] == "|":
                 i += 1; continue
             flush(";"); i += 1; continue
         if c == ";":
@@ -180,6 +192,27 @@ GIT_WRITE_SUBS = {"rm", "mv", "checkout", "restore"}
 # token (`-Pe` same as `-P -e`), same as it accepts them separately.
 CD_OPT_CLUSTER_RE = re.compile(r"^-[LPe@]+$")
 
+ENV_ASSIGN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+
+
+def resolve_verb(toks):
+    """The real command name `command_arg_targets` should classify by, seeing through a
+    leading `env`/`command`, one or more `NAME=VALUE` environment-variable-assignment prefixes
+    (with or without a preceding `env`/`command`, both valid bash), and a path-qualified name
+    resolved to its basename -- not a shell interpreter, just enough that these ordinary
+    prefixes cannot dodge a write-capable command's own classification (`env sed -i ...`,
+    `LC_ALL=C sed -i ...`, `command sed -i ...`, `/usr/bin/sed -i ...` are all still `sed`)."""
+    i = 0
+    if i < len(toks) and toks[i] in ("env", "command"):
+        i += 1
+        while i < len(toks) and toks[i].startswith("-"):
+            i += 1
+    while i < len(toks) and ENV_ASSIGN_RE.match(toks[i]):
+        i += 1
+    if i >= len(toks):
+        return None, []
+    return os.path.basename(toks[i]), toks[i + 1:]
+
 # sed's own short-option classes (GNU sed): a no-arg flag keeps scanning the same clustered
 # token; a value-taking flag consumes the rest of the token (if any) or else the next
 # separate token as its argument, and that argument is never itself scanned for flags.
@@ -230,13 +263,24 @@ SED_BARE_W_CMD_RE = re.compile(r"(?<![A-Za-z])[wW]\s+\S")
 # (e.g. `s/x/y/gw file`, flags cluster "gw" -- the `w` here is letter-preceded, by design, so
 # the bare-command regex above deliberately does not match it): matched separately, anchored to
 # sed's actual delimiter (`/` is conventional but sed accepts any character), so a `w` inside
-# ordinary pattern/replacement text is never mistaken for a flag.
-SED_SUBST_W_FLAG_RE = re.compile(r"\bs(.)(?:\\.|(?!\1).)*?\1(?:\\.|(?!\1).)*?\1[a-zA-Z0-9]*[wW]\s+\S")
+# ordinary pattern/replacement text is never mistaken for a flag. The `s` itself is excluded
+# only when letter-preceded, same reasoning as `SED_BARE_W_CMD_RE`'s `w` -- a digit/comma/`$`/
+# semicolon/start is a legitimate sed address before the command letter (`1s/x/y/gw file`).
+SED_SUBST_W_FLAG_RE = re.compile(
+    r"(?<![A-Za-z])s(.)(?:\\.|(?!\1).)*?\1(?:\\.|(?!\1).)*?\1[a-zA-Z0-9]*[wW]\s+\S"
+)
 
 
 def sed_script_has_write_command(args):
+    # Scan sed's own option *values* (sed_arg_targets: an attached `-e`'s script text, a
+    # separate `-e`'s next token, a positional script/filename, ...) rather than the raw
+    # argument tokens -- otherwise an attached option's flag prefix sits directly against the
+    # script text with nothing to anchor a lookbehind on (`-es/x/y/gw file` has `s` directly
+    # after `e`, indistinguishable by lookbehind from a real identifier); isolating the value
+    # first means a script's own `s`/`w` always starts scanning from a clean position.
     return any(
-        SED_BARE_W_CMD_RE.search(a) or SED_SUBST_W_FLAG_RE.search(a) for a in args
+        SED_BARE_W_CMD_RE.search(v) or SED_SUBST_W_FLAG_RE.search(v)
+        for v in sed_arg_targets(args)
     )
 
 
@@ -326,7 +370,9 @@ def command_arg_targets(stmt):
         return None
     if not toks:
         return []
-    verb, args = toks[0], toks[1:]
+    verb, args = resolve_verb(toks)
+    if verb is None:
+        return []
     if verb == "git":
         sub = next((t for t in args if t in GIT_WRITE_SUBS), None)
         return [] if sub is None else [t for t in args if t != sub and not is_flag(t)]
@@ -351,8 +397,17 @@ def statement_targets_guarded(stmt, cur):
         # plain substring check of its raw text rather than silently passing it through.
         return pattern.search(stmt) is not None
     for t in r_targets + c_targets:
-        rel = rel_to_root(resolve(cur, t))
-        if rel is not None and pattern.search(rel):
+        resolved = resolve(cur, t)
+        rel = rel_to_root(resolved)
+        # A target outside this session's own root (a worktree session naming the main
+        # checkout's absolute path, or another worktree, by its own absolute path -- not this
+        # session's relative view of it) has no root-relative form to check; fall back to
+        # matching the guarded pattern against the resolved path itself, exactly as the file's
+        # own coarse Bash-text pre-filter always did against the raw command text regardless of
+        # root. A resolved path unrelated to this repository that coincidentally contains a
+        # guarded-looking substring is a rare, safe-direction false block, not a bypass.
+        candidate = rel if rel is not None else resolved
+        if pattern.search(candidate):
             return True
     return False
 
@@ -363,6 +418,15 @@ def evaluate():
         stmt = raw.strip()
         if not stmt:
             continue
+        # Peel one layer of `(...)` subshell wrapping when it wraps the *entire* statement --
+        # `(sed -i ... tests/golden/x)` -- so the command inside is classified the same as if
+        # it were not wrapped. Narrow, not full shell parsing: only helps a subshell containing
+        # a single simple statement with no `;`/`&&`/`||`/`|` of its own (those already split
+        # this statement apart above, before any subshell-awareness), a known remaining gap.
+        if stmt.startswith("(") and stmt.endswith(")"):
+            stmt = stmt[1:-1].strip()
+            if not stmt:
+                continue
         try:
             toks = shlex.split(stmt, posix=True)
         except ValueError:

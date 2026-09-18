@@ -809,4 +809,69 @@ in `/usr/bin/time -v`; result `EXITSTATUS=0`, `check: OK`, `100% tests passed, 0
 out of 274` on each of the four presets; elapsed wall-clock 4:25.59. Retained verbatim (2602
 lines) at `docs/reviews/evidence/round5-full-gate.log`.
 
-Codex dispatch for this round is recorded next, once run.
+**Fresh Codex review of `bbded20`** (`codex-cli` 0.154.0, `gpt-6-astra`, effort `low`; fresh
+context). General review: two `[P2]` findings — a prefixed-sed bypass (`LC_ALL=C sed -i ...`,
+`command sed`) and an absolute-path-outside-session-root bypass, both genuine regressions from
+this round's coarse-pre-filter removal, not pre-existing. Retained:
+`docs/reviews/evidence/bbded20-codex-review-general.log`. Adversarial fix-verification (focus
+naming R-006/R-008/R-009/R-011/R-012/R-013): needs-attention — one more new regression (the
+same prefixed-sed class, via `env`/subshell-wrapping) plus three further narrowed variants of
+the original findings (a pipeline comment before the continuation newline; a digit-addressed
+`s///w` substitution and its attached-`-e` form; a `w` inside regex/pattern text that happens
+to contain real whitespace). Retained: `docs/reviews/evidence/bbded20-codex-adversarial.log`.
+
+## Round 6: fixes for the two Codex passes' findings on `bbded20`
+
+All items below independently reproduced against the pre-fix (`bbded20`) hook and re-verified
+against the fixed hook in this session (JSON-on-stdin, no real file written) before being
+recorded, per this file's established evidence discipline:
+
+- **Genuine regression (general + adversarial, both independently found), not a pre-existing
+  finding**: removing sed from the coarse Bash-text pre-filter (Round 5) also silently dropped
+  that pre-filter's substring-only matching, which never cared about `env`/`command`/
+  `NAME=VALUE` prefixes, a path-qualified command name, one layer of `(...)` subshell wrapping,
+  or whether a literally-spelled absolute path was under this session's own root — only
+  Python's exact `verb == "sed"` token check and root-relative resolution replaced it, and
+  neither covered these. Fixed with `resolve_verb(toks)` (sees through `env`/`command`/
+  assignment prefixes and resolves a path-qualified name to its basename, applied to every
+  verb dispatch in `command_arg_targets`, not only sed), one layer of `(...)` subshell peeling
+  in `evaluate()` before a statement is classified, and an outside-root fallback in
+  `statement_targets_guarded()` that matches the guarded pattern against a resolved path's full
+  form when it has no root-relative form at all (restoring, at the Python layer, exactly what
+  the coarse pre-filter's substring match always provided regardless of root).
+- **R-006/R-009 (still incomplete)**: a `|` followed by a comment (`# ...`) then a newline is
+  still pipeline continuation in real bash; the plain "is the pending text blank" check from
+  Round 5 didn't account for a trailing comment. Fixed: `PIPE_CONTINUATION_RE` recognizes
+  whitespace optionally followed by a `#`-started comment running to end of line.
+- **R-008/R-011 (still incomplete)**: a sed address (a leading digit) immediately before an
+  `s///...w` substitution (`1s/x/y/gw file`), and the same shape attached directly to `-e`
+  (`-es/x/y/gw file`, no space), both evaded `SED_SUBST_W_FLAG_RE`'s `\bs` anchor — a digit or
+  an attached option's flag character does not create a regex word boundary before `s`. Fixed:
+  the anchor now excludes only a *letter* immediately before `s` (mirroring
+  `SED_BARE_W_CMD_RE`'s existing digit-allowed design), and `sed_script_has_write_command` now
+  scans sed's own extracted option *values* (`sed_arg_targets`) rather than raw argument
+  tokens, so an attached option's value starts scanning from a clean position with nothing to
+  anchor a lookbehind on ahead of it.
+- **R-008/R-013 (one variant deliberately not fixed, documented instead)**: a `w` inside an
+  address/pattern region that happens to contain real whitespace (`/w probe/p` — regex text
+  matching the literal string "w probe", not a write command) still false-blocks. Distinguishing
+  a delimited regex/pattern region from an actual command position needs real sed-delimiter
+  tracking (matching the actual opening/closing delimiter character and its escaping rules) —
+  out of proportion to this guard's own stated "shell-pattern guard, not a parser" scope, and
+  this is a false block (safe direction, recoverable via the existing marker), not a bypass.
+  Documented in `guard-oracle.cases` as a pinned, non-silent gap, matching the file's existing
+  style for the `cd`-to-a-variable/glob/`~`/`-` gap.
+
+14 new `guard-oracle.cases` lines (9 BLOCK closing each confirmed bypass, 4 PASS regression
+guards, 1 BLOCK pinning the deliberately-deferred false block). `just hooks-test`: 131/131 (up
+from 117). `just docs-check`: OK (24 Markdown files, unchanged).
+
+**Full local gate**: `./scripts/check-full.sh` (`just check`), wrapped in `/usr/bin/time -v`;
+result `EXITSTATUS=0`, `check: OK`, `100% tests passed, 0 tests failed out of 274` on each of
+the four presets; elapsed wall-clock 4:25.29. Retained verbatim (2616 lines) at
+`docs/reviews/evidence/round6-full-gate.log`.
+
+Per this session's established discipline (Round 4's identical pattern): this is the final fix
+pass for this batch regardless of what a next Codex dispatch finds. Fresh Codex verification of
+`docs/reviews/evidence/` and the current head is dispatched next; whatever it reports closes
+this batch and returns to Joe, not a further autonomous round.
