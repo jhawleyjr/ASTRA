@@ -368,6 +368,27 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         implementation step, before any code: time `nesc_case1_test.cpp` once and multiply by ten, since
         `just check`'s wall-time budget is why the gate runs locally at all and this design's addition to
         it was estimated, not measured. Accept: all ten within tolerance under every preset.
+        **In progress**: 8/10 cases pass (verified under asan; other presets pending). Cases 4/5
+        (`round`/`inverse_square`, Vol II Tables 28/29's 10-30 deg/s spin combined with real `C_D`)
+        found a real EOM/architecture characteristic during implementation -- the applied wrench is
+        frozen across one frame's four RK4 sub-stages while gravity is recomputed fresh each
+        sub-stage, producing a measurable lateral-velocity/attitude drift NASA's own six-tool
+        ensemble does not show (confirmed by isolating the mechanism: zeroing `C_D` at runtime
+        collapses the drift to floating-point noise; restoring it reproduces it identically).
+        **Accepted by Joe as a disclosed gap, 2026-09-18** (option (a): land 8/10 now, close the gap
+        in PR 3c below): cases 4/5 are `GTEST_SKIP()`ed in `nesc_cases_test.cpp`, not deleted and not
+        tolerance-widened; risk (first-order force/spin coupling this frame architecture does not
+        track between wrench samples; matters more once M3 introduces a real aircraft with sustained
+        coupled spin+force dynamics) recorded in the human-review packet's Decision record.
+- [ ] PR 3c — per-RK4-substage wrench evaluation, the M2 closer: recompute `WrenchSource::wrench_b()`
+      (and any other per-frame environment/force input) at each of the `Integrator`'s RK4 sub-stages
+      instead of once per frame, closing PR 3b's disclosed cases 4/5 gap. Needs a superseding or
+      elaborating ADR to ADR-0004 (fixed-step RK4) and `docs/architecture.md` §5's per-frame order
+      (wrenches computed once, before "EOM derivative → integrator step"), since this changes how
+      often and with what state every existing `WrenchSource` is called -- a real `Integrator`/`Eom`/
+      `WrenchSource` contract change, not a bolt-on. One independent Codex plan critique required
+      before any code (`docs/process/workflow.md`'s plan-review trigger: an expensive, unpinned
+      design). Not started in the M2 PR 3b worktree; a separate task.
 - [ ] **M3 Notional transport** — aero + mass + turbofan plugins; trims at cruise with residual < 1e-6;
       linearized modes match design values; 300 s open-loop run reproduces the golden.
 - [ ] **M4 Lockstep** — shm transport + HAL + straight-and-level autopilot outside the sim tree; 10,000

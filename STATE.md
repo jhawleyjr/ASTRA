@@ -1,35 +1,37 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines; true at handoff)
 
 ## In flight
-Workflow-v3, branch `workflow-v3`, main checkout, committed through `389ac1d` (pushed). Joe
-reviewed the human-review packet and, on 2026-09-18, **accepted the three remaining
-guard-oracle.sh findings (R-006/R-009's pipeline-comment-with-`;`, R-008/R-011's `xargs`-target
-and sed address-modifier gaps) plus the one disclosed false block (`/w probe/p`) as documented
-residual risk** — recorded verbatim in `docs/reviews/workflow-v3-review.md`'s "Joe's 2026-09-18
-acceptance decision" section and the human-review packet's Decision record (`State: approved`,
-findings-disposition scope only). Per his explicit instruction, no finding's `Status:` was
-changed to `fixed`/`verified`; each open finding is annotated "accepted as documented residual
-risk" in place. No guard-oracle.sh changes, Codex dispatches, or full gate runs were made
-recording this. **Draft PR opened**: `main` ← `workflow-v3`,
-<https://github.com/jhawleyjr/ASTRA/pull/30>, per Joe's "prepare the workflow PR for my final
-merge decision." Not merged; not marked ready-for-review (stays draft until Joe says
-otherwise).
+M2 PR 3b (the NESC ten-case harness), worktree `m2-nesc-harness`, branch `worktree-m2-nesc-harness`,
+uncommitted (34 changed paths, nothing committed/pushed, no PR opened). Spec/plan approved; ADR-0014
+accepted and written. Cases 4/5's EOM/architecture finding (frozen wrench across RK4 sub-stages,
+exposed by fast spin + real drag) **decided by Joe, 2026-09-18, option (a)**: accepted as a disclosed
+gap, `GTEST_SKIP()`ed in `nesc_cases_test.cpp` (not deleted, no tolerance change), `PLAN.md`'s new
+**PR 3c** (per-RK4-substage wrench evaluation) is the closer, not started here. Full gate
+(`just check`) passed clean on all 4 presets after fixing format/ruff/pyright/clang-tidy findings the
+first run surfaced (line-length, `zip(strict=)`, `modernize-use-std-numbers` false positives on
+generated data, `readability-identifier-naming` on the test file's PascalCase helpers). Codex general
+review: clean, no defects. Codex adversarial review: **did not complete** — hit a hard usage-limit
+error mid-pass ("try again at Sep 23rd, 2026 7:30 PM"), not a finding, not a pass. Human-review packet
+prepared: `docs/reviews/nesc-harness-human.md`, discloses the adversarial-review gap plainly.
 
 ## Last verified result
-Unchanged since Round 7: `just hooks-test` 144/144, `just docs-check` OK, full local gate on
-`4956c13` `EXITSTATUS=0`/`check: OK`/274×4 (`docs/reviews/evidence/round7-full-gate.log`), four
-Codex passes across the batch. This session's own edits (recording the acceptance) were
-`docs-check`-validated only, per Joe's explicit "no further ... full-gate runs" instruction.
+`just check` full gate: **`check: OK`**, exit 0, all 4 presets, 283 tests each, `100% tests passed`
+(8 Nesc cases pass, 2 skipped, matching every preset); pyright 0 errors; pytest 32 passed. Codex
+`review --scope working-tree`: "No actionable defects found." Codex `adversarial-review --scope
+working-tree`: incomplete (usage limit), raw logs at `/tmp/codex_review.log` /
+`/tmp/codex_adversarial.log` (session-local, not yet copied into retained evidence).
 
 ## Next step
-Joe's merge decision on PR #30. Nothing further for Claude to drive autonomously on this
-candidate. Do not begin `PLAN.md`'s M2 PR 3b until after that decision.
+**Joe**: read `docs/reviews/nesc-harness-human.md` (the packet) and decide. The one gate this session
+could not close is the adversarial review (Codex quota, resumable ~2026-09-23) — everything else is
+real, current evidence. Options: wait for quota and resume adversarial review before any merge
+decision; decide the candidate is acceptable on general review + the two rounds of plan-stage Codex
+critique already done; or something else. Not committing/pushing/opening a PR without further
+instruction (none given yet).
 
 ## Tried / failed
-Correction rounds: 2/2 — budget exhausted (unchanged; see `workflow-v3-review.md`'s
-Completion). Rounds 5-7 were the one Joe-authorized batch; closed by Codex's own conclusion and
-now formally closed by Joe's 2026-09-18 risk acceptance — no further rounds pending or expected
-for this candidate. Failed integrations: 0/2.
+Correction rounds: 0/2 (general review found nothing to fix; adversarial review never completed, so
+no findings exist yet to fix). Failed integrations: 0/2.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.
