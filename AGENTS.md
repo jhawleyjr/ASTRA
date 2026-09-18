@@ -1,48 +1,39 @@
-# AGENTS.md
+# ASTRA agent rules
 
-Shared instructions for every coding agent: Codex reads this file directly; Claude Code imports it from `CLAUDE.md`.
-
-ASTRA is a vehicle-agnostic 6-DoF simulation framework (C++23 core, Python bindings) that runs the aircraft's
-real embedded software against the sim over a lockstep transport. `docs/architecture.md` is the design; treat it
-as authoritative and do not re-decide anything it or an accepted ADR decides. `PLAN.md` says what is in progress.
+Canonical shared instructions. Codex reads this file; Claude Code imports it from `CLAUDE.md`.
+Claude owns planning/building/validation/fixes/integration; Codex owns independent/adversarial review.
+ASTRA is a vehicle-agnostic 6-DoF framework: C++23 core, Python bindings, real embedded software over lockstep transport.
 
 ## Read first
 
-- `docs/architecture.md` — the design. §4 plugin model, §10 ICD/transport, §14 hard rules, §16 acceptance per milestone.
-- `docs/process/workflow.md` — how work happens; §"Files that carry state" caps this file plus `CLAUDE.md` at 100 lines together.
-- `docs/decisions/` — ADRs are immutable once accepted; supersede, never edit. `0000` is the founding index.
-- `docs/lessons.md` — append-only gotchas. Add an entry when something bites; never rewrite old ones.
-- `docs/refs/` — human-placed reference documents, gitignored and cited by page; see `docs/refs/README.md`.
-- `STATE.md` / `PLAN.md` — what is in flight and the milestone checklist.
+- [Architecture](docs/architecture.md) and accepted [ADRs](docs/decisions/): authoritative engineering decisions.
+- [Workflow](docs/process/workflow.md): risk, review, approval, Git, and release rules.
+- [STATE.md](STATE.md) / [PLAN.md](PLAN.md): session handoff / milestone checklist; inspect Git before trusting status.
+- [Lessons](docs/lessons.md): append-only gotchas. [References](docs/refs/README.md): human-placed, gitignored sources.
+- The assigned spec/plan/task, if any; [agent procedures](docs/agents/README.md) and [templates](docs/templates/README.md).
 
-## Commands
+## Commands and boundaries
 
-`just check` is the single gate and the definition of done (CMake presets underneath; `just` from apt).
-
-- `just check` — every preset (`debug`, `release`, `asan`, `static-plugins`) configures, builds with clang-18
-  `-Werror`, and runs ctest; `just python` installs `astra._core` into `.venv` (editable, built in `build/python`,
-  `just venv` creates the venv if missing); then `clang-tidy`, `clang-format --dry-run --Werror`, the hook test
-  cases, `ruff`, `pyright` (strict on `python/astra/`), and `pytest`. Physics oracles and goldens join later.
-- `just build [preset]` / `just test [preset]` / `just test-unit [preset]` (the Stop hook's `unit`-labeled
-  subset) — one preset (default `asan`); `build/<preset>/` holds `lib/libastra_core.so` and plugin `.so`s.
-- Single tests: `ctest --preset asan -R <name>` from the repo root; `.venv/bin/pytest tests/python -k <name>`.
-- `just format` fixes formatting (clang-format and ruff); `just hooks-test` runs `.claude/hooks/tests/*.cases`;
-  `just tidy` is clang-tidy alone (it runs `just python` first for the binding TU's compile database).
-  `just check` never runs `format`, only the dry run.
-
-Toolchain is apt-only on Ubuntu 24.04: clang-18, CMake 3.28, Eigen 3.4, HDF5 1.10 (C API), GoogleTest,
-yaml-cpp; the Python 3.12 venv holds the pinned dev group from `pyproject.toml` (nanobind 3, scikit-build-core,
-pytest, ruff, pyright). No vcpkg/Conan, no HighFive, no mp-units. Every build exports `compile_commands.json`;
-`just link-db` links it at the repo root and under `python/`, or clangd reports false errors on Eigen and nanobind.
-Prefer the clangd/pyright LSP tools over grep for symbol lookups; they are feedback, not the gate.
-
-## Git and session rules
-
-- **The oracle is human-owned.** `tests/golden/**`, tolerance files, and `docs/decisions/**` change only when Joe
-  says so. `.claude/hooks/guard-oracle.sh` (PreToolUse on Edit/Write/Bash) blocks those paths; Joe lifts it with
-  `ASTRA_TOUCH_GOLDENS=1` in the session's environment, or `touch .claude/touch-goldens` while the session runs (the
-  SessionStart hook deletes the marker, so a lifted guard never carries into the next session).
-  Widening a tolerance, narrowing a comparison, regenerating a golden, or weakening a test is a blocking review finding.
+- `./scripts/check-fast.sh` wraps `just test-unit`: ASan build and unit tests for iteration.
+- `./scripts/check-full.sh` wraps `just check`: the definition of done; never substitute a fast pass for it.
+- `just build [preset]`, `just test [preset]`, `ctest --preset asan -R <name>` for focused work.
+- [Validation](docs/process/validation.md) describes Python, formatting, static analysis, logs, and CI limitations.
+- Ubuntu 24.04, apt toolchain: clang-18, CMake 3.28+, Eigen 3.4, HDF5 C API, yaml-cpp, GoogleTest;
+  Python 3.12+ and the dev group in `pyproject.toml`. No vcpkg/Conan, HighFive, or mp-units.
+- Inspect the repository, Git status, and existing patterns first. Preserve unrelated work; stay within assigned scope.
+- Reversible implementation, tests, and fixes within authorized scope do not need repeated approval.
+- Joe owns requirements, architecture changes, new dependencies/toolchains, merges, releases, and credentials.
+  Escalate a conflict or required scope expansion; never weaken acceptance to make a check pass.
+- **The oracle is human-owned:** `tests/golden/**`, tolerance files, and accepted ADRs require Joe's explicit
+  authorization. Never widen tolerances, narrow comparisons, regenerate goldens, or weaken tests to hide failure.
+  Claude's guard is described in the workflow; other agents must honor the same boundary without relying on a hook.
+- Use a task branch, never commit/merge/rebase on `main` or push to it. One writer per checkout; separate worktrees
+  for concurrent builders. Preserve an explicitly assigned branch. Joe squash-merges; PRs start as drafts.
+- Codex reviews Claude's candidate in fresh context; Codex does not implement review fixes. Treat findings as
+  claims to verify; follow the bounded fix loop.
+- Report commands actually run, exit results, and gaps. A started job or plausible trace is not verified evidence.
+- Accepted ADRs are immutable: propose a superseding record. Lessons are append-only. Keep standing rules free
+  of transient SHAs; retain exact candidate revisions in evidence and link them from task/session handoffs. Keep this file plus `CLAUDE.md` under 100 lines.
 
 ## Non-standard conventions (the things an agent will silently get wrong)
 
@@ -53,7 +44,7 @@ Prefer the clangd/pyright LSP tools over grep for symbol lookups; they are feedb
 - **Units** (ADR-0002): SI everywhere inside `core/`, `plugins/`, `aircraft/` (m, s, kg, rad, N, Pa, K). Conversions
   only at boundaries. Signal names carry no unit suffix; the unit string lives in the SignalRegistry metadata.
 - **Time** (ADR-0010): integer `frame` counter is the source of truth; `t = frame * dt` derived, never accumulated.
-  Fixed `dt = 1 ms`; every rate is an integer divisor of the major frame. Nothing reads the wall clock.
+  Fixed `dt = 1 ms`; every rate is an integer divisor of the major frame. Wall-clock access is restricted to the `RealTime` pacer per ADR-0010; it never supplies simulation time.
 - **Per-frame path** (`step`, `compute`, integrator, transport exchange, logger sample): no heap allocation, no
   exceptions, no blocking I/O, no `std::string`, no `dlopen`. Init may allocate and throw typed errors naming the
   config path. Step-time model errors go through status flags, not exceptions.

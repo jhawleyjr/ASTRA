@@ -10,9 +10,12 @@ py := venv / "bin/python"
 
 default: check
 
-# The whole gate: every preset builds and tests; the Python package builds and installs into the venv; then
-# clang-tidy, clang-format, the hook test cases, ruff, pyright (strict on python/astra/), and pytest.
-check: (test "debug") (test "release") (test "static-plugins") (test "asan") python link-db tidy format-check hooks-test ruff pyright pytest
+# The whole gate. Cheap, build-independent checks (formatting, docs/link validation, hook regression
+# cases, Python lint) run first so a trivial mistake fails fast instead of after tens of minutes of
+# building every preset four times; every preset then builds and tests; the Python package builds and
+# installs into the venv; then clang-tidy, pyright (strict on python/astra/), and pytest, each after the
+# build its own analysis needs. Same checks, same failure propagation -- only the order changed.
+check: format-check docs-check hooks-test ruff (test "debug") (test "release") (test "static-plugins") (test "asan") python link-db tidy pyright pytest
     @echo "check: OK"
 
 configure preset="asan":
@@ -81,6 +84,15 @@ pytest: python
 # Every .claude/hooks/tests/*.cases line against its hook, so "hooks fire" is verified by the gate.
 hooks-test:
     .claude/hooks/tests/run.sh
+
+# The workflow constraints docs/process/validation.md prescribes for a workflow edit (Markdown
+# links/anchors, SKILL.md metadata, the AGENTS.md+CLAUDE.md line budget, doc/script command names,
+# shell syntax, working-tree whitespace), made reproducible instead of asked of an agent's memory.
+docs-check:
+    python3 scripts/docs_check.py
+    bash -n scripts/check-fast.sh
+    bash -n scripts/check-full.sh
+    git diff --check
 
 clean:
     rm -rf build compile_commands.json python/compile_commands.json python/astra/_core.pyi

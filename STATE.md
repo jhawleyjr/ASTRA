@@ -1,39 +1,35 @@
-# STATE (rewritten each session, never appended; ≤ 40 lines; written as true right now, not as of some future merge)
+# STATE (rewritten each session, never appended; ≤ 40 lines; true at handoff)
 
 ## In flight
-PR #29 (branch `worktree-m2-nesc-pr3`), open, awaiting Joe's read and merge: M2 PR 3a, per
-PLAN.md's own PR 3a bullet (the full content lives there, not duplicated here) -- populates
-`EnvironmentSample::atmosphere`, `Vehicle::EnvironmentAvailability::atmosphere`, `round`'s
-`rotating: <bool>`, new `plugins/physical/wind/table`, new `tests/plugins/nesc_aero`. Split from
-the plan's own PR 3 line into 3a/3b, both unchecked until each merges, one-PR-per-session. Codex
-review clean; adversarial review's one needs-attention finding (atmosphere's NaN misattributed
-to the consuming `WrenchSource`, same shape as wind's own disclosed gap) is disclosed in
-`environment_sample.hpp`/`atmosphere_model.hpp` and pinned by
-`SimulationHalt.NanAtmosphereInRangeHaltsNamingTheWrenchConsumerNotTheAtmospherePlugin` (PR 2c's
-own precedent: a disclosed gap moves visibly, not silently). Nothing else awaits Joe.
+Workflow-v3, branch `workflow-v3`, main checkout, committed through `389ac1d` (pushed). Joe
+reviewed the human-review packet and, on 2026-09-18, **accepted the three remaining
+guard-oracle.sh findings (R-006/R-009's pipeline-comment-with-`;`, R-008/R-011's `xargs`-target
+and sed address-modifier gaps) plus the one disclosed false block (`/w probe/p`) as documented
+residual risk** — recorded verbatim in `docs/reviews/workflow-v3-review.md`'s "Joe's 2026-09-18
+acceptance decision" section and the human-review packet's Decision record (`State: approved`,
+findings-disposition scope only). Per his explicit instruction, no finding's `Status:` was
+changed to `fixed`/`verified`; each open finding is annotated "accepted as documented residual
+risk" in place. No guard-oracle.sh changes, Codex dispatches, or full gate runs were made
+recording this. **Draft PR opened**: `main` ← `workflow-v3`,
+<https://github.com/jhawleyjr/ASTRA/pull/30>, per Joe's "prepare the workflow PR for my final
+merge decision." Not merged; not marked ready-for-review (stays draft until Joe says
+otherwise).
 
 ## Last verified result
-`just check` exited 0 (`check: OK`, every test) on every preset, run four times this session
-(implementation, formatting, the disclosure commit, the regression-test commit) -- the final
-run, at the branch's final commit, is the one that matters.
+Unchanged since Round 7: `just hooks-test` 144/144, `just docs-check` OK, full local gate on
+`4956c13` `EXITSTATUS=0`/`check: OK`/274×4 (`docs/reviews/evidence/round7-full-gate.log`), four
+Codex passes across the batch. This session's own edits (recording the acceptance) were
+`docs-check`-validated only, per Joe's explicit "no further ... full-gate runs" instruction.
 
 ## Next step
-M2 Environment (PLAN.md) PR 3b: the NESC check-case harness, per PLAN.md's own PR 3b bullet,
-which now carries every settled decision (ADR-0014's floor, the sampling fix, the t=0 exclusion,
-case 8's node placement, the ten configs) and is the record that survives even if
-`/home/joe/.claude/plans/m2-pr-3-nesc-hazy-fiddle.md` is pruned. Precondition: PR #29 merged
-first; then `touch .claude/touch-goldens` before any `tests/golden/`/`docs/decisions/` file (the
-new ADR-0014). First step, before any code: time `nesc_case1_test.cpp` once and multiply by ten.
-Opener: `claude --worktree m2-nesc-pr3-b --permission-mode plan`
+Joe's merge decision on PR #30. Nothing further for Claude to drive autonomously on this
+candidate. Do not begin `PLAN.md`'s M2 PR 3b until after that decision.
 
 ## Tried / failed
-`WindTable`/`NescAero` unit tests first failed: a helper returned `VehicleState` by value from a
-function-local `StateVector`, a dangling reference the instant it returned -- fixed by returning
-`StateVector` and constructing `VehicleState` at the call site (`earth_kinematics_test.cpp`'s
-pattern). A `wind/table` test failed from mixing units (metres/ft-s) -- fixed by converting to
-SI at the config boundary. The disclosed-gap regression test's first design ("vehicle starts
-outside valid_range()") was unreachable (`from_config` rejects it at init, ADR-0012 halts
-mid-run first) -- fixed with a broken `AtmosphereModel` returning NaN *inside* its own range.
+Correction rounds: 2/2 — budget exhausted (unchanged; see `workflow-v3-review.md`'s
+Completion). Rounds 5-7 were the one Joe-authorized batch; closed by Codex's own conclusion and
+now formally closed by Joe's 2026-09-18 risk acceptance — no further rounds pending or expected
+for this candidate. Failed integrations: 0/2.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.

@@ -1,0 +1,121 @@
+# Validation entry points
+
+The [justfile](../../justfile) owns commands, flags, presets, and dependencies. The new scripts only
+locate the repository from their own path, reject arguments, and `exec just`; they preserve failure
+exit codes. Invoke them from any working directory by their relative or absolute path.
+
+| Command | Existing coverage |
+|---|---|
+| `./scripts/check-fast.sh` | `just test-unit`: configure/build `asan`, CTest label `unit`, fail if no tests match |
+| `./scripts/check-full.sh` | `just check`: debug, release, static-plugins, asan build/tests; Python editable install; compile database links; clang-tidy; format dry run; hook cases; ruff; strict pyright; pytest |
+| `just build [preset]` / `just test [preset]` | One CMake preset, default asan |
+| `ctest --preset asan -R <name> --no-tests=error` | Selected existing CTest cases after building |
+| `.venv/bin/pytest tests/python -k <name>` | Selected Python tests after `just python` |
+| `just hooks-test` | Existing oracle/main/Stop-hook regression cases |
+| `just tidy` / `just format-check` | Static analysis / read-only C++ formatting check |
+| `just format` | Mutating C++/Python formatting; inspect the resulting diff |
+
+Fast excludes physics, Python, formatting, hooks and static analysis. Full includes every registered
+physics test under every preset, including allocation, deterministic/stochastic and analytic/reference
+oracles already in the tree. Future milestone checks in architecture/PLAN are not automatically present.
+There is no standalone benchmark, fuzz, security scan or release job today. Add a targeted check only
+when required by a task; do not claim these categories are covered by a green full gate.
+
+## Environment and runtime
+
+Use the existing [Ubuntu setup](../../scripts/setup-ubuntu.sh) for provisioning, not as part of each
+check. It installs system packages and requires sudo. CMake presets use Ninja/clang-18; C++23 core,
+C11 ICD, and the planned separate embedded example is C++17. Python requires 3.12+; `just venv` installs
+the dev group and `just python` builds nanobind/scikit-build-core editable bindings. Initial setup may
+need network access. The justfile clears `PYTHONPATH` to avoid ROS leaking into the venv.
+
+Checks write `build/`, `.venv/`, compile-database symlinks and generated bindings/stubs. Never run two
+checks against the same checkout. Keep these directories local to each worktree. `just link-db`
+repairs editor database links; editor diagnostics are feedback, not validation.
+
+Full checks can take tens of minutes because physics tests run four times. Do not silently skip them,
+change the preset matrix, raise tolerances, or change host ASLR settings to obtain a pass. Report
+resource/sandbox/toolchain failures separately from defects. Request only the access a check needs.
+
+## Evidence
+
+A simple local run (from the repository root):
+
+```sh
+mkdir -p build/validation
+./scripts/check-full.sh > build/validation/full.log 2>&1
+result=$?
+tail -n 40 build/validation/full.log
+printf 'exit=%s\n' "$result"
+```
+
+Keep the exit status even when redirecting output; a tail command's success says nothing about the
+gate. In an agent tool, wait on the returned process handle until it completes. Do not background a
+second wrapper or guess a PID with global `pgrep`. Only report full success after exit 0 and `check: OK`.
+
+In the PR or review evidence, record date, command, result, duration, toolchain, exact base/head,
+working-tree changes if uncommitted, log location/attachment, and acceptance criteria exercised.
+Ignored logs are not durable shared evidence: attach them to the PR or supply a retained artifact
+before handoff. Approval and check evidence must identify the candidate they evaluated.
+
+For workflow edits, run `just docs-check` (`scripts/docs_check.py`): Markdown links/anchors across
+`docs/process/`, `docs/agents/`, `docs/templates/`, `.claude/skills/` and the root instruction files;
+`.claude/skills/*/SKILL.md` frontmatter and name-matches-directory; the AGENTS.md+CLAUDE.md line
+budget; `just`/`./scripts/` command names referenced from those docs; `bash -n` on each wrapper
+separately (`bash -n a b` only parses `a`; `b` becomes an unused positional argument, not a second
+file checked); and `git diff --check`. `just check` runs it on every
+full gate; CI also runs it as its own step whenever a pull request touches that surface, so a
+docs/skills-only PR is checked without the full toolchain (see [the workflow](workflow.md) for
+`GATE=local`'s scope and host protection; wrappers do not turn local results into remote required
+checks).
+
+The Stop hook's first attempt runs the fast subset and reports failure; a hook continuation can end
+with an honest blocked handoff without rechecking. This prevents repeated hook-driven retries and
+is never evidence that fast/full validation passed. Claude must preserve the actual result and run
+necessary checks explicitly before claiming completion.
+
+## Numerical and physics validation
+
+Applies to any change to `core/kernel/`, numerical `core/util/`, `plugins/physical/`, `aircraft/**`
+models, the ICD, or a test/golden under `tests/physics/`, `tests/unit/`, `tests/golden/`. Required
+inputs: the assigned spec/plan's acceptance criteria, the binding ADRs for the changed behavior (at
+minimum ADR-0001 frames, ADR-0002 units, ADR-0003 state layout, ADR-0004 RK4, ADR-0010 time,
+ADR-0012 domain validity, ADR-0013 oracle construction, as applicable), and AGENTS.md's
+Non-standard conventions.
+
+1. Search `tests/physics/`, `tests/unit/`, `tests/golden/**` and `tests/configs/` for an existing
+   case covering the changed behavior, frame, unit, or domain boundary before adding one. Trace any
+   golden or reference dataset to its own generator and citation (e.g.
+   `tests/golden/atmosphere/generate_isa1976_table.py`, ADR-0013 for `tests/golden/nesc/`) rather
+   than trusting a committed number on sight; a dataset with no traceable generator or citation is a
+   gap to report, not to fill by guessing.
+2. Confirm the change honors AGENTS.md's Frames, State vector, Units, Time, Randomness, Floating
+   point, and Per-frame path conventions, plus what those don't already spell out:
+   - **Domain/finite behavior** (ADR-0012): a per-frame check must bound the actual expression the
+     model is singular at, never a sibling model's unrelated bound or a velocity-only lookahead
+     alone; assert a trig/algebraic singularity by magnitude threshold, never exact non-finiteness.
+   - **Invariants**: quaternion renormalization after every integrator step; conserved quantities
+     (energy/momentum) where the physics implies them.
+   - **RK4 coupling** (ADR-0004): a changed derivative must be correct at all four stages, not only
+     evaluated once at the frame boundary.
+   - **Per-frame constraints**: no heap allocation, exceptions, blocking I/O, `std::string`, or
+     `dlopen` on the `step`/`compute`/integrator/transport/logger path (`no_alloc_test.cpp`-style
+     coverage is the existing check).
+3. Never invent or relax a threshold. Accepted tolerances and their rationale live in the committed
+   golden/tolerance data and the ADR that accepted it (e.g. ADR-0013's ensemble-band `k = 3`); a
+   test may cite an existing tolerance but never widen, narrow, or regenerate one — the human-owned
+   oracle boundary in AGENTS.md and workflow.md's Verification section.
+4. Run the targeted command first (`ctest --preset asan -R <name>`), then the full gate before
+   review (`./scripts/check-full.sh`); read the actual exit status and `check: OK` per this
+   document's Evidence section above, never a background wrapper's status.
+5. Record in the handoff/review artifact: candidate scope (base/head), the commands run and their
+   actual results, each reference dataset's provenance, the tolerance applied and its source, gaps
+   (untested boundary, deferred case, environment limitation), and unresolved findings.
+6. Escalate to Joe instead of resolving unilaterally when the spec/ADR states no acceptance value or
+   tolerance for the behavior under test, an existing tolerance or golden looks wrong or inconsistent
+   with its cited source, or a new case has no independent reference — never derive a tolerance from
+   ASTRA's own output.
+
+Claude's [builder procedure](../agents/build.md) applies this to numerical/physics changes during
+validation; Codex's [review procedure](../agents/review.md) step 3 uses it as the checklist behind
+"FRD/NED ... RK4 coupling ... independent reference tolerances."

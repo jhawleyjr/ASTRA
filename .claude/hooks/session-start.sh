@@ -19,16 +19,19 @@ if [ -n "$gitdir" ] && [ "$gitdir" != "$common" ]; then
     printf '%s\n' "$dirty" | sed 's/^/    /'
   fi
 else
-  echo "Branch '$branch' in the main checkout. Work happens in worktrees: restart with 'claude --worktree <name>' before editing."
+  echo "Branch '$branch' in the main checkout. Preserve an explicitly assigned task branch; otherwise create a worktree for new work. Never implement on main."
 fi
 
 echo; echo "--- git log -10 ---"; g log --oneline -10
 echo; echo "--- STATE.md ---"; cat STATE.md 2>/dev/null || echo "(no STATE.md)"
 echo; echo "--- PLAN.md: unchecked items ---"; grep -E '^\s*- \[ \]' PLAN.md 2>/dev/null || echo "(none)"
 echo; echo "--- gate ---"
-if [ -f justfile ]; then echo "justfile present: 'just check' is the gate; it runs once, after the work."
-else echo "No justfile yet (pre-PR 2): there is nothing to run."; fi
+if [ -f justfile ]; then echo "Fast: scripts/check-fast.sh. Full: scripts/check-full.sh (just check), after implementation and substantive fixes/integration; retain candidate evidence."
+else echo "No justfile found: validation unavailable; diagnose checkout/tooling before claiming completion."; fi
 # The marker cannot be checked here: the SessionStart hook that deletes it runs in this same event.
 [ "${ASTRA_TOUCH_GOLDENS:-0}" = "1" ] && echo "Oracle guard LIFTED for this session (ASTRA_TOUCH_GOLDENS=1)."
-echo "Read CLAUDE.md conventions before writing code; ADRs in docs/decisions/ are immutable."
+echo "Read AGENTS.md and CLAUDE.md; architecture and accepted ADRs bind the task."
+echo "Claude plans/builds/validates/fixes/integrates; Codex reviews/adversarially reviews; Joe approves/merges."
+echo "Use /plan-feature, /review-cycle, /human-review and /wrap as appropriate. Read STATE's linked artifacts and resume the first unfinished gate."
+echo "A stopped turn or green local-mode CI is not a passed full gate; blocked handoff must retain failures and retry counts."
 exit 0

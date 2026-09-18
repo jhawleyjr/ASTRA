@@ -1,14 +1,9 @@
 #!/usr/bin/env bash
-# Stop hook. The fast check (`just test-unit`: configure, build, `unit`-labeled ctest on one preset) must
-# pass before a turn may end (docs/process/workflow.md §Verification). Exit 2 = block; the failure excerpt
-# on stderr goes to Claude, which fixes it and tries to stop again. Claude Code stops honoring the block
-# after eight in a row without progress, which is the right amount of stubbornness. Reads the Stop event
-# as JSON on stdin.
-#   - Plan mode cannot have changed the tree, so it is not checked.
-#   - A build already running under this tree (a backgrounded `just check`) would share build/ with ours, so
-#     the turn is blocked until it has finished and its result has been read.
-#   - A hook that exceeds its settings.json timeout is cancelled, which is a silent pass, so the check runs
-#     under its own shorter budget and expiry blocks.
+# Stop feedback: run the fast check on the first stop attempt. A failed check blocks once so Claude
+# can fix within the task's budget or report a blocker. On hook continuation, allow handoff without
+# re-running or claiming validation. Stop completion is not task completion or a passed full gate.
+# Plan mode skips checks. A busy build blocks the first stop attempt; never run overlapping builds.
+# Own timeout is shorter than settings.json's hook timeout, so expiry produces explicit feedback.
 set -u
 input=$(cat)
 field() {
@@ -17,6 +12,10 @@ field() {
 block() { printf 'BLOCKED by stop-check: %s\n' "$1" >&2; exit 2; }
 
 [ "$(field permission_mode)" = "plan" ] && exit 0
+if [ "$(field stop_hook_active)" = "True" ]; then
+  echo "stop-check: allowing handoff after prior hook feedback; no validation ran here. Report the previous failure or a completed explicit rerun; do not claim a pass from this exit." >&2
+  exit 0
+fi
 cwd=$(field cwd)
 cd "${cwd:-${CLAUDE_PROJECT_DIR:-.}}" 2>/dev/null || cd "${CLAUDE_PROJECT_DIR:-.}" || block "cannot enter $cwd"
 # Physical path: /proc/<pid>/cwd is resolved, while $PWD keeps any symlink the session was launched through.
@@ -41,10 +40,10 @@ status=$?
   if [ "$status" -eq 124 ]; then
     echo "BLOCKED by stop-check: 'just test-unit' exceeded ${budget} s in $root (hung test? concurrent build?)."
   else
-    echo "BLOCKED by stop-check: 'just test-unit' failed (exit $status) in $root. Fix it before ending the turn; rerun 'just test-unit' for the full output."
+    echo "BLOCKED by stop-check: 'just test-unit' failed (exit $status) in $root. Fix within the workflow budget and rerun explicitly, or hand off the failure as blocked; never claim validation passed."
   fi
   grep -n -m 20 -E '^FAILED:|error:|The following tests FAILED' "$log"
-  echo "--- last 40 lines of 'just test' ---"
+  echo "--- last 40 lines of 'just test-unit' ---"
   tail -n 40 "$log"
 } >&2
 exit 2
