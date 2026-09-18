@@ -195,12 +195,12 @@ bash syntax-check invocations"). No dangling references from the 3 README deleti
 `tokens.py`'s removal. Verdict: **needs-attention** — one new finding, not carried over from
 any prior round:
 
-## Finding R-006 (open — not fixed in this batch)
+## Finding R-006
 
 Severity: major (Codex: medium — "Preserve tolerance protection for writes after changing
 directories")
-Status: **open**
-Location: `.claude/hooks/guard-oracle.sh:50-51` (the Bash write-target matcher `g`).
+Status: fixed-unverified
+Location (pre-fix): `.claude/hooks/guard-oracle.sh:50-51` (the Bash write-target matcher `g`).
 Requirement/ADR: the oracle-guard boundary itself (`workflow.md` §Verification).
 Failure: by static inspection, `cd tests/physics && sed -i 's/1e-6/1e-3/' tolerances.yaml`
 now passes the guard — the write target (`tolerances.yaml`, bare) lacks the literal `tests/`
@@ -216,15 +216,41 @@ Requested outcome (Codex): resolve write targets against the effective command d
 conservatively block ambiguous relative writes to any bare/relative path containing a guarded
 name; add `cd`-then-write regression cases for all three guarded categories, preserving the
 D5 PASS cases.
-Builder response: **none yet — explicitly out of scope for this batch per Joe's instruction**
-("keep the changes confined to these findings and their tests/evidence," referring to R-004
-and R-005 below). Recorded here so it is not lost; the fix should address all three guarded
-categories together, not just `tolerance`, since the underlying gap is shared.
-Verification: not applicable (unfixed).
+Builder response: initially deferred, out of scope for the Round 3 batch (R-004/R-005) per
+Joe's explicit scope-confinement instruction at the time. A later, separately authorized
+request ("this request authorizes these bounded fixes, including the previously deferred
+guard issue") implemented it, committed as `1a12623`. `.claude/hooks/guard-oracle.sh`'s Bash
+branch (currently lines 46-235) now resolves every write-shaped statement's target against the
+command's actual working directory — the hook's own `cwd` input field plus any literal `cd`
+inside the command, tracked statement by statement, quote-aware — before checking the same
+guarded-path pattern the direct-write check already used; this closes the bypass for all three
+guarded categories (`tests/golden/**`, `docs/decisions/**`, `tests/**/*tolerance*`), including
+the exact shape Codex demonstrated (`cd tests/physics/nesc && sed -i ... tolerances.yaml`).
+`guard-oracle.sh:41`'s Edit/Write branch also normalizes `file_path` (`os.path.normpath`) so a
+`..` traversal cannot dodge the same substring check. 21 new lines in
+`.claude/hooks/tests/guard-oracle.cases` cover: inline `cd` + write and chained/`..`-relative
+`cd` into each guarded category; the session's Bash `cwd` already persisted inside a guarded
+directory with no `cd` in the command at all; destination-only commands (`cp`/`touch`); the
+same shapes under an unarmed worktree; `cd` back out or an absolute target elsewhere still
+passing; reads from inside a guarded directory; and a `..`-traversal Edit/Write path (both
+directions). Documented, narrow remaining gap, stated in the hook's own comments: a `cd` to a
+variable, glob, `~`, or `-` (previous directory) is not followed — the write is then checked
+against the last known directory instead of the real one, a stated limitation, not a silent one.
+Validation (local, this session): `just hooks-test` — 77/77 passed, re-run fresh during this
+reconciliation, not just cited from the earlier commit message (was 56/56 before this fix). The
+full local gate was also run to completion after this change (`EXITSTATUS=0`, `check: OK`,
+all four presets 274/274) — see `1a12623`'s commit message; not re-run here since no code
+changed since that commit.
+Verification: pending Codex dispatch. No adversarial or general review has been requested for
+this fix yet; nothing here should be read as Codex having verified it.
 History: found by Codex's adversarial fix-verification pass on `b2ef1ac` → confirmed
-independently by the builder → deferred, not fixed, per explicit scope confinement.
-Human exception if needed: Joe has seen this (it prompted the scope-confinement instruction);
-formal exception/timeline for the fix is his call.
+independently by the builder → deferred, not fixed, per explicit scope confinement (Round 3) →
+implemented and locally validated, committed as `1a12623` (a later, separately authorized
+batch) → this entry corrected to match that implementation after an audit found `STATE.md`
+and this record had drifted out of sync → independent verification still pending.
+Human exception if needed: none requested; not applicable. Joe explicitly authorized
+implementing this previously-deferred fix (see Builder response); that authorization covers
+the fix itself, not a substitute for the independent verification still pending.
 
 ## Round 3: two Joe-reported findings (CI docs-scope gap, same-page anchor validation)
 
@@ -278,21 +304,23 @@ Verification: pending Codex dispatch — not sent this batch, per Joe's explicit
 History: reported by Joe → fixed and locally verified with new regression coverage (this batch).
 Human exception if needed: none requested; not applicable.
 
-## Completion (through Round 3)
+## Completion (through Round 3+)
 
-R-001, R-002, R-003: **verified** by fresh Codex review of `b2ef1ac`. R-004, R-005:
-**fixed-unverified** — locally validated this round (full gate `EXITSTATUS=0`); Codex
-verification intentionally not yet dispatched, per Joe's explicit "stop after validation"
-instruction — this file is that summary. R-006: **open**, found by the same Codex pass that
-verified R-001-003, explicitly deferred per Joe's scope confinement; needs its own fix batch
-covering all three guarded categories, not just `tolerance`.
+R-001, R-002, R-003: **verified** by fresh Codex review of `b2ef1ac`. R-004, R-005, R-006: all
+**fixed-unverified** — R-004/R-005 implemented and locally validated in the Round 3 batch;
+R-006 implemented and locally validated in a subsequent, separately authorized batch, committed
+as `1a12623` (see R-006's own entry for what changed and its evidence). Codex verification is
+intentionally not yet dispatched for any of the three, per Joe's explicit "stop after
+validation" instructions each time — this file is that summary, corrected here after an audit
+found `STATE.md` already reflected R-006's fix while this record still called it open.
 
 **Correction rounds: 2/2 — budget exhausted.** Round 1 (D1-D4/D6-D8, `b7978e3`) verified clean.
 Round 2 (R-002/R-003 completion + D5 + cleanup + `tokens.py` retirement, `b2ef1ac`) verified
-R-001-003 clean but surfaced R-006. This Round-3 batch (R-004, R-005) is **explicitly
-authorized by Joe beyond the exhausted autonomous budget** ("this request authorizes this
-specific fix batch if the autonomous budget has been exhausted"); it does not consume a third
-autonomous round on its own initiative. R-006 remains open and unbudgeted — fixing it needs
-either fresh authorization or to be folded into whatever round authorizes R-004/R-005's own
-Codex verification. No findings rejected. Zero critical findings at any point. The full local
-gate's result for this batch is recorded in `STATE.md`, not duplicated here.
+R-001-003 clean but surfaced R-006. The Round-3 batch (R-004, R-005) and R-006's later fix are
+each **explicitly authorized by Joe beyond the exhausted autonomous budget** ("this request
+authorizes this specific fix batch if the autonomous budget has been exhausted" for R-004/R-005;
+"this request authorizes these bounded fixes, including the previously deferred guard issue"
+for R-006) — neither consumes a third autonomous round on its own initiative. No findings
+rejected. Zero critical findings at any point. R-004/R-005's full local gate result is recorded
+in `STATE.md`; R-006's is in `1a12623`'s commit message, with `hooks-test` (only, no code
+changed since) reconfirmed fresh during this reconciliation — neither duplicated here.

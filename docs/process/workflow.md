@@ -52,6 +52,21 @@ single-package task (the default) has no separate integration transition, since 
 full gate already covers the whole candidate. `/wrap` treats "implementation, validation or
 integration incomplete" as one of its named unfinished-gate cases.
 
+This package-level integration is a different thing from **final integration with `main`** at
+step 11: before merge, fetch and check whether `main` has advanced past the candidate's own
+validated base (`git fetch origin && git log --oneline HEAD..origin/main`), not just whether the
+candidate itself is green. If `main` moved with changes that overlap or interact with this
+candidate, the merged result (`main` + candidate) is a combined state nothing has actually
+validated yet: rebase or merge locally, then rerun the checks the assigned risk tier requires
+against that combined state (at minimum fast validation; the full gate for tier 2-3, per
+[risk tiers](#risk-tiers)), and renew Codex review and Joe's decision for whatever the
+merge/rebase materially touched — an approval given against the old base does not carry over to
+a substantively different combined tree. GitHub's own required-status-check policy already
+refuses a stale check on this repository's protected branch (`strict_required_status_checks_policy`,
+live-verified below): a PR behind `main` cannot merge on an old green run. If `main` only moved in
+unrelated, non-overlapping paths, the existing validation/review evidence for the exact candidate
+still covers it — do not rerun checks that evidence already answers.
+
 ## Risk tiers
 
 Assign the highest applicable tier with a one-line reason. Joe may raise it. Missing evidence or
@@ -151,20 +166,97 @@ push invalidates prior review/validation for affected work. Do not weaken requir
 
 ## Human approval and merge/release gates
 
+### Joe's engineering review
+
+By step 10 the candidate has passed the full local gate and independent Codex review with no
+unresolved critical/major findings (steps 7-9); this is not re-inspecting every line, it is
+judging engineering decisions and evidence before deciding. Start from the spec/plan and the
+[review packet](../templates/human-review.md)'s acceptance evidence, not the diff: confirm the
+candidate actually matches what was approved before reading implementation. Read the changed
+tests early — they show how the builder interpreted each requirement, and a green gate proves
+nothing if the tests misunderstood the behavior. Trace consequential behavior end-to-end along
+its actual path (environment → transport exchange → vehicle wrenches → EOM → integrator →
+post-step → logger, per `docs/architecture.md`'s per-frame order, or the relevant subset) rather
+than reading files alphabetically.
+
+Give disproportionate scrutiny to:
+
+- Deleted behavior — why, and whether a test covered the path that is now gone.
+- Unexpected scope — diff size/shape against the stated intent.
+- Public interfaces — ownership, units, validity semantics, ease of misuse, cost to extend later.
+- Unnecessary complexity — could this be substantially simpler without losing a requirement.
+
+For numerical/physics changes, read [numerical and physics validation](validation.md#numerical-and-physics-validation)'s
+actual evidence yourself — real thresholds and measurements, not a pass/fail label — and look
+at a relevant plot or trajectory output where one exists; a numerical pass can still hide a
+wrong-looking transient a human notices at a glance. Before deciding, ask what failure mode the
+existing tests could still plausibly miss (a rare state transition, a timing/ordering assumption,
+a configuration interaction) — this is usually worth more than another general read of clean
+code. Match depth to the task's assigned [risk tier](#risk-tiers): quick for tier 0-1, diff plus
+tests plus evidence for tier 2, deep inspection of algorithms/state/interfaces for tier 3. A
+non-blocking observation becomes a recorded follow-up, not a merge blocker, using the same
+critical/major-versus-minor distinction as [review-fix limits](#review-fix-limits-and-failure-routing).
+
+When the decision is not a clean approval, route by what actually failed: an implementation
+defect returns to step 9 (fix, retest, re-review); a planning defect returns to step 3 (revise
+the plan); a requirements gap returns to step 2 (revise the specification, then downstream
+plan/tests/code); an architecture conflict is Joe's own step 1 decision, recorded as a new or
+superseding [ADR](../templates/adr.md) when it changes an accepted one. The workflow is not
+strictly linear — a human-review finding just names which earlier step actually needs
+revisiting, per [the twelve steps](#the-twelve-steps) above. Record the decision itself in the
+packet's [Decision record](../templates/human-review.md#decision-record).
+
 Use [`/human-review`](../../.claude/skills/human-review/SKILL.md) to prepare a
 [human review packet](../templates/human-review.md) before requesting approval: behavior,
 requirements, diff scope, current check results/logs, findings, assumptions, critical files, rollback.
 Joe approves the current PR candidate; later substantive changes require renewed review. Human
 approval, AI review, validation, merge, and release are separate states, never inferred from labels.
 
-**Checked-in configuration, not a claim about live GitHub settings:**
-`.github/rulesets/main.json` requires PRs, squash merges, up-to-date `check`, no force pushes or deletion.
-It intentionally requires **zero approving reviews**: Joe is the sole maintainer and approves by
-reviewing the candidate and explicitly deciding to merge (or performing the squash-merge himself).
-No separate GitHub approving-review badge or second human is required. The checked-in rules do not
-automatically dismiss stale approvals or require thread resolution; Joe still inspects substantive
-changes after his earlier review. Audit live settings before relying on protection; this baseline
-does not change host rules or add approval checks.
+**What actually enforces this — four different things, not one:**
+
+- *Documented instructions*: this file, `AGENTS.md`, and the skills/hooks' own comments — process
+  Claude, Codex, and Joe follow; GitHub does not check any of it.
+- *Local hook coverage*: `.claude/hooks/no-main.sh`, a PreToolUse hook on this session's own Bash
+  tool — recognizes a literal `git push`/`commit`/`merge`/`rebase`/... touching `main`; nothing
+  outside this session, and no `gh`-based route (below).
+- *Checked-in host configuration*: `.github/rulesets/main.json` — a record of the intended rules,
+  not proof they are live.
+- *Verified live host enforcement*, checked directly against the GitHub API, 2026-09-17 (re-verify
+  periodically; host settings can change without this doc updating): the checked-in file matches
+  the live, active `protect-main` ruleset on `refs/heads/main` exactly. Deletion and non-fast-forward
+  pushes are rejected, only squash-merge is an allowed method, and the `check` status must pass on
+  an up-to-date branch (`strict_required_status_checks_policy`, so a PR behind `main` cannot merge
+  on a stale green run — the live backstop for "final integration" above). The `gh`/git identity
+  this repository's sessions authenticate as reports `current_user_can_bypass: "never"` on that
+  ruleset, and is also the repository's sole collaborator (admin role); no separate, more
+  restricted credential exists for an agent versus Joe himself. The ruleset intentionally requires
+  **zero approving reviews**: Joe is the sole maintainer and approves by reviewing the candidate
+  and explicitly deciding to merge (or performing the squash-merge himself); no separate GitHub
+  approving-review badge or second human is required, and the rules do not auto-dismiss stale
+  approvals or require thread resolution.
+
+That live enforcement covers push/delete/merge-method/stale-check integrity on `main`. It does
+**not** attest that full local validation ran, that Codex review completed, or that Joe actually
+made a decision: the required `check` context is `GATE=local` (docs/hooks/lint scope only, below),
+and GitHub has no way to verify an off-host review or a human judgment — that remains documented
+process, trusted because Claude/Codex/Joe follow it, not because the host checks it. Do not claim
+that local hook/CI configuration alone mechanically prevents an agent from bypassing these gates:
+the real backstop against a direct push/force-push/delete/wrong-merge-method on `main` is the live
+ruleset, which a `gh`-based route does not evade either (the ruleset applies to the ref regardless
+of which client pushes to it) — the actual gap is that `no-main.sh` itself does not *also* warn on
+that route locally, per its own scope above. The backstop against a merge without Joe's actual
+review is his own process discipline, not a host or credential control, given the deliberate
+zero-approving-reviews design and the shared `gh` identity. No deployment credentials or
+environments exist yet (verified: zero repository secrets, zero environments), so the
+least-privilege boundary a future release credential needs is a decision to make when one is
+introduced, not a current gap.
+
+If this residual gap is worth closing, the smallest concrete change is extending `no-main.sh`'s
+command matcher to also recognize a `gh` merge/delete call against `main`, parallel to its existing
+`git` patterns, as local defense-in-depth. Tradeoff: it adds no host-level enforcement, since the
+same credential could still call the API directly outside this hook's reach, and it still cannot
+verify that Joe's actual review happened — it only narrows the one concretely-identified blind spot
+in the local hook itself. This needs Joe's authorization before editing the hook; not made in this pass.
 
 `.github/workflows/check.yml` intentionally has **GATE=local** to conserve Joe's GitHub Actions
 minutes: CI does not run the full product gate.
@@ -173,18 +265,26 @@ It triggers on opened/reopened/ready_for_review (not synchronize) and manual dis
 push, rerun the checks on the new candidate: `gh pr ready --undo`, then `gh pr ready`; inspect the
 actual current-head check results before merge. Do not treat an older green run as current evidence.
 Returning to GATE=full is a separate cost/runtime decision; measure physics runtime before changing
-coverage or timeouts. Existing CI and hook configuration remain the enforcement mechanisms.
+coverage or timeouts.
 
 ASTRA has no release/deployment pipeline yet. Before the first release:
 
 1. Joe authorizes scope/version and rollback target; resolve current blocking findings.
-2. Validate the clean merged tree with full gate and scenario/physics acceptance. A squash/merge
-   creates a new revision; link its validation to the release evidence.
-3. Record toolchain/dependency versions, config/seed/reference-data provenance, test results and
-   limitations. The CMake project version is the existing source for Python's version.
-4. Respect the source-built plugin/ICD contract: Python is editable-only today; do not invent a wheel
-   or binary distribution. If artifacts are introduced, record checksums and reproducible build inputs.
-5. Joe authorizes tagging/publishing/deploying and any signing credentials. Record release notes,
+2. Identify the exact merged commit by hash. Build and validate it from a **fresh checkout**
+   (`git clone`/`git worktree add` of that commit, never a developer or agent's existing working
+   tree) in a **clean build directory and environment** (no reused `build/`, `.venv/`, or
+   compile-database symlinks), running the full gate and scenario/physics acceptance there.
+3. Record the **exact reproducible commands run**, not just their result: the CMake preset/build
+   flags, compiler/toolchain version, Python and pinned dependency versions (`pyproject.toml`'s
+   dev group; the CMake project version remains the existing source for Python's own version),
+   config/seed/reference-data provenance, test results, and limitations.
+4. Respect the source-built plugin/ICD contract: Python is editable-only today; do not invent a
+   wheel or binary distribution. If an artifact is introduced, record its SHA-256 checksum and the
+   exact commit/flags/toolchain that produced it, so the pairing can be independently reproduced.
+5. Before publishing, verify the release tag resolves to that exact commit
+   (`git rev-list -n1 <tag>` matches the recorded hash) and that every recorded artifact/checksum
+   was actually produced by step 2's fresh build of that commit, not a stale or divergent one. Joe
+   authorizes tagging/publishing/deploying and any signing credentials. Record release notes,
    smoke checks and rollback steps; verify the intended version after release. No automatic deployment.
 6. Agree who observes the result and for how long; a regression becomes a test/lesson and a new task.
 
