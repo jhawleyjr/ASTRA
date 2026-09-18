@@ -416,6 +416,42 @@ def check_transcribed_row_tolerances(base_pressures_pa: list[float]) -> None:
         )
 
 
+def check_geopotential_consistency() -> None:
+    """M2 PR 3b's own addition (PLAN.md): the same class of mistake as docs/lessons.md's
+    2026-09-15 entry on NASA-TM-X-74335's dual-column Table I -- geopotential H and geometric Z
+    are transcribed from two DIFFERENT columns of the source document (TranscribedRow's own
+    comment), so a swap or a transcription slip in either would not be caught by
+    check_transcribed_row_tolerances above (which only exercises pressure/density, not the
+    altitude columns themselves). Cross-checks every transcribed row's own printed
+    geopotential_h_m against eq 18 applied fresh to that row's own transcribed altitude_m
+    (geometric Z): the two are computed by entirely different means (one printed by the 1976
+    source, one derived here in Python from the same source's own equation), so they should
+    agree to whatever precision the document's own rounding allows, not exactly. half_ulp(0)
+    (0.5 m) is generous against the document's own metre-level rounding of H; a real Z/H swap or
+    transcription slip is orders of magnitude past this (worst observed residual this session:
+    0.281 m, well inside 0.5 m)."""
+    tolerance_m = half_ulp(0)
+    worst_residual = 0.0
+    worst_altitude = 0.0
+    for row in TRANSCRIBED_ROWS:
+        residual = abs(geopotential_from_geometric(row.altitude_m) - row.geopotential_h_m)
+        print(
+            f"# Z={row.altitude_m:>8.0f} geopotential consistency residual={residual:.3e} m "
+            f"tolerance={tolerance_m:.3e} m",
+            file=sys.stderr,
+        )
+        if residual > worst_residual:
+            worst_residual, worst_altitude = residual, row.altitude_m
+    if worst_residual > tolerance_m:
+        raise SystemExit(
+            f"Geopotential consistency FAILED at Z={worst_altitude:.0f} "
+            f"(residual {worst_residual:.3e} m > tolerance {tolerance_m:.3e} m) -- the "
+            "transcribed geopotential_h_m and altitude_m columns disagree with eq 18 by more "
+            "than the document's own printed-precision rounding; investigate before trusting "
+            "this table."
+        )
+
+
 def computed_rows(base_pressures_pa: list[float]) -> list[ComputedRow]:
     rows = []
     steps = round((COMPUTED_ROW_MAX_M - COMPUTED_ROW_MIN_M) / COMPUTED_ROW_STEP_M)
@@ -543,6 +579,7 @@ def main() -> None:
     base_pressures_pa = integrated_base_pressures()
     check_transcribed_base_pressures(base_pressures_pa)
     check_transcribed_row_tolerances(base_pressures_pa)
+    check_geopotential_consistency()
     rows = computed_rows(base_pressures_pa)
     print(render_header(rows), end="")
 
