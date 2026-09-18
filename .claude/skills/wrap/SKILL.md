@@ -19,6 +19,8 @@ Find the first unfinished gate, using the workflow's risk tier and already recor
 - Intent/spec/plan unresolved: hand off the specific decision to Joe; do not begin dependent work.
 - Implementation, validation or integration incomplete: Claude retains the next action. Record failed,
   running, stale or missing checks accurately; never turn a fast/local-CI pass into full validation.
+  See the workflow's [stage transitions](../../../docs/process/workflow.md#the-twelve-steps) for what
+  "implementation" and "integration" mean inside the twelve numbered steps.
 - Codex review/adversarial review missing: record the required pass and candidate as pending.
   Open findings go back to Claude for fixes, then validation and Codex verification.
 - Fix/integration budget exhausted or requirement disagreement: record attempts, owner and decision
@@ -48,8 +50,9 @@ to wrap. If later changes invalidate evidence, mark the affected gate pending an
    milestone only when all of its requirements hold; do not advance to a new milestone while this
    task has unfinished gates. No separate retrospective ceremony is required.
 4. **STATE.md:** rewrite to at most 40 lines, true now, with `## In flight`, `## Last verified result`,
-   `## Next step`, `## Tried / failed`, and the existing `## Honesty rules` block verbatim. Include the
-   branch/PR (or no PR), actual workflow stage, links to evidence, what remains and who owns it.
+   `## Next step`, `## Tried / failed` (including the current `Correction rounds: n/2; failed
+   integrations: n/2`), and the existing `## Honesty rules` block verbatim. Include the branch/PR
+   (or no PR), actual workflow stage, links to evidence, what remains and who owns it.
    Distinguish prior-session validation from commands run now; preserve useful product-task pointers.
 5. **docs/lessons.md:** append only a new lesson that actually occurred; do not duplicate old entries.
    Never modify goldens, tolerances or accepted ADRs as part of handoff.

@@ -9,6 +9,8 @@ Claude owns preparation; Joe owns the decision. Read the
 [human-review and release gates](../../../docs/process/workflow.md#human-approval-and-mergerelease-gates)
 and use the [packet template](../../../docs/templates/human-review.md) in an existing PR body draft
 or `docs/reviews/`. Reuse a brief when the risk tier permits; do not create duplicate artifacts.
+Check the PR body and `docs/reviews/` for an existing packet covering this exact candidate (same
+base/head and dirty-tree scope) first; update it in place rather than writing a second one.
 
 - Identify the actual candidate (base/head and dirty-tree scope), requirements and concrete before/after
   behavior. Summarize changed files and point Joe to consequential code, tests and assumptions.

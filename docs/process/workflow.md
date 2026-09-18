@@ -38,6 +38,20 @@ work. Prefer links to evidence over duplicated, stale pins. Reference data/golde
 | 11. Merge and release | Draft PR → ready → Joe squash-merges; separate release decision | Current validation/review, protected merge, release checklist |
 | 12. Coordination | Keep next action/owner visible in STATE or feature status | Handoff recoverable without chat; stop when complete |
 
+**Stage transitions (implementation and integration).** The table keeps its original twelve
+numbered steps; two stages that produce most of the actual work sit at explicit transitions
+inside it rather than as separate rows, so a handoff can always name where a task stands.
+*Implementation* is the bounded diff plus tests that steps 4–6 (decomposition, repository
+instructions, reusable procedures) hand to step 7: it starts once steps 1–3 have resolved
+intent, spec and plan, and is complete once step 7's fast/full validation has run against it
+— see the [Claude builder procedure](../agents/build.md). *Integration* is the transition a
+multi-package task adds between step 9 (fix and retest) and step 10 (human review): the
+integrator combines every package's validated diff into one tree in dependency order and
+reruns the full gate on the combined tree before that tree is eligible for step 10. A
+single-package task (the default) has no separate integration transition, since step 7's own
+full gate already covers the whole candidate. `/wrap` treats "implementation, validation or
+integration incomplete" as one of its named unfinished-gate cases.
+
 ## Risk tiers
 
 Assign the highest applicable tier with a one-line reason. Joe may raise it. Missing evidence or
@@ -81,8 +95,10 @@ Do not run concurrent checks in one checkout. A timeout or absent dependency is 
 
 The oracle remains human-owned: `tests/golden/**`, tolerance files, and `docs/decisions/**`.
 Claude's PreToolUse guard requires Joe to authorize and lift it via `ASTRA_TOUCH_GOLDENS=1` on the
-launch environment or `.claude/touch-goldens` in the session or main checkout. SessionStart removes
-both markers. Agents must not arm their own bypass. Other tools must honor this rule even without
+launch environment or `.claude/touch-goldens` in the session or main checkout. SessionStart deletes
+the file marker in both locations; a hook cannot unset a running session's environment variable, so
+`ASTRA_TOUCH_GOLDENS` lasts as long as the session it was launched with. Agents must not arm their
+own bypass. Other tools must honor this rule even without
 Claude hooks. Widening tolerance, narrowing comparison, regenerating a golden, or weakening a test
 is a blocking finding unless Joe explicitly approves the underlying requirement/oracle change.
 
@@ -123,6 +139,9 @@ push invalidates prior review/validation for affected work. Do not weaken requir
 
 - At most two autonomous correction/review-fix rounds per task; a finding surviving both escalates.
 - At most two failed integration attempts. No infinite retry, review ping-pong, or reviewer refactoring.
+- Record the running counts as `Correction rounds: n/2; failed integrations: n/2` in STATE.md's
+  `Tried / failed` section (the task manifest's own fields when one exists), so a fresh session or
+  reviewer reads the budget without chat history; a default single-package task still needs this line.
 - Build/test defect → builder. Infrastructure failure → tooling diagnosis. Spec ambiguity → Joe.
   Architecture conflict/scope expansion → Joe. Exhausted budget → summary of attempts and next choice.
 - A fresh context after two failed corrections is useful, but does not reset the budget or approval.
