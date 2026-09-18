@@ -1,7 +1,8 @@
 # Human review packet: workflow-v3 (12-step workflow, process/tooling candidate)
 
-PR / candidate base and head: `origin/main`=`40b484b` (confirmed current tip of `main` at
-packet time — no PR yet, no rebase pending), head `a942475` on branch `workflow-v3`. This is a
+PR / candidate base and head: <https://github.com/jhawleyjr/ASTRA/pull/30> (draft — opened for
+Joe's merge decision, not requesting merge), `main`=`40b484b` (confirmed current tip of `main`
+at packet time) ← `workflow-v3` head `389ac1d`. This is a
 **process/tooling candidate**: the twelve-step workflow docs, `.claude/hooks/guard-oracle.sh`,
 its regression-case fixture, `scripts/docs_check.py`, `justfile`/CI wiring, and templates — not
 a physics/product change. Spec/plan/task: no repository feature spec (workflow tooling, not a
