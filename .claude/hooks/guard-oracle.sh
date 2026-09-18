@@ -195,20 +195,38 @@ CD_OPT_CLUSTER_RE = re.compile(r"^-[LPe@]+$")
 ENV_ASSIGN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 
 
+# Shell tokens that unambiguously introduce a command list -- whatever token follows is a real
+# command, not a keyword's own operand (unlike `if`/`while`/`for`/`until`/`case`, whose very
+# next token is a condition/variable/word to test, not a command; deliberately not skipped
+# here, since that would need real operand-aware parsing, not a simple prefix skip). `{` opens
+# a brace-grouped command list; our statement splitter has no group-awareness, so a lone `{`
+# ends up as the first token of the statement holding the group's actual command.
+SHELL_LIST_INTRODUCERS = {"then", "else", "do", "{"}
+
+
 def resolve_verb(toks):
-    """The real command name `command_arg_targets` should classify by, seeing through a
-    leading `env`/`command`, one or more `NAME=VALUE` environment-variable-assignment prefixes
-    (with or without a preceding `env`/`command`, both valid bash), and a path-qualified name
-    resolved to its basename -- not a shell interpreter, just enough that these ordinary
-    prefixes cannot dodge a write-capable command's own classification (`env sed -i ...`,
-    `LC_ALL=C sed -i ...`, `command sed -i ...`, `/usr/bin/sed -i ...` are all still `sed`)."""
+    """The real command name `command_arg_targets` should classify by, seeing through any
+    combination (repeated, in any order -- `LC_ALL=C command sed`, `then env sed`, ...) of a
+    leading shell list-introducer (`then`/`else`/`do`/`{`), `env`/`command`/`sudo`, and
+    `NAME=VALUE` environment-variable-assignment prefixes, then resolving a path-qualified name
+    to its basename -- not a shell interpreter, just enough that these ordinary prefixes cannot
+    dodge a write-capable command's own classification (`env sed -i ...`, `LC_ALL=C sed -i
+    ...`, `command sed -i ...`, `sudo sed -i ...`, `/usr/bin/sed -i ...`, `then sed -i ...`/
+    `{ sed -i ...`, and any combination of these, are all still `sed`)."""
     i = 0
-    if i < len(toks) and toks[i] in ("env", "command"):
-        i += 1
-        while i < len(toks) and toks[i].startswith("-"):
+    while i < len(toks):
+        if toks[i] in SHELL_LIST_INTRODUCERS:
             i += 1
-    while i < len(toks) and ENV_ASSIGN_RE.match(toks[i]):
-        i += 1
+            continue
+        if toks[i] in ("env", "command", "sudo"):
+            i += 1
+            while i < len(toks) and toks[i].startswith("-"):
+                i += 1
+            continue
+        if ENV_ASSIGN_RE.match(toks[i]):
+            i += 1
+            continue
+        break
     if i >= len(toks):
         return None, []
     return os.path.basename(toks[i]), toks[i + 1:]
@@ -418,15 +436,16 @@ def evaluate():
         stmt = raw.strip()
         if not stmt:
             continue
-        # Peel one layer of `(...)` subshell wrapping when it wraps the *entire* statement --
-        # `(sed -i ... tests/golden/x)` -- so the command inside is classified the same as if
-        # it were not wrapped. Narrow, not full shell parsing: only helps a subshell containing
-        # a single simple statement with no `;`/`&&`/`||`/`|` of its own (those already split
-        # this statement apart above, before any subshell-awareness), a known remaining gap.
-        if stmt.startswith("(") and stmt.endswith(")"):
+        # Peel every layer of `(...)` subshell wrapping when it wraps the *entire* statement --
+        # `(sed -i ... tests/golden/x)`, `( (sed -i ...) )`, arbitrarily nested -- so the
+        # command inside is classified the same as if it were not wrapped. Narrow, not full
+        # shell parsing: only helps a subshell containing a single simple statement with no
+        # `;`/`&&`/`||`/`|` of its own (those already split this statement apart above, before
+        # any subshell-awareness), a known remaining gap.
+        while stmt.startswith("(") and stmt.endswith(")"):
             stmt = stmt[1:-1].strip()
-            if not stmt:
-                continue
+        if not stmt:
+            continue
         try:
             toks = shlex.split(stmt, posix=True)
         except ValueError:

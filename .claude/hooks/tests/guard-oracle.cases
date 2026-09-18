@@ -223,3 +223,36 @@
 # actual command position needs real sed-delimiter tracking, out of proportion to this guard's
 # stated "shell-pattern guard, not a parser" scope -- recoverable via the existing marker.
 2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed -n '/w probe/p' nesc/case1_dragless_sphere.hpp"}}
+
+# --- Round 7: shell list-introducers, `sudo`, and recursive subshell peeling ---
+# BLOCK: an unrecognized shell keyword/brace-group opener directly preceding the real command
+# defeated verb-based classification -- these introduce a command list unambiguously, so the
+# token right after them is always a real command, never the keyword's own operand
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"if true; then sed -i 's/x/y/' tests/golden/example.hpp; fi"}}
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"while true; do sed -i 's/x/y/' tests/golden/example.hpp; done"}}
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"if false; then true; else sed -i 's/x/y/' tests/golden/example.hpp; fi"}}
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"{ sed -i 's/x/y/' tests/golden/example.hpp; }"}}
+# PASS: the same shapes on an unrelated read
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"if true; then cat tests/golden/example.hpp; fi"}}
+# BLOCK: any combination/order of list-introducer, `env`/`command`/`sudo`, and `NAME=VALUE`
+# prefixes -- not just one of each
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"command env sed -i 's/x/y/' tests/golden/nesc/case1_dragless_sphere.hpp"}}
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"LC_ALL=C command sed -i 's/x/y/' tests/golden/nesc/case1_dragless_sphere.hpp"}}
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"if true; then env sed -i 's/x/y/' tests/golden/nesc/case1_dragless_sphere.hpp; fi"}}
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"sudo sed -i 's/x/y/' tests/golden/nesc/case1_dragless_sphere.hpp"}}
+# BLOCK: nested/multi-layer `(...)` subshell wrapping around a single simple statement
+2	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"( (sed -i 's/x/y/' tests/golden/nesc/case1_dragless_sphere.hpp) )"}}
+# PASS (documented gaps, not silent ones -- each a false PASS/bypass Codex's fourth review
+# pass on this candidate found and this session explicitly stopped fixing, per this session's
+# own authorized-batch bound and Codex's own "this authorized review batch is complete"
+# conclusion; handed to Joe rather than chased through a further autonomous round):
+# - a target that arrives via a pipe into `xargs` rather than as a literal command-line token
+#   is invisible to this guard entirely (the guard only ever inspects the command's own text)
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"echo tests/golden/nesc/case1_dragless_sphere.hpp | xargs sed -i 's/x/y/'"}}
+# - a GNU sed address modifier (`/x/I`, case-insensitive) between the closing address delimiter
+#   and the command letter defeats both write-command regexes' adjacency assumptions
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden && sed -n '/x/Iw probe.hpp' /dev/null"}}
+# - a `;` inside a `# comment` after a pipeline `|` is still just comment text in real bash, but
+#   this scanner's quote/comment-unaware separator scan treats it as a real statement boundary,
+#   severing the pipeline-adjacency chain the same way an un-commented `;` legitimately would
+0	{"cwd":"$ROOT","tool_name":"Bash","tool_input":{"command":"cd tests/golden; printf x | # note;\ncd ../..; printf x > probe.hpp"}}

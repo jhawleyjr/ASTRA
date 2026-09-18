@@ -1,0 +1,27 @@
+[codex] Starting Codex review thread.
+[codex] Thread ready (01a0b34f-3a9e-7372-8fc8-79f00e4cbd96).
+[codex] Reviewer started: changes against 'origin/main'
+[codex] Running command: /bin/bash -lc "git status --short; git diff --stat 40b484b02416b989f7f9e52e69ec8e3faa0b895d; ...
+[codex] Command completed: /bin/bash -lc "git status --short; git diff --stat 40b484b02416b989f7f9e52e69ec8e3faa0b895d; ... (exit 0)
+[codex] Running command: /bin/bash -lc 'git diff 40b484b02416b989f7f9e52e69ec8e3faa0b895d -- .claude/hooks .github/wor...
+[codex] Command completed: /bin/bash -lc 'git diff 40b484b02416b989f7f9e52e69ec8e3faa0b895d -- .claude/hooks .github/wor... (exit 0)
+[codex] Running command: /bin/bash -lc "cat .github/workflows/check.yml; cat .claude/hooks/stop-check.sh; sed -n '370,...
+[codex] Command completed: /bin/bash -lc "cat .github/workflows/check.yml; cat .claude/hooks/stop-check.sh; sed -n '370,... (exit 0)
+[codex] Running command: /bin/bash -lc "cat STATE.md PLAN.md >/dev/null; cat docs/architecture.md docs/decisions/*.md ...
+[codex] Command completed: /bin/bash -lc "cat STATE.md PLAN.md >/dev/null; cat docs/architecture.md docs/decisions/*.md ... (exit 0)
+[codex] Running command: /bin/bash -lc "python3 - <<'PY' import subprocess,json,os base=subprocess.check_output(['git'...
+[codex] Command completed: /bin/bash -lc "python3 - <<'PY' import subprocess,json,os base=subprocess.check_output(['git'... (exit 0)
+[codex] Review output captured.
+[codex] Reviewer finished.
+[codex] Assistant message captured: The oracle hook loses previously working protection for conditional sed writes. Read-only hoo...
+[codex] Turn completed.
+# Codex Review
+
+Target: branch diff against origin/main
+
+The oracle hook loses previously working protection for conditional sed writes. Read-only hook probes confirmed the regression; docs_check.py and diff whitespace checks passed. The full build/test gate was not run.
+
+Review comment:
+
+- [P2] Preserve sed protection inside shell conditionals — /home/joe/repos/ASTRA/.claude/hooks/guard-oracle.sh:212-214
+  With the oracle guard unarmed, `if true; then sed -i 's/x/y/' tests/golden/example.hpp; fi` now returns 0, whereas the base hook returns 2. Removing the coarse sed matcher exposes a gap in the replacement parser: it identifies `then` as the command and never classifies the following `sed`. Ordinary conditional edits can therefore modify protected goldens or ADRs without the authorization required by [AGENTS.md:27–29](AGENTS.md#L27-L29). Recognize shell control-word prefixes before command classification and add a regression case before dropping the previous coverage.
