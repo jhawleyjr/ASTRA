@@ -1,10 +1,10 @@
 # Human review packet: M2 PR 3b — NESC ten-case check harness
 
 PR / candidate base and head: base `93592f1685cf64d09d1c23d63dadff569041828f` (= `origin/main`'s
-current tip, confirmed via `git fetch origin main && git log --oneline HEAD..origin/main` — empty,
-no rebase needed). Head: **dirty working tree** in `.claude/worktrees/m2-nesc-harness`
-(branch `worktree-m2-nesc-harness`), nothing committed yet — 34 changed paths (`git status --short
---untracked-files=all`): 4 modified, 3 deleted, 27 new. No PR opened (not authorized/requested).
+tip at candidate creation, confirmed via `git fetch origin main && git log --oneline
+HEAD..origin/main` — empty, no rebase needed). Head `10bb8ec39d4eeb23f523c93d45cfec785b59fa97`,
+branch `worktree-m2-nesc-harness`, 7 commits. Draft PR opened:
+<https://github.com/jhawleyjr/ASTRA/pull/31> — **draft, not marked ready** per instruction.
 Spec/plan/task: `docs/specs/nesc-harness.md` (approved), `docs/plans/nesc-harness.md` (approved,
 includes the cases 4/5 "Known gap found during implementation" section and Joe's recorded decision)
 Risk: 3 — `plugins/physical` consumers (new configs only, no plugin code changes), `tests/golden/**`
@@ -143,8 +143,9 @@ independently-integrated DOP853 reference (tighter in position/attitude, looser 
 than the NESC ensemble — a real, if narrow, change in what case 1's own oracle is, disclosed in the
 plan, not implied as strictly more coverage.
 
-**Rollback**: all new files, three plain deletions; `git checkout -- .` / discarding the working tree
-fully reverts (nothing committed).
+**Rollback**: 7 commits on `worktree-m2-nesc-harness`, all new files plus three plain deletions, no
+production/plugin code touched; closing PR #31 without merging, or a single `git revert` range once
+merged, fully reverts. No squash has happened yet (draft, not marked ready).
 
 ## Decision record
 
