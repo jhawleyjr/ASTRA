@@ -1,0 +1,44 @@
+# NASA/TM-2015-218675 Vol II Table 26, atmospheric check-case 2 ("dragless tumbling brick"): WGS-84
+# rotating geodesy, J2 gravitation, US 1976 STD atmosphere, no wind, level attitude,
+# C_D = Cl_p = Cm_q = Cn_r = 0 -- a real, checkable zero (nesc_aero loaded with every coefficient
+# zeroed), unlike case 1's absent WrenchSource, since this case verifies rotational EOM with a real
+# (if trivial) rate response.
+# Position corrected, R8 cross-check (this session): Table 26 PRINTS position [0, 0, 0], but C.1.2's
+# own prose (the paragraph directly above the table, doc p.57) says the brick is "dropped from the
+# same initial position as ... the sphere in atmospheric scenario 1 (30,000 ft over the Equator/Prime
+# Meridian intersection)" -- and Atmos_02's own t=0 CSV rows (every participant) show
+# altitudeMsl_ft = 30000, gePosition matching case 1's exactly, confirming the prose and the data
+# agree and the printed table entry is the one in error (the same class of NASA-document transcription
+# slip docs/lessons.md's 2026-09-15 entry already warns about, caught here by R8's own cross-check,
+# not silently copied from the table alone).
+# omega_b is the INERTIAL rate (ADR-0003), corrected from Table 26's printed Earth-relative rate
+# [9.995821927, 20, 30] deg/s: the brick's true inertial rate is exactly [10, 20, 30] deg/s (Table 26's
+# own prose: "the inertial rates were 10, 20, and 30 deg/s"), confirmed against Atmos_02's own
+# bodyAngularRateWrtEi t=0 CSV rows this session (docs/plans/nesc-harness.md's R8 cross-check).
+sim:
+  dt: 0.001
+  frames: 30000
+vehicle:
+  models:
+    - plugin: tests/plugins/nesc_aero
+      s: 0.020644913548800003 # 0.22222 ft^2 (Vol II Table 5)
+      b: 0.101598984 # 0.33333 ft
+      cbar: 0.203201016 # 0.66667 ft
+      cd: 0.0
+      clp: 0.0
+      cmq: 0.0
+      cnr: 0.0
+physical:
+  earth: plugins/physical/earth/wgs84_rotating
+  gravity: plugins/physical/gravity/wgs84_j2
+  atmosphere: plugins/physical/atmosphere/isa1976
+  mass:
+    plugin: plugins/physical/mass/constant
+    mass: 2.2679618958564327 # 0.155404754 slug (Vol II Table 4)
+    ixx: 0.0025682174740883057 # 0.001894220 slug-ft^2
+    iyy: 0.008421011037627346 # 0.006211019 slug-ft^2
+    izz: 0.009754655939231737 # 0.007194665 slug-ft^2
+initial:
+  state:
+    p_n: [0.0, 0.0, 9144.0] # 30,000 ft (corrected, R8 -- see header comment)
+    omega_b: [0.17453292519943295, 0.3490658503988659, 0.5235987755982988] # 10, 20, 30 deg/s

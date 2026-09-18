@@ -1,0 +1,27 @@
+# NASA/TM-2015-218675 Vol II Table 25, atmospheric check-case 1 ("dragless sphere"): WGS-84 rotating
+# geodesy, J2 gravitation, US 1976 STD atmosphere, no wind, C_D = 0 (no WrenchSource loaded -- the
+# sphere has no reaction with the atmosphere at all, so its trajectory not reflecting drag already
+# proves the zero force; docs/plans/nesc-harness.md's own cross-check). Initial position 30,000 ft
+# (9144.0 m) MSL over the Equator/Prime Meridian intersection; velocity zero relative to the rotating
+# Earth; level attitude; ZERO INERTIAL ROTATION (omega_b = [0,0,0], not Table 25's printed
+# -0.004178073 deg/s roll rate, which is the Earth-relative rate this scenario's zero inertial
+# rotation implies -- see tests/golden/nesc/case1_dragless_sphere.hpp's own header, absorbed by this
+# harness, for the derivation). Duration 30 s at the sim's standard 1 ms frame.
+sim:
+  dt: 0.001
+  frames: 30000
+vehicle:
+  models: []
+physical:
+  earth: plugins/physical/earth/wgs84_rotating
+  gravity: plugins/physical/gravity/wgs84_j2
+  atmosphere: plugins/physical/atmosphere/isa1976
+  mass:
+    plugin: plugins/physical/mass/constant
+    mass: 14.593902937206364 # 1.0 slug (Vol II Table 1)
+    ixx: 4.880944613993042 # 3.6 slug-ft^2 (Vol II Table 1)
+    iyy: 4.880944613993042
+    izz: 4.880944613993042
+initial:
+  state:
+    p_n: [0.0, 0.0, 9144.0]

@@ -1,0 +1,30 @@
+# NASA/TM-2015-218675 Vol II Table 34, atmospheric check-case 10 ("northward ballistic flight of a
+# sphere"): identical launch geometry to case 9 but heading north (identity attitude, so body axes
+# already align with NED and no rotation is needed for v_b). Initial NED velocity
+# [north=1000, east=0, down=-1000] ft/s = v_b = [304.8, 0.0, -304.8] m/s directly. omega_b is the Earth
+# rotation rate projected into this (identity) initial body frame: [omega_ie, 0, 0] -- the Coriolis
+# effect this case verifies (Table 6.3-1) comes from the trajectory's own northward motion through
+# EarthModel's Coriolis/transport-rate terms, not from this initial condition.
+sim:
+  dt: 0.001
+  frames: 30000
+vehicle:
+  models:
+    - plugin: tests/plugins/nesc_aero
+      s: 0.018241465452480003 # 0.1963495 ft^2 (Vol II Table 2)
+      cd: 0.1
+physical:
+  earth: plugins/physical/earth/wgs84_rotating
+  gravity: plugins/physical/gravity/wgs84_j2
+  atmosphere: plugins/physical/atmosphere/isa1976
+  mass:
+    plugin: plugins/physical/mass/constant
+    mass: 14.593902937206364 # 1.0 slug (Vol II Table 1)
+    ixx: 4.880944613993042 # 3.6 slug-ft^2
+    iyy: 4.880944613993042
+    izz: 4.880944613993042
+initial:
+  state:
+    p_n: [0.0, 0.0, 0.0]
+    v_b: [304.8, 0.0, -304.8] # NED [1000, 0, -1000] ft/s, identity attitude so no rotation needed
+    omega_b: [7.292115e-05, 0.0, 0.0] # Earth rotation rate projected into this initial body frame

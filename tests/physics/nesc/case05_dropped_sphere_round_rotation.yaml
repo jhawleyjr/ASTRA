@@ -1,0 +1,34 @@
+# NASA/TM-2015-218675 Vol II Table 29, atmospheric check-case 5 ("sphere dropping over rotating,
+# spherical Earth"): identical to case 4 except the round Earth model rotates (Table 6.3-1 pairs case 4
+# fixed / case 5 rotating with the same 1/R^2 gravity, to isolate the effect of Earth rotation alone).
+# omega_b is corrected to inertial: Table 29's printed Earth-relative rate [9.995821927, 20, 30] deg/s
+# plus the equatorial Earth-rotation-rate correction gives exactly [10, 20, 30] deg/s, the same
+# clean value case 4's own (uncorrected, non-rotating) printed rate already is.
+sim:
+  dt: 0.001
+  frames: 30000
+vehicle:
+  models:
+    - plugin: tests/plugins/nesc_aero
+      s: 0.018241465452480003 # 0.1963495 ft^2 (Vol II Table 2)
+      cd: 0.1
+physical:
+  earth:
+    plugin: plugins/physical/earth/round
+    radius: 6371007.1809 # Vol II Table 73, atmospheric check-cases sphere-Earth radius
+    rotating: true
+  gravity:
+    plugin: plugins/physical/gravity/inverse_square
+    radius: 6371007.1809
+    g0: 9.820228349842926 # = GM/radius^2, GM = 3.986004418e14 m^3/s^2 (Vol II Table 73)
+  atmosphere: plugins/physical/atmosphere/isa1976
+  mass:
+    plugin: plugins/physical/mass/constant
+    mass: 14.593902937206364 # 1.0 slug (Vol II Table 1)
+    ixx: 4.880944613993042 # 3.6 slug-ft^2
+    iyy: 4.880944613993042
+    izz: 4.880944613993042
+initial:
+  state:
+    p_n: [0.0, 0.0, 9144.0]
+    omega_b: [0.17453292519943295, 0.3490658503988659, 0.5235987755982988] # 10, 20, 30 deg/s
