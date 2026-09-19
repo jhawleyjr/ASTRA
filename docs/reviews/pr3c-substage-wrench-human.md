@@ -1,8 +1,11 @@
 # Human review packet: PR 3c — per-RK4-substage wrench evaluation
 
-PR / candidate base and head: base `a3d23f7` (`origin/main`'s current tip, confirmed via
-`git merge-base HEAD origin/main` — no drift); head: uncommitted working-tree diff (13 modified
-files, 3 new files), not yet committed. Confirmed base is current before this decision.
+PR / candidate base and head: base `a3d23f7` (`origin/main`'s current tip at the time review ran,
+confirmed via `git merge-base HEAD origin/main` — no drift); head `d9906ea`, committed and pushed to
+`worktree-m2-pr3c-substage-wrench`, draft PR [#34](https://github.com/jhawleyjr/ASTRA/pull/34)
+against `main` — **not marked ready**. All validation and review evidence below ran against this
+exact working-tree diff before it was committed; `git diff a3d23f7 d9906ea` is that same diff,
+unchanged by the commit itself.
 Spec/plan/task: `docs/plans/pr3c-substage-wrench.md` (spec + repository-aware plan + draft ADR,
 approved by Joe 2026-09-19 after one Codex plan critique and one correction round). `PLAN.md`'s own
 PR 3c line.
@@ -116,8 +119,8 @@ still present in git history if ever needed again, though the intent is not to n
 ## Decision record
 
 State: pending
-Human decision/date/reference: pending — this packet
-Approved candidate/scope: pending
+Human decision/date/reference: pending — this packet, PR #34
+Approved candidate/scope: pending (candidate: `d9906ea` against base `a3d23f7`)
 Merge observed: not merged
 Release authorization: not requested
 Significant tradeoff rationale: `WrenchSource::wrench_b()` now costs 4x/frame instead of 1x
