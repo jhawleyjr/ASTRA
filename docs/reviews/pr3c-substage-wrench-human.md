@@ -1,11 +1,13 @@
 # Human review packet: PR 3c — per-RK4-substage wrench evaluation
 
 PR / candidate base and head: base `a3d23f7` (`origin/main`'s current tip at the time review ran,
-confirmed via `git merge-base HEAD origin/main` — no drift); head `d9906ea`, committed and pushed to
-`worktree-m2-pr3c-substage-wrench`, draft PR [#34](https://github.com/jhawleyjr/ASTRA/pull/34)
-against `main` — **not marked ready**. All validation and review evidence below ran against this
-exact working-tree diff before it was committed; `git diff a3d23f7 d9906ea` is that same diff,
-unchanged by the commit itself.
+confirmed via `git merge-base HEAD origin/main` — no drift); head `d9906ea` (the reviewed candidate;
+`4ee118e` and `3339e98` are doc-only follow-ups — this packet's own head-reference fix and the
+STATE.md handoff rewrite, no code/test change), committed and pushed to
+`worktree-m2-pr3c-substage-wrench`, PR [#34](https://github.com/jhawleyjr/ASTRA/pull/34) against
+`main`, **marked ready for review**. All validation and review evidence below ran against `d9906ea`'s
+own exact diff before it was committed; `git diff a3d23f7 d9906ea` is that same diff, unchanged by
+the commit itself.
 Spec/plan/task: `docs/plans/pr3c-substage-wrench.md` (spec + repository-aware plan + draft ADR,
 approved by Joe 2026-09-19 after one Codex plan critique and one correction round). `PLAN.md`'s own
 PR 3c line.
@@ -118,10 +120,12 @@ still present in git history if ever needed again, though the intent is not to n
 
 ## Decision record
 
-State: pending
-Human decision/date/reference: pending — this packet, PR #34
-Approved candidate/scope: pending (candidate: `d9906ea` against base `a3d23f7`)
-Merge observed: not merged
+State: **approved**
+Human decision/date/reference: Joe, 2026-09-19, PR #34
+Approved candidate/scope: `d9906ea` against base `a3d23f7` (the full reviewed diff this packet
+describes; `4ee118e`/`3339e98` are doc-only follow-ups, not part of the reviewed code/test change)
+Merge observed: not merged — PR marked ready for review; Joe's own squash-merge is the outstanding
+action
 Release authorization: not requested
 Significant tradeoff rationale: `WrenchSource::wrench_b()` now costs 4x/frame instead of 1x
 (measured in isolation: ~26 ns added per frame for one drag source — 0.0026% of the 1 ms real-time

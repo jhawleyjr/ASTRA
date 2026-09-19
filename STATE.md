@@ -4,8 +4,9 @@
 PR 3c: per-RK4-substage wrench evaluation (`PLAN.md`'s M2 closer, now checked off, along with PR 3a/
 3b retroactively and the M2 row itself — all ten NESC cases pass under all four presets). Worktree
 `m2-pr3c-substage-wrench`, branch `worktree-m2-pr3c-substage-wrench`, **committed (`d9906ea`, packet
-fix `4ee118e`) and pushed**, **draft PR** <https://github.com/jhawleyjr/ASTRA/pull/34> against
-`main`'s `a3d23f7` — **not marked ready**. PR body is the human-review packet
+fix `4ee118e`, STATE.md `3339e98`) and pushed**, **PR** <https://github.com/jhawleyjr/ASTRA/pull/34>
+against `main`'s `a3d23f7`, **approved by Joe 2026-09-19 and marked ready for review** — not yet
+merged (Joe's own squash-merge is the outstanding action). PR body is the human-review packet
 (`docs/reviews/pr3c-substage-wrench-human.md`). Spec/plan `docs/plans/pr3c-substage-wrench.md`,
 approved by Joe 2026-09-19 after one Codex plan critique (6 findings, fixed) and one correction
 round (Joe's own 2 findings plus a second Codex critique's 3 more, all fixed pre-implementation).
@@ -31,10 +32,10 @@ Zero fix rounds needed. Full record in the plan doc's own "Plan critique" / "Cor
 sections and the human-review packet.
 
 ## Next step
-**Joe**: read PR #34 and decide (approve/merge, or request changes). Nothing outstanding on the
-review side. One new disclosed, unstarted `PLAN.md` follow-up item: the atmosphere-domain-check
-misattribution window (same accepted-gap class as ADR-0012's gravity/Earth instance), needs its own
-plan review before code, not urgent (no NESC case exercises it).
+PR #34 approved by Joe and marked ready; **Joe's own squash-merge** is the only outstanding action.
+Nothing outstanding on the review side. One new disclosed, unstarted `PLAN.md` follow-up item: the
+atmosphere-domain-check misattribution window (same accepted-gap class as ADR-0012's gravity/Earth
+instance), needs its own plan review before code, not urgent (no NESC case exercises it).
 
 ## Tried / failed
 Correction rounds: 1/2 used (plan-review stage, before implementation — both Joe's own findings and
