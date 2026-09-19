@@ -553,20 +553,24 @@ acceptance (cases 4/5 stay `GTEST_SKIP()`ed in the committed candidate; this tab
 | pressure | 0.157 | pass | 53.57 | FAIL |
 | temperature | 1.49 | FAIL | 1405.84 | FAIL |
 
-**Reported plainly, not diagnosed here** (PR 3c's own job): this baseline is far broader than the
-previously-disclosed "`v_east`/`longitude`/`yaw`/`pitch`/`roll`/`force_x`" failure set above —
-`altitude`, `v_down`, `latitude`, and `temperature` now also fail in *both* cases; `density`,
-`pressure`, `force_y`, and `force_z` fail in case05 specifically (not case04); only the three angular
-rates and the three moments pass cleanly in both cases. **`case04`'s own `force_x` now passes**
-(ratio 0.798) where this section's earlier narrative grouped it with case05 as a failing channel
-("growing to ~0.7–0.8% relative error by t=30 s") — case05's own force_x ratio (221.6) is consistent
-with that original figure's order of magnitude; case04's is not. Not investigated further here: this
-is exactly the tightened, self-consistent, 3-participant baseline `PLAN.md`'s PR 3c now inherits and
-must judge its own per-RK4-substage fix against, not a finding to chase in this PR.
+**Reported plainly, not diagnosed here**: this baseline is far broader than the previously-disclosed
+"`v_east`/`longitude`/`yaw`/`pitch`/`roll`/`force_x`" failure set above — `altitude`, `v_down`,
+`latitude`, and `temperature` now also fail in *both* cases; `density`, `pressure`, `force_y`, and
+`force_z` fail in case05 specifically (not case04); only the three angular rates and the three
+moments pass cleanly in both cases. **`case04`'s own `force_x` now passes** (ratio 0.798) where this
+section's earlier narrative grouped it with case05 as a failing channel ("growing to ~0.7–0.8%
+relative error by t=30 s") — case05's own force_x ratio (221.6) is consistent with that original
+figure's order of magnitude; case04's is not. Most of this baseline is PR 3c's own starting point for
+judging its per-RK4-substage fix, since the frozen-wrench characteristic PR 3b already diagnosed is
+shared by both cases 4 and 5 equally. **`case05`'s own `altitude`/`v_down` misses are the one
+exception** — see the next paragraph: they are three orders of magnitude larger than `case04`'s
+equivalent misses, undiagnosed, and not assumed to be explained or resolved by PR 3c's own fix;
+tracked as `PLAN.md`'s own separate, unchecked item ahead of PR 3c, not folded into PR 3c's scope.
 
-**Open finding, recorded not diagnosed (Joe's review of this baseline)**: `case05`'s own `altitude`
-and `v_down` misses are roughly three orders of magnitude larger than `case04`'s corresponding
-misses, at the same final sample (t=30 s, sample 300, the dry run's own captured evidence):
+**Open finding, tracked as its own separate `PLAN.md` item, not PR 3c's** (Joe's review of this
+baseline, 2026-09-19): `case05`'s own `altitude` and `v_down` misses are roughly three orders of
+magnitude larger than `case04`'s corresponding misses, at the same final sample (t=30 s, sample 300,
+the dry run's own captured evidence):
 
 | Channel | case04 diff (m or m/s) | case05 diff | Ratio |
 |---|---|---|---|
@@ -577,10 +581,13 @@ Both of `case05`'s misses would have passed undetected under the pre-ADR-0015 (S
 band: its old `altitude` `tol_abs` was `16.61` m (>> 13.75 m) and its old `v_down` `tol_abs` was
 `0.976` m/s (>> 0.80 m/s) — the same "hidden by an inflated tolerance" pattern this session's own
 `v_north` disclosure already established, now shown on two more channels, and specific to `case05`
-(the rotating-Earth case) rather than shared evenly with `case04`. No diagnosis or fix is in scope
-here (that is PR 3c's own job, per its non-goal above); this is evidence for whoever picks up PR 3c
-to weigh, and for Joe's own decision on where in `PLAN.md` (if anywhere beyond this section) it
-should be tracked.
+(the rotating-Earth case) rather than shared evenly with `case04`. **Cause undiagnosed; nothing
+established connects it to PR 3c's own per-RK4-substage-wrench mechanism** — that characteristic
+(applied wrench frozen across one frame's RK4 sub-stages) is common to both cases 4 and 5 equally
+per PR 3b's own diagnosis above, while this miss is case05-specific and ~500-900x larger than
+case04's, which a mechanism shared by both cases does not obviously explain. No diagnosis or fix is
+in scope here; tracked as `PLAN.md`'s own unchecked item ahead of PR 3c (evidence: this section's own
+table above), not assigned to PR 3c.
 
 **Band width varies a lot by which participants happen to contribute, not just by physics** (Joe,
 same review round, docs-only note): `case01`'s `temperature` `tol_abs` (`0.571` K) is ~250x

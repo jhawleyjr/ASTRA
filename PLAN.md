@@ -387,6 +387,17 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         signal despite a real ~25 N peak) -- fixed with a new generator-side detection check
         ADR-0013 already required but this generator never implemented; full account in
         `docs/reviews/nesc-harness-review.md`.
+- [ ] Investigate `case05`'s `altitude`/`v_down` anomaly — undiagnosed, case05-specific: the R8
+      dry-run baseline (`docs/plans/nesc-harness.md`'s "R8 dry-run baseline for PR 3c" and "Open
+      finding" tables, ADR-0015) shows `case05`'s own `altitude`/`v_down` misses at t=30 s
+      (-13.748 m / +0.801 m/s) are ~500-900x `case04`'s corresponding misses (-0.0147 m /
+      +0.0015 m/s) against the same, now-tightened, SIM-2-excluded bands. Both would have passed
+      undetected under the pre-ADR-0015 (SIM-2-contaminated) band. Cause not diagnosed; nothing
+      established connects it to PR 3c's own per-RK4-substage-wrench mechanism (that characteristic
+      is shared by both cases 4 and 5 equally per PR 3b's own diagnosis below, while this miss is
+      case05-specific and three orders of magnitude larger) -- do not assume PR 3c's fix resolves
+      it without separately checking. Evidence: `docs/plans/nesc-harness.md`'s "Open finding"
+      section. Not started; a separate task, ahead of PR 3c below.
 - [ ] PR 3c — per-RK4-substage wrench evaluation, the M2 closer: recompute `WrenchSource::wrench_b()`
       (and any other per-frame environment/force input) at each of the `Integrator`'s RK4 sub-stages
       instead of once per frame, closing PR 3b's disclosed cases 4/5 gap. Needs a superseding or
@@ -395,17 +406,20 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       often and with what state every existing `WrenchSource` is called -- a real `Integrator`/`Eom`/
       `WrenchSource` contract change, not a bolt-on. One independent Codex plan critique required
       before any code (`docs/process/workflow.md`'s plan-review trigger: an expensive, unpinned
-      design). **Both preconditions resolved** (ADR-0015, `docs/decisions/0015-nesc-tol-rel-drop.md`,
-      2026-09-19): `tol_rel` is dropped from the oracle entirely, and SIM 2 is excluded *entirely*
-      from cases 4/5 (not per-channel -- a broader survey found it contaminating nearly every
-      channel there, not only `v_north`/`force_y`), regenerated. PR 3c inherits a self-consistent,
-      3-participant band for every channel, plus a non-gating dry-run baseline
-      (`docs/plans/nesc-harness.md`'s "R8 dry-run baseline for PR 3c" table): only the three angular
-      rates and three moments pass cleanly against it in both cases; `latitude`/`altitude`/`v_down`/
+      design). **Both original preconditions resolved** (ADR-0015,
+      `docs/decisions/0015-nesc-tol-rel-drop.md`, 2026-09-19): `tol_rel` is dropped from the oracle
+      entirely, and SIM 2 is excluded *entirely* from cases 4/5 (not per-channel -- a broader survey
+      found it contaminating nearly every channel there, not only `v_north`/`force_y`), regenerated.
+      PR 3c inherits a self-consistent, 3-participant band for every channel, plus a non-gating
+      dry-run baseline (`docs/plans/nesc-harness.md`'s "R8 dry-run baseline for PR 3c" table): only
+      the three angular rates and three moments pass cleanly against it in both cases; `latitude`/
       `temperature` fail in both, `density`/`pressure`/`force_y`/`force_z` fail in case05 only, and
       `case04`'s own `force_x` now passes where it was previously grouped with case05 as failing --
-      reported as PR 3c's starting point, not diagnosed. Not started in the M2 PR 3b worktree; a
-      separate task.
+      reported as PR 3c's starting point for the frozen-wrench characteristic specifically, not
+      diagnosed. **`case05`'s own `altitude`/`v_down` anomaly (above) is explicitly not part of PR
+      3c's assumed scope** -- it is undiagnosed and disproportionate to case04's equivalent miss in
+      a way the shared frozen-wrench mechanism does not obviously explain; PR 3c should not assume
+      its own fix resolves it. Not started in the M2 PR 3b worktree; a separate task.
 - [ ] **M3 Notional transport** — aero + mass + turbofan plugins; trims at cruise with residual < 1e-6;
       linearized modes match design values; 300 s open-loop run reproduces the golden.
 - [ ] **M4 Lockstep** — shm transport + HAL + straight-and-level autopilot outside the sim tree; 10,000
