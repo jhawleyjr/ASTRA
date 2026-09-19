@@ -2,8 +2,10 @@
 
 PR / candidate base and head: base `93592f1685cf64d09d1c23d63dadff569041828f` (= `origin/main`'s
 tip at candidate creation, confirmed via `git fetch origin main && git log --oneline
-HEAD..origin/main` — empty, no rebase needed). Head `10bb8ec39d4eeb23f523c93d45cfec785b59fa97`,
-branch `worktree-m2-nesc-harness`, 7 commits. Draft PR opened:
+HEAD..origin/main` — empty, no rebase needed). Head as of this line's own last update:
+`1a6e1aeacf7b9851befb1682fad0db42cb9807d6`, branch `worktree-m2-nesc-harness`, 15 commits (this
+line necessarily lags the commit that writes it by one — check `gh pr view 31 --json headRefOid`
+for the exact current head). Draft PR:
 <https://github.com/jhawleyjr/ASTRA/pull/31> — **draft, not marked ready** per instruction.
 Spec/plan/task: `docs/specs/nesc-harness.md` (approved), `docs/plans/nesc-harness.md` (approved,
 includes the cases 4/5 "Known gap found during implementation" section and Joe's recorded decision)
