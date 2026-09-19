@@ -108,26 +108,30 @@ value**:
    (verified against the actual regenerated output, all fifteen predicted case04/05 values, not just
    this one). No data changed; a documentation completeness gap in the brief's own condensed summary,
    not a defect in the generator or the golden files.
-2. **Open finding, recorded not diagnosed: `case05`'s `altitude`/`v_down` misses under the R8 dry run
-   are ~500-900x `case04`'s**, at the final sample (t=30 s): `altitude` -0.0147 m (`case04`) vs.
+2. **Open finding, given its own separate `PLAN.md` item, not PR 3c's** (Joe's decision, revised
+   from this packet's own first draft): `case05`'s `altitude`/`v_down` misses under the R8 dry run
+   are ~500-900x `case04`'s, at the final sample (t=30 s): `altitude` -0.0147 m (`case04`) vs.
    -13.748 m (`case05`, ~936x); `v_down` +0.00152 m/s (`case04`) vs. +0.801 m/s (`case05`, ~527x).
    Both of `case05`'s misses would have passed undetected under the pre-ADR-0015, SIM-2-contaminated
    band (old `altitude` `tol_abs` 16.61 m, old `v_down` `tol_abs` 0.976 m/s, both well above the
    actual miss) — the same "hidden by an inflated tolerance" pattern this task's own `v_north`
    disclosure already established, now shown on two more channels, and specific to `case05` (the
-   rotating-Earth case) rather than shared evenly with `case04`. Recorded with full evidence in
-   `docs/plans/nesc-harness.md`'s new "Open finding" subsection and `PLAN.md`'s PR 3c bullet. No
-   diagnosis or fix attempted here (PR 3c's own scope, per its own non-goal); **where in `PLAN.md`
-   this should be tracked beyond what is already there is explicitly left to you.**
+   rotating-Earth case) rather than shared evenly with `case04`. **Not PR 3c's**: nothing established
+   connects this to PR 3c's own per-RK4-substage-wrench mechanism, which is shared equally by both
+   cases 4 and 5 per PR 3b's own diagnosis, while this miss is case05-specific and three orders of
+   magnitude larger — PR 3c should not assume its own fix resolves it. Given its own unchecked
+   `PLAN.md` item, ahead of PR 3c; `docs/plans/nesc-harness.md`'s "Open finding" subsection reworded
+   to match. Evidence unchanged; still no diagnosis or fix attempted here.
 
-**R8 dry-run baseline, broader than previously disclosed**: with both PR 3c preconditions resolved,
-the non-gating dry run shows only the three angular rates and three moments passing cleanly in *both*
-cases against the tightened bands — `latitude`/`altitude`/`v_down`/`temperature` newly fail in both;
-`density`/`pressure`/`force_y`/`force_z` fail in case05 only. Notably, `case04`'s own `force_x` now
-*passes* (ratio 0.798) where the original disclosure grouped it with case05 as a failing channel;
+**R8 dry-run baseline, broader than previously disclosed**: with both of PR 3c's *original* two
+preconditions resolved, the non-gating dry run shows only the three angular rates and three moments
+passing cleanly in *both* cases against the tightened bands — `latitude`/`temperature` newly fail in
+both; `density`/`pressure`/`force_y`/`force_z` fail in case05 only. Notably, `case04`'s own `force_x`
+now *passes* (ratio 0.798) where the original disclosure grouped it with case05 as a failing channel;
 case05's own force_x ratio (221.6) is consistent with that original figure's order of magnitude,
-case04's is not. Full table in `docs/plans/nesc-harness.md`. This is PR 3c's starting point, not a
-finding chased in this PR.
+case04's is not. Full table in `docs/plans/nesc-harness.md`. Except for `case05`'s `altitude`/
+`v_down` anomaly above (its own separate item, not PR 3c's), this baseline is PR 3c's starting point
+for judging its per-RK4-substage fix, not a finding chased in this PR.
 
 **Critical files to read, in end-to-end order**: `docs/decisions/0015-nesc-tol-rel-drop.md` (the
 decision) → `tests/golden/nesc/generate_nesc_band.py` (the oracle, especially `excluded()` and
@@ -155,8 +159,8 @@ Release authorization: pending / not requested
 Significant tradeoff rationale: none — every change here is a narrowing (dropping slack), a
 like-for-like floor conversion (same `1e-12` factor, different anchor), or an evidence-based
 participant exclusion (never a widening), consistent with AGENTS.md's tolerance-narrowing-only rule.
-Accepted risks: `case05`'s `altitude`/`v_down` open finding above — owner: `PLAN.md`'s M2 PR 3c (not
-yet started); PLAN.md placement beyond the current entry is Joe's own decision, not made here.
+Accepted risks: `case05`'s `altitude`/`v_down` open finding above — owner: `PLAN.md`'s own new,
+separate unchecked item ahead of PR 3c (Joe's decision, 2026-09-19), explicitly not PR 3c's scope.
 Nonblocking follow-ups: none beyond the open finding above (already tracked, not blocking this
 decision).
 Architectural decisions: ADR-0015 (accepted, this candidate). PR 3c (not yet started) still needs its
