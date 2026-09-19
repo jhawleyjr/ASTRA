@@ -1,5 +1,5 @@
 """Independent generator for tests/golden/nesc/case{01..10}_<slug>_band.hpp (ADR-0013,
-ADR-0014, PLAN.md M2 PR 3b). Human-owned, like the headers it writes (tests/golden/**,
+ADR-0014, ADR-0015, PLAN.md M2 PR 3b). Human-owned, like the headers it writes (tests/golden/**,
 guard-oracle.sh): re-run after any change to the constants or exclusion rules below, never
 hand-edit the output. Follows tests/golden/atmosphere/generate_isa1976_table.py's shape: pure
 stdlib Python, every constant cited, self-checks that raise SystemExit on their own detected
@@ -13,23 +13,31 @@ anything, including this file itself.
 
 Run (from a worktree, refs read from the main checkout -- gitignored files do not exist inside
 a git worktree, docs/refs/README.md's own note):
-    .venv/bin/python tests/golden/nesc/generate_nesc_band.py [--refs PATH]
+    python3 tests/golden/nesc/generate_nesc_band.py [--refs PATH]
     clang-format-18 -i tests/golden/nesc/case*_band.hpp
 --refs defaults to the main checkout's docs/refs/Atmospheric_checkcases, resolved via
 `git rev-parse --git-common-dir` the same way guard-oracle.sh resolves the touch-goldens marker.
 
-Oracle formula (ADR-0013, elaborated by ADR-0014 and this session's yaw-wrap fix -- see
-docs/decisions/0013-nesc-check-case-oracle.md and 0014-nesc-per-channel-tolerance-floor.md):
+Oracle formula (ADR-0013, elaborated by ADR-0014's floor and ADR-0015's removal of the relative
+term -- see docs/decisions/0013-nesc-check-case-oracle.md, 0014-nesc-per-channel-tolerance-floor.md,
+0015-nesc-tol-rel-drop.md):
     reference_t = mean across participating sims, PER SAMPLE TIME t
     tol_abs     = k * max over t of (max - min across sims)     -- ONE scalar per channel/case
-    tol_rel     = k * max over t of ((max - min) / |mean|)      -- ONE scalar, omitted where
-                  |mean| is small relative to that channel's own tol_abs (see
-                  omit_relative_term()'s comment)
-    tol_abs     = max(tol_abs, ADR-0014's per-channel-kind floor)
-    tol_rel     = max(tol_rel, ADR-0014's floor) for atmosphere channels only (their floor is
-                  on tol_rel, not tol_abs -- see ADR-0014's Decision table)
-    pass        : |astra - reference_t| <= tol_abs + tol_rel * |reference_t|
+    tol_abs     = max(tol_abs, ADR-0014's per-channel-kind floor; ADR-0015 converts the
+                  atmosphere-kind floor from a relative factor to an absolute one -- see
+                  FLOOR_ABS's own comment)
+    pass        : |astra - reference_t| <= tol_abs
     k = 3
+
+ADR-0013 originally paired tol_abs with a tol_rel term (`k * max over t of ((max-min)/|mean|)`,
+omitted where |mean| was small relative to tol_abs); ADR-0015 drops tol_rel entirely, for every
+channel including yaw (which never carried one in the first place -- see below): tol_abs alone
+already bounds the ensemble's worst absolute disagreement at every sample time, so a relative
+term only ever added slack, and -- being a single case-wide scalar -- added the most slack on
+channels whose reference passes near zero at some point in the run. See ADR-0015 for the
+measured percentages and the two cases (force_y/force_z in cases 4/5) where that slack was not
+merely loose but genuinely non-discriminating (traced there to SIM 2 contamination, not a
+property of the pass criterion itself -- see the cases-4/5 exclusion below).
 
 Yaw is the one channel this data set's trajectories actually cross the +/-180 deg wrap
 boundary on (cases 2, 4, 5 -- Joe's spec review, confirmed against the raw CSVs this session).
@@ -37,20 +45,17 @@ A raw (non-circular) spread at a wrap instant is ~359 deg, which would make ADR-
 max_t(spread) formula vacuous for the whole case. Fix: yaw's per-sample mean and spread are
 computed on the UNWRAPPED difference between each tool's raw value and a fixed reference tool
 (mod 2*pi, mapped to the shortest signed angular distance via wrap_to_pi()), never on the raw
-degree values directly -- see compute_channel()'s own is_yaw branch. Separately (Codex plan
-critique): yaw NEVER carries a relative term (tol_rel is always 0.0), at every sample, not just
-near a wrap instant -- because tol_rel is ONE scalar taking the max over every sample time, a
-relative-spread computed at a single bad wrap instant using the small unwrapped residual mean
-as its denominator (rather than the reconstructed ~180 deg absolute reference) could blow up
-arbitrarily and poison the whole case's yaw tolerance for all 301 samples, not just that one
-instant. Dropping the relative term for yaw removes this failure mode's entire mechanism
-instead of trying to reconstruct a correct denominator for it.
+degree values directly -- see compute_channel()'s own is_yaw branch.
 
 Vol II Tables 77/78 (doc p.591-592) participant exclusions, honored here, not re-litigated:
   - SIM 2's Euler angles (footnote a: "large integration errors") and aero moments (footnote
     d: "reported at the MRC, not the CM") are excluded in EVERY case.
-  - SIM 2's X-body force is excluded in cases 4 and 5 only (footnote b: "unexplained X-body
-    force and local gravity differences").
+  - SIM 2 is excluded ENTIRELY (every channel) in cases 4 and 5 (ADR-0015, this session's own
+    data-driven finding -- not itself a NASA footnote, though it extends and is consistent with
+    footnote b's "unexplained X-body force and local gravity differences": SIM 2 diverges on
+    nearly every compared channel in these two round-Earth cases specifically, not only X-body
+    force. See ADR-0015 for the full survey and the reasoning against excluding it channel by
+    channel instead of case-wide.)
   - SIM 3's Y-body force is excluded in cases 6, 7, and 8 only (footnote c: "unexplained
     non-zero values in Y-body force").
 Plus a t=0-only exclusion (PLAN.md's own addition, this session): SIM 6 is excluded at t=0
@@ -97,18 +102,32 @@ SAMPLE_COUNT = 301
 SAMPLE_DT = 0.1
 NEAREST_SAMPLE_TOLERANCE_S = 1e-6  # ADR-0013: "nearest sample within 1e-6 s"
 
-# ADR-0014's per-channel-kind floor. "angle"/"length"/"velocity"/"rate"/"force" floor tol_abs;
-# "atmosphere" floors tol_rel instead (see ADR-0014's Decision table and its own comment on why).
+# ADR-0014's per-channel-kind floor on tol_abs, extended by ADR-0015 to density/pressure/
+# temperature. ADR-0014 originally floored those three on tol_rel (a single relative factor,
+# 1e-12, scaling naturally with each channel's own instantaneous |reference|); ADR-0015 drops
+# tol_rel entirely, so that factor is converted to an absolute floor by multiplying it against
+# each channel's own ISA-76 sea-level value instead (the fixed scale "the maximum these
+# quantities reach in atmospheric flight" -- no altitude ceiling needed). Sources:
+# tests/golden/atmosphere/generate_isa1976_table.py's own SEA_LEVEL_TEMPERATURE_K (288.15 K) /
+# SEA_LEVEL_PRESSURE_PA (101325.0 Pa), and tests/golden/atmosphere/isa1976_table.hpp's
+# transcribed sea-level density row (1.225 kg/m^3, cross-checked there against a freshly
+# computed 1.2249991558877122 kg/m^3 within that file's own +/-0.0005 kg/m^3 tolerance).
+# Density/pressure/temperature each need their own floor value (unlike the other kinds, which
+# share one floor per kind), so each gets its own dedicated key rather than sharing "atmosphere".
+# Verified (this session, against every currently-committed tol_abs, including cases 4/5's own
+# post-SIM-2-exclusion values): none of these floors bind anywhere in this data -- the smallest
+# margin is ~7.9e6x (case02 temperature). Speed of sound is not an emitted NESC channel (no
+# Channel/ChannelBand entry exists for it) despite ADR-0014's Decision table listing a floor for
+# it; that is a pre-existing, harmless inconsistency in that accepted table, not fixed here.
 FLOOR_ABS = {
     "angle": 1e-12,  # rad
     "length": 1e-9,  # m
     "velocity": 1e-9,  # m/s
     "rate": 1e-12,  # rad/s
     "force": 1e-12,  # N or N.m
-    "atmosphere": 0.0,  # no abs floor; these channels are never analytically zero in this data
-}
-FLOOR_REL = {
-    "atmosphere": 1e-12,
+    "density": 1e-12 * 1.225,  # kg/m^3 (1e-12 x ISA-76 sea-level density)
+    "pressure": 1e-12 * 101_325.0,  # Pa (1e-12 x ISA-76 sea-level pressure)
+    "temperature": 1e-12 * 288.15,  # K (1e-12 x ISA-76 sea-level temperature)
 }
 
 
@@ -117,7 +136,7 @@ class Channel:
     key: str  # ChannelBand constant name suffix, e.g. "latitude" -> kLatitude
     column: str  # CSV header name
     scale: float  # multiply the raw CSV value by this to get SI
-    kind: str  # FLOOR_ABS/FLOOR_REL key
+    kind: str  # FLOOR_ABS key
     is_yaw: bool = False
 
 
@@ -140,9 +159,9 @@ CHANNELS: list[Channel] = [
     Channel("moment_l", "aero_bodyMoment_ftlbf_L", LBF_TO_N * FT_TO_M, "force"),
     Channel("moment_m", "aero_bodyMoment_ftlbf_M", LBF_TO_N * FT_TO_M, "force"),
     Channel("moment_n", "aero_bodyMoment_ftlbf_N", LBF_TO_N * FT_TO_M, "force"),
-    Channel("density", "airDensity_slug_ft3", SLUG_FT3_TO_KG_M3, "atmosphere"),
-    Channel("pressure", "ambientPressure_lbf_ft2", LBF_FT2_TO_PA, "atmosphere"),
-    Channel("temperature", "ambientTemperature_dgR", RANKINE_TO_KELVIN, "atmosphere"),
+    Channel("density", "airDensity_slug_ft3", SLUG_FT3_TO_KG_M3, "density"),
+    Channel("pressure", "ambientPressure_lbf_ft2", LBF_FT2_TO_PA, "pressure"),
+    Channel("temperature", "ambientTemperature_dgR", RANKINE_TO_KELVIN, "temperature"),
 ]
 
 EULER_KEYS = {"yaw", "pitch", "roll"}
@@ -257,12 +276,21 @@ def wrap_to_pi(angle_rad: float) -> float:
 
 
 def excluded(channel: Channel, case: Case, sim: int, sample_index: int) -> bool:
-    """Vol II Tables 77/78's participant exclusions plus the t=0 airspeed exclusion (module header
-    comment has the full citation and reasoning for each rule below)."""
+    """Vol II Tables 77/78's participant exclusions plus the t=0 airspeed exclusion and ADR-0015's
+    cases-4/5 exclusion (module header comment has the full citation and reasoning for each rule
+    below)."""
+    if sim == 2 and case.num in (4, 5):
+        return True  # ADR-0015: this session's own data-driven finding -- SIM 2 diverges broadly
+        # across nearly every channel in these two round-Earth cases (altitude, v_down, rates,
+        # position, atmosphere, and the aero force channels already known from footnote b), not
+        # only X-body force. Not a NASA footnote itself, but consistent with and extending Table
+        # 78 footnote b's own "local gravity differences" language. Subsumes and replaces the
+        # previous footnote-b force_x-only rule for these two cases (that rule applied to cases
+        # 4/5 only, so nothing outside this blanket exclusion is lost by deleting it): "SIM 2's
+        # X-body force is excluded in cases 4 and 5 only (footnote b: 'unexplained X-body force
+        # and local gravity differences')".
     if sim == 2 and (channel.key in EULER_KEYS or channel.key in MOMENT_KEYS):
         return True  # Table 78 footnotes a, d: every case
-    if sim == 2 and channel.key == "force_x" and case.num in (4, 5):
-        return True  # Table 78 footnote b
     if sim == 3 and channel.key == "force_y" and case.num in (6, 7, 8):
         return True  # Table 78 footnote c
     if sample_index == 0 and channel.key in AIRSPEED_DERIVED_KEYS:
@@ -277,21 +305,6 @@ def excluded(channel: Channel, case: Case, sim: int, sample_index: int) -> bool:
 class ChannelResult:
     reference: list[float] = field(default_factory=list)  # per sample, SI
     tol_abs: float = 0.0
-    tol_rel: float = 0.0
-
-
-def omit_relative_term(mean_t: float, tol_abs: float) -> bool:
-    """A sample's relative-spread contribution is excluded from tol_rel's max-over-t when the
-    channel's own mean at that instant is small relative to its already-computed absolute
-    tolerance -- the general form of the yaw-wrap fix's own reasoning (module header comment),
-    applied to every channel: a near-zero crossing (a force changing sign, a rate passing
-    through zero) would otherwise let one instant's tiny denominator produce an arbitrarily
-    large relative spread that, because tol_rel is a single scalar taking the max over every
-    sample, would poison the whole case's tol_rel for every other sample too. tol_abs itself
-    (not an arbitrary epsilon) is the natural scale to compare against: below it, the absolute
-    term already dominates the pass criterion regardless of what the relative term would
-    contribute."""
-    return abs(mean_t) <= tol_abs
 
 
 def compute_channel(
@@ -326,7 +339,6 @@ def compute_channel(
             spreads.append(max(diffs) - min(diffs))
         tol_abs_raw = K * max(spreads)
         result.tol_abs = max(tol_abs_raw, FLOOR_ABS[channel.kind])
-        result.tol_rel = 0.0  # never for yaw -- module header comment has the full reasoning
         return result
 
     means: list[float] = []
@@ -340,19 +352,6 @@ def compute_channel(
 
     tol_abs_raw = K * max(spreads)
     result.tol_abs = max(tol_abs_raw, FLOOR_ABS[channel.kind])
-
-    # Second pass, now that tol_abs (the threshold omit_relative_term compares against) is
-    # final: a sample whose mean is small relative to tol_abs contributes nothing to tol_rel
-    # (omit_relative_term's own comment has the full reasoning) -- this also naturally covers
-    # the exactly-zero-mean case (e.g. a channel with zero spread AND zero mean throughout,
-    # like case 1's latitude), which would otherwise divide by zero.
-    relative_spreads = [
-        spread_t / abs(mean_t)
-        for mean_t, spread_t in zip(means, spreads, strict=True)
-        if not omit_relative_term(mean_t, result.tol_abs)
-    ]
-    tol_rel_raw = K * max(relative_spreads) if relative_spreads else 0.0
-    result.tol_rel = max(tol_rel_raw, FLOOR_REL.get(channel.kind, 0.0))
     return result
 
 
@@ -373,8 +372,8 @@ def process_case(case: Case, refs_root: Path) -> dict[str, ChannelResult]:
 def check_angle_bands(case: Case, results: dict[str, ChannelResult]) -> None:
     """A generator-side sanity gate (spec R7): no angle channel's tol_abs may exceed pi rad --
     a band that wide is non-discriminating (ADR-0013's own concern) and, for yaw specifically,
-    would mean the wrap fix above has a defect, since yaw's tol_rel is always 0 and there is
-    nothing else that could inflate its effective tolerance past tol_abs alone."""
+    would mean the wrap fix above has a defect, since ADR-0015 leaves no relative term that could
+    inflate its effective tolerance past tol_abs alone."""
     for key in ("latitude", "longitude", "yaw", "pitch", "roll"):
         tol_abs = results[key].tol_abs
         if tol_abs > math.pi:
@@ -386,39 +385,38 @@ def check_angle_bands(case: Case, results: dict[str, ChannelResult]) -> None:
 
 def check_non_discriminating(case: Case, results: dict[str, ChannelResult]) -> None:
     """ADR-0013: "A band wide enough to admit an obviously wrong answer is not a test; such
-    channels are recorded as non-discriminating rather than silently counted as passes." This
-    check was never actually implemented until a Codex adversarial review (2026-09-19) found a
-    real instance by hand: case04/case05's force_y band, once tol_rel is added to tol_abs, accepts
-    a comparison against a completely missing (all-zero) force signal at every one of its 301
-    samples, despite the channel's own reference reaching -24.8 N -- exactly the "obviously wrong
-    answer" ADR-0013 already anticipated, just never machine-checked for.
+    channels are recorded as non-discriminating rather than silently counted as passes." A Codex
+    adversarial review (2026-09-19) found a real instance by hand under the old tol_abs+tol_rel
+    formula: case04/case05's force_y band accepted a comparison against a completely missing
+    (all-zero) force signal at every one of its 301 samples, despite the channel's own reference
+    reaching -24.8 N. ADR-0015 has since dropped tol_rel entirely (and separately excluded SIM 2
+    from cases 4/5 entirely, resolving that specific force_y instance at its source) -- this check
+    is retained per that ADR's own decision as a permanent structural-invariant guard, not because
+    a live instance remains.
 
-    A channel is flagged when its own combined tolerance (tol_abs + tol_rel*|reference|) would
-    accept a value of exactly zero at EVERY sample, specifically because tol_rel is doing the
-    rescuing: the channel's peak |reference| magnitude must itself exceed tol_abs ALONE by a clear
-    margin (2x) -- i.e. tol_abs by itself would already have correctly rejected a zero comparison
-    at that sample, and only adding the relative term saves it. This is deliberately narrower than
-    "peak clears its own floor": a channel whose peak never even exceeds its own tol_abs (e.g.
-    case04/case05's v_north, contaminated by a known participant artifact -- see docs/plans/
-    nesc-harness.md, a different, already-disclosed failure mode) was never going to reject zero
-    regardless of tol_rel, so flagging it here would conflate two distinct problems. force_y's own
-    peak of 24.8 N against its own tol_abs of 9.9 N (~2.5x) is exactly the case this check exists
-    for. Report-only (ADR-0013 says "recorded", not "rejected"): a currently-skipped case
-    (cases 4/5) still needs its band generated so a future fix can be judged against it, so this
-    must not block generation the way check_angle_bands' stricter, narrower guarantee does."""
+    A channel is flagged when its own tol_abs ALONE would accept a value of exactly zero at EVERY
+    sample, despite the channel's peak |reference| magnitude clearing tol_abs by a clear margin
+    (2x). With no relative term left to do any "rescuing," this is now a structural tautology: a
+    peak exceeding 2*tol_abs already exceeds tol_abs at that same sample, so accepts_zero (which
+    requires EVERY sample, including the peak, to satisfy abs(v) <= tol_abs) can never be true
+    when the guard condition is met -- provable given tol_abs > 0 for every channel, which
+    ADR-0015's atmosphere floor conversion makes a structural guarantee (no channel kind has a
+    0.0 floor any more). Kept anyway: it continuously re-verifies that guarantee against whatever
+    the generator actually computes, and would immediately flag a future change (a reintroduced
+    relative term, a floor lowered to zero) that broke it, rather than relying on this docstring's
+    own reasoning being re-derived by a future reader. Report-only, non-fatal, so it never blocks
+    generation."""
     for channel in CHANNELS:
         r = results[channel.key]
         peak = max(abs(v) for v in r.reference)
         if peak <= r.tol_abs * 2.0:
             continue
-        accepts_zero = all(abs(v) <= r.tol_abs + r.tol_rel * abs(v) for v in r.reference)
+        accepts_zero = all(abs(v) <= r.tol_abs for v in r.reference)
         if accepts_zero:
             print(
                 f"# case {case.num:>2} {channel.key:<12} NON-DISCRIMINATING: peak |reference| "
-                f"{peak:.3e} but tol_abs={r.tol_abs:.3e} tol_rel={r.tol_rel:.3e} would accept "
-                "an all-zero signal at every sample -- ADR-0013's own concern, recorded not "
-                "rejected (this channel/case may already be a disclosed gap; see docs/plans/"
-                "nesc-harness.md)",
+                f"{peak:.3e} but tol_abs={r.tol_abs:.3e} would accept an all-zero signal at "
+                "every sample -- ADR-0013's own concern, recorded not rejected",
                 file=sys.stderr,
             )
 
@@ -429,12 +427,11 @@ def report(case: Case, results: dict[str, ChannelResult]) -> None:
     that moves a channel toward its own floor is a visible signal, not silently absorbed."""
     for channel in CHANNELS:
         r = results[channel.key]
-        floor = FLOOR_ABS[channel.kind] if channel.kind != "atmosphere" else FLOOR_REL[channel.kind]
-        value = r.tol_abs if channel.kind != "atmosphere" else r.tol_rel
-        ratio = value / floor if floor > 0 else float("inf")
+        floor = FLOOR_ABS[channel.kind]
+        ratio = r.tol_abs / floor if floor > 0 else float("inf")
         print(
             f"# case {case.num:>2} {channel.key:<12} tol_abs={r.tol_abs:.6e} "
-            f"tol_rel={r.tol_rel:.6e} floor_ratio={ratio:.3f}",
+            f"floor_ratio={ratio:.3f}",
             file=sys.stderr,
         )
 
@@ -495,7 +492,6 @@ def render_case_header(case: Case, results: dict[str, ChannelResult]) -> str:
             f"inline constexpr ChannelBand {const_names[channel.key]} = {{\n"
             f"    {{{reference}}},\n"
             f"    {r.tol_abs!r},\n"
-            f"    {r.tol_rel!r},\n"
             f"}};"
         )
     constants_block = "\n\n".join(constants)
@@ -506,14 +502,15 @@ def render_case_header(case: Case, results: dict[str, ChannelResult]) -> str:
 
     return f"""\
 // NASA/TM-2015-218675 atmospheric check-case {case.num} ({case.folder}) oracle band (ADR-0013,
-// ADR-0014, PLAN.md M2 PR 3b). Human-owned: lives under tests/golden/ so guard-oracle.sh blocks
-// agent edits outside a session Joe armed. Generated by tests/golden/nesc/generate_nesc_band.py
-// -- do not hand-edit; re-run that script after any change to its constants or exclusion rules
-// and commit its output. reference is the per-sample mean across the case's own contributing
-// NESC simulation tools (Vol II Tables 77/78's exclusions applied); tol_abs/tol_rel are each a
-// single scalar per channel, the worst case over every sample time (ADR-0013), floored per
-// ADR-0014. See tests/golden/nesc/nesc_band_common.hpp for the ChannelBand/CaseBand schema this
-// data fills in.
+// ADR-0014, ADR-0015, PLAN.md M2 PR 3b). Human-owned: lives under tests/golden/ so guard-oracle.sh
+// blocks agent edits outside a session Joe armed. Generated by
+// tests/golden/nesc/generate_nesc_band.py -- do not hand-edit; re-run that script after any change
+// to its constants or exclusion rules and commit its output. reference is the per-sample mean
+// across the case's own contributing NESC simulation tools (Vol II Tables 77/78's exclusions
+// applied, plus ADR-0015's cases-4/5 SIM 2 exclusion where applicable); tol_abs is a single scalar
+// per channel, the worst case over every sample time (ADR-0013), floored per ADR-0014/ADR-0015 --
+// there is no relative term (ADR-0015). See tests/golden/nesc/nesc_band_common.hpp for the
+// ChannelBand/CaseBand schema this data fills in.
 // NOLINTBEGIN(modernize-use-std-numbers): a data table; a real six-tool ensemble mean can land
 // within clang-tidy's tolerance of a named math constant (e.g. a value near std::numbers::sqrt2)
 // purely by coincidence, the same reasoning tests/golden/atmosphere/isa1976_table.hpp already

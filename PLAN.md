@@ -395,11 +395,17 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       often and with what state every existing `WrenchSource` is called -- a real `Integrator`/`Eom`/
       `WrenchSource` contract change, not a bolt-on. One independent Codex plan critique required
       before any code (`docs/process/workflow.md`'s plan-review trigger: an expensive, unpinned
-      design). Two explicit preconditions before cases 4/5's own bands can be trusted to judge a fix
-      (`docs/plans/nesc-harness.md`'s "Known gap" section): exclude SIM 2 from `v_north` (its
-      0.01 ft/s t=0 artifact currently inflates that channel's tolerance ~9144x) and resolve
-      `force_y`'s own non-discriminating band, both regenerated before judging. Not started in the
-      M2 PR 3b worktree; a separate task.
+      design). **Both preconditions resolved** (ADR-0015, `docs/decisions/0015-nesc-tol-rel-drop.md`,
+      2026-09-19): `tol_rel` is dropped from the oracle entirely, and SIM 2 is excluded *entirely*
+      from cases 4/5 (not per-channel -- a broader survey found it contaminating nearly every
+      channel there, not only `v_north`/`force_y`), regenerated. PR 3c inherits a self-consistent,
+      3-participant band for every channel, plus a non-gating dry-run baseline
+      (`docs/plans/nesc-harness.md`'s "R8 dry-run baseline for PR 3c" table): only the three angular
+      rates and three moments pass cleanly against it in both cases; `latitude`/`altitude`/`v_down`/
+      `temperature` fail in both, `density`/`pressure`/`force_y`/`force_z` fail in case05 only, and
+      `case04`'s own `force_x` now passes where it was previously grouped with case05 as failing --
+      reported as PR 3c's starting point, not diagnosed. Not started in the M2 PR 3b worktree; a
+      separate task.
 - [ ] **M3 Notional transport** — aero + mass + turbofan plugins; trims at cruise with residual < 1e-6;
       linearized modes match design values; 300 s open-loop run reproduces the golden.
 - [ ] **M4 Lockstep** — shm transport + HAL + straight-and-level autopilot outside the sim tree; 10,000

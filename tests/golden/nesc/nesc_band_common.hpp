@@ -1,8 +1,8 @@
-// Shared schema for the per-case NESC oracle bands (ADR-0013, ADR-0014, PLAN.md M2 PR 3b): one
-// ChannelBand per compared channel, aggregated into one CaseBand per case. The ten case*_band.hpp
-// files hold the actual generated data; this header is pure structure, hand-written once rather
-// than regenerated, so every one of those ten files shares exactly one definition of what
-// "reference", "tol_abs", and "tol_rel" mean. guard-oracle.sh still protects it (guarded parent
+// Shared schema for the per-case NESC oracle bands (ADR-0013, ADR-0014, ADR-0015, PLAN.md M2 PR
+// 3b): one ChannelBand per compared channel, aggregated into one CaseBand per case. The ten
+// case*_band.hpp files hold the actual generated data; this header is pure structure, hand-written
+// once rather than regenerated, so every one of those ten files shares exactly one definition of
+// what "reference" and "tol_abs" mean. guard-oracle.sh still protects it (guarded parent
 // tests/golden/nesc/): a structural change here changes what every generated file means, the same
 // reasoning that keeps a transcribed golden human-owned.
 //
@@ -25,15 +25,9 @@ struct ChannelBand {
   // NOLINTEND(modernize-avoid-c-arrays)
   // ADR-0013: "tol_abs = k * max over t of (max - min across sims)" -- a SINGLE scalar per channel
   // per case, the worst-case spread across every sample time, not a per-sample value; ADR-0014's
-  // floor applies to this same scalar (`max(k*max_t(spread), floor)`).
+  // floor applies to this same scalar (`max(k*max_t(spread), floor)`). ADR-0015: the pass criterion
+  // is `|astra - reference| <= tol_abs` alone -- there is no relative term.
   double tol_abs;
-  // ADR-0013: "tol_rel = k * max over t of ((max-min)/|mean|), omitted where |mean| ~ 0" --
-  // likewise a single scalar, 0.0 where omitted. Always 0.0 for yaw specifically (this session's
-  // elaboration on ADR-0013's formula, Codex plan critique: yaw carries no relative term at all, at
-  // any sample -- a relative term computed at one bad wrap-boundary instant would otherwise poison
-  // this single case-wide scalar for every sample, not just that instant, since tol_rel is a max
-  // over t. See generate_nesc_band.py's own header comment for the full reasoning).
-  double tol_rel;
 };
 
 // One case's full compared-channel set (docs/specs/nesc-harness.md's Contract section). Aggregates
