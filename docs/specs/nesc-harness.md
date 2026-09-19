@@ -137,9 +137,14 @@ Assumptions:
   plus the atmosphere `valid_range()` post-step check; this harness does not add new domain-validity
   coverage, it exercises the existing one (cases 9/10 fly in latitude).
 - `Simulation::from_config` + `Vehicle::environment()` (public accessor, already returns the frame's latched
-  `EnvironmentSample` by const reference) and `tests/plugins/nesc_aero`'s existing registered signals
-  (`nesc_aero.force_b_{x,y,z}`, `nesc_aero.moment_b_{l,m,n}`) are sufficient to observe every channel this
-  harness needs; no plugin gains new registered signals for this task (Repository findings, plan document).
+  `EnvironmentSample` by const reference) and `tests/plugins/nesc_aero`'s registered signals were sufficient
+  to observe every channel this harness needs; no plugin gained new registered signals for this task
+  (Repository findings, plan document). **Updated, PLAN.md M2 PR 3c** (`docs/plans/pr3c-substage-wrench.md`):
+  `nesc_aero` no longer self-publishes at all (a per-call mutable publish inside a now-4x/frame-called
+  `wrench_b()` would be exactly the hidden per-call state that PR's new purity contract on `wrench_source.hpp`
+  forbids). The vehicle's applied wrench is now published core-side instead, from the frame-start stage only:
+  `v0.wrench_total.force_b_{x,y,z}` / `v0.wrench_total.moment_b_{l,m,n}`, read the same way the old
+  `nesc_aero.force_b_{x,y,z}` / `nesc_aero.moment_b_{l,m,n}` signals were.
 - The generator's unit-conversion and column-keying logic (SI conversion, per-file header-name column
   keying across the 22/27/31/32/37/38-column variants, the `sim_05` duplicate-column assert, the
   transcribed-vs-fresh geopotential consistency check) is Joe's already-settled design (`PLAN.md`'s PR 3b
@@ -194,8 +199,11 @@ case (10 total, replacing the single `Nesc.Case1DraglessSphereMatchesTheIndepend
   (§ Invariants' "Yaw wrap-around" bullet), not a plain subtraction; roll and pitch need no such handling.
 - Angular rate: `omega_b` (rad/s, inertial-referenced) against `bodyAngularRateWrtEi_deg_s_*` — no
   Earth-relative conversion needed (`ADR-0003`; the "Ei" in the column name is ECI/inertial already).
-- Aero force/moment: `nesc_aero.force_b_{x,y,z}` (N) / `nesc_aero.moment_b_{l,m,n}` (N·m) against
-  `aero_bodyForce_lbf_*` / `aero_bodyMoment_ftlbf_*`, only for cases whose config loads `nesc_aero`. Per the
+- Aero force/moment: `wrench_total.force_b_{x,y,z}` (N) / `wrench_total.moment_b_{l,m,n}` (N·m) --
+  core-owned, `PLAN.md` M2 PR 3c (`docs/plans/pr3c-substage-wrench.md`), replacing this section's
+  original `nesc_aero.force_b_{x,y,z}` / `nesc_aero.moment_b_{l,m,n}` (`nesc_aero` no longer
+  self-publishes) -- against `aero_bodyForce_lbf_*` / `aero_bodyMoment_ftlbf_*`, only for cases whose
+  config loads `nesc_aero`. Per the
   plan document's Vol II cross-check, that is nine of the ten cases — only case 1 (`C_D = 0`, no
   `WrenchSource` at all) is not checked on these channels; its trajectory not reflecting drag already
   proves the zero force, the same reasoning the existing `case1_dragless_sphere.hpp` comment gives for why

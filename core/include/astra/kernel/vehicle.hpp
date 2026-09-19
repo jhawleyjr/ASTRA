@@ -5,11 +5,13 @@
 
 #include <array>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
 #include "astra/config/config.hpp"
+#include "astra/interfaces/atmosphere_model.hpp"
 #include "astra/interfaces/earth_model.hpp"
 #include "astra/interfaces/gravity_model.hpp"
 #include "astra/interfaces/wrench_source.hpp"
@@ -44,12 +46,24 @@ class Vehicle {
   // are what a domain halt names -- Eom retains the pointers (via its own earth()/gravity()
   // accessors) but not a name, the same reason mass's own plugin_path travels separately from its
   // ModelSpec everywhere else in this file.
+  //
+  // atmosphere (PLAN.md M2 PR 3c, docs/plans/pr3c-substage-wrench.md): nullable, mirroring
+  // Simulation::atmosphere_ -- non-null only when physical.atmosphere is configured. Lets Vehicle
+  // recompute a fresh atmosphere sample at each RK4 sub-stage's own altitude (via eom_->earth(),
+  // already held) for wrench evaluation, without a second EarthModel* member. This struct and
+  // Vehicle::init are technically public C++ API, but are never part of the versioned plugin ABI:
+  // constructed only by Simulation::from_config/for_testing, both compiled inside libastra_core
+  // itself, never across the dlopen loader boundary a Model-derived plugin crosses -- see
+  // core/include/astra/core_api.hpp.in's own bump policy and docs/plans/pr3c-substage-wrench.md's
+  // "kCoreApiVersion" section for the full reasoning (Codex adversarial review, PR 3c plan
+  // critique).
   struct PhysicsSpec {
     ModelSpec mass;
     EarthModel* earth;
     GravityModel* gravity;
     std::string earth_plugin_path;
     std::string gravity_plugin_path;
+    AtmosphereModel* atmosphere = nullptr;
   };
 
   // Which optional environment slots Simulation::step will actually populate into EnvironmentSample
@@ -99,15 +113,23 @@ class Vehicle {
   // domain-check the PRE-step state, but only on frame 0 -- every later frame's pre-step state is
   // the previous frame's already-checked post-step state (see check_domain's own comment), so this
   // is the one call that makes the post-step-plus-lookahead invariant hold from the very first RK4
-  // stage the integrator ever evaluates; health-check each WrenchSource's contribution before
-  // summing it (a halt here leaves state() untouched -- the EOM never sees a bad wrench);
-  // health-check the accumulated total too (Codex review: individually finite contributions can
-  // overflow to Inf on summation, e.g. two sources each near DBL_MAX -- a check per contribution
-  // alone would miss that and hand the EOM a broken wrench with no wrench fault ever reported);
-  // integrate; health-check the resulting state before renormalization (PLAN.md M1 PR 4: "|q| drift
-  // > 1e-6 before renormalization"); domain-check the POST-step state with the one-frame lookahead,
-  // skipped when the state check already halted; renormalize unconditionally, halt or not
-  // (ADR-0001: renormalized after every integrator step, an invariant a halt does not suspend);
+  // stage the integrator ever evaluates.
+  //
+  // PLAN.md M2 PR 3c (docs/plans/pr3c-substage-wrench.md): wrench_b() and the atmosphere sample it
+  // reads are evaluated fresh at each of Integrator's four RK4 sub-stages, from a derivative
+  // functor local to this method that wraps Eom (itself unchanged) -- not once at frame-start as
+  // before. Each stage's contribution and total are still health-checked (health.check_wrench),
+  // uniformly, every stage, via a first-fault-wins HaltReason side channel (the functor cannot
+  // itself return one; StateDerivative fixes the return type to StateVector) read back after
+  // integrator.step() returns. A wrench fault still leaves state() exactly as if the frame never
+  // ran -- previously true by construction (the wrench was checked before integrator.step was ever
+  // called); now true by an explicit revert to the saved pre-step state, since integrator.step()
+  // always runs all four stages to completion first (RK4 has no early-abort hook). The EOM does see
+  // a bad wrench transiently in that case, inside a step whose result is discarded, never returned
+  // from state(). health-check the resulting state before renormalization (PLAN.md M1 PR 4: "|q|
+  // drift > 1e-6 before renormalization"); domain-check the POST-step state with the one-frame
+  // lookahead, skipped when the state check already halted; renormalize unconditionally, halt or
+  // not (ADR-0001: renormalized after every integrator step, an invariant a halt does not suspend);
   // return whichever check halted (the state check wins over the domain check when both would
   // fire the same frame). Per-frame path: no allocation, no exceptions.
   [[nodiscard]] HaltReason integrate(const Integrator& integrator, const StepContext& ctx,
@@ -161,6 +183,20 @@ class Vehicle {
   Scheduler scheduler_;
   std::optional<Eom> eom_;
   std::vector<WrenchEntry> wrench_sources_;
+  // PLAN.md M2 PR 3c: nullptr when physical.atmosphere is not configured, mirroring
+  // Simulation::atmosphere_ -- lets integrate()'s per-stage derivative recompute a fresh atmosphere
+  // sample from eom_->earth().altitude() at each RK4 sub-stage, without a second EarthModel*
+  // member. Non-owning: the model lives in Simulation::environment_plugins_, the same lifetime
+  // discipline earth_plugin_path_/gravity_plugin_path_ already document below.
+  AtmosphereModel* atmosphere_ = nullptr;
+  // unique_ptr, not by value: SignalRegistry::add below stores a raw pointer into
+  // *published_wrench_, and Simulation::from_config/for_testing move this Vehicle into vehicles_
+  // after init() runs (simulation.cpp) -- a by-value member would dangle those pointers on that
+  // move, the identical reason Simulation::health_ is a unique_ptr rather than a by-value
+  // HealthMonitor (Codex plan critique, PR 3c). Allocated once in init() (the init path may
+  // allocate, §14); integrate()'s derivative functor writes *published_wrench_ on the k1 stage
+  // only, never allocating per frame.
+  std::unique_ptr<Wrench> published_wrench_;
   // "<name_>.state.{p_n,v_b,q_nb,omega_b}", built once at init from this vehicle's own name so a
   // halt never carries a "v0" literal (ADR-0011).
   std::array<std::string, 4> state_names_;

@@ -47,7 +47,12 @@ using astra::Config;
 
 class NescAero final : public astra::WrenchSource {
  public:
-  void init(const Config& config, astra::SignalRegistry& registry) override {
+  // No signals registered: PLAN.md M2 PR 3c removed this plugin's own force_b_x/y/z publish (a
+  // mutable, per-call write inside a const wrench_b(), which PR 3c's own new "wrench_b() may be
+  // called multiple times per stage" contract in wrench_source.hpp would otherwise make hidden
+  // per-call state). The vehicle's applied wrench is now published core-side, from the frame-start
+  // (k1) stage only -- see core/src/kernel/vehicle.cpp's own comment on published_wrench_.
+  void init(const Config& config, astra::SignalRegistry& /*registry*/) override {
     s_ = config.number("s", 0.0);
     cd_ = config.number("cd", 0.0);
     b_ = config.number("b", 0.0);
@@ -59,17 +64,8 @@ class NescAero final : public astra::WrenchSource {
     // cases 7 and 8 configure physical.wind. A source that always required wind would reject the
     // eight cases that correctly have none -- see requires_environment() below.
     requires_wind_ = config.boolean("requires_wind", false);
-    registry.add("nesc_aero.force_b_x", &force_b_(0), "N");
-    registry.add("nesc_aero.force_b_y", &force_b_(1), "N");
-    registry.add("nesc_aero.force_b_z", &force_b_(2), "N");
-    registry.add("nesc_aero.moment_b_l", &moment_b_(0), "N.m");
-    registry.add("nesc_aero.moment_b_m", &moment_b_(1), "N.m");
-    registry.add("nesc_aero.moment_b_n", &moment_b_(2), "N.m");
   }
-  void reset() override {
-    force_b_.setZero();
-    moment_b_.setZero();
-  }
+  void reset() override {}
   void step(const astra::StepContext& /*ctx*/) override {}
   [[nodiscard]] std::string_view name() const override { return "nesc_aero"; }
 
@@ -97,11 +93,6 @@ class NescAero final : public astra::WrenchSource {
     wrench.moment_b(1) = damping_common * cbar_ * cbar_ * cmq_ * q;
     wrench.moment_b(2) = damping_common * b_ * b_ * cnr_ * r;
     // NOLINTEND(readability-magic-numbers)
-
-    // mutable, for the registry publish above -- test instrumentation only, the same exception
-    // tests/plugins/wind_consumer.cpp documents for its own const wrench_b.
-    force_b_ = wrench.force_b;
-    moment_b_ = wrench.moment_b;
     return wrench;
   }
 
@@ -121,8 +112,6 @@ class NescAero final : public astra::WrenchSource {
   double cmq_ = 0.0;
   double cnr_ = 0.0;
   bool requires_wind_ = false;
-  mutable Eigen::Vector3d force_b_ = Eigen::Vector3d::Zero();
-  mutable Eigen::Vector3d moment_b_ = Eigen::Vector3d::Zero();
 };
 
 std::unique_ptr<astra::Model> create() { return std::make_unique<NescAero>(); }

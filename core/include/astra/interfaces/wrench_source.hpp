@@ -20,11 +20,26 @@ class WrenchSource : public Model {
   // breaking dynamic_cast<WrenchSource*> across the .so boundary.
   ~WrenchSource() override;
 
-  // This model's contribution to the vehicle's applied wrench (about the CG, body axes), evaluated
-  // at the frame's state and this frame's environment sample (M2 PR 2: wind; PR 3 adds atmosphere).
-  // env is the same EnvironmentSample Simulation::step latched for this vehicle before the wrench
-  // stage (docs/architecture.md §5) -- a WrenchSource never samples wind or atmosphere itself. Per-
-  // frame path (§14): no allocation, no exceptions.
+  // This model's contribution to the vehicle's applied wrench (about the CG, body axes).
+  //
+  // PLAN.md M2 PR 3c (docs/plans/pr3c-substage-wrench.md): called once per RK4 sub-stage --
+  // FOUR TIMES per major frame, not once -- each time with that stage's own vs
+  // (Vehicle::integrate's derivative functor), never the frame-start state alone. A conforming
+  // implementation MUST therefore be a pure function of (vs, env) with no hidden per-call state:
+  // its return value may depend only on the arguments given, never on how many times or in what
+  // order it has previously been called this frame or any other. (Before PR 3c this was called once
+  // per frame at the frame-start state; nesc_aero and nan_wrench, this tree's only two
+  // implementations, already satisfy the stronger contract above, which is why lifting them to
+  // 4x/frame needed no change to either -- PR 3c's own plan critique found this contract had never
+  // actually been written down until now, only true by accident of there being nothing that could
+  // violate it yet.)
+  //
+  // env's wind_n is frame-latched regardless of how many times this is called: Simulation::step
+  // samples it once per frame (before the wrench stage, docs/architecture.md §5) and every RK4
+  // sub-stage's env carries the identical value -- a WrenchSource never samples wind itself and
+  // cannot observe it changing within a frame. env's atmosphere, by contrast, IS a fresh sample of
+  // the stage's own state as of PR 3c: EnvironmentSample's own header has the full account of which
+  // field is which and why. Per-frame path (§14): no allocation, no exceptions, every call.
   [[nodiscard]] virtual Wrench wrench_b(const VehicleState& vs,
                                         const EnvironmentSample& env) const noexcept = 0;
 

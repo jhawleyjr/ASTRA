@@ -101,6 +101,49 @@ physical:
   EXPECT_EQ(halt.source, "v0.wrench_total");
 }
 
+// PLAN.md M2 PR 3c (docs/plans/pr3c-substage-wrench.md), R4: a wrench fault invisible at the
+// frame-start (k1) state -- only appearing from a later RK4 sub-stage -- still halts, still names
+// the correct plugin, and still leaves state() exactly as if the frame never ran.
+// "nan_after_calls: 1" means wrench_b()'s FIRST call each affected frame (k1, at the frame-start
+// state) stays finite; only the second call onward (k2/k3/k4, at RK4's own perturbed states) turns
+// NaN -- proving detection at a non-k1 stage is real, not just k1's pre-existing coverage relocated
+// (NanWrenchAtFrameFiveHundredHaltsNamingThePlugin above already covers the k1 case, with
+// nan_after_calls defaulting to 0).
+TEST(SimulationHalt, WrenchFaultInvisibleAtFrameStartStillHaltsAndRevertsState) {
+  const Config config = Config::from_string(R"(
+sim:
+  dt: 0.001
+  frames: 1000
+vehicle:
+  models:
+    - { plugin: tests/plugins/nan_wrench, nan_frame: 500, nan_after_calls: 1 }
+physical:
+  earth: plugins/physical/earth/flat
+  gravity: plugins/physical/gravity/constant
+  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 }
+initial:
+  state: { v_b: [10.0, 0.0, 0.0] }
+)",
+                                            "nan-after-calls-fixture");
+  Simulation sim = load(config);
+
+  const HaltReason warmup_halt = sim.run(500);
+  ASSERT_FALSE(warmup_halt) << "frames 0-499 have no fault yet (nan_frame: 500)";
+  const astra::StateVector pre_step_state = sim.vehicles().front().state();
+
+  const HaltReason halt = sim.step();  // frame 500: k1 finite, k2/k3/k4 NaN
+
+  ASSERT_TRUE(halt);
+  EXPECT_EQ(halt.check, HealthCheck::kNonFiniteWrench);
+  EXPECT_EQ(halt.source, "tests/plugins/nan_wrench");
+  EXPECT_EQ(halt.frame, 500U);
+  EXPECT_EQ(sim.clock().frame(), 500U) << "the clock does not advance on a halt";
+  EXPECT_EQ(sim.vehicles().front().state(), pre_step_state)
+      << "a wrench fault first visible only at k2/k3/k4 must still leave state() untouched, now "
+         "via "
+         "an explicit revert rather than by never having called integrator.step() at all";
+}
+
 // Disclosed-gap regression test (Codex adversarial review, M2 PR 3;
 // environment_sample.hpp's own comment on EnvironmentSample::atmosphere): a broken
 // AtmosphereModel that returns NaN squarely INSIDE its own declared valid_range() (so ADR-0012's
@@ -142,12 +185,20 @@ physical:
 // The default (halt) proven above; this is the loosened side of §15's "a config can loosen them per
 // run": a warn action never stops the run, so the NaN wrench keeps flowing into the EOM every frame
 // from 500 on, and the resulting state (p_n and v_b, corrupted by frame 500's own integration step)
-// stays NaN for the rest of the run too. Three checks detect it every remaining frame -- the single
-// contribution, the accumulated total (identical to the contribution with only one wrench source),
-// and the state -- 3 x 500 = 1500 total on "health.nan". That accumulation, not a clean single
-// count, is the real cost §15 means by "a config can loosen them per run and the loosening is
-// recorded in the log": warn on "nan" does not contain the fault, it only stops it from stopping
-// the run.
+// stays NaN for the rest of the run too.
+//
+// PLAN.md M2 PR 3c (docs/plans/pr3c-substage-wrench.md): Vehicle::integrate() now evaluates
+// wrench_b() and health.check_wrench() once per RK4 sub-stage, uniformly, every stage, not once per
+// frame -- nan_wrench's own trigger (ctx.frame-based) is true at all four stage calls within an
+// affected frame, so each corrupted frame now produces 4 contribution-checks + 4 total-checks
+// (instead of 1 + 1), plus the pre-existing, unaffected 1 state-check: (4 + 4 + 1) x 500 = 4500,
+// not (1 + 1 + 1) x 500 = 1500. A fault-dependent short-circuit was considered and rejected (PR 3c
+// plan critique): it behaves inconsistently between warn/halt actions, since check_wrench returns a
+// falsy HaltReason under warn regardless of whether a fault was detected, so uniform, not
+// deduplicated, counting is correct here, not a defect this test papers over. That accumulation,
+// not a clean single count, is the real cost §15 means by "a config can loosen them per run and the
+// loosening is recorded in the log": warn on "nan" does not contain the fault, it only stops it
+// from stopping the run.
 TEST(SimulationHalt, WarnActionRunsAllFramesAndCountsEveryNanDetection) {
   const Config config = Config::from_string(R"(
 sim:
@@ -171,7 +222,7 @@ physical:
   EXPECT_EQ(sim.clock().frame(), 1000U);
   const double* nan_count = sim.registry().find("health.nan");
   ASSERT_NE(nan_count, nullptr);
-  EXPECT_EQ(*nan_count, 1500.0);
+  EXPECT_EQ(*nan_count, 4500.0);
 }
 
 // ADR-0012 acceptance, end to end through Simulation (the unit-level parsing/counting/reporting

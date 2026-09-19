@@ -61,6 +61,21 @@ void Vehicle::init(const PluginLoader& loader, const std::vector<ModelSpec>& mod
     // state_names_/wrench_total_name_.
     earth_plugin_path_ = physics->earth_plugin_path;
     gravity_plugin_path_ = physics->gravity_plugin_path;
+    atmosphere_ = physics->atmosphere;
+
+    // PLAN.md M2 PR 3c: the vehicle's applied wrench, evaluated at the frame-start (k1) RK4
+    // sub-stage only, published core-side -- see integrate()'s own comment for why this replaced
+    // each WrenchSource's own self-publish. Heap-allocated (see published_wrench_'s own comment in
+    // vehicle.hpp for why a by-value member would dangle). Registered even when wrench_sources_ is
+    // empty (no WrenchSource configured): the signal then simply reads zero every frame, the same
+    // "still air" default posture EnvironmentSample::wind_n already uses for an absent input.
+    published_wrench_ = std::make_unique<Wrench>();
+    registry.add(name_ + ".wrench_total.force_b_x", &published_wrench_->force_b(0), "N");
+    registry.add(name_ + ".wrench_total.force_b_y", &published_wrench_->force_b(1), "N");
+    registry.add(name_ + ".wrench_total.force_b_z", &published_wrench_->force_b(2), "N");
+    registry.add(name_ + ".wrench_total.moment_b_l", &published_wrench_->moment_b(0), "N.m");
+    registry.add(name_ + ".wrench_total.moment_b_m", &published_wrench_->moment_b(1), "N.m");
+    registry.add(name_ + ".wrench_total.moment_b_n", &published_wrench_->moment_b(2), "N.m");
   }
 }
 
@@ -106,28 +121,74 @@ HaltReason Vehicle::integrate(const Integrator& integrator, const StepContext& c
     }
   }
 
-  Wrench total;
-  const VehicleState vs{state_};
-  for (const WrenchEntry& entry : wrench_sources_) {
-    const Wrench contribution = entry.model->wrench_b(vs, environment_);
-    if (const HaltReason halt = health.check_wrench(contribution, entry.plugin_path, ctx, index_);
-        halt) {
-      return halt;  // state_ untouched: the EOM never sees this contribution.
+  // PLAN.md M2 PR 3c (docs/plans/pr3c-substage-wrench.md): wrench_b() and the atmosphere sample it
+  // reads are evaluated fresh at each of the four RK4 sub-stages Integrator::step calls, using that
+  // stage's own y -- not once at frame-start as before. Eom itself is unchanged: this functor wraps
+  // it, calling set_applied_wrench() again immediately before each of the four (*eom_)(t, y) calls.
+  const StateVector pre_step_state = state_;  // trivial 13-double stack copy, no allocation
+  HaltReason wrench_fault;  // local; first fault wins, read after integrator.step()
+  int stage = 0;            // 0 == k1 (frame-start state): the only stage whose
+                            // wrench gets published (see below)
+
+  const auto derivative = [&](double t, const StateVector& y) noexcept -> StateVector {
+    const VehicleState vs_stage{y};
+    EnvironmentSample stage_env = environment_;  // copies the frame-latched wind_n verbatim -- wind
+                                                 // stays frame-latched (Dryden's begin_frame/RNG
+                                                 // draw timing is unaffected by this PR)
+    if (atmosphere_ != nullptr) {
+      stage_env.atmosphere = atmosphere_->at(eom_->earth().altitude(vs_stage));  // fresh per stage
     }
-    total.force_b += contribution.force_b;
-    total.moment_b += contribution.moment_b;
-  }
+    Wrench total;
+    for (const WrenchEntry& entry : wrench_sources_) {
+      const Wrench contribution = entry.model->wrench_b(vs_stage, stage_env);
+      if (const HaltReason halt = health.check_wrench(contribution, entry.plugin_path, ctx, index_);
+          halt && !wrench_fault) {
+        wrench_fault =
+            halt;  // first fault wins; keep evaluating so total/logging stay well-defined
+      }
+      total.force_b += contribution.force_b;
+      total.moment_b += contribution.moment_b;
+    }
+    // Codex review (pre-existing): individually finite contributions can still sum to a non-finite
+    // total (e.g. two sources each near DBL_MAX), which the per-contribution checks above cannot
+    // catch -- check the accumulated wrench too, before it reaches the EOM. Called uniformly every
+    // stage, deliberately not short-circuited once wrench_fault is set: a short-circuit gated on a
+    // returned HaltReason would only actually skip anything under a halt-configured action
+    // (check_wrench returns falsy under warn regardless of whether a fault was detected), an
+    // action-dependent counting inconsistency worse than evaluating uniformly (PR 3c plan
+    // critique).
+    if (const HaltReason halt = health.check_wrench(total, wrench_total_name_, ctx, index_);
+        halt && !wrench_fault) {
+      wrench_fault = halt;
+    }
+    if (stage == 0) {
+      // The vehicle's published applied-wrench signal is the frame-start (k1) total only, never
+      // k2..k4's -- publishing a later stage would be one frame ahead of what any pre-step-sampled
+      // consumer (tests/physics/nesc/nesc_cases_test.cpp) expects (PR 3c plan critique, Finding 2).
+      // No WrenchSource signature change: wrench_b() takes no t, so this is tracked by this plain
+      // stage counter, not by inspecting t.
+      *published_wrench_ = total;
+    }
+    ++stage;
+    eom_->set_applied_wrench(total);
+    return (*eom_)(t, y);
+  };
 
-  // Codex review: individually finite contributions can still sum to a non-finite total (e.g. two
-  // sources each near DBL_MAX), which the per-contribution checks above cannot catch -- check the
-  // accumulated wrench too, before it reaches the EOM.
-  if (const HaltReason halt = health.check_wrench(total, wrench_total_name_, ctx, index_); halt) {
-    return halt;  // state_ untouched, same as a halting per-contribution check above.
-  }
+  eom_->begin_frame();  // unchanged: still once per frame (mass/inertia are constant in v1 --
+                        // ADR-0003 -- so re-evaluating them per stage would be pure waste, not a
+                        // modeling choice, unlike wrench/atmosphere above)
+  integrator.step(derivative, ctx.t, state_);  // always runs all four stages; every check above
+                                               // fires every stage, no early skip (see the
+                                               // uniform-evaluation comment above)
 
-  eom_->set_applied_wrench(total);
-  eom_->begin_frame();
-  integrator.step(*eom_, ctx.t, state_);
+  if (wrench_fault) {
+    // integrator.step() ran to completion (RK4 has no early-abort hook) before this fault was
+    // discovered, so state_ was overwritten by its own final assignment -- restore it explicitly.
+    // The outward guarantee (state() reads as if the frame never ran) is identical to before this
+    // PR; only the mechanism changed, from "never touched" to "touched, then restored."
+    state_ = pre_step_state;
+    return wrench_fault;
+  }
 
   const StateNames names{state_names_[0], state_names_[1], state_names_[2], state_names_[3]};
   const HaltReason state_halt = health.check_state(state_, names, ctx, index_);

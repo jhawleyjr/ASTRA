@@ -335,8 +335,9 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
     wind_plugin_path = loaded_wind.plugin_path;
     sim.wind_ = wind;
 
-    const Vehicle::PhysicsSpec physics_spec{std::move(mass_spec), earth, gravity,
-                                            earth_spec.plugin_path, gravity_spec.plugin_path};
+    const Vehicle::PhysicsSpec physics_spec{
+        std::move(mass_spec),     earth,     gravity, earth_spec.plugin_path,
+        gravity_spec.plugin_path, atmosphere};
     vehicle.init(loader, specs, sim.registry_, &physics_spec,
                  Vehicle::EnvironmentAvailability{wind != nullptr, atmosphere != nullptr});
     vehicle.state() = read_initial_state(config);
@@ -465,8 +466,8 @@ Simulation Simulation::for_testing(const PluginLoader& loader,
       // "for_testing's wind" idiom check_wind_shareable already uses below -- for_testing takes a
       // live EarthModel*/GravityModel*, not a Config, so there is no real plugin path to give a
       // domain halt here.
-      const Vehicle::PhysicsSpec physics_spec{*mass_spec, earth, gravity, "for_testing's earth",
-                                              "for_testing's gravity"};
+      const Vehicle::PhysicsSpec physics_spec{
+          *mass_spec, earth, gravity, "for_testing's earth", "for_testing's gravity", nullptr};
       vehicle.init(loader, models, sim.registry_, &physics_spec,
                    Vehicle::EnvironmentAvailability{wind != nullptr});
     } else {
