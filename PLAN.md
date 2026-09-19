@@ -494,8 +494,107 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       the atmosphere plugin). Not fixed, not exercised by any of the ten NESC cases (none crosses an
       atmosphere boundary mid-run). Needs its own plan-reviewed decision, not a bolt-on, the same
       posture ADR-0012's own gravity/Earth instance took. Not started.
-- [ ] **M3 Notional transport** — aero + mass + turbofan plugins; trims at cruise with residual < 1e-6;
-      linearized modes match design values; 300 s open-loop run reproduces the golden.
+- [ ] **M3 Notional transport** — aero + mass + turbofan plugins; trims at cruise (10,000 m, 230 m/s
+      TAS, ADR-0002 SI) with residual < 1e-6 (norm TBD, PR 6); linearized modes match design values,
+      each mode against its own tolerance; a 300 s open-loop run matches its own frozen regression
+      trajectory (not an oracle), independently cross-checked against the linearized model's
+      phugoid-cycle prediction. §16's M3 row is corrected to this wording by PR 0.
+  - [ ] PR 0 — Neutral status markers on `docs/architecture.md`: §7/§8/§12 note the `AeroModel`/
+        `AeroInputs`/`Simulation` Python bindings as not-yet-built M3 scope, without rewriting §7's
+        shape yet (that lands with PR 2/3's ADR, once the control-input design is actually pinned, to
+        avoid rewriting it twice); §13's typed `physical.aero`/`hardware.propulsion` example is marked
+        illustrative, not the current schema (D6: `vehicle.models` is the real one; PR 1 rewrites
+        §13's example once the first real config lands). §16's M3 row is corrected to read "trims at
+        cruise ... linearized modes match design values (per-mode tolerance) ... a 300 s open-loop run
+        matches its own frozen regression trajectory, independently cross-checked against the
+        linearized model's phugoid prediction," replacing "reproduces the golden trajectory" (O5: a
+        self-frozen trajectory is a regression check, not an oracle). Also adds `aircraft/**/physical`,
+        `aircraft/**/hardware` to `docs/process/workflow.md`'s tier-3 row (D3). Accept: `git diff
+        --stat` touches only these two docs; `just check` unaffected (no code). Binding ADRs: none.
+        Tier 2 — the §16 acceptance-row and workflow.md tier-table edits are policy, not editorial;
+        Joe approves the wording (recorded in this plan's own approval), and the diff itself still
+        gets a Codex review pass even though no code changes and no full gate applies. Plan critique:
+        no.
+  - [ ] PR 1 — `aircraft/_template/` and `aircraft/notional_transport/` scaffolding (`physical/
+        {aero,mass}/`, `hardware/propulsion/turbofan/`, `configs/`), `just new-aircraft <name>`.
+        `physical/mass` is a `MassPropertiesModel` plugin (existing interface, O1's mass/inertia only
+        -- no CG: `MassProps` is `{mass, inertia_b}`, wrench is about CG per §7, engine-station offsets
+        live in the turbofan plugin's own config, not in mass properties). Config schema is
+        `vehicle.models` as-is (D6, zero core changes -- `station:` lives inside an entry's own config
+        map); rewrites §13's example config to this real syntax, replacing the illustrative typed-slot
+        sketch PR 0 flagged. Accept: static-plugins build discovers both folders with zero framework
+        edits; `ctest -L unit -R notional_transport_mass` passes. Binding ADRs: ADR-0009. Tier 1.
+        Plan critique: no.
+  - [ ] PR 2 — Write-seam primitive, the read-registry's mutable counterpart: a plugin registers a
+        named writable `double` at init (e.g. `inputs.add("controls.elevator", &elevator_, "rad")`),
+        latches it as an ordinary member, and its own `wrench_b`/`compute()` reads that member every
+        RK4 sub-stage -- **`WrenchSource::wrench_b`'s signature is unchanged**. Config literals
+        (open-loop), Python (trim/linearize), and later M4's transport + an `ActuatorModel` all write
+        through the same seam once per major frame, before the wrench stage; zero-order hold across a
+        frame's four sub-stages (Stevens & Lewis §3.4). ADR-0016 permits this: purity is "same answer
+        for the same stage state regardless of call count/order," not "no members" -- same shape as
+        `WindModel::begin_frame`'s latch. Direction chosen by Joe (write-seam, no `wrench_b` signature
+        change); final design is pinned by this PR's own ADR after the Codex plan critique, which must
+        remain free to change the shape. Cite S&L §2.3/§2.5 (control vector U separate from state),
+        S&L §3.5 (the F-16 model's `F(TIME,X,XD)` never takes controls; `COMMON/CONTROLS` written
+        externally by trim/the driver), Zipfel App. E.2.3/E.2.5 + Fig. 9.39 (CADAC++ modules
+        communicate only via published/subscribed module-variables). Scope for the ADR/critique to
+        resolve, not decided here: (a) an input registered but never written -- init error naming it,
+        or an explicit config-declared default, never a silent zero; (b) `reset()` semantics for
+        written values; (c) `HealthMonitor`: a non-finite written input halts naming that input, not
+        the consuming `WrenchSource`; (d) every writable input is also a readable `v0.*` signal (M5's
+        logger needs it) -- reconcile `inputs.add("controls.elevator", ...)` with "visible as
+        `v0.controls.*`". Needs a new ADR and one Codex plan critique. Accept: `v0.controls.*` visible
+        in the registry; a value written mid-frame is not observed until next frame; all four RK4
+        stages of one frame see the identical written value; zero allocation over 1000 frames. Binding
+        ADRs: new (number TBD). Tier 3. Plan critique: **yes**.
+  - [ ] PR 3 — `AeroModel`/`PropulsionModel` as `WrenchSource` specializations: compute α/β/q̄/Mach
+        from `(vs, env)`, read the model's own PR 2 control-input members, assemble `AeroInputs`/
+        `PropulsionInputs`, call a pure-virtual `compute()` that is `const noexcept` (§7's non-const
+        sketch is what changes, not the ADR-0016 purity rule). Hand-built-`AeroInputs` unit testing
+        without a simulator is preserved. Depends on PR 2. Accept: a stub `AeroModel` is unit-tested
+        with a hand-built `AeroInputs` alone, and separately proven end-to-end through a real `Vehicle`
+        with PR 2's write seam driving it. Binding ADRs: PR 2's new ADR, or a short follow-on to it.
+        Tier 3. Plan critique: likely one combined pass with PR 2 (same interface question) -- confirm
+        once PR 2's plan draft exists.
+  - [ ] PR 4 — `aircraft/notional_transport/physical/aero` (linear-coefficient aero) and
+        `hardware/propulsion/turbofan` (thrust lapse), O2/O3's numbers; engine-station offset from CG
+        lives in the turbofan plugin's own config. Accept: `tests/physics/notional_transport/`
+        exercises `AeroInputs`/`PropulsionInputs` directly at 2-3 hand-picked conditions against O2/O3's
+        sourced values to stated tolerance. Binding ADRs: ADR-0001, ADR-0002, PR 2/3's ADR. Tier 3.
+        Plan critique: no -- mechanism already pinned by PR 2/3.
+  - [ ] PR 5 — nanobind: `Simulation`, `Config` from dict, `SignalRegistry` read views, PR 2's write
+        seam (`sim.write_input(name, value)`, D7), and `Simulation::derivative(state)` -- the same
+        derivative functor `Vehicle::integrate` hands the integrator (fresh atmosphere at the given
+        state, latched wind), not a second implementation. `Simulation::for_testing`'s M2 PR 2 deferral
+        ("expose when a Python binding is added") is resolved here: **not bound**, decision recorded.
+        Trim/linearize run with no wind or uniform wind only (Dryden makes the derivative
+        frame-dependent). Depends on PR 2/3. Accept: `derivative(state)` is bitwise equal to the k1 the
+        real integrator computes for that state, proven via a small C++ test seam (`from_config`
+        hardcodes `kRk4`; an Euler-step comparison isn't reachable without new config surface, so this
+        replaces that alternative). Binding ADRs: none pin the Python `Simulation` surface today --
+        flag whether one is needed. Tier 3. Plan critique: **yes** (ownership/lifetime across the
+        Python/C++ boundary). D2 settled: minimal scope, no trampolines in M3.
+  - [ ] PR 6 — `astra.trim`: `scipy.optimize.root` writing PR 5's inputs, driving `derivative(state)`
+        to zero at a flight condition. Residual norm/units (D8, Joe's pick, at this PR's planning
+        time) -- S&L §3.6 uses a weighted sum-of-squares of state derivatives; §16 gives no norm, and
+        the state mixes m, m/s, quaternion components, rad/s, so raw SSE isn't unit-consistent.
+        Depends on PR 5. Accept: `pytest python/tests/test_trim.py` -- residual under D8's definition
+        < 1e-6 at cruise. Binding ADRs: none new. Tier 2. Plan critique: no.
+  - [ ] PR 7 — `astra.linearize`: central-difference A/B about trim; short period/phugoid/Dutch
+        roll/roll/spiral vs. O4. Depends on PR 6. Accept: `pytest python/tests/test_linearize.py`
+        within a per-mode tolerance (tight for short period/phugoid, wider for the lateral three --
+        approximations are poorer there per O4). Binding ADRs: none new. Tier 2/3. Plan critique: no,
+        but O4's lateral-mode source must be settled first.
+  - [ ] PR 8 — Cruise config(s) (D6's `vehicle.models` schema) + 300 s open-loop run frozen as a
+        regression trajectory (O5 -- not an oracle), generator-under-guard pattern from
+        `tests/golden/nesc/`. Adds the actual independent check §16 (as corrected by PR 0) requires: a
+        small-perturbation open-loop response compared against PR 7's linearized-model prediction
+        (period/damping) over the first phugoid cycle. Depends on PR 4/6/7. Accept: `ctest --preset
+        asan -R notional_transport_cruise_regression` matches the frozen trajectory under all four
+        presets, guarded by `.claude/touch-goldens`; the phugoid-cycle cross-check passes its own
+        stated tolerance. Binding ADRs: ADR-0004, ADR-0016, PR 2/3's ADR. Tier 3. Plan critique: no --
+        needs Joe's explicit oracle sign-off same as ADR-0013/14/15.
 - [ ] **M4 Lockstep** — shm transport + HAL + straight-and-level autopilot outside the sim tree; 10,000
       exchanges, zero missed; altitude ±30 m, heading ±2° under light Dryden; bit-identical logs; peer death
       halts within one timeout.
