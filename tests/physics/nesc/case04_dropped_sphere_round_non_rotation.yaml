@@ -23,6 +23,7 @@ physical:
     plugin: plugins/physical/gravity/inverse_square
     radius: 6371007.1809
     g0: 9.820228349842926 # = GM/radius^2, GM = 3.986004418e14 m^3/s^2 (Vol II Table 73)
+    rotating: false # matches physical.earth.rotating; see docs/plans/nesc-case05-gravity-centripetal.md
   atmosphere: plugins/physical/atmosphere/isa1976
   mass:
     plugin: plugins/physical/mass/constant

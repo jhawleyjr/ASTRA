@@ -1,9 +1,33 @@
 // Inverse-square (Newtonian point-mass) gravity (docs/architecture.md §7, PLAN.md M2 PR 1):
-// g_n = [0, 0, g0 * (R/(R+h))^2], purely radial, so only altitude matters -- latitude does not
-// enter (that is gravity/wgs84_j2's job). g0 and R both default to the same numbers earth/round
-// defaults to, so the pair reproduce a single self-consistent sphere unless a config overrides
-// both; they are not linked automatically (a radius concept on EarthModel would mean nothing for
-// flat Earth).
+// g_n = [0, 0, g0 * (R/(R+h))^2] plus, when `rotating` is configured true, the centripetal term
+// plumb-bob gravity requires (docs/plans/nesc-case05-gravity-centripetal.md): the gravity_model.hpp
+// contract is g_n = "gravitation with centripetal folded in", per Stevens/Lewis/Johnson, Aircraft
+// Control and Simulation, 3rd ed., eq. 1.6-27, p.33 (g = G - omega x (omega x p)) -- verified by
+// direct read, not a supplied citation. For a sphere at latitude lat and radius r = radius_ + h,
+// the correction resolved in NED is omega^2 * r * [-sin(lat)*cos(lat), 0, -cos(lat)^2]; this
+// matches Groves, Principles of GNSS, Inertial, and Multisensor Integrated Navigation Systems, 2nd
+// ed., eq. 2.133 second line (p.70, the NED-resolved form), which reduces to exactly this when
+// r_eb^n = (0, 0, -r) -- also verified by direct read, not re-derived from this file's own formula
+// alone. gravity/wgs84_j2 already meets this contract (its own citation of Groves 2.133); this
+// model did not, at all, until this fix -- the missing term was the leading candidate for NESC
+// check-case 5's (round, rotating Earth) disproportionate altitude/v_down miss.
+//
+// `rotating` (bool, default false) mirrors earth/round's own key exactly and reads the same
+// astra::geodesy::kOmegaIe constant when true, rather than taking a numeric rate of its own -- one
+// source of truth for the number, no ABI change, and the correction evaluates to exactly zero at
+// the default (0.0 times any finite value is 0.0), so every existing non-rotating config/test is
+// bit-for-bit unaffected. This plugin does not read earth/round's own `rotating` config and cannot
+// detect a mismatch between the two: the two booleans must be set consistently by the config
+// author, the same already-accepted duplication as g0/radius below being kept consistent with
+// earth/round's own radius (docs/lessons.md, 2026-09-15, "two radii"). An init-time cross-check
+// between an EarthModel and a GravityModel's own rotation assumption is deliberately not added
+// here (Joe, 2026-09-19, D2(a)); tracked as PLAN.md's own unchecked follow-up item, covering both
+// this plugin and gravity/wgs84_j2's own symmetric, currently-latent gap (it rotates
+// unconditionally, so pairing it with a non-rotating Earth model is equally unchecked today).
+//
+// g0 and R both default to the same numbers earth/round defaults to, so the pair reproduce a
+// single self-consistent sphere unless a config overrides both; they are not linked automatically
+// (a radius concept on EarthModel would mean nothing for flat Earth).
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -18,6 +42,7 @@
 #include "astra/kernel/vehicle_state.hpp"
 #include "astra/plugin/descriptor.hpp"
 #include "astra/signals/signal_registry.hpp"
+#include "astra/util/geodesy.hpp"
 
 namespace {
 
@@ -66,18 +91,42 @@ class InverseSquareGravity final : public astra::GravityModel {
     if (radius_ <= 0.0) {
       throw ConfigError(config.origin(), keyed_path(config, "radius"), "radius must be positive");
     }
+    // D1 (docs/plans/nesc-case05-gravity-centripetal.md): a bool mirroring earth/round's own
+    // `rotating`, not a numeric rate -- astra::geodesy::kOmegaIe is the single source of truth for
+    // the constant, matching earth/round's own unconditional use of it when rotating.
+    const bool rotating = config.boolean("rotating", false);
+    omega_ = rotating ? astra::geodesy::kOmegaIe : 0.0;
     registry.add("gravity.g0", &g0_, "m/s^2");
   }
   void reset() override {}
   void step(const astra::StepContext& /*ctx*/) override {}
   [[nodiscard]] std::string_view name() const override { return "gravity"; }
 
+  // NOLINTBEGIN(readability-magic-numbers): 0/1/2 are NED north/east/down components.
   [[nodiscard]] Eigen::Vector3d g_n(const astra::VehicleState& vs) const noexcept override {
-    const double h =
-        vs.p_n()(2);  // altitude above the sphere (ADR-0003), NOLINT(readability-magic-numbers)
+    const double lat = vs.p_n()(0);
+    const double h = vs.p_n()(2);  // altitude above the sphere (ADR-0003)
     const double ratio = radius_ / (radius_ + h);
-    return {0.0, 0.0, g0_ * ratio * ratio};
+    // The pure-radial term first, as a literal +0.0 north/east, exactly like the pre-fix return --
+    // the centripetal correction below is then ADDED component-wise, not folded into one combined
+    // expression. This is required for bit-identity at the default omega_ == 0.0, not just
+    // stylistic: -omega_sq_r * sin(lat) * cos(lat) is -0.0 in the northern hemisphere even when
+    // omega_sq_r is +0.0 (IEEE-754's sign-of-product rule), and only `+0.0 + (-0.0) == +0.0`
+    // (added to the existing literal north component) reproduces the pre-fix bit pattern; a
+    // standalone `{north, 0.0, down}` construction using that same -0.0 would not.
+    Eigen::Vector3d g{0.0, 0.0, g0_ * ratio * ratio};
+    const double r = radius_ + h;
+    const double sin_lat = std::sin(lat);
+    const double cos_lat = std::cos(lat);
+    const double omega_sq_r = omega_ * omega_ * r;
+    // Centripetal correction (Stevens/Lewis/Johnson eq. 1.6-27; Groves eq. 2.133, second line, at
+    // r_eb^n = (0,0,-r)): exactly zero when omega_ == 0.0 (the non-rotating default), so this is
+    // always evaluated unconditionally rather than branched -- see this file's header comment.
+    g(0) += -omega_sq_r * sin_lat * cos_lat;
+    g(2) += -omega_sq_r * cos_lat * cos_lat;
+    return g;
   }
+  // NOLINTEND(readability-magic-numbers)
 
   [[nodiscard]] astra::PositionRepresentation assumed_position_representation()
       const noexcept override {
@@ -114,6 +163,7 @@ class InverseSquareGravity final : public astra::GravityModel {
  private:
   double g0_ = kStandardGravity;
   double radius_ = kDefaultRadius;
+  double omega_ = 0.0;  // D1: astra::geodesy::kOmegaIe when `rotating: true`, else exactly 0.0
 };
 
 std::unique_ptr<astra::Model> create() { return std::make_unique<InverseSquareGravity>(); }
