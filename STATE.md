@@ -5,10 +5,11 @@ M3 planning: `PLAN.md`'s one-line M3 (Notional transport) stub decomposed into P
 3-10 line scope, an acceptance command, binding ADRs, risk tier, and whether it needs a Codex plan
 critique. Planning-only task (no code/ADR/goldens) — done via `/plan-feature`, reconciled through
 several rounds of Joe's explicit corrections in-session, approved by Joe before commit. Worktree
-`m3-plan`, branch `worktree-m3-plan`, **committed (`562906d`) and pushed**, **PR**
-<https://github.com/jhawleyjr/ASTRA/pull/35 (draft)** against `main`'s `aa87052`. Prior task (PR 3c,
-`#34`) is confirmed merged as `aa87052` — the previous STATE.md describing it as merge-pending was
-stale; corrected here.
+`m3-plan`, branch `worktree-m3-plan`, **committed and pushed** (`562906d` the breakdown, later
+commits fix PR 0's tier/wording and this file's own PR link/lessons-entry mistakes), **PR**
+<https://github.com/jhawleyjr/ASTRA/pull/35> (draft, marked ready this session) against `main`'s
+`aa87052`. Prior task (PR 3c, `#34`) is confirmed merged as `aa87052` — the previous STATE.md
+describing it as merge-pending was stale; corrected here.
 
 ## Last verified result
 No code changed (`PLAN.md` only, 98 insertions); `git diff --stat` confirms scope. No `just check`

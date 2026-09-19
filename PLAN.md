@@ -510,8 +510,11 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         linearized model's phugoid prediction," replacing "reproduces the golden trajectory" (O5: a
         self-frozen trajectory is a regression check, not an oracle). Also adds `aircraft/**/physical`,
         `aircraft/**/hardware` to `docs/process/workflow.md`'s tier-3 row (D3). Accept: `git diff
-        --stat` touches only these three docs; `just check` unaffected. Binding ADRs: none. Tier 0.
-        Plan critique: no.
+        --stat` touches only these two docs; `just check` unaffected (no code). Binding ADRs: none.
+        Tier 2 — the §16 acceptance-row and workflow.md tier-table edits are policy, not editorial;
+        Joe approves the wording (recorded in this plan's own approval), and the diff itself still
+        gets a Codex review pass even though no code changes and no full gate applies. Plan critique:
+        no.
   - [ ] PR 1 — `aircraft/_template/` and `aircraft/notional_transport/` scaffolding (`physical/
         {aero,mass}/`, `hardware/propulsion/turbofan/`, `configs/`), `just new-aircraft <name>`.
         `physical/mass` is a `MassPropertiesModel` plugin (existing interface, O1's mass/inertia only
