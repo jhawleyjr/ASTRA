@@ -74,24 +74,26 @@ candidate, no commit to diff against `--base`).
 - **Adversarial review: incomplete, not clean — Codex hit a hard usage limit mid-review.** Dispatched
   with a focus naming ADR-0001/0003/0012/0013/0014, the frame/unit conventions, the generator's
   tol_abs/tol_rel-as-single-scalar formula, the yaw-wrap/no-relative-term rule, the Tables 77/78 and
-  t=0 exclusions, and the pre-step sampling sequence. Codex's trace reached: reading the spec/plan,
-  the ADRs, the generator, `Simulation::step`/`Vehicle::integrate`, and one partial self-check script,
-  finding nothing before failing — its own last assistant message: "The frame conversions, initial
-  rates, yaw comparison, and band formulas match the approved design so far. I'm checking the
-  committed bands against the raw inputs and tracing whether the environment and wrench reads remain
-  aligned with the pre-step state" — then: `Codex error: You've hit your usage limit. ... try again at
-  Sep 23rd, 2026 7:30 PM.` No structured findings were returned. Per `docs/agents/review-dispatch.md`:
-  missing/exhausted provider access is **pending review, never clean review** — this is not being
-  reported as a pass. Raw output: `/tmp/codex_adversarial.log` (session-local). **This is the one gate
-  this packet cannot close**: full adversarial review of the physics/numerics is genuinely
-  outstanding, blocked on Codex quota until ~2026-09-23. Separately, the frame-conversion/rotation-
-  convention questions this task raised earlier (velocity NED-vs-body, initial-rate correction) *were*
-  independently Codex-reviewed to completion in the planning stage (two prior plan-critique rounds,
-  no defect found) — this outstanding pass is specifically the implementation-stage adversarial review
-  of the actual code/data, not a repeat of that.
+  t=0 exclusions, and the pre-step sampling sequence. First attempt hit a hard Codex usage limit
+  mid-pass (recorded honestly, not reported as a pass — `docs/reviews/nesc-harness-review.md` has the
+  full account). **Re-run 2026-09-19 after Joe reported the quota reset**, `--base origin/main`
+  against the committed candidate (`93592f1..4344fa2`): completed. **Verdict: needs-attention, one
+  finding** — Codex independently reproduced all 210 committed channel bands from the raw CSVs and
+  confirmed every other claim this packet and the plan make (the `v_north`/SIM 2 contamination, the
+  frame/unit/sampling/exclusion correctness, the frozen-wrench diagnosis) — see `docs/reviews/
+  nesc-harness-review.md` for the full per-claim verdict. The one finding: this packet's own
+  characterization of `tol_rel` as "loose but not currently masking a failure" was false for
+  `case04`/`case05`'s `force_y` specifically, which is genuinely non-discriminating (see "Joe's
+  attention" below). **Fixed and re-validated same session**: a generator-side detection check added
+  (ADR-0013 already required this, never implemented before), full gate re-run clean
+  (`check: OK`, all 4 presets), disclosure corrected in this packet and the plan. Finding recorded and
+  resolved in `docs/reviews/nesc-harness-review.md` (status: `fixed`, not independently re-verified by
+  a second Codex pass — Claude's own recomputation against the committed data is the verification of
+  record; see that file for why a second dispatch was judged unnecessary for a diagnostic-only,
+  no-golden-data-change fix). Raw logs: `/tmp/codex_adversarial2.log` (session-local).
 
-No fix rounds have run (general review found nothing to fix; adversarial review did not complete).
-Correction rounds: 0/2. Failed integrations: 0/2.
+One fix round this session: correction rounds 1/2 (the `force_y`/`tol_rel` disclosure fix above).
+Failed integrations: 0/2.
 
 ## Joe's attention
 
@@ -123,12 +125,22 @@ no golden/generator/code change this round — full derivations in `docs/plans/n
    instant — sitting inside a tolerance ~9144x looser than a clean channel's floor. **PR 3c must
    exclude SIM 2 from `v_north` and regenerate before a `v_north` pass means anything.**
 2. `tol_rel` (one scalar per channel per case, `k` times the worst per-sample relative spread) is
-   loose — 48–95% relative allowance — on several channels that cross zero at some point in the run
-   (`case02` `rate_p`, `case03` `roll`, `case09` `v_down`, `case04` `force_y`/`force_z`), the same
+   loose — 48–76% relative allowance — on several channels that cross zero at some point in the run
+   (`case02` `rate_p`, `case03` `roll`, `case09` `v_down`, `case04`/`case05` `force_z`), the same
    class of issue the yaw fix removed, just less severe (bounded, not unbounded) and not currently
-   masking a failure (`tol_abs` alone already bounds these channels meaningfully). Recommended
-   follow-up, not actioned this round: an ADR elaborating ADR-0013 to drop `tol_rel` globally, not
-   only for yaw — needs Joe's own decision, touches the accepted oracle formula.
+   masking a failure (`tol_abs` alone still rejects an all-zero comparison at some sample for each of
+   these four). **`case04`/`case05`'s `force_y` is the one exception, and this session's own first
+   disclosure of it was wrong to lump it in as merely "loose": a Codex adversarial review found, and
+   Claude independently confirmed against the committed golden data, that `force_y`'s combined
+   tolerance accepts an all-zero signal at every one of its 301 samples despite a real −24.8 N peak —
+   genuinely non-discriminating, exactly ADR-0013's own "obviously wrong answer" concern, which
+   ADR-0013 already requires recording but this generator never actually implemented.** Fixed this
+   session: `generate_nesc_band.py`'s new `check_non_discriminating()` (report-only, no golden data
+   changed) flags exactly this one channel/case pair and nothing else, confirming the other three are
+   correctly not flagged. **PR 3c must resolve `force_y` in cases 4/5, alongside `v_north`, before
+   either channel's pass means anything.** Recommended follow-up, not actioned this round: an ADR
+   elaborating ADR-0013 to drop `tol_rel` globally, not only for yaw — needs Joe's own decision,
+   touches the accepted oracle formula.
 3. Band widths vary a lot by which participants happen to contribute to a given case, not only by
    physics — e.g. `case01`'s `temperature` band is ~250x `case02`'s, fully explained by `case01`
    including `sim_03` as a contributor (a real, if larger, disagreement from that one participant)
@@ -186,18 +198,24 @@ contract change out of scope for a check-case harness; landing 8/10 cases now ag
 whole PR for an architecture change was your explicit call, recorded 2026-09-18.
 Accepted risks: cases 4/5's frozen-wrench/spin coupling — owner: `PLAN.md`'s M2 PR 3c (not yet
 started); matters more once M3 introduces a real aircraft with sustained coupled spin+force dynamics,
-per your own framing when accepting this. `v_north`'s own band being contaminated (SIM 2's t=0
-artifact) means PR 3c cannot yet judge whether its fix resolves `v_north` specifically — that band
-needs SIM 2 excluded and regenerating first, named as an explicit PR 3c precondition, not an open
-question left for later.
+per your own framing when accepting this. Two explicit PR 3c preconditions, both confirmed this
+session (the second by independent Codex adversarial review, not just Claude's own analysis):
+`v_north`'s band is contaminated by SIM 2's t=0 artifact, and `force_y`'s band is genuinely
+non-discriminating (accepts an all-zero signal) — PR 3c cannot judge whether its fix resolves either
+channel until both are excluded/regenerated correctly first.
 Nonblocking follow-ups: an ADR elaborating ADR-0013 to drop `tol_rel` globally (not only for yaw) —
-`tol_abs` alone already bounds every channel measured so far, so this is not currently masking a
-failure, but several channels (`case02` `rate_p`, `case03` `roll`, `case09` `v_down`, `case04`
-`force_y`/`force_z`) carry a 48–95% relative allowance doing little discriminating work. Needs your
-own decision since it touches the accepted oracle formula.
+`tol_abs` alone still rejects an all-zero comparison for `case02` `rate_p`, `case03` `roll`, `case09`
+`v_down`, and `case04`/`case05` `force_z` (confirmed by the new `check_non_discriminating()` gate, not
+just asserted), so this is not currently masking a failure beyond the one `force_y` finding already
+fixed — but all carry a 48–76% relative allowance doing little discriminating work. Needs your own
+decision since it touches the accepted oracle formula.
 Architectural decisions: ADR-0014 (accepted, this candidate). PR 3c (not yet started) will need its
 own new/superseding ADR to ADR-0004 and `docs/architecture.md` §5 — not part of this candidate.
 
-**Outstanding gate, named plainly**: full adversarial review has not completed (Codex usage limit,
-resumable ~2026-09-23). Everything else this packet reports is current, real evidence — this is the
-one piece still missing, not silently treated as done.
+**Adversarial review complete, one finding fixed and re-validated** (`docs/reviews/
+nesc-harness-review.md` has the full record): frame/unit correctness, the ADR-0013/0014 band
+formula, the yaw wrap, the SIM 2 `v_north` contamination, the pre-step sampling sequence, and the
+cases 4/5 frozen-wrench diagnosis were all independently checked against the actual code and
+committed data, not just the prose describing them, and confirmed. The one finding (`force_y`'s own
+non-discriminating band) is fixed (a new generator-side detection gate, ADR-0013 already required it)
+and the full gate re-run clean. **Packet is ready for your decision.**

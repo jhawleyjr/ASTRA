@@ -384,6 +384,45 @@ def check_angle_bands(case: Case, results: dict[str, ChannelResult]) -> None:
             )
 
 
+def check_non_discriminating(case: Case, results: dict[str, ChannelResult]) -> None:
+    """ADR-0013: "A band wide enough to admit an obviously wrong answer is not a test; such
+    channels are recorded as non-discriminating rather than silently counted as passes." This
+    check was never actually implemented until a Codex adversarial review (2026-09-19) found a
+    real instance by hand: case04/case05's force_y band, once tol_rel is added to tol_abs, accepts
+    a comparison against a completely missing (all-zero) force signal at every one of its 301
+    samples, despite the channel's own reference reaching -24.8 N -- exactly the "obviously wrong
+    answer" ADR-0013 already anticipated, just never machine-checked for.
+
+    A channel is flagged when its own combined tolerance (tol_abs + tol_rel*|reference|) would
+    accept a value of exactly zero at EVERY sample, specifically because tol_rel is doing the
+    rescuing: the channel's peak |reference| magnitude must itself exceed tol_abs ALONE by a clear
+    margin (2x) -- i.e. tol_abs by itself would already have correctly rejected a zero comparison
+    at that sample, and only adding the relative term saves it. This is deliberately narrower than
+    "peak clears its own floor": a channel whose peak never even exceeds its own tol_abs (e.g.
+    case04/case05's v_north, contaminated by a known participant artifact -- see docs/plans/
+    nesc-harness.md, a different, already-disclosed failure mode) was never going to reject zero
+    regardless of tol_rel, so flagging it here would conflate two distinct problems. force_y's own
+    peak of 24.8 N against its own tol_abs of 9.9 N (~2.5x) is exactly the case this check exists
+    for. Report-only (ADR-0013 says "recorded", not "rejected"): a currently-skipped case
+    (cases 4/5) still needs its band generated so a future fix can be judged against it, so this
+    must not block generation the way check_angle_bands' stricter, narrower guarantee does."""
+    for channel in CHANNELS:
+        r = results[channel.key]
+        peak = max(abs(v) for v in r.reference)
+        if peak <= r.tol_abs * 2.0:
+            continue
+        accepts_zero = all(abs(v) <= r.tol_abs + r.tol_rel * abs(v) for v in r.reference)
+        if accepts_zero:
+            print(
+                f"# case {case.num:>2} {channel.key:<12} NON-DISCRIMINATING: peak |reference| "
+                f"{peak:.3e} but tol_abs={r.tol_abs:.3e} tol_rel={r.tol_rel:.3e} would accept "
+                "an all-zero signal at every sample -- ADR-0013's own concern, recorded not "
+                "rejected (this channel/case may already be a disclosed gap; see docs/plans/"
+                "nesc-harness.md)",
+                file=sys.stderr,
+            )
+
+
 def report(case: Case, results: dict[str, ChannelResult]) -> None:
     """Per-channel band width / floor-margin report (stderr; stdout is reserved for --print-header),
     mirroring generate_isa1976_table.py's check_transcribed_row_tolerances -- a future regeneration
@@ -516,6 +555,7 @@ def main() -> None:
     for case in CASES:
         results = process_case(case, refs_root)
         check_angle_bands(case, results)
+        check_non_discriminating(case, results)
         report(case, results)
         out_path = script_dir / f"case{case.num:02d}_{case.slug}_band.hpp"
         out_path.write_text(render_case_header(case, results), encoding="utf-8")

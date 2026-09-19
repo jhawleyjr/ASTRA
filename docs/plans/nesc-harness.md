@@ -469,26 +469,51 @@ judging whether a per-RK4-substage fix actually resolves cases 4/5, first exclud
 `v_north` in the generator (the same way it is already excluded from `force_x` in these two cases)
 and regenerate the band — only then does a `v_north` pass mean anything.
 
-**`tol_rel` is loose (not vacuous, but a real weak spot) on channels that cross zero, not only on
-yaw** (Joe, same review round; a docs-only disclosure, no golden/generator change this round).
+**`tol_rel` is loose on channels that cross zero, not only on yaw — and for one of them,
+`case04`/`case05`'s `force_y`, this session's first disclosure of this was itself wrong: it is not
+merely loose, it is genuinely non-discriminating** (Joe's second review round, plus a Codex
+adversarial review the same day that checked this claim against the actual committed data and found
+the "not currently masking a comparison failure" line below was false for one specific channel).
 ADR-0013's `tol_rel` is one scalar per channel per case — `k` times the *worst* per-sample relative
 spread over the whole run — and `omit_relative_term`'s guard (`generate_nesc_band.py`) only drops a
 *sample's* contribution when that sample's own `|mean|` is at or below `tol_abs`; it does not prevent
-a sample just outside that band, where the mean is small but not smaller than `tol_abs`, from
-contributing a large relative spread that then applies as a *constant* allowance to every other
-sample of that channel, including ones where the reference is large. Measured, this session: `case02`
-`rate_p` `tol_rel = 0.947` (95%), `case03` `roll` `tol_rel = 0.476` (48%), `case09` `v_down`
-`tol_rel = 0.596` (60%), `case04` `force_y`/`force_z` `tol_rel = 0.761`/`0.719` (72–76%) — all
-channels whose reference crosses (or passes very close to) zero at some point in the 30 s run. None
-of these are unbounded the way yaw's own pre-fix `tol_rel` could have been (Codex's plan-critique
-finding, `tol_rel = 6` in its worked example) — `tol_abs` alone already provides a real, non-vacuous
-bound for every one of these channels, so this is not currently masking a comparison failure the way
-`v_north`'s contamination above does — but a `tol_rel` this large is doing essentially no
-discriminating work of its own and, added to `tol_abs`, is a real (if lesser) version of the same
-mechanism the yaw fix removed entirely. **Follow-up recommended, not actioned this round**: a new
-ADR elaborating ADR-0013 to drop `tol_rel` globally (not just for yaw), relying on `tol_abs` +
-ADR-0014's floor alone for every channel — needs Joe's own decision, since it touches the accepted
-oracle formula, not something to fold into this PR's own scope.
+a sample just outside that band from contributing a large relative spread that then applies as a
+*constant* allowance to every other sample of that channel, including ones where the reference is
+large. Measured, this session: `case02` `rate_p` `tol_rel = 0.947` (95%), `case03` `roll`
+`tol_rel = 0.476` (48%), `case09` `v_down` `tol_rel = 0.596` (60%), `case04`/`case05` `force_z`
+`tol_rel = 0.719` (72%), `case04`/`case05` `force_y` `tol_rel = 0.761`/`0.763` (76%) — all channels
+whose reference crosses (or passes very close to) zero at some point in the 30 s run.
+
+**Confirmed by independent recomputation (Claude, verifying Codex's finding before accepting it) and
+by Codex's own adversarial review of the actual committed golden data**: `rate_p`, `roll`, `v_down`,
+and `force_z` each still reject a hypothetical all-zero signal at some sample despite their own loose
+`tol_rel` — `tol_abs` alone is doing real, non-vacuous work for these four, matching the original
+disclosure. **`case04`/`case05`'s `force_y` does not** — its combined tolerance
+(`tol_abs + tol_rel*|reference|`) accepts a comparison against exactly zero at every one of its 301
+samples, even though its own reference reaches −24.8 N (`case04`)/−24.7 N (`case05`) at t≈23.6 s, well
+above its own `tol_abs` of 9.9 N alone. This is exactly the "band wide enough to admit an obviously
+wrong answer" ADR-0013 itself warns against, and ADR-0013 already requires it to be "recorded as
+non-discriminating rather than silently counted as passes" — a requirement this generator never
+actually implemented until now. **Fixed, this session, after the adversarial review**:
+`generate_nesc_band.py`'s new `check_non_discriminating()` reports (to stderr, non-fatal — a
+currently-skipped case's band still needs to exist for `PR 3c` to judge a future fix against) any
+channel whose peak `|reference|` exceeds twice its own `tol_abs` while the combined tolerance would
+still accept zero at every sample; run against all ten cases, it flags exactly `case04`/`case05`
+`force_y` and nothing else — confirming `rate_p`/`roll`/`v_down`/`force_z` are correctly *not*
+flagged (their own peaks never exceed `tol_abs` by that margin, so `tol_rel` is not rescuing a value
+`tol_abs` alone would have rejected). No golden data changed (diagnostic-only; the committed
+`.hpp` files are byte-identical before/after this fix). **Action for PR 3c, alongside the `v_north`
+exclusion above**: `force_y` in cases 4/5 needs its own resolution (likely the same SIM
+2/participant-set scrutiny that resolved `v_north`, or an oracle-level decision) before it can be
+trusted to catch a real regression in those two cases — recorded as a second, explicit PR 3c
+precondition, not folded into "loose but fine" the way this session's own first pass wrongly did.
+
+**Follow-up recommended, not actioned this round**: a new ADR elaborating ADR-0013 to drop `tol_rel`
+globally (not just for yaw), relying on `tol_abs` + ADR-0014's floor alone for every channel — would
+have prevented needing `check_non_discriminating()` as a separate detection mechanism in the first
+place, at the cost of a real (if reference-independent) tolerance for these zero-crossing channels.
+Needs Joe's own decision, since it touches the accepted oracle formula, not something to fold into
+this PR's own scope.
 
 **Band width varies a lot by which participants happen to contribute, not just by physics** (Joe,
 same review round, docs-only note): `case01`'s `temperature` `tol_abs` (`0.571` K) is ~250x
