@@ -215,12 +215,21 @@ TEST(WindCallContract, BeginFrameThenWindNAreEachCalledExactlyOncePerFrame) {
   ASSERT_NE(begin_frame_calls, nullptr);
   ASSERT_NE(wind_n_calls, nullptr);
   ASSERT_NE(consumer_calls, nullptr);
-  // This fails under any design that evaluates wind inside the wrench stage or per consumer
-  // (D1): a per-RK4-stage or per-consumer design would inflate wind_n_calls/consumer_calls past
-  // kFrames, and a design that lets wind_n advance state would desynchronize the two counts.
+  // This fails under any design that evaluates wind ITSELF (WindModel::begin_frame/wind_n) inside
+  // the wrench stage or per consumer: a per-RK4-stage or per-consumer re-sampling of wind would
+  // inflate wind_n_calls past kFrames, and a design that lets wind_n advance state would
+  // desynchronize begin_frame_calls from wind_n_calls. Both remain exactly kFrames under PLAN.md
+  // M2 PR 3c (docs/plans/pr3c-substage-wrench.md): wind stays frame-latched by design -- the
+  // per-stage derivative copies the frame-latched wind_n value, never re-querying WindModel.
   EXPECT_DOUBLE_EQ(*begin_frame_calls, static_cast<double>(kFrames));
   EXPECT_DOUBLE_EQ(*wind_n_calls, static_cast<double>(kFrames));
-  EXPECT_DOUBLE_EQ(*consumer_calls, static_cast<double>(kFrames));
+  // consumer_calls, by contrast, counts wrench_b() itself, not wind_n() -- PR 3c deliberately
+  // evaluates wrench_b() once per RK4 sub-stage (four times per frame) instead of once per frame,
+  // which is exactly what lets it read a per-stage-fresh atmosphere sample while wind_n above stays
+  // frame-latched. This is the intended divergence between the two counts this PR introduces, not
+  // a regression: consumer_calls == 4 * kFrames is the new, correct invariant.
+  constexpr double kRk4StagesPerFrame = 4.0;
+  EXPECT_DOUBLE_EQ(*consumer_calls, kRk4StagesPerFrame * static_cast<double>(kFrames));
 }
 
 TEST(WindCallContract, WindIsSampledAtFrameStartStateBeforeTheWrenchStage) {

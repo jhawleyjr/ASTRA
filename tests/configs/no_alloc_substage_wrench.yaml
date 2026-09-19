@@ -1,0 +1,20 @@
+# tests/physics/no_alloc_test.cpp (PLAN.md M2 PR 3c, docs/plans/pr3c-substage-wrench.md): the new
+# per-stage code path -- wrench_b() and AtmosphereModel::at() both evaluated fresh at each of the
+# four RK4 sub-stages, plus the new core-owned wrench_total signal write -- needs a WrenchSource AND
+# physical.atmosphere both configured. None of the other no_alloc_*.yaml fixtures exercises this:
+# no_alloc.yaml/no_alloc_domain.yaml configure no atmosphere at all; no_alloc_dryden.yaml configures
+# wind, not atmosphere. State mirrors no_alloc_dryden.yaml's own (already-established, comfortably
+# in-domain for flat Earth) p_n/v_b, since only the physical.atmosphere/vehicle.models slots differ.
+sim:
+  dt: 0.001
+  frames: 1000
+vehicle:
+  models:
+    - { plugin: tests/plugins/nesc_aero, s: 0.1, cd: 0.1 }
+physical:
+  earth: plugins/physical/earth/flat
+  gravity: plugins/physical/gravity/constant
+  atmosphere: plugins/physical/atmosphere/isa1976
+  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 }
+initial:
+  state: { p_n: [0.0, 0.0, -100.0], v_b: [60.0, 0.0, 0.0] }

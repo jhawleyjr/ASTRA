@@ -68,4 +68,28 @@ TEST(NoAlloc, ZeroHeapAllocationsOverOneThousandFramesWithTheDomainCheckActive) 
                               "(docs/architecture.md §14/§15, ADR-0012)";
 }
 
+// PLAN.md M2 PR 3c (docs/plans/pr3c-substage-wrench.md), R5: the new per-stage code path -- a fresh
+// EnvironmentSample copy, a fresh AtmosphereModel::at() call, and a fresh wrench_b() call (plus its
+// health.check_wrench()) at each of the four RK4 sub-stages, plus the new core-owned
+// wrench_total.* signal write on the first stage -- must not allocate either. None of the three
+// fixtures above combines a WrenchSource with physical.atmosphere configured, so none of them
+// reaches this specific code path at all.
+TEST(NoAlloc, ZeroHeapAllocationsOverOneThousandFramesWithSubstageWrenchAndAtmosphere) {
+  const astra::Config config = astra::Config::from_file(std::string{ASTRA_TEST_CONFIG_DIR} +
+                                                        "/no_alloc_substage_wrench.yaml");
+  astra::Simulation sim = astra::Simulation::from_config(config, ASTRA_TEST_PLUGIN_DIR);
+  ASSERT_EQ(sim.frames(), 1000U);
+
+  const std::size_t before = astra_test::allocation_count();
+  const astra::HaltReason halt = sim.run();
+  const std::size_t after = astra_test::allocation_count();
+
+  EXPECT_FALSE(halt) << "the fixture is chosen to stay in domain for the full run -- a halt here "
+                        "means the allocation count below was measured over fewer than 1000 frames";
+  EXPECT_EQ(sim.clock().frame(), 1000U) << "the run must complete, not merely allocate nothing "
+                                           "while halting early";
+  EXPECT_EQ(after, before) << "zero allocations over 1000 frames with a WrenchSource and "
+                              "physical.atmosphere both configured (PLAN.md M2 PR 3c)";
+}
+
 }  // namespace

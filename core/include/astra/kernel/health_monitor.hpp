@@ -65,6 +65,18 @@ class HealthMonitor {
 
   // Checks one wrench contribution for NaN/Inf, naming source (the contributing plugin's path) on a
   // halt. Per-frame path: no allocation, no exceptions.
+  //
+  // PLAN.md M2 PR 3c (docs/plans/pr3c-substage-wrench.md): Vehicle::integrate() calls this once per
+  // RK4 sub-stage per contribution (plus once per stage for the accumulated total) -- up to 8 calls
+  // per frame now, not 2 -- evaluated uniformly every stage regardless of an earlier stage's own
+  // result (a fault-dependent short-circuit was considered and rejected: it behaves inconsistently
+  // between warn/halt actions, since this method returns a falsy HaltReason under warn regardless
+  // of whether a fault was detected). This is a real, not cosmetic, change to what the "nan" signal
+  // counts: it now counts stage-evaluations that saw a fault, not frames that did -- a genuinely
+  // broken WrenchSource increments it up to 4x (8x counting the total check) what it did before
+  // this PR, for what is really one underlying fault. See
+  // tests/unit/kernel/simulation_halt_test.cpp's WarnActionRunsAllFramesAndCountsEveryNanDetection
+  // for a worked, pinned example of the new count.
   [[nodiscard]] HaltReason check_wrench(const Wrench& wrench, std::string_view source,
                                         const StepContext& ctx,
                                         std::uint32_t vehicle_index) noexcept;

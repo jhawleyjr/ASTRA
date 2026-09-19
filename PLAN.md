@@ -39,8 +39,11 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         loop; allocation counter (replaced global `operator new`) in the asan preset. Accept: test plugin
         injecting a NaN wrench at frame 500 halts naming it; q set to norm 1.1 halts naming `v0.state.q_nb`;
         zero allocations over 1000 frames. Plan review: health monitor → Codex before code.
-- [ ] **M2 Environment** — ISA-1976, gravity (constant / inverse-square / WGS-84 J2), wind + Dryden, Earth
+- [x] **M2 Environment** — ISA-1976, gravity (constant / inverse-square / WGS-84 J2), wind + Dryden, Earth
       (flat / round / WGS-84 rotating); NASA check cases 1–10 within NESC tolerances; ISA table points exact.
+      **All ten cases pass under all four presets** (debug/release/static-plugins/asan), confirmed by PR
+      3c's own `just check` run, 2026-09-19 — closing PR 3c's `dt`-independent fix (ADR-0016) to the
+      frozen-wrench gap PR 3b disclosed for cases 4/5.
   - [x] PR 1 — `plugins/physical/earth/{round, wgs84_rotating}` (geodetic `p_n` per ADR-0003, Earth rate, transport
         rate; initial `p_n` stays the raw vector, radians and metres, range-checked at init with a message naming
         ADR-0003 for a degree-valued latitude and a separate message for the polar singularity margin
@@ -289,7 +292,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         margin-based or acceleration-aware lookahead is an unpinned, expensive-to-unwind design
         (ADR-0012 pins the literal Euler formula) and needs its own plan-reviewed PR, not a
         redesign under review pressure here.
-  - [ ] PR 3a — populates `EnvironmentSample::atmosphere` in `Simulation::step` (one shared
+  - [x] PR 3a — populates `EnvironmentSample::atmosphere` in `Simulation::step` (one shared
         `earth_->altitude(vs)` call feeds both `wind_n` and `atmosphere`, independent of which slot is
         configured, never clamped outside `valid_range()`); `Vehicle::EnvironmentAvailability::atmosphere`
         (conditional rejection naming `physical.atmosphere`, replacing PR 2's unconditional one, since
@@ -318,7 +321,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         1/1b/2's precedent for this exact class of gap says the real fix is one new per-frame domain-
         validity `HealthMonitor` capability validating `EnvironmentSample` as a whole, not a per-field
         bolt-on). PR #29.
-  - [ ] PR 3b — the ten-case harness: YAML under `tests/physics/nesc/` (absorbing PR 1's hand-written
+  - [x] PR 3b — the ten-case harness: YAML under `tests/physics/nesc/` (absorbing PR 1's hand-written
         case 1); `tests/golden/nesc/generate_nesc_band.py` (human-owned, never run by `just check`): SI
         conversion with Vol II Table 73's exact forms, 10 Hz grid by nearest-sample selection within 1e-6 s
         (`sim_05` decimated x10), per-file header-name column keying (column counts vary by SIM FILE, not
@@ -426,7 +429,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       existing `assumed_position_representation()`/`position_representation()` check already in
       `Simulation::from_config`) — a real, if modest, interface change, not a `plugins/physical`-only fix;
       plan-review before code. Not started.
-- [ ] PR 3c — per-RK4-substage wrench evaluation, the M2 closer: recompute `WrenchSource::wrench_b()`
+- [x] PR 3c — per-RK4-substage wrench evaluation, the M2 closer: recompute `WrenchSource::wrench_b()`
       (and any other per-frame environment/force input) at each of the `Integrator`'s RK4 sub-stages
       instead of once per frame, closing PR 3b's disclosed cases 4/5 gap. Needs a superseding or
       elaborating ADR to ADR-0004 (fixed-step RK4) and `docs/architecture.md` §5's per-frame order
@@ -463,6 +466,34 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       these two residuals to collapse as well, not only the lateral-velocity/attitude drift already
       named above -- not verified this session, a claim for PR 3c to check, not assume. Not started
       in the M2 PR 3b worktree; a separate task.
+
+      **Done, 2026-09-19** (`docs/plans/pr3c-substage-wrench.md`, `docs/decisions/0016-per-rk4-
+      substage-wrench-evaluation.md`, not reworded above per this file's own append-only-narrative
+      convention): the Cowork-lead residual-collapse claim above is confirmed -- every one of the
+      channels this PR's own starting point listed as failing now passes cleanly in both cases,
+      cases 4 and 5's `GTEST_SKIP()` lifted, no golden regenerated, no tolerance widened. Full
+      per-channel `max(|diff|)/tol_abs` table (all 21 channels, both cases, computed against the
+      actual implementation): worst is `pressure` at 0.194; `v_north`, this PR's own starting
+      point's worst channel at 4.85 million times `tol_abs` (real committed baseline,
+      `docs/plans/nesc-harness.md`'s R8 table), now misses by 0.0033–0.0044 -- full table in
+      ADR-0016. The "just reduce `dt`" alternative was measured, not merely argued, against the
+      actual unmodified frozen-wrench code and rejected: `v_north`/`latitude` shrink linearly with
+      `dt` but still miss by >1.2 million times/~1385 times `tol_abs` even at 4x cost. `just check`
+      green on all four presets (debug/release/static-plugins/asan), 290/290 each; Codex general +
+      adversarial review (focus: state-revert after a non-k1 fault, health-counter semantics under
+      warn/halt, Dryden bitwise determinism, ADR-0001/0002 units/frames on the new
+      `wrench_total` signals) both clean, verdict approve, zero fix rounds needed. Human-review
+      packet: `docs/reviews/pr3c-substage-wrench-human.md`.
+- [ ] Atmosphere-domain-check misattribution window — PR 3c's own disclosed, accepted gap
+      (`docs/plans/pr3c-substage-wrench.md`, `docs/decisions/0016-per-rk4-substage-wrench-
+      evaluation.md`), the same class ADR-0012 already accepted for gravity/Earth, now newly
+      instanced for atmosphere: since PR 3c recomputes `AtmoState` fresh at each RK4 sub-stage's own
+      altitude, a stage whose `y` drifts outside `AtmosphereModel::valid_range()` mid-integration can
+      surface as `kNonFiniteWrench` (naming the consuming `WrenchSource`), one frame sooner than and
+      instead of `Simulation::step`'s own post-step `kOutOfDomain` check (which would correctly name
+      the atmosphere plugin). Not fixed, not exercised by any of the ten NESC cases (none crosses an
+      atmosphere boundary mid-run). Needs its own plan-reviewed decision, not a bolt-on, the same
+      posture ADR-0012's own gravity/Earth instance took. Not started.
 - [ ] **M3 Notional transport** — aero + mass + turbofan plugins; trims at cruise with residual < 1e-6;
       linearized modes match design values; 300 s open-loop run reproduces the golden.
 - [ ] **M4 Lockstep** — shm transport + HAL + straight-and-level autopilot outside the sim tree; 10,000
