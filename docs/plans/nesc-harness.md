@@ -393,8 +393,9 @@ until Joe authorizes it and arms `touch-goldens`):
 
 **Cases 4 and 5 fail** (`ctest --preset asan -R physics.Nesc.Case0[45]`); all other eight cases pass
 cleanly. Both failures are on `v_east`/`longitude`/`yaw`/`pitch`/`roll` (small, growing over the run) and
-`force_x` (growing to ~0.7–0.8% relative error by t=30 s) — never `v_north`/`latitude`/`altitude`/`v_down`/
-the angular rates. This is real: NASA's own six-tool ensemble reference for `v_east` at every sample is
+`force_x` (growing to ~0.7–0.8% relative error by t=30 s) — not `latitude`/`altitude`/`v_down`/the angular
+rates, and **not `v_north` in this test run, but that "not" is unverified, not a clean negative result —
+see "`v_north`'s band is contaminated, not clean" below.** This is real: NASA's own six-tool ensemble reference for `v_east` at every sample is
 ~1e-18 (floating-point zero — every participant agrees the sphere has zero lateral velocity, as expected
 for a spherically symmetric body under central gravity with isotropic drag and no wind), while ASTRA's own
 `v_east` grows from ~0 to several mm/s by t=30 s — a genuine simulated lateral drift, not a comparison
@@ -444,6 +445,61 @@ several orders of magnitude below 10–30 deg/s). Case 4/5 are the only two NESC
 first scenario anywhere in this codebase's test history, to combine both — M1's own rigid-body tests
 (torque-free, ballistic arc, symmetric-top precession) each exercise spin or translation, never fast spin
 together with an extended-duration velocity-coupled force.
+
+**`v_north`'s band is contaminated, not clean — the "never `v_north`" claim above is unverified, not a
+negative result** (Joe, second review round this session). `case04`/`case05`'s `kVNorth.tol_abs` is
+`0.009144000000000001` m/s — exactly `3 × 0.01 ft/s × 0.3048`, i.e. `k` times SIM 2's own known t=0
+north-velocity artifact (0.01 ft/s where every other participant reports exact zero; already
+identified as a real per-tool initialization anomaly by the Codex plan critique's Finding 4, which is
+why SIM 2 is already excluded from `force_x` in these two cases per Vol II Table 78 footnote b — but
+Table 78 says nothing about velocity, so this session's generator never excluded SIM 2 from `v_north`
+too). The exact match (no residual beyond that one artifact) implies the genuine inter-tool spread for
+`v_north` is at or below ADR-0014's own 1e-9 m/s floor, the same as `v_east`'s own tight `1e-9`
+`tol_abs` in `case04` (not contaminated — case 4's Earth model does not rotate, so `v_east` has no
+real physical spread to speak of either; case 5's own `v_east.tol_abs` is `0.0025` m/s, a real,
+non-floor value from genuine rotation-Earth spread, still nothing like `v_north`'s artifact). Checked
+directly against this session's own earlier debug capture (the un-skipped, `C_D = 0.1`, un-modified
+run): `case04` sample 300 (t=30 s) had `v_b = [-80.5616, 77.4774, 239.497]`, reconstructed
+`v_n = [-0.0048504, 0.00242424, 264.295]` — the actual `v_north` value is `-0.0048504` m/s, **larger
+in magnitude than the `v_east` value (`0.00242424`) that did fail at the same sample**, but it never
+appeared in the failure list because `|-0.0048504 - ~0| ≈ 0.00485 < 0.009144`, the inflated tolerance.
+This is not a clean pass; it is a real coupling-scale drift sitting comfortably inside a tolerance
+that is ~9144x wider than the floor a genuinely clean channel gets. **Action for PR 3c**: before
+judging whether a per-RK4-substage fix actually resolves cases 4/5, first exclude SIM 2 from
+`v_north` in the generator (the same way it is already excluded from `force_x` in these two cases)
+and regenerate the band — only then does a `v_north` pass mean anything.
+
+**`tol_rel` is loose (not vacuous, but a real weak spot) on channels that cross zero, not only on
+yaw** (Joe, same review round; a docs-only disclosure, no golden/generator change this round).
+ADR-0013's `tol_rel` is one scalar per channel per case — `k` times the *worst* per-sample relative
+spread over the whole run — and `omit_relative_term`'s guard (`generate_nesc_band.py`) only drops a
+*sample's* contribution when that sample's own `|mean|` is at or below `tol_abs`; it does not prevent
+a sample just outside that band, where the mean is small but not smaller than `tol_abs`, from
+contributing a large relative spread that then applies as a *constant* allowance to every other
+sample of that channel, including ones where the reference is large. Measured, this session: `case02`
+`rate_p` `tol_rel = 0.947` (95%), `case03` `roll` `tol_rel = 0.476` (48%), `case09` `v_down`
+`tol_rel = 0.596` (60%), `case04` `force_y`/`force_z` `tol_rel = 0.761`/`0.719` (72–76%) — all
+channels whose reference crosses (or passes very close to) zero at some point in the 30 s run. None
+of these are unbounded the way yaw's own pre-fix `tol_rel` could have been (Codex's plan-critique
+finding, `tol_rel = 6` in its worked example) — `tol_abs` alone already provides a real, non-vacuous
+bound for every one of these channels, so this is not currently masking a comparison failure the way
+`v_north`'s contamination above does — but a `tol_rel` this large is doing essentially no
+discriminating work of its own and, added to `tol_abs`, is a real (if lesser) version of the same
+mechanism the yaw fix removed entirely. **Follow-up recommended, not actioned this round**: a new
+ADR elaborating ADR-0013 to drop `tol_rel` globally (not just for yaw), relying on `tol_abs` +
+ADR-0014's floor alone for every channel — needs Joe's own decision, since it touches the accepted
+oracle formula, not something to fold into this PR's own scope.
+
+**Band width varies a lot by which participants happen to contribute, not just by physics** (Joe,
+same review round, docs-only note): `case01`'s `temperature` `tol_abs` (`0.571` K) is ~250x
+`case02`'s (`0.00229` K) — not a generator bug. `case01` (six participants, including `sim_03`) and
+`case02` (five participants — `sim_03` does not exist for this case at all, confirmed earlier in this
+plan's own Repository findings) genuinely have different contributing ensembles; `sim_03`'s own
+temperature trajectory diverges from the other five participants' by up to ~0.19 K over the run
+(verified directly against the raw CSVs this session), which alone accounts for the ~250x gap once
+multiplied by `k = 3`. `density`/`pressure` show the same direction of effect far more mildly (~3–4x,
+not ~250x) for the same reason. Noted here so a future reader does not mistake this ordinary
+per-case ensemble-membership effect for a bug the way the two findings above actually are.
 
 **Why this is not fixed in this PR**: it is a real characteristic of the existing, already-shipped,
 documented per-frame architecture (M1 PR 4 through M2 PR 3a), not a defect this harness's own code

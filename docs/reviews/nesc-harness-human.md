@@ -103,13 +103,36 @@ frozen across one frame's four RK4 sub-stages while gravity is recomputed fresh 
 six-tool ensemble does not show. Confirmed by isolating the mechanism (zeroing `C_D` at runtime
 collapses the lateral-velocity drift to floating-point noise); confirmed again, this time at Joe's
 own request, across the remaining channels — with `C_D = 0`, `yaw`/`pitch`/`roll` also collapse to
-matching the reference exactly (not just `v_east`/`v_north`/`longitude`), while `force_x` fails for
+matching the reference exactly (not just `v_east`/`longitude`), while `force_x` fails for
 an unrelated, expected reason instead (trivially zero force vs. the reference's real nonzero drag —
 a changed scenario, not the coupling bug), which in turn drags `v_down`/`altitude`/`density`/
 `pressure`/`temperature` along with it (faster, dragless free-fall). Full account in `docs/plans/
 nesc-harness.md`'s "Known gap" section. `PLAN.md`'s new **PR 3c** (per-RK4-substage wrench
 evaluation) is the closer — not started in this worktree, needs its own ADR + Codex plan critique +
 plan review before any code.
+
+**Three further disclosures, Joe's second review round on the packet itself** (docs-only additions,
+no golden/generator/code change this round — full derivations in `docs/plans/nesc-harness.md`'s
+"Known gap" section):
+1. **`v_north`'s own band is contaminated, so "cases 4/5 never fail on `v_north`" is not verified
+   evidence the coupling spares it.** `case04`/`case05`'s `v_north` tolerance (`0.009144` m/s) is
+   exactly `3 ×` SIM 2's own known 0.01 ft/s t=0 initialization artifact (already why SIM 2 is
+   excluded from `force_x` in these two cases per Table 78 — but that exclusion was never extended
+   to velocity). This session's own earlier debug capture shows `case04`'s actual `v_north` at t=30 s
+   is `-0.0048504` m/s — larger in magnitude than the `v_east` value that *did* fail at the same
+   instant — sitting inside a tolerance ~9144x looser than a clean channel's floor. **PR 3c must
+   exclude SIM 2 from `v_north` and regenerate before a `v_north` pass means anything.**
+2. `tol_rel` (one scalar per channel per case, `k` times the worst per-sample relative spread) is
+   loose — 48–95% relative allowance — on several channels that cross zero at some point in the run
+   (`case02` `rate_p`, `case03` `roll`, `case09` `v_down`, `case04` `force_y`/`force_z`), the same
+   class of issue the yaw fix removed, just less severe (bounded, not unbounded) and not currently
+   masking a failure (`tol_abs` alone already bounds these channels meaningfully). Recommended
+   follow-up, not actioned this round: an ADR elaborating ADR-0013 to drop `tol_rel` globally, not
+   only for yaw — needs Joe's own decision, touches the accepted oracle formula.
+3. Band widths vary a lot by which participants happen to contribute to a given case, not only by
+   physics — e.g. `case01`'s `temperature` band is ~250x `case02`'s, fully explained by `case01`
+   including `sim_03` as a contributor (a real, if larger, disagreement from that one participant)
+   while `case02` has no `sim_03` file at all. Not a bug; noted so it is not mistaken for one later.
 
 **Real errors this session's own cross-checks caught before they reached a config or a committed
 golden** (worth reading as evidence the R8/independent-recomputation discipline is load-bearing, not
@@ -163,8 +186,15 @@ contract change out of scope for a check-case harness; landing 8/10 cases now ag
 whole PR for an architecture change was your explicit call, recorded 2026-09-18.
 Accepted risks: cases 4/5's frozen-wrench/spin coupling — owner: `PLAN.md`'s M2 PR 3c (not yet
 started); matters more once M3 introduces a real aircraft with sustained coupled spin+force dynamics,
-per your own framing when accepting this.
-Nonblocking follow-ups: none identified beyond PR 3c itself.
+per your own framing when accepting this. `v_north`'s own band being contaminated (SIM 2's t=0
+artifact) means PR 3c cannot yet judge whether its fix resolves `v_north` specifically — that band
+needs SIM 2 excluded and regenerating first, named as an explicit PR 3c precondition, not an open
+question left for later.
+Nonblocking follow-ups: an ADR elaborating ADR-0013 to drop `tol_rel` globally (not only for yaw) —
+`tol_abs` alone already bounds every channel measured so far, so this is not currently masking a
+failure, but several channels (`case02` `rate_p`, `case03` `roll`, `case09` `v_down`, `case04`
+`force_y`/`force_z`) carry a 48–95% relative allowance doing little discriminating work. Needs your
+own decision since it touches the accepted oracle formula.
 Architectural decisions: ADR-0014 (accepted, this candidate). PR 3c (not yet started) will need its
 own new/superseding ADR to ADR-0004 and `docs/architecture.md` §5 — not part of this candidate.
 
