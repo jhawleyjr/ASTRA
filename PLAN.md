@@ -368,7 +368,8 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         implementation step, before any code: time `nesc_case1_test.cpp` once and multiply by ten, since
         `just check`'s wall-time budget is why the gate runs locally at all and this design's addition to
         it was estimated, not measured. Accept: all ten within tolerance under every preset.
-        **In progress**: 8/10 cases pass (verified under asan; other presets pending). Cases 4/5
+        **In progress**: 8/10 cases pass, verified under all 4 presets; full gate clean
+        (`check: OK`). Cases 4/5
         (`round`/`inverse_square`, Vol II Tables 28/29's 10-30 deg/s spin combined with real `C_D`)
         found a real EOM/architecture characteristic during implementation -- the applied wrench is
         frozen across one frame's four RK4 sub-stages while gravity is recomputed fresh each
@@ -379,7 +380,13 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         in PR 3c below): cases 4/5 are `GTEST_SKIP()`ed in `nesc_cases_test.cpp`, not deleted and not
         tolerance-widened; risk (first-order force/spin coupling this frame architecture does not
         track between wrench samples; matters more once M3 introduces a real aircraft with sustained
-        coupled spin+force dynamics) recorded in the human-review packet's Decision record.
+        coupled spin+force dynamics) recorded in the human-review packet's Decision record. A Codex
+        adversarial review (2026-09-19, after re-dispatch once the quota reset) independently
+        confirmed the diagnosis and every other disclosure, and found one further gap: cases 4/5's
+        `force_y` band is not merely loose but genuinely non-discriminating (accepts an all-zero
+        signal despite a real ~25 N peak) -- fixed with a new generator-side detection check
+        ADR-0013 already required but this generator never implemented; full account in
+        `docs/reviews/nesc-harness-review.md`.
 - [ ] PR 3c — per-RK4-substage wrench evaluation, the M2 closer: recompute `WrenchSource::wrench_b()`
       (and any other per-frame environment/force input) at each of the `Integrator`'s RK4 sub-stages
       instead of once per frame, closing PR 3b's disclosed cases 4/5 gap. Needs a superseding or
@@ -388,7 +395,11 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       often and with what state every existing `WrenchSource` is called -- a real `Integrator`/`Eom`/
       `WrenchSource` contract change, not a bolt-on. One independent Codex plan critique required
       before any code (`docs/process/workflow.md`'s plan-review trigger: an expensive, unpinned
-      design). Not started in the M2 PR 3b worktree; a separate task.
+      design). Two explicit preconditions before cases 4/5's own bands can be trusted to judge a fix
+      (`docs/plans/nesc-harness.md`'s "Known gap" section): exclude SIM 2 from `v_north` (its
+      0.01 ft/s t=0 artifact currently inflates that channel's tolerance ~9144x) and resolve
+      `force_y`'s own non-discriminating band, both regenerated before judging. Not started in the
+      M2 PR 3b worktree; a separate task.
 - [ ] **M3 Notional transport** — aero + mass + turbofan plugins; trims at cruise with residual < 1e-6;
       linearized modes match design values; 300 s open-loop run reproduces the golden.
 - [ ] **M4 Lockstep** — shm transport + HAL + straight-and-level autopilot outside the sim tree; 10,000
