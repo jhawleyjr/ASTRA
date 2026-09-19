@@ -387,17 +387,45 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         signal despite a real ~25 N peak) -- fixed with a new generator-side detection check
         ADR-0013 already required but this generator never implemented; full account in
         `docs/reviews/nesc-harness-review.md`.
-- [ ] Investigate `case05`'s `altitude`/`v_down` anomaly — undiagnosed, case05-specific: the R8
-      dry-run baseline (`docs/plans/nesc-harness.md`'s "R8 dry-run baseline for PR 3c" and "Open
-      finding" tables, ADR-0015) shows `case05`'s own `altitude`/`v_down` misses at t=30 s
-      (-13.748 m / +0.801 m/s) are ~500-900x `case04`'s corresponding misses (-0.0147 m /
-      +0.0015 m/s) against the same, now-tightened, SIM-2-excluded bands. Both would have passed
-      undetected under the pre-ADR-0015 (SIM-2-contaminated) band. Cause not diagnosed; nothing
-      established connects it to PR 3c's own per-RK4-substage-wrench mechanism (that characteristic
-      is shared by both cases 4 and 5 equally per PR 3b's own diagnosis below, while this miss is
-      case05-specific and three orders of magnitude larger) -- do not assume PR 3c's fix resolves
-      it without separately checking. Evidence: `docs/plans/nesc-harness.md`'s "Open finding"
-      section. Not started; a separate task, ahead of PR 3c below.
+- [x] Investigate `case05`'s `altitude`/`v_down` anomaly — **root cause found and fixed**
+      (`docs/plans/nesc-case05-gravity-centripetal.md`, 2026-09-19): `gravity/inverse_square` never
+      supplied the centripetal term `gravity_model.hpp`'s own plumb-bob contract requires ("g_n is
+      plumb-bob gravity ... so the EOM carries no separate centripetal term" -- verified against
+      `eom.cpp`, which indeed adds none), while `earth/round rotating: true` (case05 only) meant
+      Earth's rotation should have entered gravity and did not. `gravity/wgs84_j2` already met this
+      contract (cases 1-3/6-10, untouched); `gravity/inverse_square` (cases 4/5 only) did not, at
+      all, regardless of rotation. Fix: a new `rotating` config key (bool, default false, mirroring
+      `earth/round`'s own key and its unconditional use of `astra::geodesy::kOmegaIe`) on
+      `gravity/inverse_square`; case05's config sets it `true`, case04's `false` (explicit, matching
+      its `earth.rotating: false`). Verified against two independent textbook derivations, read
+      directly this session (`docs/refs/`, main checkout): Stevens/Lewis/Johnson eq. 1.6-27 (p.33)
+      and Groves eq. 2.133 second line (p.70), which agree with each other and with `eom.cpp`'s own
+      eq. 1.7-16b match to the last sign. Confirmed by an actual dry run (skips locally lifted, asan
+      preset, restored before commit), not only arithmetic: at t=30 s, case05's `altitude`/`v_down`
+      diffs moved from -13.748 m / +0.801 m/s to **-0.014545 m / +0.0015042 m/s** -- matching
+      case04's own pre-existing miss (-0.014685 m / +0.0015207 m/s) to within ~1% -- corrected from
+      this session's own earlier "4 significant figures" overclaim per Codex adversarial review
+      ("approximately, not to four significant figures"), not merely closer to three orders of
+      magnitude away. `density`/`pressure` now pass cleanly in both cases (were case05-only FAILs).
+      No channel regressed (`docs/plans/nesc-case05-gravity-centripetal.md`'s own R4/R8 table cites
+      every channel against the prior baseline). **Supersedes, for these five channels only**,
+      `docs/plans/nesc-harness.md`'s "R8 dry-run baseline for PR 3c" table -- see that file's own
+      superseding note. Cases 4/5 remain `GTEST_SKIP()`ed (frozen-wrench characteristic, PR 3c's own
+      scope, untouched by this fix and still present equally in both cases). D2 (an earth/gravity
+      rotation-consistency check at init) deferred, tracked below.
+- [ ] Earth/gravity rotation-consistency check at init — `docs/plans/nesc-case05-gravity-centripetal.md`'s
+      D2(b), deferred (Joe, 2026-09-19: D2(a), disclosed only, for that task). Two independently-configured
+      plugins can each pass their own init-time validation while disagreeing about whether Earth rotates:
+      `gravity/inverse_square`'s new `rotating` config key (that task) must be set consistently with
+      `earth/round`'s own `rotating` by hand, with nothing enforcing it (exactly the shape of that task's
+      own case05 bug, restated as a residual, not eliminated). Covers **both** mismatch directions:
+      `earth/round rotating: true` paired with a non-rotating `gravity/inverse_square` (today's actual
+      bug), and the symmetric, currently-latent case, `gravity/wgs84_j2`'s own *unconditional* rotation
+      paired with a non-rotating Earth model (no current config does this, so it is latent, not manifest).
+      Needs a new `core/` interface path (an `EarthModel`/`GravityModel` accessor pair, mirroring the
+      existing `assumed_position_representation()`/`position_representation()` check already in
+      `Simulation::from_config`) — a real, if modest, interface change, not a `plugins/physical`-only fix;
+      plan-review before code. Not started.
 - [ ] PR 3c — per-RK4-substage wrench evaluation, the M2 closer: recompute `WrenchSource::wrench_b()`
       (and any other per-frame environment/force input) at each of the `Integrator`'s RK4 sub-stages
       instead of once per frame, closing PR 3b's disclosed cases 4/5 gap. Needs a superseding or
@@ -416,10 +444,25 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       `temperature` fail in both, `density`/`pressure`/`force_y`/`force_z` fail in case05 only, and
       `case04`'s own `force_x` now passes where it was previously grouped with case05 as failing --
       reported as PR 3c's starting point for the frozen-wrench characteristic specifically, not
-      diagnosed. **`case05`'s own `altitude`/`v_down` anomaly (above) is explicitly not part of PR
-      3c's assumed scope** -- it is undiagnosed and disproportionate to case04's equivalent miss in
-      a way the shared frozen-wrench mechanism does not obviously explain; PR 3c should not assume
-      its own fix resolves it. Not started in the M2 PR 3b worktree; a separate task.
+      diagnosed. **Superseded for `altitude`/`v_down`/`density`/`pressure`/`temperature` by the
+      gravity fix above** (`docs/plans/nesc-case05-gravity-centripetal.md`, 2026-09-19, not
+      reworded here per this file's own append-only-narrative convention): `density`/`pressure` now
+      pass cleanly in both cases; `altitude`/`v_down`/`temperature` now match `case04`'s own level
+      in both cases (`case04`'s numbers unchanged; the old table's `case04`/`case05` split for these
+      five channels no longer holds). PR 3c's own starting point for the *frozen-wrench*
+      characteristic specifically is therefore: only the three angular rates and three moments pass
+      cleanly against it in both cases; `latitude`/`altitude`/`v_down`/`temperature` fail in both at
+      case04's own (now shared) level; `longitude`/`v_east`/`yaw`/`pitch`/`roll` still fail, worse in
+      case04 than case05; `force_x`/`force_y`/`force_z` now pass cleanly in both (were case05-only
+      FAILs pre-fix) -- the full updated table is in that plan's own R4/R8 section. **Cowork lead,
+      unverified**: the residual `altitude`/`v_down` miss now common to both cases (-0.0147 m /
+      +0.0015 m/s at t=30 s) is quantitatively consistent with a zero-order hold on drag across each
+      1 ms frame -- `dv ~ (dt/2) * a_drag(30 s) ~ 0.0005 * 3.2 = +0.0016 m/s`, right sign and order
+      of magnitude. `temperature`'s FAIL (ratio ~1.49, both cases) is plausibly that same ~1.5 cm
+      altitude error propagated through the ISA lapse rate. PR 3c's own acceptance should expect
+      these two residuals to collapse as well, not only the lateral-velocity/attitude drift already
+      named above -- not verified this session, a claim for PR 3c to check, not assume. Not started
+      in the M2 PR 3b worktree; a separate task.
 - [ ] **M3 Notional transport** — aero + mass + turbofan plugins; trims at cruise with residual < 1e-6;
       linearized modes match design values; 300 s open-loop run reproduces the golden.
 - [ ] **M4 Lockstep** — shm transport + HAL + straight-and-level autopilot outside the sim tree; 10,000

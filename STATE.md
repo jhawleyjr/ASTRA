@@ -1,36 +1,39 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines; true at handoff)
 
 ## In flight
-M2 PR 3b (NESC ten-case harness), branch `worktree-m2-nesc-harness`, **committed and pushed**
-(13 commits on `main`'s `93592f16`), **draft PR** <https://github.com/jhawleyjr/ASTRA/pull/31> —
-**not marked ready**. PR body is the human-review packet (`docs/reviews/nesc-harness-human.md`),
-kept in sync via `gh api ... -F body=@file` (`gh pr edit` errors on this repo's GraphQL response, a
-`projectCards`-deprecation issue unrelated to the edit). Spec/plan approved; ADR-0014 accepted/
-written. Cases 4/5 (frozen wrench across RK4 sub-stages): decided by Joe, option (a),
-`GTEST_SKIP()`ed; `PLAN.md`'s new PR 3c is the closer, with two explicit preconditions found this
-session (`v_north`'s SIM 2 contamination, `force_y`'s non-discriminating band).
+Case05 gravity centripetal-term fix (`PLAN.md`'s "Investigate case05's altitude/v_down anomaly",
+now checked off). Worktree `m2-case05-gravity`, base `main`'s `41d2c1a` (current tip, no advance
+since). **Uncommitted working-tree diff, no branch push, no PR** — not yet authorized to commit/
+open a draft PR; that is the next decision, not assumed. Spec/plan `docs/plans/
+nesc-case05-gravity-centripetal.md`, approved by Joe 2026-09-19 (D1: `rotating` bool config key on
+`gravity/inverse_square`, mirrors `earth/round`'s own key/constant; D2: option (a), disclosed only,
+with a new unchecked `PLAN.md` follow-up item for the deferred init-time consistency check).
 
 ## Last verified result
-Adversarial review **complete** (`docs/reviews/nesc-harness-review.md`): re-dispatched 2026-09-19
-after Joe reported the Codex quota reset, `--base origin/main` against `4344fa2`. Verdict:
-needs-attention, one finding (`force_y` in cases 4/5 is non-discriminating, not just loose —
-Codex's own recomputation, independently confirmed by Claude against the committed data).
-Confirmed everything else this session disclosed: `v_north`/SIM 2 contamination, the case01/case02
-band-width explanation, the frozen-wrench diagnosis, and every frame/unit/sampling/exclusion claim.
-**Fixed same round**: `generate_nesc_band.py`'s new `check_non_discriminating()` (ADR-0013 already
-required this, never implemented before) flags exactly `case04`/`case05` `force_y` and nothing else;
-no golden data changed (diagnostic-only, verified byte-identical). Full gate re-run clean after the
-fix: `check: OK`, all 4 presets, 283 tests each. General review (separately, earlier): clean.
+Full validation and both required review passes complete and clean, this session. `./scripts/
+check-full.sh` (`just check`): `check: OK`, exit 0, run twice (first run failed `format-check` on
+the new test file, fixed with `clang-format-18 -i`, reran clean) — 288/288 tests on asan, pyright 0
+errors, pytest 32/32. All four presets: `physics.Nesc` 8 passed/2 skipped/0 failed each;
+gravity-regression suite 47/47 each. Skip-lifted local dry run (asan, restored, `git diff` confirms
+zero net change on `nesc_cases_test.cpp`): case05's altitude/v_down/temperature now at case04's own
+pre-existing miss level (within ~1%, from three orders of magnitude worse); density/pressure now
+pass cleanly in both cases; no channel regressed. Codex general review: no actionable defects.
+Codex adversarial review (tier-3 physics focus): verdict **approve**, no material findings — caught
+one accuracy overclaim in the builder's own reporting ("4 significant figures" vs. the actual ~1%
+agreement), fixed same round in the plan/`PLAN.md`/`nesc-harness.md`/packet. Full record:
+`docs/reviews/nesc-case05-gravity-centripetal-review.md`. Human-review packet prepared:
+`docs/reviews/nesc-case05-gravity-centripetal-human.md`.
 
 ## Next step
-**Joe**: read PR #31 / the packet and decide. Both required review passes are now complete and
-clean (the one finding was fixed and validated same session, not left open). Nothing outstanding on
-the review side; the only remaining question is Joe's own merge/next-step decision, plus whatever he
-wants to do with the `tol_rel`-globally-dropped ADR recommendation (not actioned, needs his call).
+**Joe**: read the packet and decide. If approved, the candidate still needs committing to the task
+branch and a draft PR opened (not done yet — this session did not commit/push without explicit
+authorization). Cases 4/5 stay `GTEST_SKIP()`ed either way (PR 3c's own separate, unstarted scope,
+unaffected by this fix). D2(b) (earth/gravity rotation-consistency check at init) is a new unchecked
+`PLAN.md` item, not started, needs its own plan review before code.
 
 ## Tried / failed
-Correction rounds: 1/2 (the `force_y` disclosure fix, this session — fixed and validated, not left
-open). Failed integrations: 0/2.
+Correction rounds: 0/2 (no findings needed a fix round; the one reporting overclaim was corrected
+inline, not a code defect). Failed integrations: 0/2.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.

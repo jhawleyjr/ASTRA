@@ -589,6 +589,20 @@ case04's, which a mechanism shared by both cases does not obviously explain. No 
 in scope here; tracked as `PLAN.md`'s own unchecked item ahead of PR 3c (evidence: this section's own
 table above), not assigned to PR 3c.
 
+**Resolved, 2026-09-19** (`docs/plans/nesc-case05-gravity-centripetal.md`; append-only narrative, not
+reworded here): `gravity/inverse_square` never supplied plumb-bob gravity's centripetal term at all,
+regardless of Earth's rotation state, violating `gravity_model.hpp`'s own contract (`gravity/wgs84_j2`
+already met it) — case05's `earth/round rotating: true` had no way to reach gravity. Fixed with a new
+`rotating` config key on `gravity/inverse_square` (mirroring `earth/round`'s own key and constant). A
+real dry run (not only arithmetic) confirmed the fix: at t=30 s, `case05`'s `altitude`/`v_down` diffs
+moved from `-13.748270 m` / `+0.800743 m/s` to `-0.014545 m` / `+0.0015042 m/s` — matching `case04`'s
+own `-0.014685 m` / `+0.0015207 m/s` to within ~1% (corrected from this session's own initial "4
+significant figures" claim, which Codex's independent adversarial-review recomputation showed was an
+overclaim — the substantive result, landing at the same order of magnitude rather than three orders of
+magnitude apart, stands), not merely closer. `density`/`pressure` also now pass cleanly in both cases
+(were case05-only FAILs against this section's own table's implied band). This table's own numbers are
+superseded for `altitude`/`v_down` by that plan's own R4/R8 section, not corrected in place here.
+
 **Band width varies a lot by which participants happen to contribute, not just by physics** (Joe,
 same review round, docs-only note): `case01`'s `temperature` `tol_abs` (`0.571` K) is ~250x
 `case02`'s (`0.00229` K) — not a generator bug. `case01` (six participants, including `sim_03`) and
