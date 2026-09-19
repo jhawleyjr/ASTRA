@@ -77,7 +77,7 @@ uncertain numerical impact is reason to raise risk, not silently downgrade it.
 | 0 — editorial | Prose, comments; no executable or policy behavior | Brief + links/consistency check; Joe's merge decision |
 | 1 — low | Small internal change with no interface/numerical effect | Brief, focused checks + full gate, independent review |
 | 2 — normal | Feature, build/CI/hook/workflow behavior, dependency proposal | Spec/plan (may share one short artifact), Joe approves intent/plan, full gate + acceptance, independent review, human packet |
-| 3 — high | `core/kernel/`, numerical `core/util/`, `plugins/physical/`, `icd/`, transport/concurrency, health behavior, goldens/tolerances | Full relevant artifacts, Joe approves spec/plan, independent numerical/adversarial review and oracles, full gate, Joe reads critical diff/tests |
+| 3 — high | `core/kernel/`, numerical `core/util/`, `plugins/physical/`, `aircraft/**/physical`, `aircraft/**/hardware`, `icd/`, transport/concurrency, health behavior, goldens/tolerances | Full relevant artifacts, Joe approves spec/plan, independent numerical/adversarial review and oracles, full gate, Joe reads critical diff/tests |
 
 New dependencies, architecture/API decisions, security, and release authority always need Joe's
 approval regardless of tier. Existing explicit authorization counts; do not request it again for

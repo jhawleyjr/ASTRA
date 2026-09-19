@@ -239,17 +239,19 @@ class PropulsionModel     : public Model { public: virtual Wrench compute(const 
 }  // namespace astra
 ```
 
+**Status:** `AeroModel`, `AeroInputs`, `PropulsionModel`, and `PropulsionInputs` above are a sketch; no concrete implementation exists yet. The notional_transport aero/propulsion plugins and any resulting change to this shape are PLAN.md M3 scope, pinned by PLAN.md M3 PR 2 and PR 3's own ADR once the control-input design is settled.
+
 `AeroInputs` carries airspeed, α, β, body rates, dynamic pressure, Mach, and the control surface positions; `PropulsionInputs` carries throttle commands, atmosphere state, and airspeed. Both are plain structs so a user's model can be unit-tested with hand-built inputs and no simulator.
 
 **Vehicle** is a composition: one mass-properties model, a list of `AeroModel`s and `PropulsionModel`s whose wrenches are summed. Multiple aero models is deliberate — a user can split wing/tail/fuselage or add a store as a separate contributor without touching the framework.
 
 **One vehicle per simulation in v1**, but the door stays open cheaply: `Simulation` holds a list of `Vehicle`s of length one, each vehicle owns its own state vector and signal namespace (`v0.aero.CL`), and the environment models are shared. Multi-vehicle (formation, targets, wake encounters) is a v2 idea Joe wants to keep possible; nothing in v1 may assume there is exactly one vehicle except the CLI's convenience defaults.
 
-**Python-defined models are allowed in v1** through nanobind trampolines on the model base classes — for prototyping an aero or propulsion model before porting it to a plugin. They run in `AsFastAsPossible` mode only; the health monitor refuses to start `RealTime` with a Python model loaded.
+**Python-defined models are allowed in v1** through nanobind trampolines on the model base classes (not yet built; not scheduled in PLAN.md M3 — see §12) — for prototyping an aero or propulsion model before porting it to a plugin. They run in `AsFastAsPossible` mode only; the health monitor refuses to start `RealTime` with a Python model loaded.
 
 **Control inputs in v1.** Surface positions and throttle come straight from the ICD command frame with an ideal actuator (commanded = achieved). `ActuatorModel` slots in between later without changing `AeroInputs`.
 
-**Reference plugins shipped under `plugins/`:** `physical/`: ISA-1976 atmosphere; constant-uniform wind and Dryden turbulence (MIL-F-8785C, seeded); gravity: constant, inverse-square, WGS-84 with J2; Earth: flat, round-nonrotating, WGS-84 rotating. `sim/`: loopback and shm transports. **Shipped under `aircraft/notional_transport/`:** constant mass properties, linear-coefficient aero with stability and control derivatives (a made-up but self-consistent twin-jet, clearly labeled notional), and a simple thrust-lapse turbofan. `aircraft/_template/` holds stripped-down versions of the same three with the numbers zeroed and marked `TODO`, so a new aircraft starts from something that compiles and trims. Integrators (Euler for tests, RK4 default) live in the core, not as plugins — they are part of the kernel's contract with the state vector. The framework builds its own reference models through exactly the same `astra_add_plugin` path a user's models take, so the on-ramp is exercised by every build.
+**Reference plugins shipped under `plugins/`:** `physical/`: ISA-1976 atmosphere; constant-uniform wind and Dryden turbulence (MIL-F-8785C, seeded); gravity: constant, inverse-square, WGS-84 with J2; Earth: flat, round-nonrotating, WGS-84 rotating. `sim/`: loopback and shm transports (PLAN.md M4 scope, not yet built). **PLAN.md M3 scope, not yet built, under `aircraft/notional_transport/`:** constant mass properties, linear-coefficient aero with stability and control derivatives (a made-up but self-consistent twin-jet, clearly labeled notional), and a simple thrust-lapse turbofan implementing `AeroModel`/`PropulsionModel` above. `aircraft/_template/` (also not yet built) holds stripped-down versions of the same three with the numbers zeroed and marked `TODO`, so a new aircraft starts from something that compiles and trims. Integrators (Euler for tests, RK4 default) live in the core, not as plugins — they are part of the kernel's contract with the state vector. The framework builds its own reference models through exactly the same `astra_add_plugin` path a user's models take, so the on-ramp is exercised by every build.
 
 ## 8. Integration
 
@@ -257,7 +259,7 @@ class PropulsionModel     : public Model { public: virtual Wrench compute(const 
 
 **Written in-house, not Boost.Odeint.** Fixed-step RK4 over a 13-vector is about thirty lines, and owning it buys three things that matter here: a guarantee of zero heap allocation in the step (Odeint's steppers manage temporaries through resizers that are easy to get subtly wrong with Eigen types), a convergence-order test that verifies *our* code rather than trusting a dependency, and no template-heavy dependency between the kernel and Python bindings. Boost is in the 24.04 repos (1.83, header-only Odeint), so if the analysis tools later want adaptive steppers (Dormand–Prince for a fast "what does this trajectory look like" preview, symplectic for long-duration orbital checks) they wrap Odeint on the Python-facing side without touching the simulator loop. *ADR-0004* — rejected for the main loop: Odeint; RK45 adaptive (variable step breaks the fixed-rate contract with the flight software); symplectic (irrelevant for a damped aero system).
 
-The derivative function is exposed to Python as `Simulation.derivative(state, inputs)` so trim and linearization can be done by finite differences without a second implementation of the EOM.
+The derivative function is exposed to Python as `Simulation.derivative(state, inputs)` (M3 scope, not yet built; the exact signature is settled by PLAN.md M3 PR 5) so trim and linearization can be done by finite differences without a second implementation of the EOM.
 
 ## 9. Signals and logging
 
@@ -322,6 +324,8 @@ Fixed-width types, 8-byte natural alignment, sizes asserted, version in every fr
 
 ## 12. Python layer
 
+**Status:** today `astra._core` binds only the plugin loader/descriptor types, `StepContext`, `Model`, and the state-vector helpers. `Simulation`, `Config`, `SignalRegistry` views, and the derivative function are PLAN.md M3 PR 5 scope; `astra.trim` is PLAN.md M3 PR 6; `astra.linearize` is PLAN.md M3 PR 7; model-base trampolines are not scheduled in M3; `astra.montecarlo`, `astra.scenario`, and `astra.fgbridge` are M5.
+
 - **`astra._core`** — nanobind 3.x module exposing `Simulation`, `Config`, the model base classes (with trampolines so a user can prototype an aero model in Python before porting it), `SignalRegistry` views, and the derivative function. Built with scikit-build-core; `.pyi` stubs generated by `nanobind_add_stub` at build so pyright and the LSP see real types.
 - **`astra.trim`** — solve for surface/throttle/α/θ that zero the derivative at a flight condition (`scipy.optimize.root` on `Simulation.derivative`).
 - **`astra.linearize`** — central-difference A/B matrices about a trim point; returns state-space and the classic longitudinal/lateral modes (short period, phugoid, Dutch roll, roll, spiral) with frequencies and damping. M3's acceptance compares these to the notional transport's design values.
@@ -331,7 +335,9 @@ Fixed-width types, 8-byte natural alignment, sizes asserted, version in every fr
 
 ## 13. Configuration
 
-One `Config` tree, loaded from YAML (`yaml-cpp`, apt) or built from a Python dict, validated at init, frozen for the run, and copied into the log. Every selectable component is named by its plugin path, so a run's composition — which Earth, which engine, which IMU — is entirely a configuration choice over the plugins the build produced:
+One `Config` tree, loaded from YAML (`yaml-cpp`, apt) or built from a Python dict, validated at init, frozen for the run, and copied into the log. Every selectable component is named by its plugin path, so a run's composition — which Earth, which engine, which IMU — is entirely a configuration choice over the plugins the build produced.
+
+The example below is illustrative of the intended shape, not the current schema — `Simulation::from_config` reads vehicle wrench sources from a flat `vehicle.models` list today; the example is rewritten when PLAN.md M3 PR 1 lands the first real aircraft config.
 
 ```yaml
 # aircraft/notional_transport/configs/cruise.yaml
@@ -401,7 +407,7 @@ The monitors are themselves testable: `tests/unit/health/` feeds a NaN, a broken
 | M0 | Core and one dummy plugin build under all presets; the loader loads the dummy by its plugin path, rejects a bad `core_api_version`, and the static-plugins build runs the same test without `dlopen`; unit test scaffold; hooks fire; LSPs resolve symbols; GitHub Actions runs `just check` on a pull request against an `ubuntu-24.04` runner and the branch protection requires it; ADR-0001…0011 accepted; `icd/` static asserts hold under both clang-18 and `gcc -std=c11` |
 | M1 | Torque-free rigid body: energy and angular momentum drift < 1e-9 relative over 1000 s; quaternion norm within 1e-12; ballistic arc matches closed form; RK4 vs Euler convergence order demonstrated; zero allocations over 1000 frames; health monitor halts on an injected NaN and on a broken quaternion, naming the source |
 | M2 | NASA check cases 1–10 (dropped/tumbling sphere and brick, flat / round / rotating / WGS-84 Earth, steady and varying wind) within the tolerances the NESC data provides; ISA table points exact; Dryden PSD matches spec within statistical bounds |
-| M3 | Notional transport trims at cruise with residual < 1e-6; linearized modes match design values; a 300 s open-loop run reproduces the golden trajectory |
+| M3 | Notional transport trims at cruise (10,000 m, 230 m/s TAS) with residual < 1e-6; linearized modes match design values, each mode against its own tolerance; a 300 s open-loop run matches its own frozen regression trajectory, independently cross-checked against the linearized model's phugoid prediction |
 | M4 | Autopilot process: 10,000 lockstep exchanges, zero missed; altitude within ±30 m, heading within ±2° under light Dryden; bit-identical log across two runs; killing the autopilot mid-run produces a transport-health halt within one timeout, not a hang or a garbage trajectory |
 | M5 | Scenario harness runs every YAML in `tests/scenarios/`; Monte Carlo of 64 dispersed runs completes; FlightGear receives valid packets (checked by a packet decoder test, not by launching FlightGear) |
 
