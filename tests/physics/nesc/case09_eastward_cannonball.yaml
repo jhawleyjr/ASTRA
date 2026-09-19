@@ -1,0 +1,33 @@
+# NASA/TM-2015-218675 Vol II Table 33, atmospheric check-case 9 ("eastward ballistic flight of a
+# sphere"): WGS-84 rotating geodesy, J2 gravitation, US 1976 STD atmosphere, no wind, C_D = 0.1 (Vol II
+# Table 2 -- NOT dragless despite the "cannonball" framing; nesc_aero loaded; docs/plans/
+# nesc-harness.md's own cross-check corrected an earlier draft's wrong assumption here). Launched from
+# sea level at the Equator/Prime Meridian intersection, heading east (yaw 90 deg), initial NED velocity
+# [north=0, east=1000, down=-1000] ft/s (sqrt(2000) ft/s at 45 deg from vertical) -- converted to body
+# axes at this initial yaw-90 attitude: v_b = [304.8, 0.0, -304.8] m/s. omega_b is corrected to inertial
+# (Table 33's own "zero angular rate relative to launch platform" plus the Earth-rotation-rate
+# projection onto this case's own initial body frame, at yaw 90 deg and the equator): [0, -omega_ie, 0].
+sim:
+  dt: 0.001
+  frames: 30000
+vehicle:
+  models:
+    - plugin: tests/plugins/nesc_aero
+      s: 0.018241465452480003 # 0.1963495 ft^2 (Vol II Table 2)
+      cd: 0.1
+physical:
+  earth: plugins/physical/earth/wgs84_rotating
+  gravity: plugins/physical/gravity/wgs84_j2
+  atmosphere: plugins/physical/atmosphere/isa1976
+  mass:
+    plugin: plugins/physical/mass/constant
+    mass: 14.593902937206364 # 1.0 slug (Vol II Table 1)
+    ixx: 4.880944613993042 # 3.6 slug-ft^2
+    iyy: 4.880944613993042
+    izz: 4.880944613993042
+initial:
+  state:
+    p_n: [0.0, 0.0, 0.0]
+    v_b: [304.8, 0.0, -304.8] # NED [0, 1000, -1000] ft/s rotated into body axes at yaw = 90 deg
+    euler_nb: [1.5707963267948966, 0.0, 0.0] # yaw 90 deg, pitch 0, roll 0
+    omega_b: [0.0, -7.292115e-05, 0.0] # Earth rotation rate projected into this initial body frame

@@ -1,0 +1,36 @@
+# NASA/TM-2015-218675 Vol II Table 32, atmospheric check-case 8 ("sphere dropping through a varying
+# wind field"): identical to case 7, but the wind varies linearly with altitude
+# (V_wind = 0.003*h_ft - 20 ft/s from west; h is height MSL in ft, Vol II's own formula) instead of
+# being steady. plugins/physical/wind/table's points are the SAME linear formula evaluated at 0 ft and
+# 40,000 ft (PLAN.md's settled choice, not 0/30,000): the case starts exactly on a 30,000 ft node and
+# falls only ~4,178.5 m (~13,707 ft) over 30 s, so 0/40,000 keeps the whole flown range strictly
+# interior to the table and the clamp-at-endpoints policy unexercised.
+#   h=0 ft:      V_wind = 0.003*0 - 20 = -20 ft/s from west = 20 ft/s from EAST -> east component -6.096 m/s
+#   h=40,000 ft: V_wind = 0.003*40000 - 20 = 100 ft/s from west -> east component +30.48 m/s
+sim:
+  dt: 0.001
+  frames: 30000
+vehicle:
+  models:
+    - plugin: tests/plugins/nesc_aero
+      s: 0.018241465452480003 # 0.1963495 ft^2 (Vol II Table 2)
+      cd: 0.1
+      requires_wind: true
+physical:
+  earth: plugins/physical/earth/wgs84_rotating
+  gravity: plugins/physical/gravity/wgs84_j2
+  atmosphere: plugins/physical/atmosphere/isa1976
+  wind:
+    plugin: plugins/physical/wind/table
+    points:
+      - { altitude: 0.0, north: 0.0, east: -6.096, down: 0.0 }
+      - { altitude: 12192.0, north: 0.0, east: 30.48, down: 0.0 } # 40,000 ft
+  mass:
+    plugin: plugins/physical/mass/constant
+    mass: 14.593902937206364 # 1.0 slug (Vol II Table 1)
+    ixx: 4.880944613993042 # 3.6 slug-ft^2
+    iyy: 4.880944613993042
+    izz: 4.880944613993042
+initial:
+  state:
+    p_n: [0.0, 0.0, 9144.0]

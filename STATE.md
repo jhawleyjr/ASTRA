@@ -1,35 +1,36 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines; true at handoff)
 
 ## In flight
-Workflow-v3, branch `workflow-v3`, main checkout, committed through `389ac1d` (pushed). Joe
-reviewed the human-review packet and, on 2026-09-18, **accepted the three remaining
-guard-oracle.sh findings (R-006/R-009's pipeline-comment-with-`;`, R-008/R-011's `xargs`-target
-and sed address-modifier gaps) plus the one disclosed false block (`/w probe/p`) as documented
-residual risk** — recorded verbatim in `docs/reviews/workflow-v3-review.md`'s "Joe's 2026-09-18
-acceptance decision" section and the human-review packet's Decision record (`State: approved`,
-findings-disposition scope only). Per his explicit instruction, no finding's `Status:` was
-changed to `fixed`/`verified`; each open finding is annotated "accepted as documented residual
-risk" in place. No guard-oracle.sh changes, Codex dispatches, or full gate runs were made
-recording this. **Draft PR opened**: `main` ← `workflow-v3`,
-<https://github.com/jhawleyjr/ASTRA/pull/30>, per Joe's "prepare the workflow PR for my final
-merge decision." Not merged; not marked ready-for-review (stays draft until Joe says
-otherwise).
+M2 PR 3b (NESC ten-case harness), branch `worktree-m2-nesc-harness`, **committed and pushed**
+(13 commits on `main`'s `93592f16`), **draft PR** <https://github.com/jhawleyjr/ASTRA/pull/31> —
+**not marked ready**. PR body is the human-review packet (`docs/reviews/nesc-harness-human.md`),
+kept in sync via `gh api ... -F body=@file` (`gh pr edit` errors on this repo's GraphQL response, a
+`projectCards`-deprecation issue unrelated to the edit). Spec/plan approved; ADR-0014 accepted/
+written. Cases 4/5 (frozen wrench across RK4 sub-stages): decided by Joe, option (a),
+`GTEST_SKIP()`ed; `PLAN.md`'s new PR 3c is the closer, with two explicit preconditions found this
+session (`v_north`'s SIM 2 contamination, `force_y`'s non-discriminating band).
 
 ## Last verified result
-Unchanged since Round 7: `just hooks-test` 144/144, `just docs-check` OK, full local gate on
-`4956c13` `EXITSTATUS=0`/`check: OK`/274×4 (`docs/reviews/evidence/round7-full-gate.log`), four
-Codex passes across the batch. This session's own edits (recording the acceptance) were
-`docs-check`-validated only, per Joe's explicit "no further ... full-gate runs" instruction.
+Adversarial review **complete** (`docs/reviews/nesc-harness-review.md`): re-dispatched 2026-09-19
+after Joe reported the Codex quota reset, `--base origin/main` against `4344fa2`. Verdict:
+needs-attention, one finding (`force_y` in cases 4/5 is non-discriminating, not just loose —
+Codex's own recomputation, independently confirmed by Claude against the committed data).
+Confirmed everything else this session disclosed: `v_north`/SIM 2 contamination, the case01/case02
+band-width explanation, the frozen-wrench diagnosis, and every frame/unit/sampling/exclusion claim.
+**Fixed same round**: `generate_nesc_band.py`'s new `check_non_discriminating()` (ADR-0013 already
+required this, never implemented before) flags exactly `case04`/`case05` `force_y` and nothing else;
+no golden data changed (diagnostic-only, verified byte-identical). Full gate re-run clean after the
+fix: `check: OK`, all 4 presets, 283 tests each. General review (separately, earlier): clean.
 
 ## Next step
-Joe's merge decision on PR #30. Nothing further for Claude to drive autonomously on this
-candidate. Do not begin `PLAN.md`'s M2 PR 3b until after that decision.
+**Joe**: read PR #31 / the packet and decide. Both required review passes are now complete and
+clean (the one finding was fixed and validated same session, not left open). Nothing outstanding on
+the review side; the only remaining question is Joe's own merge/next-step decision, plus whatever he
+wants to do with the `tol_rel`-globally-dropped ADR recommendation (not actioned, needs his call).
 
 ## Tried / failed
-Correction rounds: 2/2 — budget exhausted (unchanged; see `workflow-v3-review.md`'s
-Completion). Rounds 5-7 were the one Joe-authorized batch; closed by Codex's own conclusion and
-now formally closed by Joe's 2026-09-18 risk acceptance — no further rounds pending or expected
-for this candidate. Failed integrations: 0/2.
+Correction rounds: 1/2 (the `force_y` disclosure fix, this session — fixed and validated, not left
+open). Failed integrations: 0/2.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.

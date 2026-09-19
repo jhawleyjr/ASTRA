@@ -1,0 +1,32 @@
+# NASA/TM-2015-218675 Vol II Table 31, atmospheric check-case 7 ("sphere dropping through a steady wind
+# field"): identical to case 6, plus a constant 20 ft/s wind from due west (wind/uniform, blowing
+# eastward -> wind_n east component +6.096 m/s). Aside from the small roll-rate bias, the sphere has no
+# initial motion relative to the Earth's surface, so it encounters a sideways airspeed component at
+# t=0 (Vol II's own C.1.7 narrative).
+sim:
+  dt: 0.001
+  frames: 30000
+vehicle:
+  models:
+    - plugin: tests/plugins/nesc_aero
+      s: 0.018241465452480003 # 0.1963495 ft^2 (Vol II Table 2)
+      cd: 0.1
+      requires_wind: true
+physical:
+  earth: plugins/physical/earth/wgs84_rotating
+  gravity: plugins/physical/gravity/wgs84_j2
+  atmosphere: plugins/physical/atmosphere/isa1976
+  wind:
+    plugin: plugins/physical/wind/uniform
+    north: 0.0
+    east: 6.096 # 20 ft/s from due west
+    down: 0.0
+  mass:
+    plugin: plugins/physical/mass/constant
+    mass: 14.593902937206364 # 1.0 slug (Vol II Table 1)
+    ixx: 4.880944613993042 # 3.6 slug-ft^2
+    iyy: 4.880944613993042
+    izz: 4.880944613993042
+initial:
+  state:
+    p_n: [0.0, 0.0, 9144.0]

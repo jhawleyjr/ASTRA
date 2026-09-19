@@ -1,0 +1,36 @@
+# NASA/TM-2015-218675 Vol II Table 28, atmospheric check-case 4 ("sphere dropping over non-rotating,
+# spherical Earth"): round non-rotating geodesy, inverse-square gravitation, US 1976 STD atmosphere, no
+# wind, C_D = 0.1 (Vol II Table 2, nesc_aero loaded). radius/g0 are Vol II Table 73's own
+# atmospheric-check-case sphere-Earth values, NOT inverse_square's defaults (docs/plans/
+# nesc-harness.md's own "Config gotchas": the defaults give standard gravity/a WGS-84-like radius,
+# not this scenario's g0 = GM/radius^2 = 9.820228349842926 m/s^2). Initial rotation rate here is
+# already inertial (Table 28's own printed [10,20,30] deg/s needs no Earth-relative correction: this
+# Earth model does not rotate, so omega_ie is identically zero).
+sim:
+  dt: 0.001
+  frames: 30000
+vehicle:
+  models:
+    - plugin: tests/plugins/nesc_aero
+      s: 0.018241465452480003 # 0.1963495 ft^2 (Vol II Table 2)
+      cd: 0.1
+physical:
+  earth:
+    plugin: plugins/physical/earth/round
+    radius: 6371007.1809 # Vol II Table 73, atmospheric check-cases sphere-Earth radius
+    rotating: false
+  gravity:
+    plugin: plugins/physical/gravity/inverse_square
+    radius: 6371007.1809
+    g0: 9.820228349842926 # = GM/radius^2, GM = 3.986004418e14 m^3/s^2 (Vol II Table 73)
+  atmosphere: plugins/physical/atmosphere/isa1976
+  mass:
+    plugin: plugins/physical/mass/constant
+    mass: 14.593902937206364 # 1.0 slug (Vol II Table 1)
+    ixx: 4.880944613993042 # 3.6 slug-ft^2
+    iyy: 4.880944613993042
+    izz: 4.880944613993042
+initial:
+  state:
+    p_n: [0.0, 0.0, 9144.0]
+    omega_b: [0.17453292519943295, 0.3490658503988659, 0.5235987755982988] # 10, 20, 30 deg/s

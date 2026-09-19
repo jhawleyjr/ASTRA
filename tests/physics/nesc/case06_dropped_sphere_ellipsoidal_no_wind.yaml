@@ -1,0 +1,27 @@
+# NASA/TM-2015-218675 Vol II Table 30, atmospheric check-case 6 ("sphere dropping over rotating,
+# ellipsoidal Earth"): a repeat of check-case 1's scenario (WGS-84 rotating geodesy, J2 gravitation, same
+# position/attitude/zero-inertial-rotation), except this sphere has a nonzero drag coefficient
+# (C_D = 0.1, Vol II Table 2) -- verifies the ellipsoidal-Earth effect against cases 4/5's spherical
+# approximation. omega_b = [0,0,0]: same "zero inertial rotation" derivation as case 1's own golden
+# header (Table 30's printed -0.004178073 deg/s roll rate is the Earth-relative rate that implies).
+sim:
+  dt: 0.001
+  frames: 30000
+vehicle:
+  models:
+    - plugin: tests/plugins/nesc_aero
+      s: 0.018241465452480003 # 0.1963495 ft^2 (Vol II Table 2)
+      cd: 0.1
+physical:
+  earth: plugins/physical/earth/wgs84_rotating
+  gravity: plugins/physical/gravity/wgs84_j2
+  atmosphere: plugins/physical/atmosphere/isa1976
+  mass:
+    plugin: plugins/physical/mass/constant
+    mass: 14.593902937206364 # 1.0 slug (Vol II Table 1)
+    ixx: 4.880944613993042 # 3.6 slug-ft^2
+    iyy: 4.880944613993042
+    izz: 4.880944613993042
+initial:
+  state:
+    p_n: [0.0, 0.0, 9144.0]
