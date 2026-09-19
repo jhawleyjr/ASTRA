@@ -79,11 +79,13 @@ void expect_in_band(double actual, const nesc::ChannelBand& band, int sample, bo
   if (is_yaw) {
     diff = wrap_to_pi(diff);
   }
-  const double tolerance = band.tol_abs + band.tol_rel * std::abs(band.reference[sample]);
+  // ADR-0015: the pass criterion is |actual - reference| <= tol_abs alone -- there is no
+  // relative term.
+  const double tolerance = band.tol_abs;
   EXPECT_LE(std::abs(diff), tolerance)
       << label << " sample " << sample << " (t=" << (sample * kSampleDt) << " s): actual=" << actual
       << " reference=" << band.reference[sample] << " tol_abs=" << band.tol_abs
-      << " tol_rel=" << band.tol_rel << " tolerance=" << tolerance << " diff=" << diff;
+      << " tolerance=" << tolerance << " diff=" << diff;
 }
 
 struct AeroSignals {

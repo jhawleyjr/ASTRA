@@ -508,12 +508,86 @@ exclusion above**: `force_y` in cases 4/5 needs its own resolution (likely the s
 trusted to catch a real regression in those two cases — recorded as a second, explicit PR 3c
 precondition, not folded into "loose but fine" the way this session's own first pass wrongly did.
 
-**Follow-up recommended, not actioned this round**: a new ADR elaborating ADR-0013 to drop `tol_rel`
-globally (not just for yaw), relying on `tol_abs` + ADR-0014's floor alone for every channel — would
-have prevented needing `check_non_discriminating()` as a separate detection mechanism in the first
-place, at the cost of a real (if reference-independent) tolerance for these zero-crossing channels.
-Needs Joe's own decision, since it touches the accepted oracle formula, not something to fold into
-this PR's own scope.
+**Actioned, 2026-09-19, by ADR-0015** (`docs/decisions/0015-nesc-tol-rel-drop.md`,
+`docs/plans/nesc-tol-rel-removal.md`): the follow-up recommended above — dropping `tol_rel` globally,
+relying on `tol_abs` + ADR-0014's floor alone for every channel — is exactly what ADR-0015 does, so
+the paragraph above is superseded rather than reworded here (append-only narrative). It also folds in
+both of this section's own two named PR 3c preconditions, revised from what either of them originally
+proposed: `v_north`'s SIM 2 artifact and `force_y`'s non-discriminating band both turned out to be one
+instance of a much broader SIM 2 divergence specific to cases 4 and 5 (a full per-channel with/without-
+SIM-2 survey found SIM 2 dominating the spread of nearly every compared channel in these two cases —
+`altitude`, `v_down`, all three rates, `latitude`, `force_y`/`force_z`, and every atmosphere channel —
+not only `v_north` and `force_y`). ADR-0015 therefore excludes SIM 2 **entirely** from cases 4 and 5
+(one rule, every channel), not channel by channel: a per-channel exclusion list would have produced
+mutually inconsistent references within one `CaseBand` (see ADR-0015's own rejected-alternatives
+section). `force_y`'s "own resolution" from the paragraph above is this same case-wide exclusion, not
+a separate participant-set investigation. `check_non_discriminating()` is retained (now a permanent,
+currently-unreachable structural-invariant check, per ADR-0015) rather than removed as dead code.
+
+**R8 dry-run baseline for PR 3c** (`docs/plans/nesc-tol-rel-removal.md`'s own acceptance item,
+2026-09-19): with both PR 3c preconditions now resolved, a non-gating dry run — `GTEST_SKIP()`
+temporarily lifted for cases 4/5 only, one preset (`asan`), never committed, skips restored
+immediately after capture — measured `max(|diff|) / tol_abs` per channel against the newly-tightened,
+SIM-2-excluded bands. This is PR 3c's own starting baseline, not a claim about this PR's own
+acceptance (cases 4/5 stay `GTEST_SKIP()`ed in the committed candidate; this table does not gate it):
+
+| Channel | case04 ratio | case04 | case05 ratio | case05 |
+|---|---|---|---|---|
+| latitude | 5539.05 | FAIL | 5539.17 | FAIL |
+| longitude | 2768.39 | FAIL | 1740.06 | FAIL |
+| altitude | 1.50 | FAIL | 1408.52 | FAIL |
+| v_north | 4.850e6 | FAIL | 4.851e6 | FAIL |
+| v_east | 2.424e6 | FAIL | 1287.02 | FAIL |
+| v_down | 1.31 | FAIL | 694.39 | FAIL |
+| yaw | 7.32 | FAIL | 4.45 | FAIL |
+| pitch | 20.67 | FAIL | 10.17 | FAIL |
+| roll | 17.27 | FAIL | 9.80 | FAIL |
+| rate_p | 0.084 | pass | 0.111 | pass |
+| rate_q | 0.111 | pass | 0.111 | pass |
+| rate_r | 0.111 | pass | 0.111 | pass |
+| force_x | 0.798 | pass | 221.61 | FAIL |
+| force_y | 0.935 | pass | 192.03 | FAIL |
+| force_z | 0.418 | pass | 273.89 | FAIL |
+| moment_l/m/n | 0 | pass | 0 | pass |
+| density | 0.114 | pass | 37.45 | FAIL |
+| pressure | 0.157 | pass | 53.57 | FAIL |
+| temperature | 1.49 | FAIL | 1405.84 | FAIL |
+
+**Reported plainly, not diagnosed here**: this baseline is far broader than the previously-disclosed
+"`v_east`/`longitude`/`yaw`/`pitch`/`roll`/`force_x`" failure set above — `altitude`, `v_down`,
+`latitude`, and `temperature` now also fail in *both* cases; `density`, `pressure`, `force_y`, and
+`force_z` fail in case05 specifically (not case04); only the three angular rates and the three
+moments pass cleanly in both cases. **`case04`'s own `force_x` now passes** (ratio 0.798) where this
+section's earlier narrative grouped it with case05 as a failing channel ("growing to ~0.7–0.8%
+relative error by t=30 s") — case05's own force_x ratio (221.6) is consistent with that original
+figure's order of magnitude; case04's is not. Most of this baseline is PR 3c's own starting point for
+judging its per-RK4-substage fix, since the frozen-wrench characteristic PR 3b already diagnosed is
+shared by both cases 4 and 5 equally. **`case05`'s own `altitude`/`v_down` misses are the one
+exception** — see the next paragraph: they are three orders of magnitude larger than `case04`'s
+equivalent misses, undiagnosed, and not assumed to be explained or resolved by PR 3c's own fix;
+tracked as `PLAN.md`'s own separate, unchecked item ahead of PR 3c, not folded into PR 3c's scope.
+
+**Open finding, tracked as its own separate `PLAN.md` item, not PR 3c's** (Joe's review of this
+baseline, 2026-09-19): `case05`'s own `altitude` and `v_down` misses are roughly three orders of
+magnitude larger than `case04`'s corresponding misses, at the same final sample (t=30 s, sample 300,
+the dry run's own captured evidence):
+
+| Channel | case04 diff (m or m/s) | case05 diff | Ratio |
+|---|---|---|---|
+| altitude | -0.014685 m | -13.748270 m | ~936x |
+| v_down | +0.0015207 m/s | +0.800743 m/s | ~527x |
+
+Both of `case05`'s misses would have passed undetected under the pre-ADR-0015 (SIM-2-contaminated)
+band: its old `altitude` `tol_abs` was `16.61` m (>> 13.75 m) and its old `v_down` `tol_abs` was
+`0.976` m/s (>> 0.80 m/s) — the same "hidden by an inflated tolerance" pattern this session's own
+`v_north` disclosure already established, now shown on two more channels, and specific to `case05`
+(the rotating-Earth case) rather than shared evenly with `case04`. **Cause undiagnosed; nothing
+established connects it to PR 3c's own per-RK4-substage-wrench mechanism** — that characteristic
+(applied wrench frozen across one frame's RK4 sub-stages) is common to both cases 4 and 5 equally
+per PR 3b's own diagnosis above, while this miss is case05-specific and ~500-900x larger than
+case04's, which a mechanism shared by both cases does not obviously explain. No diagnosis or fix is
+in scope here; tracked as `PLAN.md`'s own unchecked item ahead of PR 3c (evidence: this section's own
+table above), not assigned to PR 3c.
 
 **Band width varies a lot by which participants happen to contribute, not just by physics** (Joe,
 same review round, docs-only note): `case01`'s `temperature` `tol_abs` (`0.571` K) is ~250x
