@@ -96,3 +96,13 @@ docs-check:
 
 clean:
     rm -rf build compile_commands.json python/compile_commands.json python/astra/_core.pyi
+
+# `cp -r aircraft/_template aircraft/<name>` plus fixing the copied configs' plugin paths
+# (docs/architecture.md §18, PLAN.md M3 PR 1). scripts/new-aircraft.sh resolves its own repo root
+# by location, not `git rev-parse`, so this writes into whichever worktree invoked it. quote(name)
+# (not a bare {{name}}) is required: `just` substitutes recipe parameters into the command text
+# before bash ever parses it, so an unquoted name like '$(cmd)x' would have `cmd` executed by this
+# recipe's own shell before new-aircraft.sh's own validation ever runs (Codex adversarial review,
+# PLAN.md M3 PR 1). quote() single-quote-escapes the value so it reaches the script as inert text.
+new-aircraft name:
+    ./scripts/new-aircraft.sh {{quote(name)}}

@@ -494,6 +494,24 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       the atmosphere plugin). Not fixed, not exercised by any of the ten NESC cases (none crosses an
       atmosphere boundary mid-run). Needs its own plan-reviewed decision, not a bolt-on, the same
       posture ADR-0012's own gravity/Earth instance took. Not started.
+- [ ] `plugins/physical/mass/constant`'s `ixy`/`ixz`/`iyz` config keys have no documented sign
+      convention (M3 PR 1 review): the plugin places them directly, unnegated, into the inertia
+      tensor's off-diagonal entries, which only matches the standard aerospace convention
+      (tensor entry = `-integral(x*z*dm)`) if the config value is already meant as that negated
+      tensor entry rather than the product of inertia itself. `aircraft/_template`'s and
+      `aircraft/notional_transport`'s own `physical/mass` plugins (M3 PR 1) document and use the
+      product-of-inertia convention explicitly instead; the shared plugin's keys are unchanged and
+      still undocumented. Not started.
+- [ ] `cmake/AstraPlugin.cmake`'s `astra_finalize_plugins()` hardcodes which test executables get a
+      plugin build-order dependency (`astra_unit_tests`, `astra_physics_tests`, and — since M3
+      PR 1 — `astra_notional_transport_mass_test`, `astra_template_mass_test`), by explicit design
+      ("listed explicitly ... so a new test target opts in", that function's own comment). This
+      means a new aircraft with its own dedicated test executable needs a framework edit
+      (`cmake/AstraPlugin.cmake` itself) to build correctly from clean, contradicting §18's on-ramp
+      story ("copy `_template`, edit, rebuild — nothing in the framework is edited"). Wants an
+      `astra_add_plugin_test()` helper (mirroring `astra_add_plugin()`'s own one-line
+      self-registration) so a new aircraft's own `CMakeLists.txt` can opt its test in without
+      touching `cmake/AstraPlugin.cmake`. Not started.
 - [ ] **M3 Notional transport** — aero + mass + turbofan plugins; trims at cruise (10,000 m, 230 m/s
       TAS, ADR-0002 SI) with residual < 1e-6 (norm TBD, PR 6); linearized modes match design values,
       each mode against its own tolerance; a 300 s open-loop run matches its own frozen regression
@@ -558,11 +576,14 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         Tier 3. Plan critique: likely one combined pass with PR 2 (same interface question) -- confirm
         once PR 2's plan draft exists.
   - [ ] PR 4 — `aircraft/notional_transport/physical/aero` (linear-coefficient aero) and
-        `hardware/propulsion/turbofan` (thrust lapse), O2/O3's numbers; engine-station offset from CG
-        lives in the turbofan plugin's own config. Accept: `tests/physics/notional_transport/`
-        exercises `AeroInputs`/`PropulsionInputs` directly at 2-3 hand-picked conditions against O2/O3's
-        sourced values to stated tolerance. Binding ADRs: ADR-0001, ADR-0002, PR 2/3's ADR. Tier 3.
-        Plan critique: no -- mechanism already pinned by PR 2/3.
+        `hardware/propulsion/turbofan` (thrust lapse), O2/O3's numbers transcribed from
+        `docs/refs/aircrafts/737.xml`'s `<aerodynamics>`/`<propulsion>` blocks (same source as O1's
+        mass properties, PR 1 -- transcription, not an independently proposed set of coefficients);
+        engine-station offset from CG lives in the turbofan plugin's own config. Accept:
+        `tests/physics/notional_transport/` exercises `AeroInputs`/`PropulsionInputs` directly at
+        2-3 hand-picked conditions against O2/O3's sourced values to stated tolerance. Binding
+        ADRs: ADR-0001, ADR-0002, PR 2/3's ADR. Tier 3. Plan critique: no -- mechanism already
+        pinned by PR 2/3.
   - [ ] PR 5 — nanobind: `Simulation`, `Config` from dict, `SignalRegistry` read views, PR 2's write
         seam (`sim.write_input(name, value)`, D7), and `Simulation::derivative(state)` -- the same
         derivative functor `Vehicle::integrate` hands the integrator (fresh atmosphere at the given
@@ -582,10 +603,15 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         Depends on PR 5. Accept: `pytest python/tests/test_trim.py` -- residual under D8's definition
         < 1e-6 at cruise. Binding ADRs: none new. Tier 2. Plan critique: no.
   - [ ] PR 7 — `astra.linearize`: central-difference A/B about trim; short period/phugoid/Dutch
-        roll/roll/spiral vs. O4. Depends on PR 6. Accept: `pytest python/tests/test_linearize.py`
-        within a per-mode tolerance (tight for short period/phugoid, wider for the lateral three --
-        approximations are poorer there per O4). Binding ADRs: none new. Tier 2/3. Plan critique: no,
-        but O4's lateral-mode source must be settled first.
+        roll/roll/spiral checked as a sanity comparison against S&L §4.2's classical closed-form
+        mode approximations, not an independent O4 source (supersedes O4: `docs/refs/aircrafts/
+        737.xml` is a JSBSim example aircraft with Aeromatic/Roskam-estimated coefficients, not a
+        validated real 737, so no independently validated source exists to check it against --
+        S&L §4.2's approximations are a labeled sanity check, not an oracle). Depends on PR 6.
+        Accept: `pytest python/tests/test_linearize.py` within a loose, per-mode tolerance labeled
+        as approximate (tighter for short period/phugoid, where S&L's approximations are usually
+        good; wider for the lateral three, where they're known to be poorer). Binding ADRs: none
+        new. Tier 2/3. Plan critique: no.
   - [ ] PR 8 — Cruise config(s) (D6's `vehicle.models` schema) + 300 s open-loop run frozen as a
         regression trajectory (O5 -- not an oracle), generator-under-guard pattern from
         `tests/golden/nesc/`. Adds the actual independent check §16 (as corrected by PR 0) requires: a

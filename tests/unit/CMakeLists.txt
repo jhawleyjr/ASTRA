@@ -9,6 +9,7 @@ add_executable(astra_unit_tests
   icd/icd_test.cpp
   kernel/clock_test.cpp
   kernel/scheduler_test.cpp
+  kernel/notional_transport_cruise_config_test.cpp
   kernel/simulation_halt_test.cpp
   kernel/simulation_physical_config_test.cpp
   kernel/simulation_test.cpp
@@ -29,7 +30,8 @@ add_executable(astra_unit_tests
 target_link_libraries(astra_unit_tests PRIVATE astra::core GTest::gtest_main)
 target_compile_definitions(astra_unit_tests PRIVATE
   "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""
-  "ASTRA_TEST_CONFIG_DIR=\"${ASTRA_SOURCE_DIR}/tests/configs\"")
+  "ASTRA_TEST_CONFIG_DIR=\"${ASTRA_SOURCE_DIR}/tests/configs\""
+  "ASTRA_AIRCRAFT_DIR=\"${ASTRA_SOURCE_DIR}/aircraft\"")
 # tests/golden/atmosphere/isa1976_table.hpp (human-owned) is included as
 # "golden/atmosphere/isa1976_table.hpp" -- the astra_frames_test pattern below.
 target_include_directories(astra_unit_tests PRIVATE "${ASTRA_SOURCE_DIR}/tests")
@@ -47,3 +49,22 @@ add_executable(astra_integrator_test kernel/integrator_test.cpp)
 target_link_libraries(astra_integrator_test PRIVATE astra::core GTest::gtest_main)
 gtest_discover_tests(astra_integrator_test TEST_PREFIX "integrator." DISCOVERY_MODE PRE_TEST
                      PROPERTIES LABELS unit)
+
+# aircraft/notional_transport's and aircraft/_template's own physical/mass plugins (PLAN.md M3
+# PR 1): own executables so ctest's names carry "notional_transport_mass"/"template_mass" for
+# `-R notional_transport_mass` (PR 1's own accept criterion), same TEST_PREFIX shape as
+# frames/integrator above.
+add_executable(astra_notional_transport_mass_test mass/notional_transport_mass_test.cpp)
+target_link_libraries(astra_notional_transport_mass_test PRIVATE astra::core GTest::gtest_main)
+target_compile_definitions(astra_notional_transport_mass_test PRIVATE
+  "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""
+  "ASTRA_AIRCRAFT_DIR=\"${ASTRA_SOURCE_DIR}/aircraft\"")
+gtest_discover_tests(astra_notional_transport_mass_test TEST_PREFIX "notional_transport_mass."
+                     DISCOVERY_MODE PRE_TEST PROPERTIES LABELS unit)
+
+add_executable(astra_template_mass_test mass/template_mass_test.cpp)
+target_link_libraries(astra_template_mass_test PRIVATE astra::core GTest::gtest_main)
+target_compile_definitions(astra_template_mass_test PRIVATE
+  "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\"")
+gtest_discover_tests(astra_template_mass_test TEST_PREFIX "template_mass."
+                     DISCOVERY_MODE PRE_TEST PROPERTIES LABELS unit)

@@ -152,7 +152,8 @@ std::span<const StaticPluginEntry> static_plugin_table() noexcept { return kTabl
   elseif(targets)
     # Every test binary that dlopens plugins by path needs a build-order dependency on them; listed
     # explicitly (not globbed) so a new test target opts in here instead of racing a clean build.
-    foreach(test_target IN ITEMS astra_unit_tests astra_physics_tests)
+    foreach(test_target IN ITEMS astra_unit_tests astra_physics_tests
+                                 astra_notional_transport_mass_test astra_template_mass_test)
       if(TARGET ${test_target})
         add_dependencies(${test_target} ${targets})
       endif()

@@ -1,0 +1,54 @@
+# aircraft/notional_transport: an example airframe, not a validated real Boeing 737. mass/aero/
+# propulsion parameters are transcribed from JSBSim's "737" example aircraft
+# (docs/refs/aircrafts/737.xml, gitignored -- not in this repository; $Revision: 1.43 $, authors
+# Dave Culp / Aeromatic, GPL). That file's own <note> says it was "created using publicly available
+# data, publicly available technical reports, textbooks, and guesses ... meant for educational and
+# entertainment purposes only" (Aeromatic/Roskam-style estimates) -- this config carries the same
+# caveat forward, not a claim of real-737 fidelity.
+#
+# Only keys Simulation::from_config actually reads appear below (docs/architecture.md §13, §15:
+# an unconsumed key is a ConfigError). aero/turbofan are PLAN.md M3 PR 3/PR 4 scope -- shown here
+# as comments, not live keys, until those plugins exist.
+sim:
+  dt: 0.001
+  frames: 1000
+vehicle:
+  models: []
+  # - plugin: aircraft/notional_transport/physical/aero          # PR 4, needs AeroModel (PR 3)
+  # - plugin: aircraft/notional_transport/hardware/propulsion/turbofan, station: left   # PR 4
+  # - plugin: aircraft/notional_transport/hardware/propulsion/turbofan, station: right  # PR 4
+physical:
+  earth: plugins/physical/earth/wgs84_rotating
+  gravity: plugins/physical/gravity/wgs84_j2
+  atmosphere: plugins/physical/atmosphere/isa1976
+  wind: { plugin: plugins/physical/wind/dryden, seed: 42, w20_knots: 15.0, sigma_high: 3.0 }  # light
+  mass:
+    plugin: aircraft/notional_transport/physical/mass
+    # <mass_balance negated_crossproduct_inertia="true"><emptywt unit="LBS">83000</emptywt> etc.
+    # (docs/refs/aircrafts/737.xml). Empty-weight condition: JSBSim adds fuel mass at runtime;
+    # this model carries no fuel state (ADR-0003: mass is not state in v1), so these are the
+    # aircraft's only mass properties, not a specific loaded/gross-weight condition.
+    mass: 37648.0    # kg; 83000 LBS x 0.45359237
+    ixx: 761970.0    # kg*m^2; 562000 SLUG*FT2 x 1.35581795
+    iyy: 1997120.0   # kg*m^2; 1.473e6 SLUG*FT2 x 1.35581795
+    izz: 2567919.0   # kg*m^2; 1.894e6 SLUG*FT2 x 1.35581795
+    # ixy/iyz: 0 in the source (laterally symmetric airframe) -- left at this plugin's own default.
+    #
+    # ixz (product-of-inertia convention this plugin expects -- see its own header comment): the
+    # source's <ixz unit="SLUG*FT2">8000</ixz> is read under
+    # negated_crossproduct_inertia="true", under which JSBSim's own FGMassBalance::ReadInertiaMatrix
+    # (src/models/FGMassBalance.cpp) places that raw value UNNEGATED into its inertia matrix's
+    # (x,z) entry: JSBSim's tensor_xz = +8000 SLUG*FT2. Our tensor convention is
+    # tensor_xz = -integral(x*z*dm), so integral(x*z*dm) = -8000 SLUG*FT2 = -10846.5 kg*m^2 -- the
+    # value below. The plugin negates it back before building the tensor, reproducing JSBSim's own
+    # +8000 SLUG*FT2 (+10846.5 kg*m^2) tensor entry once converted to SI, as it must for the same
+    # airframe (JSBSim's X-forward/Y-right/Z-down body axes match ADR-0001's FRD; no axis remap).
+    # This gives the notional airframe a small (~0.34 deg), slightly nose-UP principal-axis tilt --
+    # that is what the source's token gives, transcribed faithfully, not a sign error to "fix".
+    ixz: -10846.5    # kg*m^2; integral(x*z*dm) = -(8000 SLUG*FT2) x 1.35581795
+initial:
+  state:
+    p_n: [0.0, 0.0, 10000.0]   # wgs84_rotating: lat (rad), lon (rad), altitude (m)
+    v_b: [230.0, 0.0, 0.0]     # m/s TAS, wings level -- not a trimmed state (PR 6 adds trim)
+    euler_nb: [0.0, 0.0, 0.0]  # heading 0, level
+    omega_b: [0.0, 0.0, 0.0]
