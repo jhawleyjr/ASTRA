@@ -65,11 +65,13 @@ void HealthMonitor::init(const Config& config, SignalRegistry& registry) {
     nan_action_ = parse_action(health_config, "nan");
     quaternion_action_ = parse_action(health_config, "quaternion");
     domain_action_ = parse_action(health_config, "domain");
+    input_action_ = parse_action(health_config, "input");
   }
   registry.add("health.nan", &nan_count_, "1");
   registry.add("health.quaternion", &quaternion_count_, "1");
   registry.add("health.max_q_drift", &max_quaternion_drift_, "1");
   registry.add("health.domain", &domain_count_, "1");
+  registry.add("health.input", &input_count_, "1");
 }
 
 HaltReason HealthMonitor::check_wrench(const Wrench& wrench, std::string_view source,
@@ -118,6 +120,12 @@ HaltReason HealthMonitor::check_state(const StateVector& y, const StateNames& na
 HaltReason HealthMonitor::report_out_of_domain(std::string_view source, const StepContext& ctx,
                                                std::uint32_t vehicle_index) noexcept {
   return apply(domain_action_, domain_count_, HealthCheck::kOutOfDomain, source, ctx,
+               vehicle_index);
+}
+
+HaltReason HealthMonitor::check_input(std::string_view source, const StepContext& ctx,
+                                      std::uint32_t vehicle_index) noexcept {
+  return apply(input_action_, input_count_, HealthCheck::kNonFiniteInput, source, ctx,
                vehicle_index);
 }
 

@@ -47,6 +47,7 @@ add_library(astra_core SHARED
   src/kernel/simulation.cpp
   src/kernel/vehicle.cpp
   src/plugin/loader.cpp
+  src/signals/input_registry.cpp
   src/signals/signal_registry.cpp)
 add_library(astra::core ALIAS astra_core)
 target_link_libraries(astra_core PUBLIC astra_core_headers)

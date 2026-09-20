@@ -20,15 +20,23 @@ void Vehicle::init(const PluginLoader& loader, const std::vector<ModelSpec>& mod
   wrench_sources_.reserve(models.size());  // upper bound: not every model is a WrenchSource
   for (const ModelSpec& spec : models) {
     LoadedPlugin loaded = loader.load(spec.plugin_path);
+    // Captured before the move below: .get() does not affect ownership, and the model stays alive
+    // for the vehicle's lifetime once plugins_ owns it.
+    WrenchSource* wrench_source = nullptr;
     {
       const SignalRegistry::PrefixScope scope(registry, name_);
       loaded.model->init(spec.config, registry);
+      // ADR-0017 (Joe's review round 1, finding 1): bind_inputs() must run while this PrefixScope
+      // is still open, so every write-seam name lands correctly namespaced ("v0.controls.elevator",
+      // not "controls.elevator") -- moved inside this block for that reason; the requires_
+      // environment() check below never touches the registry's prefix, so it stays outside.
+      wrench_source = dynamic_cast<WrenchSource*>(loaded.model.get());
+      if (wrench_source != nullptr) {
+        wrench_source->bind_inputs(inputs_, registry);
+      }
     }
     scheduler_.add(*loaded.model, spec.divisor);
-    // Captured before the move below: .get() does not affect ownership, and the model stays alive
-    // for the vehicle's lifetime once plugins_ owns it.
-    if (auto* const wrench_source = dynamic_cast<WrenchSource*>(loaded.model.get());
-        wrench_source != nullptr) {
+    if (wrench_source != nullptr) {
       const EnvironmentRequirements requirements = wrench_source->requires_environment();
       if (requirements.wind && !availability.wind) {
         throw ConfigError(spec.config.origin(), "physical.wind",
@@ -76,6 +84,17 @@ void Vehicle::init(const PluginLoader& loader, const std::vector<ModelSpec>& mod
     registry.add(name_ + ".wrench_total.moment_b_l", &published_wrench_->moment_b(0), "N.m");
     registry.add(name_ + ".wrench_total.moment_b_m", &published_wrench_->moment_b(1), "N.m");
     registry.add(name_ + ".wrench_total.moment_b_n", &published_wrench_->moment_b(2), "N.m");
+  }
+}
+
+// ADR-0017: relative order between inputs_.reset() and each model's own reset() does not matter --
+// a conforming WrenchSource's reset() is prohibited from writing through a cached InputHandle
+// (wrench_source.hpp), so nothing a model's own reset() does can interfere with inputs_.reset()'s
+// restore, regardless of which runs first.
+void Vehicle::reset() noexcept {
+  inputs_.reset();
+  for (LoadedPlugin& plugin : plugins_) {
+    plugin.model->reset();
   }
 }
 

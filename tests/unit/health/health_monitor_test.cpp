@@ -14,6 +14,7 @@
 #include "astra/config/config.hpp"
 #include "astra/errors.hpp"
 #include "astra/kernel/state.hpp"
+#include "astra/signals/input_registry.hpp"
 #include "astra/signals/signal_registry.hpp"
 
 namespace {
@@ -23,6 +24,7 @@ using astra::ConfigError;
 using astra::HaltReason;
 using astra::HealthCheck;
 using astra::HealthMonitor;
+using astra::InputRegistry;
 using astra::SignalRegistry;
 using astra::StateNames;
 using astra::StateVector;
@@ -297,6 +299,111 @@ TEST(HealthMonitor, RejectsAnUnrecognizedDomainActionStringNamingTheKey) {
     FAIL() << "expected ConfigError";
   } catch (const ConfigError& error) {
     EXPECT_EQ(error.config_path(), "sim.health.domain");
+  }
+}
+
+// ADR-0017: check_input mirrors report_out_of_domain's shape exactly -- source names the input
+// itself, never the consuming WrenchSource.
+TEST(HealthMonitor, NonFiniteInputHaltsNamingTheGivenSourceAndFrame) {
+  SignalRegistry registry;
+  HealthMonitor monitor = make_monitor(registry);
+
+  const HaltReason halt =
+      monitor.check_input("controls.elevator", StepContext{.t = 0.5, .dt = 0.001, .frame = 500}, 1);
+  ASSERT_TRUE(halt);
+  EXPECT_EQ(halt.check, HealthCheck::kNonFiniteInput);
+  EXPECT_EQ(halt.source, "controls.elevator");
+  EXPECT_EQ(halt.frame, 500U);
+  EXPECT_EQ(halt.vehicle_index, 1U);
+}
+
+TEST(HealthMonitor, InputDefaultsToHaltAndCountsUnderHaltAndWarnLikeTheOtherChecks) {
+  {
+    SignalRegistry registry;
+    HealthMonitor monitor = make_monitor(registry);  // no sim.health block at all
+    const double* input_count = registry.find("health.input");
+    ASSERT_NE(input_count, nullptr);
+    const HaltReason halt =
+        monitor.check_input("src", StepContext{.t = 0.0, .dt = 0.001, .frame = 0}, 0);
+    EXPECT_TRUE(halt) << "default action is halt, same as nan/quaternion/domain";
+    EXPECT_EQ(*input_count, 1.0);
+  }
+  {
+    SignalRegistry registry;
+    HealthMonitor monitor = make_monitor(registry, "input: warn");
+    const double* input_count = registry.find("health.input");
+    ASSERT_NE(input_count, nullptr);
+    const HaltReason halt =
+        monitor.check_input("src", StepContext{.t = 0.0, .dt = 0.001, .frame = 0}, 0);
+    EXPECT_FALSE(halt);
+    EXPECT_EQ(*input_count, 1.0);
+  }
+}
+
+TEST(HealthMonitor, InputOffNeitherCountsNorHalts) {
+  SignalRegistry registry;
+  HealthMonitor monitor = make_monitor(registry, "input: off");
+  const double* input_count = registry.find("health.input");
+  ASSERT_NE(input_count, nullptr);
+
+  const HaltReason halt =
+      monitor.check_input("src", StepContext{.t = 0.0, .dt = 0.001, .frame = 0}, 0);
+  EXPECT_FALSE(halt);
+  EXPECT_EQ(*input_count, 0.0);
+}
+
+TEST(HealthMonitor, RejectsAnUnrecognizedInputActionStringNamingTheKey) {
+  SignalRegistry registry;
+  const Config config =
+      Config::from_string("sim: { health: { input: loud } }\n", "bad-input-action-fixture");
+  HealthMonitor monitor;
+  try {
+    monitor.init(config, registry);
+    FAIL() << "expected ConfigError";
+  } catch (const ConfigError& error) {
+    EXPECT_EQ(error.config_path(), "sim.health.input");
+  }
+}
+
+// R8: a non-finite write() halts (default) naming the input, not the consuming WrenchSource; on
+// warn, every OTHER finite entry still commits that frame, and the bad entry's canonical value
+// keeps its last successfully latched value -- InputRegistry::latch()'s own partial-commit
+// invariant (c), exercised together with the HealthMonitor check it feeds.
+TEST(HealthMonitor,
+     ANonFiniteWrittenInputHaltsByDefaultAndTheOtherFiniteEntryStillCommitsUnderWarn) {
+  SignalRegistry registry;
+  InputRegistry inputs;
+  const double* elevator = inputs.add(registry, "controls.elevator", "rad");
+  static_cast<void>(inputs.add(registry, "controls.rudder", "rad"));
+  inputs.write("controls.elevator", 0.2);
+  inputs.write("controls.rudder", kNan);
+
+  {
+    HealthMonitor monitor = make_monitor(registry);  // default: halt
+    const std::string_view bad = inputs.latch();
+    ASSERT_EQ(bad, "controls.rudder");
+    const HaltReason halt =
+        monitor.check_input(bad, StepContext{.t = 0.0, .dt = 0.001, .frame = 0}, 0);
+    ASSERT_TRUE(halt);
+    EXPECT_EQ(halt.check, HealthCheck::kNonFiniteInput);
+    EXPECT_EQ(halt.source, "controls.rudder");
+    EXPECT_DOUBLE_EQ(*elevator, 0.2) << "the good entry still committed despite the halt";
+  }
+
+  SignalRegistry warn_registry;
+  InputRegistry warn_inputs;
+  const double* warn_elevator = warn_inputs.add(warn_registry, "controls.elevator", "rad");
+  static_cast<void>(warn_inputs.add(warn_registry, "controls.rudder", "rad"));
+  warn_inputs.write("controls.elevator", 0.3);
+  warn_inputs.write("controls.rudder", kNan);
+  {
+    HealthMonitor monitor = make_monitor(warn_registry, "input: warn");
+    const std::string_view bad = warn_inputs.latch();
+    ASSERT_EQ(bad, "controls.rudder");
+    const HaltReason halt =
+        monitor.check_input(bad, StepContext{.t = 0.0, .dt = 0.001, .frame = 0}, 0);
+    EXPECT_FALSE(halt) << "warn: the run continues";
+    EXPECT_DOUBLE_EQ(*warn_elevator, 0.3) << "the good entry still committed under warn too";
   }
 }
 

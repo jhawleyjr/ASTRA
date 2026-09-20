@@ -1,0 +1,20 @@
+# tests/physics/no_alloc_test.cpp (ADR-0017, docs/plans/pr2-write-seam.md, R6): InputRegistry::
+# latch() must not allocate, running every frame unconditionally regardless of whether write() was
+# called that frame -- this PR's only implemented writer (a config literal) writes once, at init.
+# State mirrors no_alloc_substage_wrench.yaml's own (already-established, comfortably in-domain for
+# flat Earth) p_n/v_b.
+sim:
+  dt: 0.001
+  frames: 1000
+vehicle:
+  models:
+    - { plugin: tests/plugins/input_consumer }
+  initial_controls:
+    controls:
+      elevator: 0.0
+physical:
+  earth: plugins/physical/earth/flat
+  gravity: plugins/physical/gravity/constant
+  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 }
+initial:
+  state: { p_n: [0.0, 0.0, -100.0], v_b: [60.0, 0.0, 0.0] }

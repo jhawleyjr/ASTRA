@@ -9,8 +9,11 @@
 #include "astra/interfaces/wrench.hpp"
 #include "astra/kernel/environment_sample.hpp"
 #include "astra/kernel/vehicle_state.hpp"
+#include "astra/signals/input_registry.hpp"
 
 namespace astra {
+
+class SignalRegistry;  // core/include/astra/signals/signal_registry.hpp
 
 class WrenchSource : public Model {
  public:
@@ -34,6 +37,20 @@ class WrenchSource : public Model {
   // actually been written down until now, only true by accident of there being nothing that could
   // violate it yet.)
   //
+  // ADR-0017 amendment: a write-seam member (bound via bind_inputs() below) is exempt from "never
+  // on how many times or in what order it has previously been called this frame or any other" in
+  // exactly one respect -- its value MAY differ between frames (InputRegistry::latch() commits at
+  // most once per frame, before the first RK4 stage runs), but a conforming implementation must
+  // still see the IDENTICAL value across all four of one frame's calls, exactly like every other
+  // member. The other direction is not relaxed at all: a conforming wrench_b() may READ any input
+  // through its own const double*, but must NEVER WRITE through an InputHandle -- from wrench_b()
+  // or from reset() -- since either would make this call's own output depend on a hidden mutation
+  // no caller asked for, the exact class of hidden per-call state this contract already forbids.
+  // step() is the one sanctioned write point (a future M4 ActuatorModel's use case).
+  // tests/plugins/input_consumer is a labeled, test-only exception to the wrench_b() half of this
+  // rule (its own header comment says so), the same "test instrumentation only" exception
+  // tests/plugins/nan_wrench's own mutable call_count_ already documents for a const wrench_b().
+  //
   // env's wind_n is frame-latched regardless of how many times this is called: Simulation::step
   // samples it once per frame (before the wrench stage, docs/architecture.md §5) and every RK4
   // sub-stage's env carries the identical value -- a WrenchSource never samples wind itself and
@@ -50,6 +67,17 @@ class WrenchSource : public Model {
   // a constant-coefficient contribution, declares nothing). Defined out of line in
   // wrench_source.cpp, so the destructor stays the key function.
   [[nodiscard]] virtual EnvironmentRequirements requires_environment() const noexcept;
+
+  // ADR-0017: registers this model's writable inputs, e.g. elevator_ = inputs.add(registry,
+  // "controls.elevator", "rad"); (elevator_ is a const double* into InputRegistry's own storage,
+  // not a plugin-owned member). Called once per WrenchSource, by Vehicle::init()'s existing
+  // WrenchSource-discovery pass (the same pass that already checks requires_environment() above),
+  // after this model's own Model::init() has already run, and still inside the vehicle's
+  // SignalRegistry::PrefixScope, so every name lands correctly namespaced ("v0.controls.elevator").
+  // Default: does nothing -- a WrenchSource with no writable input (nesc_aero, nan_wrench) need not
+  // override this. Init-time only: may throw. Model::init()'s own signature is unchanged -- this
+  // seam attaches only to WrenchSource, never to a shared environment model.
+  virtual void bind_inputs(InputRegistry& inputs, SignalRegistry& registry);
 };
 
 }  // namespace astra
