@@ -92,4 +92,26 @@ TEST(NoAlloc, ZeroHeapAllocationsOverOneThousandFramesWithSubstageWrenchAndAtmos
                               "physical.atmosphere both configured (PLAN.md M2 PR 3c)";
 }
 
+// ADR-0017 (docs/plans/pr2-write-seam.md), R6: InputRegistry::latch()'s own per-frame commit --
+// running every frame unconditionally, whether or not anything wrote a new pending value that frame
+// -- must not allocate either. This PR's only implemented writer (a config literal) writes once, at
+// init; the allocation-free property under test is latch()'s own unconditional per-frame cost.
+TEST(NoAlloc, ZeroHeapAllocationsOverOneThousandFramesWithAWriteSeamInputConfigured) {
+  const astra::Config config =
+      astra::Config::from_file(std::string{ASTRA_TEST_CONFIG_DIR} + "/no_alloc_write_seam.yaml");
+  astra::Simulation sim = astra::Simulation::from_config(config, ASTRA_TEST_PLUGIN_DIR);
+  ASSERT_EQ(sim.frames(), 1000U);
+
+  const std::size_t before = astra_test::allocation_count();
+  const astra::HaltReason halt = sim.run();
+  const std::size_t after = astra_test::allocation_count();
+
+  EXPECT_FALSE(halt) << "the fixture is chosen to stay in domain for the full run -- a halt here "
+                        "means the allocation count below was measured over fewer than 1000 frames";
+  EXPECT_EQ(sim.clock().frame(), 1000U) << "the run must complete, not merely allocate nothing "
+                                           "while halting early";
+  EXPECT_EQ(after, before) << "zero allocations over 1000 frames with a write-seam input "
+                              "configured (ADR-0017)";
+}
+
 }  // namespace

@@ -260,6 +260,60 @@ StateVector read_initial_state(const Config& config) {
   return y0;
 }
 
+// ADR-0017: applies vehicle.initial_controls's config literals to vehicle's own write-seam inputs,
+// validates every declared input has a real, finite value, then freezes the registry -- the one
+// unconditional, init-time commit that seeds canonical storage before frame 0 ever runs. One call
+// per declared input -- vehicle.inputs().names() (registered by bind_inputs(), already known before
+// any config is consulted) -- looked up by its own relative dotted name (e.g. "controls.elevator",
+// no "vehicle.initial_controls." prefix and no "v0." prefix, matching physical.mass's own existing
+// unprefixed-key convention) under the "vehicle.initial_controls" subtree, via Config's existing
+// multi-level dot-navigation: no new parsing code.
+//
+// **Correction, Codex adversarial review**: an earlier draft enumerated names off config.
+// unknown_keys() instead -- wrong, because unknown_keys() diffs against the Config document's own
+// shared, mutable read-tracking (Config's document_ is a shared_ptr, so even a copy shares it): a
+// SECOND Simulation built from the same Config object (e.g. a future Monte Carlo driver reusing one
+// loaded document, PLAN.md M5) would find every input's literal already marked read by the first
+// construction and silently skip applying it the second time, throwing
+// first_unwritten_or_non_finite instead. Fixed by enumerating from InputRegistry's own names()
+// (this call's actual "declared input" list) and reading through ordinary has()/number() calls,
+// neither of which depends on prior read-state -- idempotent across as many Simulations as one
+// Config is reused for.
+//
+// Throws ConfigError naming the input's own config-literal path (not merely its write-seam name)
+// when first_unwritten_or_non_finite() finds a gap -- Simulation::for_testing calls none of this
+// (its own documented list of from_config-only validations).
+void apply_initial_controls(const Config& config, Vehicle& vehicle) {
+  if (config.has("vehicle.initial_controls")) {
+    const Config initial_controls = config.at("vehicle.initial_controls");
+    for (const std::string_view name : vehicle.inputs().names()) {
+      if (initial_controls.has(name)) {
+        vehicle.inputs().write(name, initial_controls.number(name));
+      }
+    }
+  }
+  if (const std::string_view bad_input = vehicle.inputs().first_unwritten_or_non_finite();
+      !bad_input.empty()) {
+    throw ConfigError(config.origin(), "vehicle.initial_controls." + std::string{bad_input},
+                      "write-seam input not written, or written a non-finite value "
+                      "(docs/decisions/0017-control-input-write-seam.md)");
+  }
+  vehicle.inputs().freeze();
+}
+
+// ADR-0017: latch()es vehicle's own write-seam inputs and reports the first non-finite one, if any,
+// through health -- factored out of Simulation::step (clang-tidy's readability-function-cognitive-
+// complexity threshold), the same reason Vehicle::check_domain is factored out of Vehicle::
+// integrate. Per-frame path: no allocation, no exceptions.
+HaltReason latch_vehicle_inputs(Vehicle& vehicle, HealthMonitor& health,
+                                const StepContext& ctx) noexcept {
+  const std::string_view bad_input = vehicle.inputs().latch();
+  if (bad_input.empty()) {
+    return {};
+  }
+  return health.check_input(bad_input, ctx, vehicle.index());
+}
+
 }  // namespace
 
 Simulation Simulation::from_config(const Config& config, std::filesystem::path plugin_dir) {
@@ -375,6 +429,8 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
   } else {
     vehicle.init(loader, specs, sim.registry_, nullptr, Vehicle::EnvironmentAvailability{});
   }
+
+  apply_initial_controls(config, vehicle);
 
   sim.vehicles_.push_back(std::move(vehicle));
 
@@ -520,6 +576,15 @@ HaltReason Simulation::step() noexcept {
     }
     vehicle.set_environment(sample);
     vehicle.step(ctx);
+    // ADR-0017: latch() runs here -- after vehicle.step(ctx), before vehicle.integrate(...) -- so a
+    // write issued from within THIS frame's own step() (a future M4 ActuatorModel's use case) is
+    // committed by this same frame's latch(), matching §5's own canonical order ("...receive
+    // commands) -> integrator step..."). Runs once per vehicle per frame unconditionally, even when
+    // nothing wrote anything new this frame (the config-literal's own freeze()-time seed, or the
+    // last successful latch(), is what wrench_b() reads either way).
+    if (const HaltReason halt = latch_vehicle_inputs(vehicle, *health_, ctx); halt) {
+      return halt;
+    }
     if (const HaltReason halt = vehicle.integrate(integrator_, ctx, *health_); halt) {
       // The clock does not advance: halt.frame == clock_.frame() and this frame's other vehicles
       // (ADR-0011: there can be more than one) do not step -- a halt stops the run.

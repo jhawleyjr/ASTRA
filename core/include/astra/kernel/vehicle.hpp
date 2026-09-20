@@ -22,6 +22,7 @@
 #include "astra/kernel/scheduler.hpp"
 #include "astra/kernel/state.hpp"
 #include "astra/plugin/loader.hpp"
+#include "astra/signals/input_registry.hpp"
 #include "astra/signals/signal_registry.hpp"
 
 namespace astra {
@@ -135,11 +136,26 @@ class Vehicle {
   [[nodiscard]] HaltReason integrate(const Integrator& integrator, const StepContext& ctx,
                                      HealthMonitor& health) noexcept;
 
+  // ADR-0017: restores every model's own reset() (dryden.cpp's own "zero every mutable member"
+  // precedent) alongside inputs_.reset() (restoring every write-seam entry to its config-literal
+  // init value, or to its NaN default if freeze() never ran). Relative order between the two does
+  // not matter: a conforming WrenchSource's own reset() is prohibited from writing through a cached
+  // InputHandle (wrench_source.hpp), so nothing can interfere with inputs_.reset()'s own restore
+  // regardless of which runs first. Nothing calls this yet, matching Model::reset()'s own current,
+  // uncalled status -- a forward-looking hook, wired up end to end by a later milestone (M5's Monte
+  // Carlo driver).
+  void reset() noexcept;
+
   [[nodiscard]] std::uint32_t index() const noexcept { return index_; }
   [[nodiscard]] const std::string& name() const noexcept { return name_; }
   [[nodiscard]] StateVector& state() noexcept { return state_; }
   [[nodiscard]] const StateVector& state() const noexcept { return state_; }
   [[nodiscard]] const Scheduler& scheduler() const noexcept { return scheduler_; }
+  // ADR-0017: this vehicle's own write seam. Simulation::from_config applies vehicle.
+  // initial_controls's config literals and calls freeze() through this accessor; Simulation::step
+  // calls latch() through it once per vehicle per frame, after step(), before integrate() (§5).
+  [[nodiscard]] InputRegistry& inputs() noexcept { return inputs_; }
+  [[nodiscard]] const InputRegistry& inputs() const noexcept { return inputs_; }
 
  private:
   // A vehicle.models entry that resolved to a WrenchSource, kept alongside the plugin path its
@@ -183,6 +199,11 @@ class Vehicle {
   Scheduler scheduler_;
   std::optional<Eom> eom_;
   std::vector<WrenchEntry> wrench_sources_;
+  // ADR-0017: this vehicle's own write seam, one per Vehicle (ADR-0011). A plain by-value member is
+  // safe here (unlike published_wrench_ below): InputRegistry's own entries live in a std::deque,
+  // so a const double*/InputHandle a plugin already holds is a pointer into that entry's own stable
+  // storage, untouched by this Vehicle's own address moving.
+  InputRegistry inputs_;
   // PLAN.md M2 PR 3c: nullptr when physical.atmosphere is not configured, mirroring
   // Simulation::atmosphere_ -- lets integrate()'s per-stage derivative recompute a fresh atmosphere
   // sample from eom_->earth().altitude() at each RK4 sub-stage, without a second EarthModel*

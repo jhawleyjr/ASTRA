@@ -1,40 +1,39 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines; true at handoff)
 
 ## In flight
-M3 PR 1 (`PLAN.md` line ~518): `aircraft/_template/` + `aircraft/notional_transport/`
-scaffolding — an aircraft-owned `physical/mass` `MassPropertiesModel` plugin each (ADR-0009), a
-`configs/cruise.yaml` each, `just new-aircraft <name>`. Tier 1, no plan critique. Brief refined
-through several rounds of Joe's corrections (Izz's 0.97 perpendicular-axis factor, the Ixz
-S&L-product-vs-tensor sign convention, O1's source switched mid-brief to a direct transcription of
-JSBSim's "737" example, `docs/refs/aircrafts/737.xml`) plus four scaffolding directions (numbers
-in YAML not code; anonymous-namespace discipline for static-plugins; no `aero`/`turbofan` dirs yet
-— PR 3/4; §13 becomes a verbatim `cruise.yaml` embed). Worktree `m3-pr1-scaffolding`, branch
-`worktree-m3-pr1-scaffolding`, **committed and pushed** (`fc3b6d7`), **PR**
-<https://github.com/jhawleyjr/ASTRA/pull/37> (draft, opened this session) against `main`'s
-`91aa358` — PR 0 (`#36`) confirmed **merged** as `91aa358` via `git log` at session start, per
-Joe's instruction to verify that way, not STATE.md.
+M3 PR 2 (`PLAN.md` line ~557): write-seam primitive. **Implemented, validated, reviewed; PR open,
+pending Joe's decision.** `InputRegistry`/`InputHandle`, `WrenchSource::bind_inputs()`
+(`kCoreApiVersion` 4→5), `Vehicle::inputs()`/`reset()`, `Simulation::from_config`'s config-literal
+apply/validate/freeze sequencing, `Simulation::step`'s `latch()` between `vehicle.step()`/
+`vehicle.integrate()`, `HealthMonitor::check_input`, `tests/plugins/input_consumer`, full
+acceptance table R1–R13. `docs/architecture.md` §5/§7/§9/§13/§15 updated. Worktree
+`m3-pr2-write-seam`, branch `worktree-m3-pr2-write-seam`, based on `main`'s `829df62` (PR 1/#37
+merged). Committed `de4815e`+`418167c`, pushed, **PR
+<https://github.com/jhawleyjr/ASTRA/pull/38> (draft)**. `main` has not advanced. This handoff's own
+`STATE.md`/`PLAN.md`/`docs/lessons.md` edits are uncommitted pending a separate handoff commit.
 
 ## Last verified result
-`just check` green 4x this session (initial, post-format-fix, post-Codex-fix-batch, `docs-check`
-alone after the review docs); final run: all four presets, clang-tidy, pyright 0 errors, pytest 38
-passed. Targeted: `ctest -R notional_transport_mass` (3/3), `-R template_mass` (1/1), `-R
-NotionalTransportCruiseConfig` (1/1); `pytest tests/python/test_new_aircraft.py` (6/6). Manual:
-real `just new-aircraft` run + `ASTRA_STATIC_PLUGINS=ON` build, no ODR collision (scratch removed,
-not committed); isolated single-target build reproduced then confirmed the R-001 fix. Codex
-(general + adversarial + fix-verification, `codex-companion` 1.0.6): 3 findings (R-001 major,
-R-002/R-003 medium), all fixed and Codex-verified, "New findings: none" — `docs/reviews/
-m3-pr1-scaffolding-review.md`; packet in `docs/reviews/m3-pr1-scaffolding-human.md`.
+`./scripts/check-full.sh` green on `418167c`: 4 presets (327 tests each), clang-tidy 0 warnings,
+pyright 0 errors, pytest 38/38, `check: OK`. First run caught a stale pinned Python constant
+(`core_api_version() == 4` → `== 5`, `tests/python/test_package.py`), fixed and reverified.
+`./scripts/check-fast.sh` green (306/306) both before and after the Codex fix. Targeted: `ctest -R
+NoAlloc` (5/5, R6), `-R Plugin` (19/19, R12, `bad_version` still rejects version 5). Codex (general
++ adversarial, `codex-companion` 1.0.6, working-tree scope): one major finding
+(`apply_initial_controls` depended on `Config`'s shared read-state via `unknown_keys()`, breaking a
+second `Simulation` from the same `Config`), fixed with new `InputRegistry::names()`, verified
+same-pass (verdict "approve") — `docs/reviews/pr2-write-seam-review.md`; packet: `docs/reviews/
+pr2-write-seam-human.md`.
 
 ## Next step
-Joe's review/merge decision on PR #37; `PLAN.md`'s PR 1 checkbox stays unchecked until then. Once
-merged: PR 2 (write-seam primitive, needs a Codex plan critique) is next; PR 3/4 depend on PR 1's
-plugins (now true) and PR 2/3's own ADR. Not blocking: `plugins/physical/mass/constant`'s own
-undocumented `ixz` convention (new `PLAN.md` follow-up, unassigned); D8 (trim residual norm, PR
-6); O4 superseded by this session's S&L §4.2 sanity-check framing (PR 7's line updated).
+Joe's review/merge decision on PR #38; `PLAN.md`'s PR 2 checkbox stays unchecked until then. Once
+merged: PR 3 (`AeroModel`/`PropulsionModel` as `WrenchSource` specializations) is next, and can
+finally use the write seam this PR built. Not blocking: ADR-0017's own disclosed M4-scope gap (no
+seam route for a non-`WrenchSource` writer); the still-unassigned `PLAN.md` follow-up restoring
+"no recon subagents" visibility (from the M3 PR 2 planning session, not yet filed as its own PR).
 
 ## Tried / failed
-Correction rounds: 1/2 used (Codex's R-001/R-002/R-003 batch, fixed and Codex-verified in one
-round; pre-implementation brief revisions are not review-fix-loop rounds). Failed integrations: 0/2.
+Correction rounds: 1/2 used (Codex's one adversarial-review finding, fixed and Codex-verified in
+one round). Failed integrations: 0/2.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.

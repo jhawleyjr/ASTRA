@@ -19,7 +19,12 @@ namespace astra {
 // (in_domain), changing both interfaces' vtable layout -- an out-of-tree plugin built against
 // version 3 must be rejected, not dispatched through a vtable slot it does not have (Codex
 // review, same reasoning as version 2's bump above).
-inline constexpr std::uint32_t kCoreApiVersion = 4;
+// 5 (M3 PR 2, ADR-0017): WrenchSource gained a new virtual, bind_inputs, changing that interface's
+// vtable layout -- an out-of-tree plugin built against version 4 must be rejected, not dispatched
+// through a slot it does not have (same reasoning as version 2's requires_environment() addition
+// and version 4's own in_domain addition). Model::init()'s own signature is unchanged; every
+// non-WrenchSource plugin is unaffected.
+inline constexpr std::uint32_t kCoreApiVersion = 5;
 
 // The toolchain and configuration this tree was configured with. A plugin built by a different configure
 // carries a different string and is rejected at load; it can only come from a stale build directory.
