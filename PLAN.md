@@ -523,6 +523,18 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       (b) "directly, not via subagents" added to `.claude/skills/plan-feature/SKILL.md` step 1's
       "Inspect..." instruction. `AGENTS.md`+`CLAUDE.md` are at 77/100 lines, so (a) fits the
       existing budget. Not started.
+- [ ] ADR-0002's literal "no unit suffixes in identifiers (`altitude`, not `altitude_m`)" text vs.
+      `AtmoState`'s own field names (`temperature_k`, `pressure_pa`, `density_kg_m3`,
+      `speed_of_sound_m_s`) and, as of M3 PR 3's own ADR-0018, `AeroInputs`/`PropulsionInputs`'s
+      (`alpha_rad`, `dynamic_pressure_pa`, `true_airspeed_mps`) — whether the rule means signal-name
+      strings specifically (its own example, `registry.add("aero.CL", ...)`, is a string) or every
+      C++ identifier is unresolved; PR 3's own plan accepted the unit-suffix precedent rather than
+      settling the wording. Not started.
+- [ ] §15 envelope monitors (α, β, Mach, dynamic pressure, load-factor limits declared by the aero
+      model) — deferred from M3 PR 3 (ADR-0018): no declaration hook exists yet on `AeroModel`
+      because no concrete plugin has real numbers to declare before PR 4. PR 4 or a later PR adds
+      the declaration virtual (a further `kCoreApiVersion` bump, precedented) and wires
+      `HealthMonitor`'s own per-frame check against it. Not started.
 - [ ] **M3 Notional transport** — aero + mass + turbofan plugins; trims at cruise (10,000 m, 230 m/s
       TAS, ADR-0002 SI) with residual < 1e-6 (norm TBD, PR 6); linearized modes match design values,
       each mode against its own tolerance; a 300 s open-loop run matches its own frozen regression
@@ -554,8 +566,8 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         sketch PR 0 flagged. Accept: static-plugins build discovers both folders with zero framework
         edits; `ctest -L unit -R notional_transport_mass` passes. Binding ADRs: ADR-0009. Tier 1.
         Plan critique: no.
-  - [ ] PR 2 — Write-seam primitive, the read-registry's mutable counterpart, plan/ADR accepted,
-        implemented and validated, PR #38 (draft) open, pending Joe's review/merge decision.
+  - [x] PR 2 — Write-seam primitive, the read-registry's mutable counterpart, plan/ADR accepted,
+        implemented, validated, and merged as `c5f7633` (#38, 2026-09-20).
         `InputRegistry` (registry-owned storage, `SignalRegistry`'s
         mutable counterpart): a `WrenchSource` registers a writable input from a new `bind_inputs()`
         hook, getting back a `const double*` into `InputRegistry`'s own canonical storage (also
@@ -589,19 +601,29 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         from `(vs, env)`, read the model's own PR 2 control-input members, assemble `AeroInputs`/
         `PropulsionInputs`, call a pure-virtual `compute()` that is `const noexcept` (§7's non-const
         sketch is what changes, not the ADR-0016 purity rule). Hand-built-`AeroInputs` unit testing
-        without a simulator is preserved. Depends on PR 2. Accept: a stub `AeroModel` is unit-tested
-        with a hand-built `AeroInputs` alone, and separately proven end-to-end through a real `Vehicle`
-        with PR 2's write seam driving it. Binding ADRs: PR 2's new ADR, or a short follow-on to it.
-        Tier 3. Plan critique: likely one combined pass with PR 2 (same interface question) -- confirm
-        once PR 2's plan draft exists.
+        without a simulator is preserved. Depends on PR 2 (merged, `c5f7633`/#38, 2026-09-19
+        20:55:09-07:00). Accept: a stub `AeroModel` is unit-tested with a hand-built `AeroInputs`
+        alone, and separately proven end-to-end through a real `Vehicle` with PR 2's write seam
+        driving it; `wrench_b()`'s own `isfinite` guard over the assembled `Inputs` (an unconditional
+        no-silent-NaN guarantee, no new `HealthMonitor` API) is part of this PR's own acceptance.
+        Binding ADRs: ADR-0016, ADR-0017, ADR-0018 (new). Tier 3. **Plan approved by Joe, 2026-09-19**
+        (`docs/plans/pr3-aero-propulsion.md`, Revision 2). Plan critique: done (once) -- the combined
+        pr2/pr3 pass floated at PR 0 time did not happen (PR 2 shipped independently); this PR's own,
+        separate Codex plan critique found twelve findings, all accepted and folded into the plan,
+        none reopening the interface/ownership/version decisions, so no second critique was needed.
   - [ ] PR 4 — `aircraft/notional_transport/physical/aero` (linear-coefficient aero) and
         `hardware/propulsion/turbofan` (thrust lapse), O2/O3's numbers transcribed from
         `docs/refs/aircrafts/737.xml`'s `<aerodynamics>`/`<propulsion>` blocks (same source as O1's
         mass properties, PR 1 -- transcription, not an independently proposed set of coefficients);
         engine-station offset from CG lives in the turbofan plugin's own config. Accept:
         `tests/physics/notional_transport/` exercises `AeroInputs`/`PropulsionInputs` directly at
-        2-3 hand-picked conditions against O2/O3's sourced values to stated tolerance. Binding
-        ADRs: ADR-0001, ADR-0002, PR 2/3's ADR. Tier 3. Plan critique: no -- mechanism already
+        2-3 hand-picked conditions against O2/O3's sourced values to stated tolerance; **and**
+        (ADR-0018's own V→0 obligation, PR 3) `compute()` returns a finite `Wrench` at
+        `true_airspeed_mps == 0`, proven by its own test -- the linear-coefficient aero's stability
+        derivatives are exactly the S&L §2.3 Eq. (2.3-9a) nondimensional-rate form (scaled by
+        `1/(2V_T)`) that hazard names, and a naive port would carry a real division by zero at that
+        state, unlike the dimensional force equations built from the same coefficients. Binding
+        ADRs: ADR-0001, ADR-0002, ADR-0017, ADR-0018. Tier 3. Plan critique: no -- mechanism already
         pinned by PR 2/3.
   - [ ] PR 5 — nanobind: `Simulation`, `Config` from dict, `SignalRegistry` read views, PR 2's write
         seam (`sim.write_input(name, value)`, D7), and `Simulation::derivative(state)` -- the same

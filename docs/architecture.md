@@ -232,16 +232,16 @@ class EarthModel      : public Model { /* frames, rotation rate, transport rate,
 
 // Vehicle
 class MassPropertiesModel : public Model { public: virtual MassProps get() const = 0; };
-class AeroModel           : public Model { public: virtual Wrench compute(const AeroInputs&) = 0; };
-class PropulsionModel     : public Model { public: virtual Wrench compute(const PropulsionInputs&) = 0; };
+class AeroModel       : public WrenchSource { public: virtual Wrench compute(const AeroInputs&) const noexcept = 0; };
+class PropulsionModel : public WrenchSource { public: virtual Wrench compute(const PropulsionInputs&) const noexcept = 0; };
 // Deferred, interfaces reserved: GearModel, ActuatorModel, SensorModel, StructuralModel
 
 }  // namespace astra
 ```
 
-**Status:** `AeroModel`, `AeroInputs`, `PropulsionModel`, and `PropulsionInputs` above are a sketch; no concrete implementation exists yet. The notional_transport aero/propulsion plugins and any resulting change to this shape are PLAN.md M3 scope, pinned by PLAN.md M3 PR 3's own ADR. The control-input write seam itself — `InputRegistry`, `WrenchSource::bind_inputs()` — is settled and built (ADR-0017, PLAN.md M3 PR 2); PR 3's `AeroModel`/`PropulsionModel` are the first real subscribers.
+**Status:** real and built (ADR-0018, PLAN.md M3 PR 3). `AeroModel`/`PropulsionModel` derive from `WrenchSource`, not `Model` directly (this section's own earlier sketch said `Model`); each provides its own `wrench_b()` (`final`) that assembles the `Inputs` struct below from `(VehicleState, EnvironmentSample)`, checks every field with `std::isfinite`, and — only if every field is finite — forwards to `compute()`, which is `const noexcept` (not the plain, non-const sketch this section used to show). A non-finite field short-circuits to an explicit all-NaN `Wrench` without ever calling `compute()`, so `HealthMonitor::check_wrench` (ADR-0016) always catches a broken environment sample, regardless of which fields a concrete `compute()` happens to read. The control-input write seam itself — `InputRegistry`, `WrenchSource::bind_inputs()` — is settled and built (ADR-0017, PLAN.md M3 PR 2); `AeroModel`/`PropulsionModel` are its first real subscribers, but neither overrides `bind_inputs()` itself (see below).
 
-`AeroInputs` carries airspeed, α, β, body rates, dynamic pressure, Mach, and the control surface positions; `PropulsionInputs` carries throttle commands, atmosphere state, and airspeed. Both are plain structs so a user's model can be unit-tested with hand-built inputs and no simulator.
+`AeroInputs` carries airspeed, α, β, body rates, dynamic pressure, and Mach — physics quantities only, assembled by `AeroModel::wrench_b()`; `PropulsionInputs` carries airspeed and the full atmosphere sample. Neither carries a control surface position or a throttle command: those arrive through the write seam below, exactly like any other `WrenchSource` reads any other bound member — `bind_inputs()` is left to the *concrete* plugin (PR 4's own `linear_aero`/`turbofan`), not given a base-class default that would bake one airframe's control layout into these two framework classes. Both `Inputs` structs are plain, so a user's `compute()` can still be unit-tested with hand-built values and no simulator.
 
 **Vehicle** is a composition: one mass-properties model, a list of `AeroModel`s and `PropulsionModel`s whose wrenches are summed. Multiple aero models is deliberate — a user can split wing/tail/fuselage or add a store as a separate contributor without touching the framework.
 

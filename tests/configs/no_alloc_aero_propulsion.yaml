@@ -1,0 +1,24 @@
+# tests/physics/no_alloc_test.cpp (PLAN.md M3 PR 3, ADR-0018): AeroModel/PropulsionModel's own new
+# wrench_b() (wind subtraction, the atan2-based angle assembly, the isfinite guard, and the write
+# seam) must not allocate either. Uses tests/plugins/aero_stub/propulsion_stub, the same pair
+# aero_propulsion_seam_test.cpp uses, so the fixture exercises the real, unconditional
+# requires_environment().atmosphere = true path, not a stripped-down stand-in. State mirrors
+# no_alloc_substage_wrench.yaml's own (already-established, comfortably in-domain for flat Earth)
+# p_n/v_b.
+sim:
+  dt: 0.001
+  frames: 1000
+vehicle:
+  models:
+    - { plugin: tests/plugins/aero_stub }
+    - { plugin: tests/plugins/propulsion_stub }
+  initial_controls:
+    controls:
+      elevator: 0.1
+physical:
+  earth: plugins/physical/earth/flat
+  gravity: plugins/physical/gravity/constant
+  atmosphere: plugins/physical/atmosphere/isa1976
+  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 }
+initial:
+  state: { p_n: [0.0, 0.0, -1000.0], v_b: [60.0, 0.0, 0.0] }
