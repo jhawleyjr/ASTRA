@@ -1,0 +1,30 @@
+# Starting point for a new aircraft (docs/architecture.md §18): `just new-aircraft <name>` copies
+# this file to aircraft/<name>/configs/cruise.yaml and rewrites the aircraft/_template plugin paths
+# below to aircraft/<name>. Only keys Simulation::from_config actually reads appear here
+# (docs/architecture.md §13, §15: an unconsumed key is a ConfigError) -- aero/turbofan plugins
+# don't exist yet (PLAN.md M3 PR 3/PR 4), so they're not shown even as comments; add them once
+# built.
+sim:
+  dt: 0.001
+  frames: 1000
+vehicle:
+  models: []
+physical:
+  earth: plugins/physical/earth/flat
+  gravity: plugins/physical/gravity/constant
+  atmosphere: plugins/physical/atmosphere/isa1976
+  mass:
+    plugin: aircraft/_template/physical/mass
+    mass: 0.0  # TODO: this aircraft's mass, kg -- 0.0 is rejected at init (mass must be positive)
+    ixx: 0.0   # TODO: kg*m^2
+    iyy: 0.0   # TODO: kg*m^2
+    izz: 0.0   # TODO: kg*m^2
+    # ixy/ixz/iyz default to 0 (laterally symmetric airframe). If your aircraft needs a nonzero
+    # ixz, see aircraft/_template/physical/mass/mass.cpp's header comment for the sign convention
+    # (S&L product-of-inertia, not the raw inertia-tensor entry) before transcribing a source value.
+initial:
+  state:
+    p_n: [0.0, 0.0, 0.0]
+    v_b: [0.0, 0.0, 0.0]
+    euler_nb: [0.0, 0.0, 0.0]
+    omega_b: [0.0, 0.0, 0.0]

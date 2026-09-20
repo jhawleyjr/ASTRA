@@ -251,7 +251,7 @@ class PropulsionModel     : public Model { public: virtual Wrench compute(const 
 
 **Control inputs in v1.** Surface positions and throttle come straight from the ICD command frame with an ideal actuator (commanded = achieved). `ActuatorModel` slots in between later without changing `AeroInputs`.
 
-**Reference plugins shipped under `plugins/`:** `physical/`: ISA-1976 atmosphere; constant-uniform wind and Dryden turbulence (MIL-F-8785C, seeded); gravity: constant, inverse-square, WGS-84 with J2; Earth: flat, round-nonrotating, WGS-84 rotating. `sim/`: loopback and shm transports (PLAN.md M4 scope, not yet built). **PLAN.md M3 scope, not yet built, under `aircraft/notional_transport/`:** constant mass properties, linear-coefficient aero with stability and control derivatives (a made-up but self-consistent twin-jet, clearly labeled notional), and a simple thrust-lapse turbofan implementing `AeroModel`/`PropulsionModel` above. `aircraft/_template/` (also not yet built) holds stripped-down versions of the same three with the numbers zeroed and marked `TODO`, so a new aircraft starts from something that compiles and trims. Integrators (Euler for tests, RK4 default) live in the core, not as plugins — they are part of the kernel's contract with the state vector. The framework builds its own reference models through exactly the same `astra_add_plugin` path a user's models take, so the on-ramp is exercised by every build.
+**Reference plugins shipped under `plugins/`:** `physical/`: ISA-1976 atmosphere; constant-uniform wind and Dryden turbulence (MIL-F-8785C, seeded); gravity: constant, inverse-square, WGS-84 with J2; Earth: flat, round-nonrotating, WGS-84 rotating. `sim/`: loopback and shm transports (PLAN.md M4 scope, not yet built). **PLAN.md M3 scope, not yet built, under `aircraft/notional_transport/`:** constant mass properties, linear-coefficient aero with stability and control derivatives (parameters adapted from JSBSim's "737" example aircraft, Dave Culp/Aeromatic — still a notional/example airframe, not a validated real 737), and a simple thrust-lapse turbofan implementing `AeroModel`/`PropulsionModel` above. `aircraft/_template/` (also not yet built) holds stripped-down versions of the same three with the numbers zeroed and marked `TODO`, so a new aircraft starts from something that compiles and trims. Integrators (Euler for tests, RK4 default) live in the core, not as plugins — they are part of the kernel's contract with the state vector. The framework builds its own reference models through exactly the same `astra_add_plugin` path a user's models take, so the on-ramp is exercised by every build.
 
 ## 8. Integration
 
@@ -337,26 +337,43 @@ Fixed-width types, 8-byte natural alignment, sizes asserted, version in every fr
 
 One `Config` tree, loaded from YAML (`yaml-cpp`, apt) or built from a Python dict, validated at init, frozen for the run, and copied into the log. Every selectable component is named by its plugin path, so a run's composition — which Earth, which engine, which IMU — is entirely a configuration choice over the plugins the build produced.
 
-The example below is illustrative of the intended shape, not the current schema — `Simulation::from_config` reads vehicle wrench sources from a flat `vehicle.models` list today; the example is rewritten when PLAN.md M3 PR 1 lands the first real aircraft config.
+The example below is `aircraft/notional_transport/configs/cruise.yaml` verbatim (PLAN.md M3 PR 1): every key shown is one `Simulation::from_config` actually reads today — an unconsumed key is a `ConfigError` (§15). Vehicle wrench sources (aero, propulsion — any `WrenchSource`) all register into the one flat `vehicle.models` list; there is no separate typed `physical.aero`/`hardware.propulsion` slot. The aero and turbofan entries are commented out because those plugins don't exist yet (PLAN.md M3 PR 3/PR 4); `physical.mass` is real as of PR 1.
 
 ```yaml
-# aircraft/notional_transport/configs/cruise.yaml
-physical:
-  earth:      plugins/physical/earth/wgs84_rotating
-  atmosphere: plugins/physical/atmosphere/isa1976
-  gravity:    plugins/physical/gravity/wgs84_j2
-  wind:       { plugin: plugins/physical/wind/dryden, seed: 42, intensity: light }
-  mass:       aircraft/notional_transport/physical/mass
-  aero:       [aircraft/notional_transport/physical/aero]
-hardware:
-  propulsion: [{ plugin: aircraft/notional_transport/hardware/propulsion/turbofan, station: left },
-               { plugin: aircraft/notional_transport/hardware/propulsion/turbofan, station: right }]
-  sensors:    {}        # v1: none; later e.g. imu: plugins/hardware/sensors/imu/hg4930
+# aircraft/notional_transport: an example airframe, not a validated real Boeing 737. mass/aero/
+# propulsion parameters are transcribed from JSBSim's "737" example aircraft
+# (docs/refs/aircrafts/737.xml, gitignored -- not in this repository; $Revision: 1.43 $, authors
+# Dave Culp / Aeromatic, GPL). That file's own <note> says it was "created using publicly available
+# data, publicly available technical reports, textbooks, and guesses ... meant for educational and
+# entertainment purposes only" (Aeromatic/Roskam-style estimates) -- this config carries the same
+# caveat forward, not a claim of real-737 fidelity.
 sim:
-  transport:  { plugin: plugins/sim/transport/shm, name: /astra_ap, divisor: 10, timeout_ms: 50 }
-  health:     { envelope: warn, rates: warn, transport: halt, nan: halt }   # see §15; these are the defaults
-initial: { trim: { altitude: 10000, tas: 230, heading: 0.0 } }
-log: { path: run.h5, rate_groups: { fast: 1, slow: 100 } }
+  dt: 0.001
+  frames: 1000
+vehicle:
+  models: []
+  # - plugin: aircraft/notional_transport/physical/aero          # PR 4, needs AeroModel (PR 3)
+  # - plugin: aircraft/notional_transport/hardware/propulsion/turbofan, station: left   # PR 4
+  # - plugin: aircraft/notional_transport/hardware/propulsion/turbofan, station: right  # PR 4
+physical:
+  earth: plugins/physical/earth/wgs84_rotating
+  gravity: plugins/physical/gravity/wgs84_j2
+  atmosphere: plugins/physical/atmosphere/isa1976
+  wind: { plugin: plugins/physical/wind/dryden, seed: 42, w20_knots: 15.0, sigma_high: 3.0 }  # light
+  mass:
+    plugin: aircraft/notional_transport/physical/mass
+    mass: 37648.0    # kg; 83000 LBS x 0.45359237
+    ixx: 761970.0    # kg*m^2; 562000 SLUG*FT2 x 1.35581795
+    iyy: 1997120.0   # kg*m^2; 1.473e6 SLUG*FT2 x 1.35581795
+    izz: 2567919.0   # kg*m^2; 1.894e6 SLUG*FT2 x 1.35581795
+    ixz: -10846.5    # kg*m^2; S&L product-of-inertia convention -- see the plugin's own header
+                     # comment and the config's own inline comment for the sign derivation.
+initial:
+  state:
+    p_n: [0.0, 0.0, 10000.0]   # wgs84_rotating: lat (rad), lon (rad), altitude (m)
+    v_b: [230.0, 0.0, 0.0]     # m/s TAS, wings level -- not a trimmed state (PR 6 adds trim)
+    euler_nb: [0.0, 0.0, 0.0]  # heading 0, level
+    omega_b: [0.0, 0.0, 0.0]
 ```
 
 An aircraft folder can carry several configs (cruise, cruise with turbulence, a variant with a different engine), and any config can point at a plugin in another aircraft's folder or in `plugins/` — paths are paths.
@@ -407,7 +424,7 @@ The monitors are themselves testable: `tests/unit/health/` feeds a NaN, a broken
 | M0 | Core and one dummy plugin build under all presets; the loader loads the dummy by its plugin path, rejects a bad `core_api_version`, and the static-plugins build runs the same test without `dlopen`; unit test scaffold; hooks fire; LSPs resolve symbols; GitHub Actions runs `just check` on a pull request against an `ubuntu-24.04` runner and the branch protection requires it; ADR-0001…0011 accepted; `icd/` static asserts hold under both clang-18 and `gcc -std=c11` |
 | M1 | Torque-free rigid body: energy and angular momentum drift < 1e-9 relative over 1000 s; quaternion norm within 1e-12; ballistic arc matches closed form; RK4 vs Euler convergence order demonstrated; zero allocations over 1000 frames; health monitor halts on an injected NaN and on a broken quaternion, naming the source |
 | M2 | NASA check cases 1–10 (dropped/tumbling sphere and brick, flat / round / rotating / WGS-84 Earth, steady and varying wind) within the tolerances the NESC data provides; ISA table points exact; Dryden PSD matches spec within statistical bounds |
-| M3 | Notional transport trims at cruise (10,000 m, 230 m/s TAS) with residual < 1e-6; linearized modes match design values, each mode against its own tolerance; a 300 s open-loop run matches its own frozen regression trajectory, independently cross-checked against the linearized model's phugoid prediction |
+| M3 | Notional transport (an example aircraft's mass/aero/propulsion values, not a validated real 737) trims at cruise (10,000 m, 230 m/s TAS) with residual < 1e-6; linearized modes are sanity-checked against S&L §4.2's classical approximations with loose, labeled per-mode tolerances, not an independent oracle; a 300 s open-loop run matches its own frozen regression trajectory, independently cross-checked against the linearized model's phugoid prediction |
 | M4 | Autopilot process: 10,000 lockstep exchanges, zero missed; altitude within ±30 m, heading within ±2° under light Dryden; bit-identical log across two runs; killing the autopilot mid-run produces a transport-health halt within one timeout, not a hang or a garbage trajectory |
 | M5 | Scenario harness runs every YAML in `tests/scenarios/`; Monte Carlo of 64 dispersed runs completes; FlightGear receives valid packets (checked by a packet decoder test, not by launching FlightGear) |
 
