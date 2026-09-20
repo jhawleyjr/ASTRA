@@ -1,10 +1,11 @@
 # Human review packet: M3 PR 2 — control-input write seam
 
-PR / candidate base and head: `main` at `829df62` (M3 PR 1, #37); uncommitted working-tree
-candidate in worktree `m3-pr2-write-seam`, branch `worktree-m3-pr2-write-seam`. `main` has not
-advanced since this candidate's base was taken; the docs-only planning commit (`PLAN.md`, `docs/
-plans/pr2-write-seam.md`, `docs/decisions/0017-control-input-write-seam.md`) already landed on this
-branch as `3f4ca7e` before implementation started this session.
+PR / candidate base and head: `main` at `829df62` (M3 PR 1, #37); committed and pushed candidate
+`de4815e` on branch `worktree-m3-pr2-write-seam`, PR
+<https://github.com/jhawleyjr/ASTRA/pull/38> (draft, opened this session) against `main`'s
+`829df62`. `main` has not advanced since this candidate's base was taken. The docs-only planning
+commit (`PLAN.md`, `docs/plans/pr2-write-seam.md`, `docs/decisions/0017-control-input-write-seam.md`)
+landed on this branch as `3f4ca7e` before implementation started this session.
 Spec/plan/task: `docs/decisions/0017-control-input-write-seam.md` (accepted, immutable) and `docs/
 plans/pr2-write-seam.md`'s Design section and Acceptance table (R1–R13), both already reviewed and
 approved across two Codex plan critiques and two of your own review rounds before this session.
