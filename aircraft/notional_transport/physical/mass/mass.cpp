@@ -98,8 +98,12 @@ class NotionalTransportMass final : public astra::MassPropertiesModel {
 
 std::unique_ptr<astra::Model> create() { return std::make_unique<NotionalTransportMass>(); }
 
-constexpr astra::PluginDescriptor kDescriptor{"physical", "notional_transport_mass",
-                                              astra::kCoreApiVersion, astra::kBuiltWith, &create};
+// "mass", not "notional_transport_mass": new-aircraft.sh only rewrites config YAML paths on copy,
+// never .cpp string literals, so a per-aircraft-specific name here would stay wrong (still saying
+// "notional_transport" or "template") in every aircraft ever copied from this file. The plugin
+// path itself already disambiguates which aircraft's copy a run log's descriptor came from.
+constexpr astra::PluginDescriptor kDescriptor{"physical", "mass", astra::kCoreApiVersion,
+                                              astra::kBuiltWith, &create};
 
 }  // namespace
 

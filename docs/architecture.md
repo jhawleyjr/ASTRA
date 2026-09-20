@@ -337,7 +337,7 @@ Fixed-width types, 8-byte natural alignment, sizes asserted, version in every fr
 
 One `Config` tree, loaded from YAML (`yaml-cpp`, apt) or built from a Python dict, validated at init, frozen for the run, and copied into the log. Every selectable component is named by its plugin path, so a run's composition — which Earth, which engine, which IMU — is entirely a configuration choice over the plugins the build produced.
 
-The example below is `aircraft/notional_transport/configs/cruise.yaml` verbatim (PLAN.md M3 PR 1): every key shown is one `Simulation::from_config` actually reads today — an unconsumed key is a `ConfigError` (§15). Vehicle wrench sources (aero, propulsion — any `WrenchSource`) all register into the one flat `vehicle.models` list; there is no separate typed `physical.aero`/`hardware.propulsion` slot. The aero and turbofan entries are commented out because those plugins don't exist yet (PLAN.md M3 PR 3/PR 4); `physical.mass` is real as of PR 1.
+The example below is condensed from `aircraft/notional_transport/configs/cruise.yaml` (PLAN.md M3 PR 1) — its explanatory comments trimmed for length, but every key and value identical to the shipped file: every key shown is one `Simulation::from_config` actually reads today — an unconsumed key is a `ConfigError` (§15). Vehicle wrench sources (aero, propulsion — any `WrenchSource`) all register into the one flat `vehicle.models` list; there is no separate typed `physical.aero`/`hardware.propulsion` slot. The aero and turbofan entries are commented out because those plugins don't exist yet (PLAN.md M3 PR 3/PR 4); `physical.mass` is real as of PR 1.
 
 ```yaml
 # aircraft/notional_transport: an example airframe, not a validated real Boeing 737. mass/aero/

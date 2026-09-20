@@ -57,7 +57,8 @@ gtest_discover_tests(astra_integrator_test TEST_PREFIX "integrator." DISCOVERY_M
 add_executable(astra_notional_transport_mass_test mass/notional_transport_mass_test.cpp)
 target_link_libraries(astra_notional_transport_mass_test PRIVATE astra::core GTest::gtest_main)
 target_compile_definitions(astra_notional_transport_mass_test PRIVATE
-  "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\"")
+  "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""
+  "ASTRA_AIRCRAFT_DIR=\"${ASTRA_SOURCE_DIR}/aircraft\"")
 gtest_discover_tests(astra_notional_transport_mass_test TEST_PREFIX "notional_transport_mass."
                      DISCOVERY_MODE PRE_TEST PROPERTIES LABELS unit)
 

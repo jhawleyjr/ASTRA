@@ -502,6 +502,16 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       `aircraft/notional_transport`'s own `physical/mass` plugins (M3 PR 1) document and use the
       product-of-inertia convention explicitly instead; the shared plugin's keys are unchanged and
       still undocumented. Not started.
+- [ ] `cmake/AstraPlugin.cmake`'s `astra_finalize_plugins()` hardcodes which test executables get a
+      plugin build-order dependency (`astra_unit_tests`, `astra_physics_tests`, and — since M3
+      PR 1 — `astra_notional_transport_mass_test`, `astra_template_mass_test`), by explicit design
+      ("listed explicitly ... so a new test target opts in", that function's own comment). This
+      means a new aircraft with its own dedicated test executable needs a framework edit
+      (`cmake/AstraPlugin.cmake` itself) to build correctly from clean, contradicting §18's on-ramp
+      story ("copy `_template`, edit, rebuild — nothing in the framework is edited"). Wants an
+      `astra_add_plugin_test()` helper (mirroring `astra_add_plugin()`'s own one-line
+      self-registration) so a new aircraft's own `CMakeLists.txt` can opt its test in without
+      touching `cmake/AstraPlugin.cmake`. Not started.
 - [ ] **M3 Notional transport** — aero + mass + turbofan plugins; trims at cruise (10,000 m, 230 m/s
       TAS, ADR-0002 SI) with residual < 1e-6 (norm TBD, PR 6); linearized modes match design values,
       each mode against its own tolerance; a 300 s open-loop run matches its own frozen regression

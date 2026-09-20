@@ -1,19 +1,23 @@
 // aircraft/notional_transport/physical/mass (PLAN.md M3 PR 1): loads the real plugin through
 // PluginLoader, the same shape as tests/unit/gravity/inverse_square_test.cpp -- no reaching into
-// the plugin's anonymous-namespace internals. Numbers are O1's transcription of JSBSim's "737"
-// example aircraft (docs/refs/aircrafts/737.xml); see aircraft/notional_transport/configs/
-// cruise.yaml for the full citation and the ixz sign derivation.
+// the plugin's anonymous-namespace internals. Config comes from the SHIPPED
+// aircraft/notional_transport/configs/cruise.yaml itself (physical.mass sub-tree), not a
+// hand-built fixture string that could silently drift from it -- flipping ixz's sign in the real
+// file must fail the tilt test below, not just some fixture's own copy of the same number
+// (Joe, 2026-09-19). Numbers are O1's transcription of JSBSim's "737" example aircraft
+// (docs/refs/aircrafts/737.xml); see cruise.yaml for the full citation and sign derivation.
 //
 // The principal-axis-tilt test is not a re-derivation of the plugin's own arithmetic: it
 // eigendecomposes the tensor init() actually produced and checks the physical invariant the sign
 // convention exists to get right. This specific transcription gives ~0.34 deg NOSE-UP -- what the
 // source's own ixz token gives, transcribed faithfully, not a sign error to "fix" toward some
-// assumed nose-down value (Joe, 2026-09-19).
+// assumed nose-down value.
 #include <gtest/gtest.h>
 
 #include <Eigen/Eigenvalues>
 #include <cmath>
 #include <numbers>
+#include <string>
 
 #include "astra/config/config.hpp"
 #include "astra/interfaces/mass_properties_model.hpp"
@@ -32,15 +36,9 @@ MassProps load() {
   loaded = loader.load("aircraft/notional_transport/physical/mass");
   auto* const mass = dynamic_cast<MassPropertiesModel*>(loaded.model.get());
   astra::SignalRegistry registry;
-  // O1's transcription (docs/refs/aircrafts/737.xml, cited in cruise.yaml): ixz below is the S&L
-  // product of inertia integral(x*z*dm), not the tensor entry -- the plugin negates it.
-  mass->init(Config::from_string("mass: 37648.0\n"
-                                 "ixx: 761970.0\n"
-                                 "iyy: 1997120.0\n"
-                                 "izz: 2567919.0\n"
-                                 "ixz: -10846.5\n",
-                                 "notional-transport-mass-fixture"),
-             registry);
+  const Config config = Config::from_file(std::string{ASTRA_AIRCRAFT_DIR} +
+                                          "/notional_transport/configs/cruise.yaml");
+  mass->init(config.at("physical.mass"), registry);
   return mass->get();
 }
 

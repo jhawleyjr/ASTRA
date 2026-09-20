@@ -5,17 +5,26 @@ critique), including the O1 mass/inertia numbers Joe approved (JSBSim `docs/refs
 737.xml` transcription) and the four scaffolding directions from his correction rounds.
 Builder: Claude (Sonnet 5)
 Reviewer: Codex (general review + adversarial review, both `codex-companion` 1.0.6, fresh context)
-Scope: uncommitted working-tree diff against `main` at `91aa358` (M3 PR 0, #36) — no commits yet
-on this branch. Touches `PLAN.md`, `docs/architecture.md`, `justfile`, `cmake/AstraPlugin.cmake`,
-`tests/unit/CMakeLists.txt`, plus new files under `aircraft/_template/`,
-`aircraft/notional_transport/`, `scripts/new-aircraft.sh`, `tests/python/test_new_aircraft.py`,
-`tests/unit/mass/`, `tests/unit/kernel/notional_transport_cruise_config_test.cpp`.
+for round 1 (R-001/R-002/R-003); Joe (direct PR review, PR #37) for round 2 (J-001..J-004),
+Codex re-verification requested for round 2's delta.
+Scope round 1: uncommitted working-tree diff against `main` at `91aa358` (M3 PR 0, #36). Scope
+round 2: committed candidate `fc3b6d7`/`8e0cfe4` on branch `worktree-m3-pr1-scaffolding` (PR #37)
+plus this round's own uncommitted fix delta, same base `91aa358`. Touches `PLAN.md`,
+`docs/architecture.md`, `justfile`, `cmake/AstraPlugin.cmake`, `tests/unit/CMakeLists.txt`, plus
+new files under `aircraft/_template/`, `aircraft/notional_transport/`, `scripts/new-aircraft.sh`,
+`tests/python/test_new_aircraft.py`, `tests/unit/mass/`,
+`tests/unit/kernel/notional_transport_cruise_config_test.cpp`.
 Validation: `just check` green (all four presets, clang-tidy, pyright 0 errors, pytest 36 passed)
-before dispatch, and again after the fix batch below. Manual evidence: `just new-aircraft
-scratch_evidence_test` run for real in this worktree, `ASTRA_STATIC_PLUGINS=ON` build proving
-`_template`/`notional_transport`/the scratch aircraft's three `physical/mass` plugins link into
-one binary with no ODR collision, then the scratch directory removed (not committed).
-Round: initial
+before round-1 dispatch, and again after the round-1 fix batch (38 passed). Manual evidence: `just
+new-aircraft scratch_evidence_test` run for real in this worktree, `ASTRA_STATIC_PLUGINS=ON` build
+proving `_template`/`notional_transport`/the scratch aircraft's three `physical/mass` plugins link
+into one binary with no ODR collision, then the scratch directory removed (not committed). Round 2
+adds: `astra_notional_transport_mass_test` rebuilt and run directly, confirming it now reads
+`aircraft/notional_transport/configs/cruise.yaml` and that flipping `ixz`'s sign in that real file
+(temporary local edit, reverted before commit) fails 2 of 3 tests as intended; full `just check`
+rerun pending below.
+Round: fix 2 (round 1: R-001/R-002/R-003, Codex-verified, closed; round 2: J-001..J-004, Joe's
+direct PR review)
 
 ## Finding R-001
 
@@ -110,14 +119,126 @@ claims the destination before cleanup is armed; copying template/. prevents nest
 cp/find/sed command failures trigger cleanup" — verified by static inspection, same
 not-independently-reproduced caveat (no actual concurrent-race repro run by either party).
 
+## Finding J-001
+
+Severity: minor
+Status: verified
+Location: `docs/architecture.md` §13 (the sentence introducing the config example);
+`docs/reviews/m3-pr1-scaffolding-human.md`'s "What changes and why"; PR #37's body Summary bullet
+Requirement/ADR: none binding; accuracy of a documentation claim
+Failure: all three places asserted the embedded example was `cruise.yaml` "verbatim." It isn't —
+the shipped file's explanatory comments (the citation block, the `ixz` sign-derivation block) are
+trimmed from the doc's embed for length. Keys and values are identical, but "verbatim" overclaims.
+Requested outcome: either the claim is made true (a docs-check enforcing key/value equality
+between the embed and the file) or the wording is corrected to what's actually true. Joe left the
+choice to the builder.
+Builder response: fixed by rewording, not by adding a check. A docs-check parsing a fenced YAML
+block out of Markdown and diffing it key-by-key against a real file is real, permanent machinery
+to maintain for a single illustrative embed; rewording is proportionate to a Tier 1 scaffolding
+PR and just as honest. §13 now reads "condensed from `aircraft/notional_transport/configs/
+cruise.yaml` ... comments trimmed for length, but every key and value identical to the shipped
+file." The human-review packet and PR body updated to match.
+Verification: `git grep -n verbatim` across `docs/` and the PR body (via `gh pr view --json body`)
+confirms no remaining false "verbatim" claim about this example; a line-by-line comparison of the
+embed against the current `cruise.yaml` (done by hand while rewriting) confirms every key/value
+pair is in fact still identical, which is what makes "condensed" accurate rather than another
+overclaim in the other direction. Codex (adversarial, round-2 fix-verification pass): "architecture
+wording explicitly says comments are trimmed with identical keys/values; the human packet says
+condensed with identical keys/values... direct comparison confirms all active YAML keys and values
+match cruise.yaml" — verified.
+
+## Finding J-002
+
+Severity: major
+Status: verified
+Location: `tests/unit/mass/notional_transport_mass_test.cpp` (pre-fix: `load()` built its `Config`
+from a hand-written inline string duplicating O1's numbers)
+Requirement/ADR: none binding; test-coverage integrity
+Failure: the test's fixture numbers were a second, independent copy of O1's values, not read from
+the shipped `aircraft/notional_transport/configs/cruise.yaml`. A future edit that flipped `ixz`'s
+sign (or any other value) in the real, shipped config file would not be caught by this test at
+all — it would keep passing against its own stale copy while the actual aircraft a user runs
+would silently carry the wrong tensor.
+Requested outcome: the test must read `physical.mass`'s config from the real, shipped file, so an
+edit to that file is what the test actually exercises.
+Builder response: fixed. `load()` now does `Config::from_file(std::string{ASTRA_AIRCRAFT_DIR} +
+"/notional_transport/configs/cruise.yaml").at("physical.mass")` and passes that sub-config
+straight to `init()` — the leftover `plugin:` key in that sub-tree is never read by `init()` and
+never triggers an unconsumed-key check here (this test calls the model's `init()` directly, the
+same way `tests/unit/gravity/inverse_square_test.cpp`'s own `load()` helper does, never going
+through `Simulation::from_config`'s separate unknown-key enforcement). Added the
+`ASTRA_AIRCRAFT_DIR` compile definition to this test's own target in `tests/unit/CMakeLists.txt`
+(the main `astra_unit_tests` target already had it from PR 1's earlier `NotionalTransportConfig`
+test; this standalone target did not).
+Verification: rebuilt and ran the test against the real file (3/3 pass, same tilt value as
+before, confirming the file and the old inline fixture agreed). Then temporarily flipped `ixz`'s
+sign directly in the shipped `cruise.yaml` (reverted before commit, never staged) and reran: 2 of
+3 tests failed exactly as expected (`ConfigIxzIsTheNegatedTensorEntry` and the tilt test), proving
+the test now actually depends on the shipped file's content. Codex (adversarial, round-2
+fix-verification pass): "the target defines ASTRA_AIRCRAFT_DIR correctly; load() uses
+Config::from_file and config.at(\"physical.mass\"), with no inline fixture remaining. The leftover
+plugin key cannot trigger rejection: neither Config nor this direct init() path enforces unknown
+keys" — verified.
+
+## Finding J-003
+
+Severity: minor
+Status: verified
+Location: `aircraft/_template/physical/mass/mass.cpp` and
+`aircraft/notional_transport/physical/mass/mass.cpp` (`kDescriptor`'s `name` field: pre-fix
+`"template_mass"` / `"notional_transport_mass"`)
+Requirement/ADR: ADR-0009's on-ramp story (copy `_template`, edit, rebuild)
+Failure: `scripts/new-aircraft.sh` only rewrites config YAML plugin-path strings on copy; it never
+touches `.cpp` source. A per-aircraft descriptor name baked into the source as a string literal
+therefore never updates when an aircraft is copied from `_template` (or from `notional_transport`)
+— every future aircraft's own mass plugin would report `PluginDescriptor.name == "template_mass"`
+in its run logs forever, actively wrong and misleading about which aircraft it belongs to.
+Requested outcome: a descriptor name that stays correct across every copy, i.e. one that doesn't
+encode the aircraft at all (the plugin *path* already does that).
+Builder response: fixed. Both files now use the generic `"mass"` for `kDescriptor`'s `name` field
+(matching `MassPropertiesModel::name()`'s own already-generic `"mass"`), with a comment in each
+file explaining why a per-aircraft name would go stale on copy.
+Verification: `git grep -n 'kDescriptor{"physical"'` across `aircraft/` shows both copies now
+identical on this field; rebuilt both plugins and reran `notional_transport_mass_test`/
+`template_mass_test` (neither asserts on the descriptor name, so no test needed updating) — 3/3
+and 1/1 pass respectively. Codex (adversarial, round-2 fix-verification pass): "both descriptors
+use \"mass\"; no tests assert the old aircraft-specific names, and loader resolution remains
+path-based" — verified.
+
+## Finding J-004
+
+Severity: minor (documentation/process)
+Status: verified
+Location: `PLAN.md` (new follow-up bullet, top-of-file unchecked-items list)
+Requirement/ADR: docs/architecture.md §18's on-ramp story
+Failure: not a code defect. `cmake/AstraPlugin.cmake`'s `astra_finalize_plugins()` hardcodes which
+test executables receive a plugin build-order dependency; R-001's fix (this round's own PLAN.md
+history) added `astra_notional_transport_mass_test`/`astra_template_mass_test` to that explicit
+list. This means a future aircraft with its own dedicated test executable needs a framework edit
+(`cmake/AstraPlugin.cmake` itself) to build correctly from a clean tree — in tension with §18's
+"nothing in the framework is edited" on-ramp claim.
+Requested outcome: record this as a tracked follow-up (an `astra_add_plugin_test()` helper,
+mirroring `astra_add_plugin()`'s own self-registration), not fixed in this PR.
+Builder response: added the bullet to `PLAN.md`'s unchecked-items list, same style as the existing
+R-001-era mass/constant convention bullet, immediately following it.
+Verification: `git grep -n astra_add_plugin_test` confirms the bullet exists and is the only
+occurrence (not yet implemented, as intended — this is a tracking entry, not a fix). Codex
+(adversarial, round-2 fix-verification pass): "PLAN.md contains the unchecked
+astra_add_plugin_test() follow-up; it changes no code behavior" — verified.
+
 ## Completion
 
-Zero critical findings. Three major/medium findings, all fixed and verified (Codex
-fix-verification adversarial-review pass, `codex-companion` 1.0.6, same working-tree diff,
-verdict "approve": all three hold, "New findings: none" from its own fix-delta/callers/invariants
-inspection). None rejected or deferred. No scope was left unreviewed within the three dispatched
-passes' own stated focus. `just check` reran green after the fix batch (all four presets,
-clang-tidy, pyright 0 errors, pytest 38 passed). Remaining risk: the R-003 concurrency fix was
-verified by inspection (mkdir's POSIX atomicity guarantee) and non-concurrent test coverage, not
-an actual two-process race reproduction, by either builder or reviewer. Proceeding to
-`/human-review`; Codex's approval is not Joe's approval.
+**Round 1** (R-001/R-002/R-003): zero critical findings, three major/medium, all fixed and
+Codex-verified (verdict "approve", "New findings: none"). None rejected or deferred.
+
+**Round 2** (J-001..J-004, from Joe's direct review of PR #37): zero critical findings, one major
+(J-002, a test-coverage gap — the mass test wasn't actually pinning the shipped file), three
+minor. All four fixed by the builder and Codex-verified (adversarial fix-verification pass,
+`codex-companion` 1.0.6, working-tree diff atop `8e0cfe4`, verdict "approve", "New findings:
+none"). `just check` reran green after the fix batch (all four presets, clang-tidy, pyright 0
+errors, pytest 38 passed). None rejected or deferred.
+
+Remaining risk carried from round 1: R-003's concurrency fix was verified by inspection (`mkdir`'s
+POSIX atomicity guarantee) and non-concurrent test coverage, not an actual two-process race
+reproduction, by either builder or reviewer. Codex's approval is not Joe's approval; Joe's own
+decision on PR #37 (post round-2 verification) is the outstanding gate.

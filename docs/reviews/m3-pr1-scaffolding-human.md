@@ -1,12 +1,15 @@
 # Human review packet: M3 PR 1 — aircraft/_template + aircraft/notional_transport scaffolding
 
-PR / candidate base and head: uncommitted working-tree diff against `main`'s current tip
-`91aa358` (M3 PR 0, #36) in worktree `m3-pr1-scaffolding` / branch `worktree-m3-pr1-scaffolding` —
-no commits made yet; `main` has not advanced since this candidate's base was taken.
+PR / candidate base and head: `main` at `91aa358` (M3 PR 0, #36); committed candidate `fc3b6d7`
+(main edit set) + `8e0cfe4` (session-handoff commit) on branch `worktree-m3-pr1-scaffolding`, PR
+<https://github.com/jhawleyjr/ASTRA/pull/37>, plus this round's own fix delta (J-001..J-004) on
+top, not yet committed as of packet preparation. `main` has not advanced since this candidate's
+base was taken.
 Spec/plan/task: `PLAN.md`'s M3 PR 1 line; Tier 1 brief agreed in-chat (no `docs/plans/` file),
 refined through your correction rounds on O1's numbers/convention and the four scaffolding
-directions (numbers-in-YAML, anonymous-namespace discipline, no aero/turbofan dirs yet, §13 as a
-verbatim `cruise.yaml` embed) and the O1 source switch to JSBSim's `docs/refs/aircrafts/737.xml`.
+directions (numbers-in-YAML, anonymous-namespace discipline, no aero/turbofan dirs yet, §13
+condensed from `cruise.yaml` with keys/values identical) and the O1 source switch to JSBSim's
+`docs/refs/aircrafts/737.xml`.
 Risk: Tier 1 per `PLAN.md`'s own PR 1 line ("Tier 1. Plan critique: no"). No new ADR (binding:
 ADR-0009, already accepted).
 Decision requested: approve behavior and authorize commit + draft PR (this session does not push
@@ -64,6 +67,8 @@ there; flagged as a `PLAN.md` follow-up, not fixed in this PR.
 | Manual: `ASTRA_STATIC_PLUGINS=ON` build with `_template` + `notional_transport` + the scratch aircraft all present | linked cleanly, no ODR collision | `cmake --preset static-plugins && cmake --build --preset static-plugins`, ninja output retained in session transcript |
 | Manual: isolated single-target build (Codex's R-001 repro) | `rm -rf build/asan && cmake --preset asan && ninja -C build/asan tests/unit/astra_notional_transport_mass_test` built every plugin first, 3/3 tests passed | confirms the `cmake/AstraPlugin.cmake` fix |
 | `just docs-check` (after adding the two `docs/reviews/` files) | pass, "24 Markdown files checked" | `git diff --check` also clean |
+| `just check` (round 2, after Joe's PR review fixes J-001..J-004) | pass, `check: OK`, exit 0 | pytest 38 passed (no new tests this round, existing ones fixed) |
+| Manual: `notional_transport_mass_test` rerun with `ixz` sign flipped directly in the shipped `cruise.yaml` (reverted before commit) | 2/3 tests failed as intended | confirms J-002's fix actually pins the shipped file, not a fixture copy |
 
 Numerical evidence for O1's transcription: unit-conversion factors and the resulting
 principal-axis tilt are shown as a derivation, not a bare pass/fail — see `docs/reviews/
@@ -92,6 +97,22 @@ verification pass's own fix-delta/blast-radius inspection):
   half-populated directory on any mid-copy failure. Fixed with an atomic `mkdir` claim, copying
   `template/.` (contents, not the directory itself) into the pre-created destination, and an `ERR`
   trap cleanup.
+
+**Round 2**, from your own direct review of PR #37, four more findings (J-001..J-004), all fixed
+and Codex-verified the same way (verdict "approve", "New findings: none"):
+- **J-001** (minor): §13/the packet/the PR body claimed the embedded example was `cruise.yaml`
+  "verbatim" — it wasn't (comments trimmed). Reworded to "condensed... keys/values identical"
+  rather than adding a permanent docs-check for one illustrative embed.
+- **J-002** (major): `notional_transport_mass_test` built its config from an inline fixture
+  string duplicating O1's numbers, so it couldn't catch a future edit to the real shipped
+  `cruise.yaml`. Now reads `physical.mass` from that real file; confirmed a flipped `ixz` sign in
+  the shipped file now fails the test.
+- **J-003** (minor): the mass plugins' `PluginDescriptor` name (`"template_mass"`/
+  `"notional_transport_mass"`) would go stale forever on every future aircraft copy, since
+  `new-aircraft.sh` never touches `.cpp` source. Both now use a copy-invariant generic `"mass"`.
+- **J-004** (minor, process): recorded a `PLAN.md` follow-up for `astra_finalize_plugins()`'s
+  hardcoded test-target list conflicting with §18's "no framework edit" on-ramp story — an
+  `astra_add_plugin_test()` helper, not implemented in this PR.
 
 No critical/major findings remain open. No findings rejected or deferred.
 
