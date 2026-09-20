@@ -24,7 +24,14 @@ namespace astra {
 // through a slot it does not have (same reasoning as version 2's requires_environment() addition
 // and version 4's own in_domain addition). Model::init()'s own signature is unchanged; every
 // non-WrenchSource plugin is unaffected.
-inline constexpr std::uint32_t kCoreApiVersion = 5;
+// 6 (M3 PR 3, ADR-0018): AeroModel/PropulsionModel -- two new WrenchSource specializations, each
+// with a new pure virtual compute() -- settle their own vtable shape for the first time in this
+// PR; bumped for the same reason version 3's brand-new WindModel bump was, not because any
+// existing interface changed (neither WrenchSource nor Model is touched). An out-of-tree plugin
+// implementing either class built against version 5 (before compute() existed) has no such
+// plugin in existence, but the version still names the shape this PR's own review settled on, not
+// an intermediate one.
+inline constexpr std::uint32_t kCoreApiVersion = 6;
 
 // The toolchain and configuration this tree was configured with. A plugin built by a different configure
 // carries a different string and is rejected at load; it can only come from a stale build directory.

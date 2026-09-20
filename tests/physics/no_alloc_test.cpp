@@ -114,4 +114,26 @@ TEST(NoAlloc, ZeroHeapAllocationsOverOneThousandFramesWithAWriteSeamInputConfigu
                               "configured (ADR-0017)";
 }
 
+// PLAN.md M3 PR 3 (ADR-0018), R9: AeroModel/PropulsionModel's own new wrench_b() -- wind
+// subtraction, the atan2-based angle assembly, and the isfinite guard's own std::isfinite calls
+// and all-NaN Wrench construction -- must not allocate either, with a real write-seam input
+// (tests/plugins/aero_stub) and a real physical.atmosphere both configured.
+TEST(NoAlloc, ZeroHeapAllocationsOverOneThousandFramesWithAeroAndPropulsionModels) {
+  const astra::Config config = astra::Config::from_file(std::string{ASTRA_TEST_CONFIG_DIR} +
+                                                        "/no_alloc_aero_propulsion.yaml");
+  astra::Simulation sim = astra::Simulation::from_config(config, ASTRA_TEST_PLUGIN_DIR);
+  ASSERT_EQ(sim.frames(), 1000U);
+
+  const std::size_t before = astra_test::allocation_count();
+  const astra::HaltReason halt = sim.run();
+  const std::size_t after = astra_test::allocation_count();
+
+  EXPECT_FALSE(halt) << "the fixture is chosen to stay in domain for the full run -- a halt here "
+                        "means the allocation count below was measured over fewer than 1000 frames";
+  EXPECT_EQ(sim.clock().frame(), 1000U) << "the run must complete, not merely allocate nothing "
+                                           "while halting early";
+  EXPECT_EQ(after, before) << "zero allocations over 1000 frames with AeroModel/PropulsionModel's "
+                              "own wrench_b() running (ADR-0018)";
+}
+
 }  // namespace

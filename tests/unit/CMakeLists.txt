@@ -7,6 +7,7 @@ add_executable(astra_unit_tests
   gravity/wgs84_j2_test.cpp
   health/health_monitor_test.cpp
   icd/icd_test.cpp
+  kernel/aero_propulsion_seam_test.cpp
   kernel/clock_test.cpp
   kernel/scheduler_test.cpp
   kernel/notional_transport_cruise_config_test.cpp
@@ -28,7 +29,9 @@ add_executable(astra_unit_tests
   wind/table_test.cpp
   wind/wind_determinism_test.cpp
   wind/wind_test.cpp
-  wrench/nesc_aero_test.cpp)
+  wrench/aero_model_test.cpp
+  wrench/nesc_aero_test.cpp
+  wrench/propulsion_model_test.cpp)
 target_link_libraries(astra_unit_tests PRIVATE astra::core GTest::gtest_main)
 target_compile_definitions(astra_unit_tests PRIVATE
   "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""
