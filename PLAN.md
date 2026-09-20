@@ -512,6 +512,17 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       `astra_add_plugin_test()` helper (mirroring `astra_add_plugin()`'s own one-line
       self-registration) so a new aircraft's own `CMakeLists.txt` can opt its test in without
       touching `cmake/AstraPlugin.cmake`. Not started.
+- [ ] A separate tier-2 workflow PR restoring the "no recon subagents" rule's visibility and
+      rationale, dropped from the standing docs by Workflow v3 (#30) (origin: commit `b07057c`/#8,
+      2026-09-14; rationale in that day's `docs/lessons.md` entry — subagent cost, and fidelity: a
+      Sonnet-pinned subagent hands the planner a lossy secondhand account instead of a first-hand
+      read). Found during M3 PR 2 planning: a research subagent was launched mid-session before the
+      rule was re-read and caught. (a) one line in `AGENTS.md`'s "Commands and boundaries" — read
+      code directly, no exploration/recon subagents (cost + fidelity, `docs/lessons.md` 2026-09-14);
+      the Codex review/critique route (`docs/agents/review-dispatch.md`) is the sole exception;
+      (b) "directly, not via subagents" added to `.claude/skills/plan-feature/SKILL.md` step 1's
+      "Inspect..." instruction. `AGENTS.md`+`CLAUDE.md` are at 77/100 lines, so (a) fits the
+      existing budget. Not started.
 - [ ] **M3 Notional transport** — aero + mass + turbofan plugins; trims at cruise (10,000 m, 230 m/s
       TAS, ADR-0002 SI) with residual < 1e-6 (norm TBD, PR 6); linearized modes match design values,
       each mode against its own tolerance; a 300 s open-loop run matches its own frozen regression
@@ -543,29 +554,31 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         sketch PR 0 flagged. Accept: static-plugins build discovers both folders with zero framework
         edits; `ctest -L unit -R notional_transport_mass` passes. Binding ADRs: ADR-0009. Tier 1.
         Plan critique: no.
-  - [ ] PR 2 — Write-seam primitive, the read-registry's mutable counterpart: a plugin registers a
-        named writable `double` at init (e.g. `inputs.add("controls.elevator", &elevator_, "rad")`),
-        latches it as an ordinary member, and its own `wrench_b`/`compute()` reads that member every
-        RK4 sub-stage -- **`WrenchSource::wrench_b`'s signature is unchanged**. Config literals
-        (open-loop), Python (trim/linearize), and later M4's transport + an `ActuatorModel` all write
-        through the same seam once per major frame, before the wrench stage; zero-order hold across a
-        frame's four sub-stages (Stevens & Lewis §3.4). ADR-0016 permits this: purity is "same answer
-        for the same stage state regardless of call count/order," not "no members" -- same shape as
-        `WindModel::begin_frame`'s latch. Direction chosen by Joe (write-seam, no `wrench_b` signature
-        change); final design is pinned by this PR's own ADR after the Codex plan critique, which must
-        remain free to change the shape. Cite S&L §2.3/§2.5 (control vector U separate from state),
-        S&L §3.5 (the F-16 model's `F(TIME,X,XD)` never takes controls; `COMMON/CONTROLS` written
-        externally by trim/the driver), Zipfel App. E.2.3/E.2.5 + Fig. 9.39 (CADAC++ modules
-        communicate only via published/subscribed module-variables). Scope for the ADR/critique to
-        resolve, not decided here: (a) an input registered but never written -- init error naming it,
-        or an explicit config-declared default, never a silent zero; (b) `reset()` semantics for
-        written values; (c) `HealthMonitor`: a non-finite written input halts naming that input, not
-        the consuming `WrenchSource`; (d) every writable input is also a readable `v0.*` signal (M5's
-        logger needs it) -- reconcile `inputs.add("controls.elevator", ...)` with "visible as
-        `v0.controls.*`". Needs a new ADR and one Codex plan critique. Accept: `v0.controls.*` visible
-        in the registry; a value written mid-frame is not observed until next frame; all four RK4
-        stages of one frame see the identical written value; zero allocation over 1000 frames. Binding
-        ADRs: new (number TBD). Tier 3. Plan critique: **yes**.
+  - [ ] PR 2 — Write-seam primitive, the read-registry's mutable counterpart, plan/ADR accepted,
+        implementation not started. `InputRegistry` (registry-owned storage, `SignalRegistry`'s
+        mutable counterpart): a `WrenchSource` registers a writable input from a new `bind_inputs()`
+        hook, getting back a `const double*` into `InputRegistry`'s own canonical storage (also
+        visible read-only as `v0.controls.*`); `WrenchSource::wrench_b`'s signature is unchanged.
+        Config literals (`vehicle.initial_controls`, this PR), Python (trim/linearize, PR 5), and
+        later M4's transport/`ActuatorModel` all write through the same seam (`write()`/a cached
+        `InputHandle`); `Simulation::step` calls `InputRegistry::latch()` once per vehicle per major
+        frame, after `vehicle.step(ctx)` and before `vehicle.integrate(...)`, giving zero-order hold
+        across a frame's four RK4 sub-stages (S&L §3.4) with no one-frame lag for a step()-time
+        writer. Two instances of one plugin (PR 4's left/right `turbofan`) share one value by
+        default (symmetric control), with per-instance naming available as an opt-in. Entries
+        default to a quiet NaN, never an unspecified value: an unwritten or non-finite input halts
+        (default) naming the input itself, not the consuming `WrenchSource`, via a new
+        `HealthMonitor::check_input`. Cite S&L §2.5 (control vector separate from state), §3.4 (ZOH
+        justification), §3.5 Fig. 3.5-2 (F-16's `COMMON/CONTROLS`, unchanged derivative signature);
+        Zipfel Fig. 9.39 + App. E.2.3/E.2.5 (module-variable bus, one writer many readers). Full
+        design, rejected alternatives, and the disclosed M4 gap (no seam route for a non-`WrenchSource`
+        writer): `docs/decisions/0017-control-input-write-seam.md`; full review history: `docs/plans/
+        pr2-write-seam.md` (two Codex plan critiques, two rounds of Joe's own review, eighteen
+        findings total, all resolved). Accept: `v0.controls.*` visible in the registry; a value
+        written mid-frame is not observed until next frame (R3); all four RK4 stages of one frame see
+        the identical written value (R5); zero allocation over 1000 frames (R6); full acceptance
+        table R1–R13, `docs/plans/pr2-write-seam.md`. Binding ADRs: ADR-0017 (accepted). Tier 3. Plan
+        critique: done (twice).
   - [ ] PR 3 — `AeroModel`/`PropulsionModel` as `WrenchSource` specializations: compute α/β/q̄/Mach
         from `(vs, env)`, read the model's own PR 2 control-input members, assemble `AeroInputs`/
         `PropulsionInputs`, call a pure-virtual `compute()` that is `const noexcept` (§7's non-const
