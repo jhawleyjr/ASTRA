@@ -555,7 +555,8 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         edits; `ctest -L unit -R notional_transport_mass` passes. Binding ADRs: ADR-0009. Tier 1.
         Plan critique: no.
   - [ ] PR 2 — Write-seam primitive, the read-registry's mutable counterpart, plan/ADR accepted,
-        implementation not started. `InputRegistry` (registry-owned storage, `SignalRegistry`'s
+        implemented and validated, PR #38 (draft) open, pending Joe's review/merge decision.
+        `InputRegistry` (registry-owned storage, `SignalRegistry`'s
         mutable counterpart): a `WrenchSource` registers a writable input from a new `bind_inputs()`
         hook, getting back a `const double*` into `InputRegistry`'s own canonical storage (also
         visible read-only as `v0.controls.*`); `WrenchSource::wrench_b`'s signature is unchanged.
@@ -574,11 +575,16 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         design, rejected alternatives, and the disclosed M4 gap (no seam route for a non-`WrenchSource`
         writer): `docs/decisions/0017-control-input-write-seam.md`; full review history: `docs/plans/
         pr2-write-seam.md` (two Codex plan critiques, two rounds of Joe's own review, eighteen
-        findings total, all resolved). Accept: `v0.controls.*` visible in the registry; a value
-        written mid-frame is not observed until next frame (R3); all four RK4 stages of one frame see
-        the identical written value (R5); zero allocation over 1000 frames (R6); full acceptance
-        table R1–R13, `docs/plans/pr2-write-seam.md`. Binding ADRs: ADR-0017 (accepted). Tier 3. Plan
-        critique: done (twice).
+        findings total, all resolved) plus implementation-time Codex general + adversarial review
+        (`docs/reviews/pr2-write-seam-review.md`: one major finding — `apply_initial_controls`
+        depended on `Config`'s own shared read-state via `unknown_keys()`, breaking a second
+        `Simulation` built from the same `Config`; fixed with `InputRegistry::names()` — fixed and
+        verified, zero remaining). Accept: `v0.controls.*` visible in the registry; a value written
+        mid-frame is not observed until next frame (R3); all four RK4 stages of one frame see the
+        identical written value (R5); zero allocation over 1000 frames (R6); full acceptance table
+        R1–R13, `docs/plans/pr2-write-seam.md`, all passing. Human review packet: `docs/reviews/
+        pr2-write-seam-human.md`. Binding ADRs: ADR-0017 (accepted). Tier 3. Plan critique: done
+        (twice).
   - [ ] PR 3 — `AeroModel`/`PropulsionModel` as `WrenchSource` specializations: compute α/β/q̄/Mach
         from `(vs, env)`, read the model's own PR 2 control-input members, assemble `AeroInputs`/
         `PropulsionInputs`, call a pure-virtual `compute()` that is `const noexcept` (§7's non-const
