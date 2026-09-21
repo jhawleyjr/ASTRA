@@ -25,8 +25,10 @@ def test_core_api_version_and_toolchain_string_come_from_libastra_core() -> None
     # ADR-0018: 5 -> 6, AeroModel/PropulsionModel's new compute() virtuals settling for the first
     # time; M3 PR 3d, ADR-0020: 6 -> 7, AeroModel/PropulsionModel lose compute() entirely and
     # requires_environment() goes from final to a plain overridden virtual, both classes' vtables
-    # settling to their new, final shape).
-    assert _core.core_api_version() == 7
+    # settling to their new, final shape; M3 PR 4a, ADR-0021: 7 -> 8, Model gained five new
+    # virtuals (state_count, initial_state, integrate_state, bind_state, resolve_peers), changing
+    # Model's own vtable layout).
+    assert _core.core_api_version() == 8
     assert "Clang" in _core.built_with()
     assert "sanitizers=none" in _core.built_with()
     assert "static-plugins=off" in _core.built_with()
