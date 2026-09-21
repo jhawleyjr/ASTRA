@@ -174,10 +174,13 @@ independent of the implementation itself.
 
 ## Decision record
 
-State: pending
-Human decision/date/reference: pending
-Approved candidate/scope: pending (proposed: head `e0edd16` against base `origin/main` at `26ad594`)
-Merge observed: not merged
+State: approved
+Human decision/date/reference: Joe, 2026-09-21, approved in session
+Approved candidate/scope: implementation candidate `e0edd16` (the product/test/review-evidence
+diff summarized above) against base `origin/main` at `26ad594`; docs commits through `1bb966b`
+(this packet's own decision record, plus the preceding STATE.md handoff) are process artifacts
+recording the approval itself, not additional implementation scope
+Merge observed: not merged (Joe squash-merges once the PR's `check` is green on the current head)
 Release authorization: not requested (no release pipeline exists yet; out of scope for this PR)
 
 Significant tradeoff rationale: none identified beyond what's already recorded in the approved plan
