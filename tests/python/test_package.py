@@ -23,8 +23,10 @@ def test_core_api_version_and_toolchain_string_come_from_libastra_core() -> None
     # WrenchSource's then WindModel's vtables changed; M2 PR 2c: 3 -> 4, EarthModel/GravityModel's
     # in_domain; M3 PR 2, ADR-0017: 4 -> 5, WrenchSource's new bind_inputs virtual; M3 PR 3,
     # ADR-0018: 5 -> 6, AeroModel/PropulsionModel's new compute() virtuals settling for the first
-    # time).
-    assert _core.core_api_version() == 6
+    # time; M3 PR 3d, ADR-0020: 6 -> 7, AeroModel/PropulsionModel lose compute() entirely and
+    # requires_environment() goes from final to a plain overridden virtual, both classes' vtables
+    # settling to their new, final shape).
+    assert _core.core_api_version() == 7
     assert "Clang" in _core.built_with()
     assert "sanitizers=none" in _core.built_with()
     assert "static-plugins=off" in _core.built_with()

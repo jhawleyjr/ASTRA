@@ -129,4 +129,11 @@ HaltReason HealthMonitor::check_input(std::string_view source, const StepContext
                vehicle_index);
 }
 
+HaltReason HealthMonitor::report_non_finite_environment(std::string_view source,
+                                                        const StepContext& ctx,
+                                                        std::uint32_t vehicle_index) noexcept {
+  return apply(nan_action_, nan_count_, HealthCheck::kNonFiniteEnvironment, source, ctx,
+               vehicle_index);
+}
+
 }  // namespace astra

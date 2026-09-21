@@ -407,6 +407,54 @@ TEST(HealthMonitor,
   }
 }
 
+// ADR-0020: restores, core-side, the no-silent-NaN guarantee ADR-0018's removed final wrench_b()
+// guard gave. Mirrors report_out_of_domain's own shape and its own tests below: the predicate
+// (whether wind_n/an atmosphere field is non-finite, and which one to name) is evaluated by the
+// caller (Vehicle::integrate()), covered end to end by tests/unit/kernel/simulation_halt_test.cpp's
+// NanAtmosphereInRangeHaltsNamingTheAtmospherePlugin and
+// tests/unit/kernel/aero_propulsion_seam_test.cpp's NonFiniteAtmosphereHaltsNamingTheAtmosphere-
+// PluginEndToEnd -- this method only ever turns an already-decided fault into the configured
+// action, count, and signal, so these tests pin that shape directly, the same way
+// ReportOutOfDomainHaltsNamingTheGivenSourceAndFrame below does for report_out_of_domain.
+TEST(HealthMonitor, ReportNonFiniteEnvironmentHaltsNamingTheGivenSourceAndFrame) {
+  SignalRegistry registry;
+  HealthMonitor monitor = make_monitor(registry);
+
+  const HaltReason halt = monitor.report_non_finite_environment(
+      "tests/plugins/nan_atmosphere", StepContext{.t = 0.5, .dt = 0.001, .frame = 500}, 1);
+  ASSERT_TRUE(halt);
+  EXPECT_EQ(halt.check, HealthCheck::kNonFiniteEnvironment);
+  EXPECT_EQ(halt.source, "tests/plugins/nan_atmosphere");
+  EXPECT_EQ(halt.frame, 500U);
+  EXPECT_EQ(halt.vehicle_index, 1U);
+}
+
+// Shares the "nan" action/counter with check_wrench/check_state/check_state (Q1, docs/plans/
+// pr3d-adr0020-implementation.md) -- no dedicated "environment" sim.health key.
+TEST(HealthMonitor, EnvironmentSharesTheNanActionAndCounterWithTheOtherNonFiniteChecks) {
+  SignalRegistry registry;
+  HealthMonitor monitor = make_monitor(registry, "nan: warn");
+  const double* nan_count = registry.find("health.nan");
+  ASSERT_NE(nan_count, nullptr);
+
+  const HaltReason halt = monitor.report_non_finite_environment(
+      "src", StepContext{.t = 0.0, .dt = 0.001, .frame = 0}, 0);
+  EXPECT_FALSE(halt) << "warn: the run continues";
+  EXPECT_EQ(*nan_count, 1.0) << "still counted under the shared \"nan\" key";
+}
+
+TEST(HealthMonitor, EnvironmentOffNeitherCountsNorHalts) {
+  SignalRegistry registry;
+  HealthMonitor monitor = make_monitor(registry, "nan: off");
+  const double* nan_count = registry.find("health.nan");
+  ASSERT_NE(nan_count, nullptr);
+
+  const HaltReason halt = monitor.report_non_finite_environment(
+      "src", StepContext{.t = 0.0, .dt = 0.001, .frame = 0}, 0);
+  EXPECT_FALSE(halt);
+  EXPECT_EQ(*nan_count, 0.0);
+}
+
 // ADR-0011: nothing may assume there is exactly one vehicle named "v0" -- the names a halt reports
 // come entirely from what the caller passes in, never a literal this class owns.
 TEST(HealthMonitor, SourceNamesComeFromTheCallerNotAV0Literal) {

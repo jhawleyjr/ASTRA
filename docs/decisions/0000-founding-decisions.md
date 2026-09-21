@@ -2,6 +2,8 @@
 
 Status: **accepted**. This record predates the ADR series; it is the index of decisions made in the kickoff sessions before any code existed. ADR-0001 onward are written in M0 and each cites the row here it elaborates. Repo-level details live in `docs/architecture.md`; process in `docs/process/workflow.md`.
 
+**Superseded in part by ADR-0019** (2026-09-20): the Purpose paragraph's "focused on commercial transport aircraft" scope clause is superseded — see ADR-0019 for the current text. No other row of the Decisions table below is affected.
+
 **ASTRA — Aerospace Simulation, Test, and Research Architecture.** Code identifiers are `astra::`, `libastra_core.so`, `astra_add_plugin`, `astra_icd.h`, Python package `astra`.
 
 ## Purpose

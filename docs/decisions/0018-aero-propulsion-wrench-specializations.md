@@ -1,6 +1,13 @@
 # ADR-0018: `AeroModel`/`PropulsionModel` as `WrenchSource` specializations
 
 Status: **accepted**, 2026-09-19
+
+**Superseded in part by ADR-0020** (2026-09-20): the `compute(const Inputs&)`/`final wrench_b()`/
+`final requires_environment()` design and the `AeroInputs`/`PropulsionInputs` structs are superseded.
+This record's other decisions remain in force: `AeroModel`/`PropulsionModel` deriving from
+`WrenchSource` (not `Model` directly); the `kCoreApiVersion` bump precedent; the per-RK4-substage
+purity contract (ADR-0016); the AERORP/CG moment-transfer obligation on a concrete plugin ((d)
+above); the V→0 obligation (now attached directly to `wrench_b()` per ADR-0020, in spirit unchanged).
 Owner: Joe
 Related/supersedes: elaborates ADR-0017 (the `bind_inputs()`/`InputRegistry` control channel this
 decision's `AeroModel`/`PropulsionModel` are the first real consumers of) and ADR-0016 (the

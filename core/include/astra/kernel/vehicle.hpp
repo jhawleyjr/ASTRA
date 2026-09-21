@@ -65,6 +65,14 @@ class Vehicle {
     std::string earth_plugin_path;
     std::string gravity_plugin_path;
     AtmosphereModel* atmosphere = nullptr;
+    // ADR-0020: what a per-stage domain-pre-check or report_non_finite_environment halt names on a
+    // broken or out-of-range atmosphere sample. Empty when atmosphere is null -- never actually
+    // named, since both checks are gated on atmosphere_ != nullptr first. Not threaded alongside
+    // wind's own path (see init()'s own wind_plugin_path parameter below): wind is a separate,
+    // independently- optional environment model Simulation::from_config already threads through
+    // EnvironmentAvailability alone, never through this physics-specific, required-or-absent-
+    // together bundle.
+    std::string atmosphere_plugin_path;
   };
 
   // Which optional environment slots Simulation::step will actually populate into EnvironmentSample
@@ -94,9 +102,15 @@ class Vehicle {
   // populates wind_n (before this PR, the atmosphere check was unconditional: no PR could satisfy
   // it, since nothing connected the two yet). Init-time only: may allocate, may throw
   // (PluginError, ConfigError).
+  //
+  // wind_plugin_path (ADR-0020): what report_non_finite_environment names on a non-finite wind_n
+  // halt, kept as its own parameter rather than a PhysicsSpec field (wind is independently
+  // optional, unlike the physics bundle PhysicsSpec represents -- see
+  // PhysicsSpec::atmosphere_plugin_path's own comment). Ignored (and should be empty) when
+  // availability.wind is false.
   void init(const PluginLoader& loader, const std::vector<ModelSpec>& models,
             SignalRegistry& registry, const PhysicsSpec* physics,
-            EnvironmentAvailability availability);
+            EnvironmentAvailability availability, std::string wind_plugin_path = {});
 
   void step(const StepContext& ctx) noexcept { scheduler_.step(ctx); }
 
@@ -191,6 +205,17 @@ class Vehicle {
   [[nodiscard]] HaltReason check_domain(const StateVector& y, const StepContext& ctx,
                                         HealthMonitor& health) noexcept;
 
+  // ADR-0020: factored out of integrate()'s own derivative functor for the identical
+  // cognitive-complexity reason check_domain above is its own function -- see its own definition
+  // comment (vehicle.cpp) for the full contract. Returns whether the caller's wrench_sources_ loop
+  // should be skipped this stage; updates stage_env.atmosphere in place when sampled and
+  // wrench_fault (first-fault-wins) when a halt fires. Per-frame path: no allocation, no
+  // exceptions.
+  [[nodiscard]] bool prepare_stage_environment(const VehicleState& vs_stage,
+                                               EnvironmentSample& stage_env, const StepContext& ctx,
+                                               HealthMonitor& health,
+                                               HaltReason& wrench_fault) noexcept;
+
   std::uint32_t index_;
   std::string name_;
   StateVector state_ = StateVector::Zero();
@@ -230,6 +255,16 @@ class Vehicle {
   // pointers themselves, not a name for either.
   std::string earth_plugin_path_;
   std::string gravity_plugin_path_;
+  // ADR-0020: what a report_non_finite_environment halt names, copied from PhysicsSpec/init()'s own
+  // wind_plugin_path parameter, same discipline as earth_plugin_path_/gravity_plugin_path_ above.
+  std::string atmosphere_plugin_path_;
+  std::string wind_plugin_path_;
+  // ADR-0020: whether physical.wind is actually configured this run -- EnvironmentAvailability
+  // itself is a transient init() parameter, not retained past it before this ADR;
+  // report_non_finite_environment needs it retained to know whether environment_.wind_n's zero
+  // default is a legitimate absence (never checked) or a real, checkable value. atmosphere's own
+  // equivalent needs no new member: atmosphere_ != nullptr already says the same thing for free.
+  bool wind_configured_ = false;
 };
 
 }  // namespace astra

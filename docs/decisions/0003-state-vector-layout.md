@@ -2,6 +2,8 @@
 
 Status: **accepted**, 2026-09-14. Elaborates ADR-0000 rows "Earth model" and "v1 physics scope"; `docs/architecture.md` §6 State vector, §8.
 
+**Superseded in part by ADR-0021** (2026-09-20): the "state is 13 doubles in a fixed layout" decision (the state's core-imposed *size*) is superseded — the state becomes a runtime-sized `13 + sum(model states)` buffer with the rigid-body block retaining this record's own 13-double layout as one implementation. This record's frame/position-representation content (the Earth model owns the meaning of `p_n`; `q_nb` per ADR-0001) is **not** superseded and remains in force.
+
 ## Context
 
 The integrator (ADR-0004), the EOM, the Python `derivative` function, trim, linearization, and the logger

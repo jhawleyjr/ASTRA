@@ -389,11 +389,16 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
     wind_plugin_path = loaded_wind.plugin_path;
     sim.wind_ = wind;
 
-    const Vehicle::PhysicsSpec physics_spec{
-        std::move(mass_spec),     earth,     gravity, earth_spec.plugin_path,
-        gravity_spec.plugin_path, atmosphere};
+    const Vehicle::PhysicsSpec physics_spec{std::move(mass_spec),
+                                            earth,
+                                            gravity,
+                                            earth_spec.plugin_path,
+                                            gravity_spec.plugin_path,
+                                            atmosphere,
+                                            atmosphere_plugin_path};
     vehicle.init(loader, specs, sim.registry_, &physics_spec,
-                 Vehicle::EnvironmentAvailability{wind != nullptr, atmosphere != nullptr});
+                 Vehicle::EnvironmentAvailability{wind != nullptr, atmosphere != nullptr},
+                 wind_plugin_path);
     vehicle.state() = read_initial_state(config);
 
     const Eigen::Vector3d p_n = vehicle.state().segment<state::kPositionSize>(state::kPosition);
@@ -511,6 +516,13 @@ Simulation Simulation::for_testing(const PluginLoader& loader,
     sim.environment_scheduler_.add(*wind);
   }
   const bool has_physics = gravity != nullptr && mass_spec != nullptr;
+  // ADR-0020: the same placeholder idiom earth_plugin_path/gravity_plugin_path above already use --
+  // for_testing takes a live WindModel*, not a Config, so there is no real plugin path for
+  // report_non_finite_environment to name on a non-finite wind_n halt either. atmosphere has no
+  // equivalent parameter here at all (this function's own doc comment above), so PhysicsSpec::
+  // atmosphere_plugin_path is left at its own default-constructed empty string below, never
+  // actually named (atmosphere is always nullptr in a for_testing-built PhysicsSpec).
+  const std::string wind_plugin_path = wind != nullptr ? "for_testing's wind" : std::string{};
   std::uint32_t index = 0;
   for (const StateVector& initial_state : initial_states) {
     Vehicle vehicle(index, "v" + std::to_string(index));
@@ -523,12 +535,12 @@ Simulation Simulation::for_testing(const PluginLoader& loader,
       // live EarthModel*/GravityModel*, not a Config, so there is no real plugin path to give a
       // domain halt here.
       const Vehicle::PhysicsSpec physics_spec{
-          *mass_spec, earth, gravity, "for_testing's earth", "for_testing's gravity", nullptr};
+          *mass_spec, earth, gravity, "for_testing's earth", "for_testing's gravity", nullptr, ""};
       vehicle.init(loader, models, sim.registry_, &physics_spec,
-                   Vehicle::EnvironmentAvailability{wind != nullptr});
+                   Vehicle::EnvironmentAvailability{wind != nullptr}, wind_plugin_path);
     } else {
       vehicle.init(loader, models, sim.registry_, nullptr,
-                   Vehicle::EnvironmentAvailability{wind != nullptr});
+                   Vehicle::EnvironmentAvailability{wind != nullptr}, wind_plugin_path);
     }
     vehicle.state() = initial_state;
     sim.vehicles_.push_back(std::move(vehicle));

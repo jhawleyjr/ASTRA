@@ -1,14 +1,27 @@
 # ASTRA — Architecture v1
 
-Status: **accepted**, 2026-09-14 (rev 6: M0 defaults — style, CI, time representation, single-vehicle-as-list, Python models; **accepted by Joe 2026-09-14**). This is the sole input to milestone M0 in Claude Code. It is bound by `decisions/0000-founding-decisions.md` and built under `process/workflow.md`. Where this document makes a choice that a later ADR will own, it says so; M0's first job is to turn those into `docs/decisions/` records with the rejected alternatives written down.
+Status: **accepted**, 2026-09-14 (rev 6: M0 defaults — style, CI, time representation, single-vehicle-as-list, Python models; **accepted by Joe 2026-09-14**; rev 7, 2026-09-20: §1/§6/§7/§18 rewritten for ADR-0019 (vehicle-agnostic purpose, supersedes ADR-0000's Purpose clause), ADR-0020 (`AeroModel`/`PropulsionModel` as true marker interfaces, supersedes ADR-0018's `Inputs`/`final` design), and ADR-0021 (core `DynamicsModel` interface with model-owned continuous state, supersedes ADR-0003's fixed-layout decision) — **accepted by Joe 2026-09-20**, none yet implemented (PLAN.md M3 PR 3d/4a)). This is the sole input to milestone M0 in Claude Code. It is bound by `decisions/0000-founding-decisions.md` and built under `process/workflow.md`. Where this document makes a choice that a later ADR will own, it says so; M0's first job is to turn those into `docs/decisions/` records with the rejected alternatives written down.
 
 ---
 
 ## 1. What this is
 
-A vehicle-agnostic six-degree-of-freedom simulation **framework**: the physics spine, the timing and scheduling, the interfaces a vehicle plugs into, the link to real embedded software, and the analysis tooling. It ships one notional aircraft as a worked example and one trivial autopilot as a worked example of "embedded software outside the sim tree." It does not ship a fleet of aircraft, avionics models, or a cockpit.
+A vehicle-agnostic, high-fidelity six-degree-of-freedom simulation **framework and architecture**
+(ADR-0019). The framework and its interfaces are the product: it must let a user build a new
+vehicle, at whatever fidelity they need, without editing `core/`. It ships no vehicle of its own;
+`aircraft/notional_transport` is the simplest possible worked example proving the public interfaces
+end to end (template → models → trim → linearize → fly against external software), not a claim of
+commercial-transport focus or fidelity — its numbers are notional and do not matter. It ships one
+trivial autopilot as a worked example of "embedded software outside the sim tree." It does not ship
+a fleet of aircraft, avionics models, or a cockpit.
 
-The user story the whole design serves: *clone the repo, implement three classes for your aircraft (mass properties, aero, propulsion), point the sim at your flight software binary, run.* Everything else — Earth models, atmosphere, integrators, logging, trim, Monte Carlo, visualization — is already there.
+The user story the whole design serves: *clone the repo, plug in whatever models your vehicle needs
+— at minimum mass properties, aero, and propulsion, each derived from an abstract interface in
+`core/include/astra/interfaces/` and optionally owning its own continuous state (ADR-0021) — point
+the sim at your flight software binary, run.* A model's interface states what it must be able to
+*do*, never what it is *made of*: no core-defined input struct, no `final` method that fixes
+behavior (ADR-0020). Everything else — Earth models, atmosphere, integrators, logging, trim, Monte
+Carlo, visualization — is already there.
 
 **v1 scope** (from the founding decisions): airborne start at a trimmed cruise condition; no takeoff or landing, so no ground reaction; the example embedded software is a straight-and-level autopilot in its own process; all-digital only, but with the real-time and HWIL seams designed in.
 
@@ -159,7 +172,13 @@ Default order per major frame: environment (atmosphere, wind, gravity for the fr
 
 **Attitude.** Unit quaternion `q_nb` rotating vectors from n to b, Hamilton convention, scalar-first `(w, x, y, z)`, renormalized after every integrator step. Euler angles (ψ, θ, φ, yaw-pitch-roll, 3-2-1) are derived outputs only. *ADR-0001* — this is the decision most likely to be silently re-decided by an agent, so it is written first, with a test that pins the sign of every term.
 
-**State vector** (13 doubles, fixed layout, *ADR-0003*):
+**State vector** (runtime-sized, *ADR-0021*, superseding ADR-0003's fixed-13-layout decision): a
+core-owned `DynamicsModel` interface — `state_count()`, `initial_state(double* q)`,
+`derivative(t, const double* q, double* dq)`, `post_step(double* q)` (Nutaro's `ode_system`,
+ASTRA-flavored) — lets a generic RK4/Euler integrator advance N doubles it knows nothing about,
+sized once at init. The rigid-body block is the first `13 + 0` of that buffer, still exactly this
+layout, shipped in `core/` as `RigidBody6DofDynamics`, the one `DynamicsModel` every vehicle gets by
+default:
 
 ```
 p_n   (3)  position of CG in the Earth model's native representation
@@ -170,11 +189,26 @@ q_nb  (4)  attitude quaternion
 ω_b   (3)  body angular rate relative to inertial frame, expressed in body axes (p, q, r)
 ```
 
-Mass and inertia are **not** state in v1 (constant during a run; fuel burn is deferred). The EOM are the standard body-axis rigid-body equations (Stevens & Lewis form) with the Earth model supplying three things: the gravity vector in n, the Earth rotation rate expressed in n (zero for flat and round-non-rotating), and the transport rate of the n frame due to motion over a curved surface (zero for flat). Every Earth model implements that same interface, which is how "selectable at runtime" costs nothing in the EOM.
+Any `Model` may additionally declare `n ≥ 0` of its own continuous states (engine spool dynamics,
+actuator lag, flex modes, fuel burn) and supply their derivative, at full per-RK4-substage fidelity
+(ADR-0016 extends naturally: a model's own state arrives sub-stage-fresh the same way a sub-stage
+`VehicleState` already does). `Vehicle` concatenates `[rigid-body block | model A's states |
+model B's states | ...]` into one buffer, sized once at init, never resized. `VehicleState` still
+views the rigid-body block through the same named accessors (`p_n()`, `v_b()`, `q_nb()`, `omega_b()`)
+regardless of what else the combined buffer holds. A state-owning model, and any other model that
+needs to read it, gets a sub-stage-exact, read-only pointer into that state (own slice via a
+`bind_state()` hook resolved at init; a peer's via `SignalRegistry`, resolved the same "once at
+init" way every other signal is) — not a frame-latched copy. Mass and inertia are **not** state in
+v1 (constant during a run; fuel burn is a future model-owned state under this same mechanism, not a
+core change). The EOM are the standard body-axis rigid-body equations (Stevens & Lewis form) with the
+Earth model supplying three things: the gravity vector in n, the Earth rotation rate expressed in n
+(zero for flat and round-non-rotating), and the transport rate of the n frame due to motion over a
+curved surface (zero for flat). Every Earth model implements that same interface, which is how
+"selectable at runtime" costs nothing in the EOM.
 
 ## 7. Model interfaces
 
-All framework interfaces are abstract C++ classes with virtual `step`; users subclass. Virtual dispatch cost is irrelevant at these rates and the alternative (templates/concepts) makes the Python side and the "just implement three classes" story worse.
+All framework interfaces are abstract C++ classes with virtual `step`; users subclass. Virtual dispatch cost is irrelevant at these rates and the alternative (templates/concepts) makes the Python side worse, per ADR-0020. Core may offer shared math as **utilities a model may call**, never as a mandatory input struct or a `final` method that fixes behavior — the same rule ADR-0020 states for `core/include/astra/interfaces/` as a whole.
 
 ```cpp
 namespace astra {
@@ -185,9 +219,8 @@ struct Wrench { Eigen::Vector3d force_b; Eigen::Vector3d moment_b; };  // about 
 
 // temperature_k/pressure_pa/density_kg_m3/speed_of_sound_m_s; NaN by default and outside
 // AtmosphereModel::valid_range() (M2 PR 1b) -- a plausible-looking zero-density atmosphere would be
-// a worse failure than a NaN. Not itself monitored: HealthMonitor checks state vectors and Wrench
-// contributions directly, never AtmoState, so this NaN is unobserved until a consuming
-// WrenchSource reads it into a force/moment HealthMonitor's existing check_wrench then sees.
+// a worse failure than a NaN. Checked core-side by HealthMonitor::check_environment (ADR-0020)
+// before any WrenchSource reads it, not left to each consumer's own arithmetic to surface.
 struct AtmoState { double temperature_k, pressure_pa, density_kg_m3, speed_of_sound_m_s; };
 
 // Both bounds inclusive; the interval AtmosphereModel::at() is valid over (M2 PR 1b). Checked once
@@ -202,6 +235,16 @@ public:
   virtual void reset() = 0;
   virtual void step(const StepContext&) = 0;               // no alloc, no throw, no I/O
   virtual std::string_view name() const = 0;
+
+  // ADR-0021: a model may own n >= 0 continuous states, integrated by the core RK4 integrator at
+  // full per-RK4-substage fidelity alongside the rigid-body block -- all defaulted, so every
+  // existing subclass keeps compiling and behaving identically without any edit.
+  [[nodiscard]] virtual int state_count() const noexcept { return 0; }
+  virtual void initial_state(double* q) const noexcept {}
+  virtual void integrate_state(double t, const VehicleState& vs, const EnvironmentSample& env,
+                                double* dq) const noexcept {}
+  virtual void bind_state(const double* own_stage_slice) {}       // init-time; may throw
+  virtual void resolve_peers(const SignalRegistry& registry) {}   // init-time; may throw
 };
 
 // Environment
@@ -232,32 +275,65 @@ class EarthModel      : public Model { /* frames, rotation rate, transport rate,
 
 // Vehicle
 class MassPropertiesModel : public Model { public: virtual MassProps get() const = 0; };
-class AeroModel       : public WrenchSource { public: virtual Wrench compute(const AeroInputs&) const noexcept = 0; };
-class PropulsionModel : public WrenchSource { public: virtual Wrench compute(const PropulsionInputs&) const noexcept = 0; };
+
+// ADR-0020: minimal marker interfaces -- type identity plus one safe-default override each, no
+// compute() step, no core-defined Inputs struct, no final anywhere. A concrete plugin overrides
+// WrenchSource::wrench_b(const VehicleState&, const EnvironmentSample&) const noexcept directly.
+class AeroModel : public WrenchSource {
+public:
+  [[nodiscard]] EnvironmentRequirements requires_environment() const noexcept override {
+    return {.wind = false, .atmosphere = true};  // non-final: a plugin MAY override this
+  }
+};
+class PropulsionModel : public WrenchSource {
+public:
+  [[nodiscard]] EnvironmentRequirements requires_environment() const noexcept override {
+    return {.wind = false, .atmosphere = true};
+  }
+};
 // Deferred, interfaces reserved: GearModel, ActuatorModel, SensorModel, StructuralModel
 
 }  // namespace astra
 ```
 
-**Status:** real and built (ADR-0018, PLAN.md M3 PR 3). `AeroModel`/`PropulsionModel` derive from `WrenchSource`, not `Model` directly (this section's own earlier sketch said `Model`); each provides its own `wrench_b()` (`final`) that assembles the `Inputs` struct below from `(VehicleState, EnvironmentSample)`, checks every field with `std::isfinite`, and — only if every field is finite — forwards to `compute()`, which is `const noexcept` (not the plain, non-const sketch this section used to show). A non-finite field short-circuits to an explicit all-NaN `Wrench` without ever calling `compute()`, so `HealthMonitor::check_wrench` (ADR-0016) always catches a broken environment sample, regardless of which fields a concrete `compute()` happens to read. The control-input write seam itself — `InputRegistry`, `WrenchSource::bind_inputs()` — is settled and built (ADR-0017, PLAN.md M3 PR 2); `AeroModel`/`PropulsionModel` are its first real subscribers, but neither overrides `bind_inputs()` itself (see below).
+**Status:** real and built as `WrenchSource`-derived, `Inputs`-struct/`final`-`compute()` classes
+(ADR-0018, PLAN.md M3 PR 3); **superseded by ADR-0020** (2026-09-20,
+`docs/decisions/0020-aero-propulsion-true-interfaces.md`) to the marker-interface shape above — not
+yet implemented (PLAN.md M3 PR 3d). `AeroModel`/`PropulsionModel` derive from `WrenchSource`, not
+`Model` directly (unchanged from ADR-0018). No override of `wrench_b()`, no `compute()`, no
+`AeroInputs`/`PropulsionInputs` struct in core — a concrete plugin overrides `wrench_b()` directly,
+the pattern `tests/plugins/nesc_aero`/`nan_wrench` already use. `requires_environment()` keeps a
+**non-final** safe default (`{wind: false, atmosphere: true}`): an author who never touches it gets
+today's safe behavior; only an author who actively overrides it takes on that responsibility
+explicitly. **Air-data math is a core utility**, not a mandatory struct: `core/include/astra/util/
+air_data.hpp` (not yet built) offers `relative_velocity_b`, `true_airspeed`, `angle_of_attack`,
+`sideslip`, `dynamic_pressure`, `mach` as free functions a concrete plugin composes; a plugin may
+still define its own plugin-side `Inputs`-shaped struct plus a `compute()`-style split purely as its
+own convention for hand-built-fixture testability (the template demonstrates this pattern; core no
+longer prescribes it). **The no-silent-NaN guarantee ADR-0018's `final` used to provide is restored
+core-side, not plugin-side**: `HealthMonitor::check_environment` (ADR-0020's own addition, not yet
+built) checks `Vehicle::integrate()`'s per-stage `EnvironmentSample` for NaN/Inf before any
+`wrench_b()` call that stage runs, naming the wind/atmosphere plugin on a halt — closing
+`EnvironmentSample`'s own previously-disclosed gap directly. The control-input write seam itself —
+`InputRegistry`, `WrenchSource::bind_inputs()` — is settled and built (ADR-0017, PLAN.md M3 PR 2);
+`AeroModel`/`PropulsionModel` are its first real subscribers, but neither overrides `bind_inputs()`
+itself (see below).
 
-`AeroInputs` carries airspeed, α, β, body rates, dynamic pressure, and Mach — physics quantities only, assembled by `AeroModel::wrench_b()`; `PropulsionInputs` carries airspeed and the full atmosphere sample. Neither carries a control surface position or a throttle command: those arrive through the write seam below, exactly like any other `WrenchSource` reads any other bound member — `bind_inputs()` is left to the *concrete* plugin (PR 4's own `linear_aero`/`turbofan`), not given a base-class default that would bake one airframe's control layout into these two framework classes. Both `Inputs` structs are plain, so a user's `compute()` can still be unit-tested with hand-built values and no simulator.
-
-**Vehicle** is a composition: one mass-properties model, a list of `AeroModel`s and `PropulsionModel`s whose wrenches are summed. Multiple aero models is deliberate — a user can split wing/tail/fuselage or add a store as a separate contributor without touching the framework.
+**Vehicle** is a composition: one mass-properties model, a list of `AeroModel`s and `PropulsionModel`s whose wrenches are summed. Multiple aero models is deliberate — a user can split wing/tail/fuselage or add a store as a separate contributor without touching the framework. A `MassPropertiesModel` or a `WrenchSource` may additionally own continuous state (ADR-0021, `Model::state_count()` et al.) — a future engine-spool-lag `PropulsionModel`, for example, integrated at full sub-stage fidelity alongside the rigid-body block, with zero further core interface change.
 
 **One vehicle per simulation in v1**, but the door stays open cheaply: `Simulation` holds a list of `Vehicle`s of length one, each vehicle owns its own state vector and signal namespace (`v0.aero.CL`), and the environment models are shared. Multi-vehicle (formation, targets, wake encounters) is a v2 idea Joe wants to keep possible; nothing in v1 may assume there is exactly one vehicle except the CLI's convenience defaults.
 
 **Python-defined models are allowed in v1** through nanobind trampolines on the model base classes (not yet built; not scheduled in PLAN.md M3 — see §12) — for prototyping an aero or propulsion model before porting it to a plugin. They run in `AsFastAsPossible` mode only; the health monitor refuses to start `RealTime` with a Python model loaded.
 
-**Control inputs in v1.** A `WrenchSource` (`AeroModel`/`PropulsionModel`) declares each control it reads as a named, writable input through a new `bind_inputs(InputRegistry&, SignalRegistry&)` hook (ADR-0017), called once per `WrenchSource` at init, inside the vehicle's own signal namespace — `elevator_ = inputs.add(registry, "controls.elevator", "rad")` returns a `const double*` into `InputRegistry`'s own registry-owned storage, also published read-only as `v0.controls.elevator`. A config literal (`vehicle.initial_controls`, this milestone), Python's `sim.write_input()` (PR 5), and M4's transport/`ActuatorModel` all write through the same `write()`/`InputRegistry::latch()` seam — `latch()` runs once per vehicle per major frame (§5), after that vehicle's own `step()` and before the integrator, giving zero-order hold across a frame's four RK4 sub-stages with no one-frame lag for a `step()`-time writer. Two instances of one plugin (e.g. a turbofan's left/right engines) share one value under one name by default. Surface positions and throttle come straight from the ICD command frame with an ideal actuator (commanded = achieved) until M4; `ActuatorModel` slots in between later without changing `AeroInputs` — ADR-0017 discloses, not solves, whether a non-`WrenchSource` `ActuatorModel` can reach this seam directly.
+**Control inputs in v1.** A `WrenchSource` (`AeroModel`/`PropulsionModel`) declares each control it reads as a named, writable input through a new `bind_inputs(InputRegistry&, SignalRegistry&)` hook (ADR-0017), called once per `WrenchSource` at init, inside the vehicle's own signal namespace — `elevator_ = inputs.add(registry, "controls.elevator", "rad")` returns a `const double*` into `InputRegistry`'s own registry-owned storage, also published read-only as `v0.controls.elevator`. A config literal (`vehicle.initial_controls`, this milestone), Python's `sim.write_input()` (PR 5), and M4's transport/`ActuatorModel` all write through the same `write()`/`InputRegistry::latch()` seam — `latch()` runs once per vehicle per major frame (§5), after that vehicle's own `step()` and before the integrator, giving zero-order hold across a frame's four RK4 sub-stages with no one-frame lag for a `step()`-time writer. Two instances of one plugin (e.g. a turbofan's left/right engines) share one value under one name by default. Surface positions and throttle come straight from the ICD command frame with an ideal actuator (commanded = achieved) until M4; `ActuatorModel` slots in between later without changing `wrench_b()`'s own `(VehicleState, EnvironmentSample)` signature — ADR-0017 discloses, not solves, whether a non-`WrenchSource` `ActuatorModel` can reach this seam directly.
 
 **Reference plugins shipped under `plugins/`:** `physical/`: ISA-1976 atmosphere; constant-uniform wind and Dryden turbulence (MIL-F-8785C, seeded); gravity: constant, inverse-square, WGS-84 with J2; Earth: flat, round-nonrotating, WGS-84 rotating. `sim/`: loopback and shm transports (PLAN.md M4 scope, not yet built). **PLAN.md M3 scope, not yet built, under `aircraft/notional_transport/`:** constant mass properties, linear-coefficient aero with stability and control derivatives (parameters adapted from JSBSim's "737" example aircraft, Dave Culp/Aeromatic — still a notional/example airframe, not a validated real 737), and a simple thrust-lapse turbofan implementing `AeroModel`/`PropulsionModel` above. `aircraft/_template/` (also not yet built) holds stripped-down versions of the same three with the numbers zeroed and marked `TODO`, so a new aircraft starts from something that compiles and trims. Integrators (Euler for tests, RK4 default) live in the core, not as plugins — they are part of the kernel's contract with the state vector. The framework builds its own reference models through exactly the same `astra_add_plugin` path a user's models take, so the on-ramp is exercised by every build.
 
 ## 8. Integration
 
-`Integrator` takes the derivative functor `f(t, y) → ẏ` over a fixed-size `Eigen::Vector<double, 13>` and advances one major frame. RK4 is default; forward Euler exists so a test can show RK4 is doing its job. Post-step hook renormalizes `q_nb`.
+`Integrator` takes a derivative functor `f(t, y, dy)`, writing into a caller-provided output buffer, over the combined state (ADR-0021: the rigid-body 13-vector plus every state-owning model's own slice, sized once at init, `13` when no model owns state) and advances one major frame. RK4 is default; forward Euler exists so a test can show RK4 is doing its job. Post-step hook renormalizes `q_nb` (`RigidBody6DofDynamics`'s own override) and, per ADR-0021, syncs `Vehicle`'s stage buffer to the newly accepted state.
 
-**Written in-house, not Boost.Odeint.** Fixed-step RK4 over a 13-vector is about thirty lines, and owning it buys three things that matter here: a guarantee of zero heap allocation in the step (Odeint's steppers manage temporaries through resizers that are easy to get subtly wrong with Eigen types), a convergence-order test that verifies *our* code rather than trusting a dependency, and no template-heavy dependency between the kernel and Python bindings. Boost is in the 24.04 repos (1.83, header-only Odeint), so if the analysis tools later want adaptive steppers (Dormand–Prince for a fast "what does this trajectory look like" preview, symplectic for long-duration orbital checks) they wrap Odeint on the Python-facing side without touching the simulator loop. *ADR-0004* — rejected for the main loop: Odeint; RK45 adaptive (variable step breaks the fixed-rate contract with the flight software); symplectic (irrelevant for a damped aero system).
+**Written in-house, not Boost.Odeint.** Fixed-step RK4 over a small state vector is about thirty lines, and owning it buys three things that matter here: a guarantee of zero heap allocation in the step (Odeint's steppers manage temporaries through resizers that are easy to get subtly wrong with Eigen types, and ADR-0021's own runtime-sized combined buffer is sized once at init specifically to keep this true), a convergence-order test that verifies *our* code rather than trusting a dependency, and no template-heavy dependency between the kernel and Python bindings. Boost is in the 24.04 repos (1.83, header-only Odeint), so if the analysis tools later want adaptive steppers (Dormand–Prince for a fast "what does this trajectory look like" preview, symplectic for long-duration orbital checks) they wrap Odeint on the Python-facing side without touching the simulator loop. *ADR-0004* — rejected for the main loop: Odeint; RK45 adaptive (variable step breaks the fixed-rate contract with the flight software); symplectic (irrelevant for a damped aero system).
 
 The derivative function is exposed to Python as `Simulation.derivative(state, inputs)` (M3 scope, not yet built; the exact signature is settled by PLAN.md M3 PR 5) so trim and linearization can be done by finite differences without a second implementation of the EOM.
 
@@ -452,7 +528,7 @@ The monitors are themselves testable: `tests/unit/health/` feeds a NaN, a broken
 ## 18. How a user adds an aircraft (the on-ramp this design must keep true)
 
 1. `cp -r aircraft/_template aircraft/my_aircraft` (or `just new-aircraft my_aircraft`, which does the same and fixes the config's paths).
-2. Implement `MassPropertiesModel::get`, `AeroModel::compute`, `PropulsionModel::compute` in `physical/aero/`, `physical/mass/`, `hardware/propulsion/` inside that folder. Unit-test them with hand-built `AeroInputs` — no simulator needed.
+2. Implement `MassPropertiesModel::get`, and override `wrench_b(const VehicleState&, const EnvironmentSample&)` directly on `AeroModel`/`PropulsionModel` (ADR-0020 — no `compute()` step, no core-defined `Inputs` struct), in `physical/aero/`, `physical/mass/`, `hardware/propulsion/` inside that folder. Compose whatever air-data math is needed from `core/include/astra/util/air_data.hpp`'s free functions; a plugin-side `Inputs`-shaped struct plus its own `compute()`-style split remains an available convention (the template demonstrates it) for unit-testing with hand-built values and no simulator, now a plugin-side choice rather than a core-imposed shape. A model needing its own continuous state (engine spool dynamics, actuator lag) declares it via `Model::state_count()`/`initial_state()`/`integrate_state()` (ADR-0021) — no framework file is edited for this either.
 3. `just build` — the build discovers the new folder and emits its `.so` files. No framework file is edited.
 4. `astra trim aircraft/my_aircraft/configs/cruise.yaml` gives the cruise condition; `astra run` flies it.
 5. Build their flight software against `icd/` and `embedded/hal/`; point `transport.name` at it.
@@ -464,8 +540,11 @@ If any step needs more than that, it is a framework bug.
 - The sim ⇄ FPGA physical link and its framing (UDP, PCIe, other) — decides `FpgaTransport`.
 - How the flight software is expressed on the FPGA (C++ on the processor system vs HLS/RTL) — decides whether one source tree can build both the digital-sim process and the FPGA target, or whether the digital sim runs a C++ twin.
 - Sensor models and where their outputs replace truth in `sim_to_sw` (ICD v2).
-- Actuator models between the command frame and `AeroInputs`.
-- Fuel burn and time-varying mass properties (mass becomes state).
+- Actuator models between the command frame and a `WrenchSource`'s own `wrench_b()` read of a control.
+- Fuel burn and time-varying mass properties (mass becomes state) — ADR-0021 makes this
+  *representable* (a `MassPropertiesModel` could declare one state slot for burned fuel mass) without
+  deciding whether v1 uses it; `MassPropertiesModel::get()`'s signature and `Eom::begin_frame()`'s
+  per-frame caching still need their own explicit decision if/when a record actually adds it.
 - Landing gear / ground reaction when takeoff and landing enter scope.
 - Whether to generate `icd/` from a schema once a second consumer (the FPGA) exists.
 

@@ -31,7 +31,13 @@ namespace astra {
 // implementing either class built against version 5 (before compute() existed) has no such
 // plugin in existence, but the version still names the shape this PR's own review settled on, not
 // an intermediate one.
-inline constexpr std::uint32_t kCoreApiVersion = 6;
+// 7 (M3 PR 3d, ADR-0020): AeroModel/PropulsionModel lose compute() entirely and requires_
+// environment() goes from a final override to a plain, still-overridden one -- both classes'
+// vtables settle to their new, final shape (compute() gone; requires_environment() no longer
+// sealed against a further override). No out-of-tree plugin exists at version 6 (compute() only
+// ever shipped inside this tree), so this is a settling bump, not a compatibility break for
+// anyone, the same reasoning version 6's own bump used.
+inline constexpr std::uint32_t kCoreApiVersion = 7;
 
 // The toolchain and configuration this tree was configured with. A plugin built by a different configure
 // carries a different string and is rejected at load; it can only come from a stale build directory.

@@ -484,16 +484,25 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       warn/halt, Dryden bitwise determinism, ADR-0001/0002 units/frames on the new
       `wrench_total` signals) both clean, verdict approve, zero fix rounds needed. Human-review
       packet: `docs/reviews/pr3c-substage-wrench-human.md`.
-- [ ] Atmosphere-domain-check misattribution window — PR 3c's own disclosed, accepted gap
+- [x] Atmosphere-domain-check misattribution window — PR 3c's own disclosed, accepted gap
       (`docs/plans/pr3c-substage-wrench.md`, `docs/decisions/0016-per-rk4-substage-wrench-
-      evaluation.md`), the same class ADR-0012 already accepted for gravity/Earth, now newly
-      instanced for atmosphere: since PR 3c recomputes `AtmoState` fresh at each RK4 sub-stage's own
-      altitude, a stage whose `y` drifts outside `AtmosphereModel::valid_range()` mid-integration can
+      evaluation.md`), the same class ADR-0012 already accepted for gravity/Earth, newly instanced
+      for atmosphere: since PR 3c recomputes `AtmoState` fresh at each RK4 sub-stage's own altitude,
+      a stage whose `y` drifts outside `AtmosphereModel::valid_range()` mid-integration could
       surface as `kNonFiniteWrench` (naming the consuming `WrenchSource`), one frame sooner than and
       instead of `Simulation::step`'s own post-step `kOutOfDomain` check (which would correctly name
-      the atmosphere plugin). Not fixed, not exercised by any of the ten NESC cases (none crosses an
-      atmosphere boundary mid-run). Needs its own plan-reviewed decision, not a bolt-on, the same
-      posture ADR-0012's own gravity/Earth instance took. Not started.
+      the atmosphere plugin). **Resolved by ADR-0020 (M3 PR 3d, 2026-09-20, Q4 of
+      `docs/plans/pr3d-adr0020-implementation.md`)**, as part of implementing
+      `HealthMonitor::check_environment`, not a standalone fix: `Vehicle::integrate()`'s per-stage
+      derivative functor now checks the stage's own altitude against `AtmosphereModel::
+      valid_range()` (the same NaN-safe form `Simulation::from_config`'s own init-time check uses)
+      *before* sampling atmosphere at all -- out of range reports `kOutOfDomain` naming the
+      atmosphere plugin directly, atmosphere is never sampled that stage, and `check_environment`
+      (the new NaN/Inf check replacing the old per-plugin isfinite guard) therefore only ever
+      observes an already-confirmed-in-range sample, never the ambiguous all-NaN value a legitimate
+      excursion produces. `tests/unit/kernel/simulation_halt_test.cpp`'s
+      `LeavingTheAtmosphereValidRangeMidRunHaltsNamingTheAtmospherePlugin` verified against the real
+      implementation.
 - [ ] `plugins/physical/mass/constant`'s `ixy`/`ixz`/`iyz` config keys have no documented sign
       convention (M3 PR 1 review): the plugin places them directly, unnegated, into the inertia
       tensor's off-diagonal entries, which only matches the standard aerospace convention
@@ -529,7 +538,16 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       (`alpha_rad`, `dynamic_pressure_pa`, `true_airspeed_mps`) — whether the rule means signal-name
       strings specifically (its own example, `registry.add("aero.CL", ...)`, is a string) or every
       C++ identifier is unresolved; PR 3's own plan accepted the unit-suffix precedent rather than
-      settling the wording. Not started.
+      settling the wording. Not started. **`AeroInputs`/`PropulsionInputs` themselves are gone under
+      ADR-0020** (2026-09-20, `docs/decisions/0020-aero-propulsion-true-interfaces.md`) — `AtmoState`'s
+      own field names are ADR-0020's own cited precedent for whatever unit-suffixed fields a concrete
+      plugin's own `air_data.hpp`-derived, plugin-side `Inputs`-shaped struct uses instead; the
+      underlying wording question is otherwise unchanged.
+- [ ] §15 envelope monitors (α, β, Mach, dynamic pressure, load-factor limits declared by the aero
+      model) — deferred from M3 PR 3 (ADR-0018): no declaration hook exists yet on `AeroModel`
+      because no concrete plugin has real numbers to declare before PR 4. PR 4 or a later PR adds
+      the declaration virtual (a further `kCoreApiVersion` bump, precedented) and wires
+      `HealthMonitor`'s own per-frame check against it. Not started.
 - [ ] §15 envelope monitors (α, β, Mach, dynamic pressure, load-factor limits declared by the aero
       model) — deferred from M3 PR 3 (ADR-0018): no declaration hook exists yet on `AeroModel`
       because no concrete plugin has real numbers to declare before PR 4. PR 4 or a later PR adds
@@ -540,7 +558,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       each mode against its own tolerance; a 300 s open-loop run matches its own frozen regression
       trajectory (not an oracle), independently cross-checked against the linearized model's
       phugoid-cycle prediction. §16's M3 row is corrected to this wording by PR 0.
-  - [ ] PR 0 — Neutral status markers on `docs/architecture.md`: §7/§8/§12 note the `AeroModel`/
+  - [x] PR 0 — merged as `91aa358` (#36, 2026-09-19). Neutral status markers on `docs/architecture.md`: §7/§8/§12 note the `AeroModel`/
         `AeroInputs`/`Simulation` Python bindings as not-yet-built M3 scope, without rewriting §7's
         shape yet (that lands with PR 2/3's ADR, once the control-input design is actually pinned, to
         avoid rewriting it twice); §13's typed `physical.aero`/`hardware.propulsion` example is marked
@@ -556,7 +574,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         Joe approves the wording (recorded in this plan's own approval), and the diff itself still
         gets a Codex review pass even though no code changes and no full gate applies. Plan critique:
         no.
-  - [ ] PR 1 — `aircraft/_template/` and `aircraft/notional_transport/` scaffolding (`physical/
+  - [x] PR 1 — merged as `829df62` (#37, 2026-09-19). `aircraft/_template/` and `aircraft/notional_transport/` scaffolding (`physical/
         {aero,mass}/`, `hardware/propulsion/turbofan/`, `configs/`), `just new-aircraft <name>`.
         `physical/mass` is a `MassPropertiesModel` plugin (existing interface, O1's mass/inertia only
         -- no CG: `MassProps` is `{mass, inertia_b}`, wrench is about CG per §7, engine-station offsets
@@ -597,7 +615,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         R1–R13, `docs/plans/pr2-write-seam.md`, all passing. Human review packet: `docs/reviews/
         pr2-write-seam-human.md`. Binding ADRs: ADR-0017 (accepted). Tier 3. Plan critique: done
         (twice).
-  - [ ] PR 3 — `AeroModel`/`PropulsionModel` as `WrenchSource` specializations: compute α/β/q̄/Mach
+  - [x] PR 3 — merged as `da18909` (#39, 2026-09-19). `AeroModel`/`PropulsionModel` as `WrenchSource` specializations: compute α/β/q̄/Mach
         from `(vs, env)`, read the model's own PR 2 control-input members, assemble `AeroInputs`/
         `PropulsionInputs`, call a pure-virtual `compute()` that is `const noexcept` (§7's non-const
         sketch is what changes, not the ADR-0016 purity rule). Hand-built-`AeroInputs` unit testing
@@ -611,32 +629,91 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         pr2/pr3 pass floated at PR 0 time did not happen (PR 2 shipped independently); this PR's own,
         separate Codex plan critique found twelve findings, all accepted and folded into the plan,
         none reopening the interface/ownership/version decisions, so no second critique was needed.
+  - [ ] PR 3d — **framework realignment to Joe's stated intent** (`docs/refs/
+        astra_framework_intent_and_state_audit.md`, main checkout, gitignored), superseding ADR-0000's
+        "commercial transport" purpose clause, the `Inputs`/`final` parts of ADR-0018, and ADR-0003's
+        fixed-13-state-layout decision. **ADR-0019/0020/0021 accepted, 2026-09-20**
+        (`docs/decisions/0019-vehicle-agnostic-purpose.md`, `0020-aero-propulsion-true-interfaces.md`,
+        `0021-dynamics-model-owned-state.md`; full critique/revision record:
+        `docs/plans/m3-framework-realignment.md`). Implements ADR-0020 (unblocks PR 4, below):
+        `AeroModel`/`PropulsionModel` become minimal marker interfaces (no `compute()`, no
+        `AeroInputs`/`PropulsionInputs`, no `final` except one non-final `requires_environment()`
+        override each); new `core/include/astra/util/air_data.hpp` utilities; new
+        `HealthMonitor::report_non_finite_environment` plus a new per-stage domain pre-check in
+        `Vehicle::prepare_stage_environment` (checks the stage's own altitude against
+        `AtmosphereModel::valid_range()` before sampling, closing PLAN.md's own "Atmosphere-domain-check
+        misattribution window" item too, not only ADR-0020's own scope), both skipping that stage's
+        `wrench_sources_` loop entirely on a fault, closing the no-silent-NaN gap `final`'s removal
+        would otherwise open; rebuilt `aero_stub`/`propulsion_stub` overriding `wrench_b()` directly;
+        `kCoreApiVersion` 6 -> 7. `docs/architecture.md` §1/§6/§7/§18 already rewritten to match
+        (ahead of code, same session).
+        **Implemented and validated, 2026-09-20**: full gate green (`check: OK`, all four presets,
+        clang-tidy, pyright, pytest); Codex general review (one P2 finding, fixed: fault detection was
+        conflated with an optional diagnostic name's own emptiness) and adversarial review (one medium
+        finding, fixed: added `tests/unit/kernel/vehicle_environment_test.cpp` with three new counting/
+        flaky test plugins proving the actual zero-`wrench_b()`-call guarantee, a fault first appearing
+        at RK4 stage k2, the isolated R-001 infinite-speed-of-sound case, and a configured non-finite
+        wind); one Codex re-verify pass confirmed both fixes, no new findings. **Approved by Joe,
+        2026-09-20**, pending a follow-up commit (domain-off/nan-off documentation, per-stage counting
+        documentation, full-gate rerun to a retained log, packet fixes) -- follow-up committed
+        (`1aad091`, `b4864b9`). PR #40 (covers this and the realignment ADRs above) pushed and marked
+        ready for review; not yet merged.
+        Binding ADRs: ADR-0019, ADR-0020. Tier 3. Plan critique: done
+        (`docs/plans/pr3d-adr0020-implementation.md`, Codex plan critique folded in, approved by Joe
+        including Q1-Q4).
   - [ ] PR 4 — `aircraft/notional_transport/physical/aero` (linear-coefficient aero) and
         `hardware/propulsion/turbofan` (thrust lapse), O2/O3's numbers transcribed from
         `docs/refs/aircrafts/737.xml`'s `<aerodynamics>`/`<propulsion>` blocks (same source as O1's
         mass properties, PR 1 -- transcription, not an independently proposed set of coefficients);
-        engine-station offset from CG lives in the turbofan plugin's own config. Accept:
-        `tests/physics/notional_transport/` exercises `AeroInputs`/`PropulsionInputs` directly at
-        2-3 hand-picked conditions against O2/O3's sourced values to stated tolerance; **and**
-        (ADR-0018's own V→0 obligation, PR 3) `compute()` returns a finite `Wrench` at
-        `true_airspeed_mps == 0`, proven by its own test -- the linear-coefficient aero's stability
-        derivatives are exactly the S&L §2.3 Eq. (2.3-9a) nondimensional-rate form (scaled by
-        `1/(2V_T)`) that hazard names, and a naive port would carry a real division by zero at that
-        state, unlike the dimensional force equations built from the same coefficients. Binding
-        ADRs: ADR-0001, ADR-0002, ADR-0017, ADR-0018. Tier 3. Plan critique: no -- mechanism already
-        pinned by PR 2/3.
+        engine-station offset from CG lives in the turbofan plugin's own config. **Superseded plan**
+        (`docs/plans/pr4-notional-aero-turbofan.md`, built against `compute(const AeroInputs&)`, gone
+        under ADR-0020): rebuilt once PR 3d lands, against a direct `wrench_b()` override -- its
+        frame-conversion math, S&L force/moment-transfer citation, and dropped-terms analysis remain
+        reusable; carries forward this session's own found defects (`thrust_ref_n` sized for cruise
+        headroom, not zero margin; `Cmadot`/alpha-rate damping still dropped -- no `alpha_dot` source
+        exists until PR 4a/ADR-0021 lands, not a PR 4 fix). Accept:
+        `tests/physics/notional_transport/` exercises the rebuilt aero/propulsion `wrench_b()`
+        overrides directly at 2-3 hand-picked conditions against O2/O3's sourced values to stated
+        tolerance; **and** (the V→0 obligation, now attached directly to `wrench_b()` per ADR-0020)
+        returns a finite `Wrench` at `true_airspeed_mps == 0`, proven by its own test -- the
+        linear-coefficient aero's stability derivatives are exactly the S&L §2.3 Eq. (2.3-9a)
+        nondimensional-rate form (scaled by `1/(2V_T)`) that hazard names, and a naive port would
+        carry a real division by zero at that state, unlike the dimensional force equations built
+        from the same coefficients. Depends on PR 3d. Binding ADRs: ADR-0001, ADR-0002, ADR-0017,
+        ADR-0020. Tier 3. Plan critique: yes -- rebuilt plan against the new interface, not the old
+        ADR-0018 `compute()` shape PR 2/3 pinned.
+  - [ ] PR 4a — implement ADR-0021: `DynamicsModel` interface + `RigidBody6DofDynamics` (byte-for-byte
+        port of today's `Eom::operator()`); `Model`'s five new virtuals (`state_count`/
+        `initial_state`/`integrate_state`/`bind_state`/`resolve_peers`, all defaulted); `Vehicle`'s
+        two-phase init (discover/size/allocate/bind/publish, then resolve peers), combined state
+        buffer, and stage buffer with its post-step/init sync invariant; `Integrator`'s
+        write-into-buffer functor contract and its own owned scratch; `wrench_source.hpp`'s
+        purity-contract amendment (ADR-0021's own exact text); a frozen R1 golden captured from the
+        pre-change build, with its capture manifest, under `tests/golden/` (`.claude/touch-goldens`).
+        Independent of PR 4 (adds no states of its own) but must land before PR 5, which binds the
+        state to Python. Accept: the frozen-golden bitwise-equality test (R1); existing NESC/
+        determinism goldens pass unmodified under all four presets; `no_alloc_test.cpp` extended with
+        a state-owning test model (R2); a test proving sub-stage-exact cross-model state reads via
+        both `bind_state()` and a peer's `SignalRegistry`-resolved read; a test proving mutual
+        cross-model state dependence resolves regardless of `vehicle.models` config order; a test
+        proving the stage buffer equals the combined state buffer outside any derivative call, both on
+        a normal and a halted frame; a test proving duplicate published state names and missing
+        required peers throw recoverable `ConfigError`s. Binding ADRs: ADR-0021. Tier 3. Plan
+        critique: done (`docs/plans/m3-framework-realignment.md`). Implementation plan: pending.
   - [ ] PR 5 — nanobind: `Simulation`, `Config` from dict, `SignalRegistry` read views, PR 2's write
         seam (`sim.write_input(name, value)`, D7), and `Simulation::derivative(state)` -- the same
         derivative functor `Vehicle::integrate` hands the integrator (fresh atmosphere at the given
         state, latched wind), not a second implementation. `Simulation::for_testing`'s M2 PR 2 deferral
         ("expose when a Python binding is added") is resolved here: **not bound**, decision recorded.
         Trim/linearize run with no wind or uniform wind only (Dryden makes the derivative
-        frame-dependent). Depends on PR 2/3. Accept: `derivative(state)` is bitwise equal to the k1 the
-        real integrator computes for that state, proven via a small C++ test seam (`from_config`
+        frame-dependent). Depends on PR 2/3/4a (ADR-0021's length-N state, not the old fixed 13-vector
+        -- `derivative(state)` exposes named slices for the rigid-body block plus each state-owning
+        model's own slice, per ADR-0021's R4). Accept: `derivative(state)` is bitwise equal to the k1
+        the real integrator computes for that state, proven via a small C++ test seam (`from_config`
         hardcodes `kRk4`; an Euler-step comparison isn't reachable without new config surface, so this
-        replaces that alternative). Binding ADRs: none pin the Python `Simulation` surface today --
-        flag whether one is needed. Tier 3. Plan critique: **yes** (ownership/lifetime across the
-        Python/C++ boundary). D2 settled: minimal scope, no trampolines in M3.
+        replaces that alternative). Binding ADRs: ADR-0021 (R4). Tier 3. Plan critique: **yes**
+        (ownership/lifetime across the Python/C++ boundary). D2 settled: minimal scope, no trampolines
+        in M3.
   - [ ] PR 6 — `astra.trim`: `scipy.optimize.root` writing PR 5's inputs, driving `derivative(state)`
         to zero at a flight condition. Residual norm/units (D8, Joe's pick, at this PR's planning
         time) -- S&L §3.6 uses a weighted sum-of-squares of state derivatives; §16 gives no norm, and
