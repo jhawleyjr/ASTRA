@@ -544,15 +544,27 @@ check value equality instead of address identity, since address identity was nev
 
 **Model-owned continuous states — signature revised by Joe's own instruction, 2026-09-20, before this
 round's Codex re-verification (not itself a reviewer-driven fix; superseding the two bullets below
-that a first Codex critique had already approved in the narrower form).** `Model` gains three new
-virtuals, each defaulted to a zero-state no-op so every existing subclass keeps compiling and
-behaving identically without any edit:
+that a first Codex critique had already approved in the narrower form).** `Model` gains five new
+virtuals (four as first drafted, plus `resolve_peers()` added by the two-phase-init fix below), each
+defaulted to a zero-state/no-op so every existing subclass keeps compiling and behaving identically
+without any edit:
 
 ```cpp
 [[nodiscard]] virtual int state_count() const noexcept { return 0; }
 virtual void initial_state(double* q) const noexcept {}
 virtual void integrate_state(double t, const VehicleState& vs, const EnvironmentSample& env,
                               double* dq) const noexcept {}
+// Phase one (Vehicle::init()): hands a state-owning model its own combined-state-buffer slice (to
+// seed via initial_state()) and its own stage-buffer slice (to read sub-stage-exact thereafter).
+// A model with state_count() == 0 never has this called. Init-time only: may throw (it typically
+// calls SignalRegistry::add(), which itself throws on a duplicate name -- see the fix below).
+virtual void bind_state(double* own_combined_slice, const double* own_stage_slice) {}
+// Phase two (Vehicle::init(), after every model's phase one has run): resolves reads of a peer
+// model's published state signal(s) via registry.find(...), caching the result as a member.
+// Init-time only: may throw -- a model requiring a peer signal that find() returns nullptr for
+// must throw a typed config error naming it, the same "never a silent absence" discipline
+// requires_environment()/bind_inputs() already follow, not silently proceed with a null pointer.
+virtual void resolve_peers(const SignalRegistry& registry) {}
 ```
 
 `integrate_state()` takes the sub-stage `VehicleState`, not a bare `const double* q` of the model's
@@ -571,24 +583,25 @@ Codex re-verification round already gave: it is `Vehicle`'s own already-construc
 
 **A model's own state slice — read via an init-resolved pointer into a `Vehicle`-owned stage buffer,
 not via a `q` parameter (this is the mechanism, not just the `vs` parameter above, that Joe's
-instruction requires).** `Vehicle::init()`'s existing discovery pass (the same one that already
-walks `WrenchSource`s for `bind_inputs()`) sums every model's `state_count()`, allocates **one**
-contiguous buffer of size `13 + sum(model states)` **once** (an init-time allocation, permitted;
-never resized in `step()` — R2) — the **combined state buffer**, the actual `y` `Vehicle` advances
-frame to frame and hands to `Integrator::step()`, sized-once-by-type per the "Enforcing ... by type"
-section below. Separately, `Vehicle` owns a second, identically-sized **stage buffer**, also
-allocated once at init: at the top of the per-stage derivative functor (see below), before any
-`wrench_b()` or `integrate_state()` call for that stage runs, `Vehicle` copies that stage's own trial
-state — the same values `Integrator` is evaluating this k1..k4 call against — into this stage buffer.
-The two buffers hold genuinely different values for most of a frame's evaluation: the combined state
-buffer stays at the frame-start value until the RK4 weighted combination writes the new value at
-frame end (exactly like `state_` today), while the stage buffer cycles through each of the four
-trial states (`y`, `y+½dt·k1`, `y+½dt·k2`, `y+dt·k3`) as `Integrator` evaluates them — the stage
-buffer is what a mid-frame plugin read must see, never the frame-start buffer. Every state-owning
-model resolves, once at init, a `const double*` into its own slice of the **stage** buffer (offset
-computed once at init and stored as a plain `int`, matching `SignalRegistry`/`InputRegistry`'s own
-"resolve once, never look up again" discipline) via a new `bind_state(const double* own_slice)` hook
-(mirroring `WrenchSource::bind_inputs()`'s own init-time timing and shape, `wrench_source.hpp:71-80`).
+instruction requires).** `Vehicle` allocates **one** contiguous buffer of size `13 + sum(model
+states)` **once** (an init-time allocation, permitted; never resized in `step()` — R2) — the
+**combined state buffer**, the actual `y` `Vehicle` advances frame to frame and hands to
+`Integrator::step()`, sized-once-by-type per the "Enforcing ... by type" section below. Separately,
+`Vehicle` owns a second, identically-sized **stage buffer**, also allocated once at init: at the top
+of the per-stage derivative functor (see below), before any `wrench_b()` or `integrate_state()` call
+for that stage runs, `Vehicle` copies that stage's own trial state — the same values `Integrator` is
+evaluating this k1..k4 call against — into this stage buffer. The two buffers hold genuinely
+different values for most of a frame's evaluation: the combined state buffer stays at the
+frame-start value until the RK4 weighted combination writes the new value at frame end (exactly like
+`state_` today), while the stage buffer cycles through each of the four trial states (`y`,
+`y+½dt·k1`, `y+½dt·k2`, `y+dt·k3`) as `Integrator` evaluates them, **and — per the stage-buffer
+invariant below, added after this round's Codex re-verification — is re-synced to the accepted state
+immediately afterward, so it never stays parked at a trial value outside a derivative call.** Every
+state-owning model resolves, once at init, a `const double*` into its own slice of the **stage**
+buffer (offset computed once at init and stored as a plain `int`, matching
+`SignalRegistry`/`InputRegistry`'s own "resolve once, never look up again" discipline) via a new
+`bind_state(const double* own_slice)` hook (mirroring `WrenchSource::bind_inputs()`'s own init-time
+shape, `wrench_source.hpp:71-80`, but run in a later init phase — see the two-phase init below).
 Because the stage buffer's *address* never moves after init but its *contents* are refreshed every
 sub-stage, a model can dereference that pointer from inside **either** `integrate_state()` **or**
 `wrench_b()` — at any point during that stage's evaluation, not only when it happens to be the
@@ -600,21 +613,66 @@ that state through this pointer directly inside `wrench_b()`, with no per-frame 
 **Cross-model reads use the same mechanism, through `SignalRegistry`, sub-stage-exact — replacing the
 frame-latched-bus coupling rule the first-critique draft of this ADR adopted, per Joe's instruction.**
 A state-owning model additionally registers each element of its own stage-buffer slice with
-`SignalRegistry::add()` at init (the existing `bind_inputs()`/`init()`-time call, inside the same
-`SignalRegistry::PrefixScope` already open), pointing at the **live stage-buffer address**, not at a
-separately latched copy (`SignalRegistry::add()`'s own contract already requires only that the target
-outlive the registry, `signal_registry.hpp:26-30` — the stage buffer, allocated once at init and never
-freed before the vehicle is, satisfies that as-is). Any other model resolving that name via
-`SignalRegistry::find()` — the existing "resolve once at init" discipline every other signal consumer
-already follows — gets the identical pointer, and therefore the identical sub-stage-exact freshness,
-as the owning model's own reads: there is no separate frame-latch step for a model-owned state,
-because the stage buffer *is* refreshed every sub-stage, not once per frame. This is a strictly
-different mechanism from `env.wind_n`'s own frame-latching (`wrench_source.hpp`'s documented
+`SignalRegistry::add()`, pointing at the **live stage-buffer address**, not at a separately latched
+copy (`SignalRegistry::add()`'s own contract already requires only that the target outlive the
+registry, `signal_registry.hpp:26-30` — the stage buffer, allocated once at init and never freed
+before the vehicle is, satisfies that as-is). Any other model resolving that name via
+`SignalRegistry::find()` gets the identical pointer, and therefore the identical sub-stage-exact
+freshness, as the owning model's own reads: there is no separate frame-latch step for a model-owned
+state, because the stage buffer *is* refreshed every sub-stage, not once per frame. This is a
+strictly different mechanism from `env.wind_n`'s own frame-latching (`wrench_source.hpp`'s documented
 exception, unchanged by this ADR): `wind_n` is an externally sampled environment field, latched once
 per frame by `Simulation::step` before the wrench stage even begins, never a model-owned continuous
 state whose storage this ADR controls — nothing here reopens that design or that citation. This
 closes the first-critique draft's own disclosed gap directly: the engine-spool-feeds-thrust case now
 reads the live, sub-stage value, not a value carried over from the previous frame.
+
+**Two-phase init — closes Codex finding 2, 2026-09-20: init-time `find()`/`bind_state()` alone cannot
+support mutual cross-model state dependence, since a model resolving a peer's not-yet-published
+signal in the existing single per-model pass gets `nullptr` regardless of load order.** `Vehicle::init()`
+splits into two phases, replacing the single discovery pass the earlier drafts of this ADR assumed
+could also do the binding:
+- **Phase one — discover, size, allocate, bind, publish.** For every `ModelSpec`, in order (as
+  today): load the plugin, open its `SignalRegistry::PrefixScope`, call `model->init(config,
+  registry)`, call `bind_inputs()` for a `WrenchSource` (ADR-0017, unchanged), record
+  `model->state_count()` into a running total and a per-model slice-size list, check
+  `requires_environment()` (unchanged), close the scope. This is exactly today's loop
+  (`vehicle.cpp:21-51`) plus one new recorded value per model; nothing in it depends on any other
+  model's state. Once every model's `state_count()` is known — only possible after this loop
+  completes for every model, which is why binding cannot happen inside it — `Vehicle` allocates the
+  combined state buffer and the stage buffer (size `13 + sum(model states)`, computed once, now that
+  the sum is actually known) and, for each state-owning model in the same order, reopens that model's
+  own `PrefixScope` and calls its new `bind_state(double* own_combined_slice, const double*
+  own_stage_slice)` hook, which both lets the model seed its own initial value into the combined
+  buffer (via the existing `initial_state(double* q)` virtual, called through this same slice) and
+  registers each of its own stage-buffer elements with `SignalRegistry::add()` — publishing, per the
+  paragraph above, before phase two runs for *any* model. `bind_state()` is init-time-only and may
+  throw, unlike the per-frame hooks above: `SignalRegistry::add()` itself already throws on a
+  duplicate name (`signal_registry.hpp:26-32`), and a `noexcept` `bind_state()` calling it would
+  `std::terminate()` the whole process on a configuration mistake (two state-owning models
+  publishing the same name) instead of reporting a recoverable init error — closed by dropping
+  `noexcept` from this hook's own signature, matching `bind_inputs()`'s existing "init-time only: may
+  throw" contract exactly (`wrench_source.hpp:71-80`).
+- **Phase two — resolve peers.** A new `Model`-level virtual, `virtual void resolve_peers(const
+  SignalRegistry& registry) {}` (defaulted to a no-op, costing nothing to a model that reads no peer
+  state; init-time-only and may throw, for the identical reason `bind_state()` above does — a model
+  that requires a peer signal must reject a config where `registry.find(...)` returns `nullptr` for
+  it by throwing a typed config error naming that signal, the same "never a silent absence" pattern
+  `WrenchSource::requires_environment()`'s own init-time check already establishes, rather than
+  silently caching a null pointer a per-frame call would later dereference), is called for **every**
+  model — state-owning or not, since a pure `WrenchSource` with zero states of its own may still need
+  a peer's state (the control-surface-effectiveness-reads-a-flex-mode-state case, not only the
+  engine-spool-feeds-thrust case) — only after phase one has finished publishing every state-owning
+  model's signals, for every model, regardless of load order. A model implementing it calls
+  `registry.find(...)` for whichever peer signal(s) it needs and caches the resulting `const double*`
+  as its own member, the identical "resolve once, never look up again" discipline every other signal
+  consumer already follows — the only change is *when* that lookup is guaranteed to succeed. Because
+  phase one has already published every state-owning model's signals before phase two begins for
+  anyone, **two models that mutually depend on each other's state — A's derivative reading B's slice
+  and B's reading A's — both resolve successfully, in either load
+  order**, closing the finding directly: this was never expressible under the single-pass design the
+  first-critique/re-verification rounds left unchanged, and needs exactly this two-phase split to
+  become possible for any load order, not just a fortunate one.
 
 - **What stays out of scope: algebraic loops between model *outputs*, not state reads.** A model's
   own state, at any point once this stage's trial value has been written into the stage buffer, is
@@ -636,6 +694,31 @@ reads the live, sub-stage value, not a value carried over from the previous fram
   subsystems' own outputs is outside what a single `der_func` call, or this ADR's single evaluation
   order, can express.
 
+**`wrench_source.hpp`'s own purity-contract text — exact amendment (closes Codex finding 3,
+2026-09-20: the revision changes what a bound state-slice pointer's contents may do across one
+frame's four calls, but left the existing comment's own words unamended, so they now read as
+contradicting this ADR's own mechanism).** This ADR requires the following change to
+`wrench_source.hpp`'s `wrench_b()` documentation (`wrench_source.hpp:26-52`) as part of its own
+acceptance, not deferred to implementation time:
+- Immediately after the existing sentence "A conforming implementation MUST therefore be a pure
+  function of (vs, env) with no hidden per-call state," add: "As of ADR-0021, a *read-only* binding
+  into `Vehicle`'s own stage buffer (own state slice via `bind_state()`, or a peer's via
+  `resolve_peers()`) is part of that pure function's actual domain, not an exception to it: the
+  function is pure over the **complete per-stage trial snapshot** `Vehicle` prepares before any call
+  this stage — `vs`, `env`, and every resolved stage-buffer binding together — not over `(vs, env)`
+  alone. Every frame-latched input (`env.wind_n`, every ADR-0017 write-seam value) remains identical
+  across all four of one frame's calls, exactly as before this ADR. A stage-buffer binding is the one
+  documented exception to that frame-to-frame-only variation: it varies **by sub-stage**, by design,
+  tracking that stage's own trial state — but still stays IDENTICAL between two calls made at the
+  same sub-stage of the same frame (there is only ever one such call per sub-stage per frame in
+  practice, so this is a restatement of purity, not a new relaxation). No call may write through a
+  stage-buffer binding — `bind_state()`/`resolve_peers()` hand out `const double*`, the same
+  read-only-from-`wrench_b()` prohibition the ADR-0017 write-seam text already establishes for its
+  own handles, unchanged."
+- This is a textual amendment recorded here for Joe's acceptance alongside the rest of this ADR; the
+  actual header edit happens at ADR-0021's implementation time, like every other file this ADR lists
+  under Consequences.
+
 `Vehicle`'s per-frame derivative functor (today's lambda at `vehicle.cpp:152`), for each stage
 `Integrator` calls it at: first copies that stage's trial state (the `y` `Integrator` hands it, per
 the corrected functor contract below) into the stage buffer described above — the one new step this
@@ -647,6 +730,39 @@ evaluates every state-owning model's `integrate_state(t, vs, stage_env, dq)` ove
 passing the identical `vs`/`stage_env` pair this same stage's `wrench_b()` calls already received,
 not a separately constructed one — writing each model's own derivative into its own slice of one
 combined `dq` buffer.
+
+**Stage buffer invariant — outside a derivative evaluation, the stage buffer equals the accepted
+state (closes Codex finding 1, 2026-09-20: the earlier draft only refreshed the stage buffer before
+a derivative call, leaving it parked at the last RK4 trial value — `y + dt·k3` after a completed RK4
+step, or the frame-start value after Euler — everywhere else, so a `SignalRegistry` reader outside a
+derivative call, including a future logger or a model's own next-frame `step()` which already runs
+before `integrate()`, `simulation.cpp:578-588`, would read a stale trial value, never the accepted
+state).** `Vehicle::integrate()` gains one unconditional step, added to the **post-step** stage of
+the per-frame order (`docs/architecture.md` §5 / `AGENTS.md`'s "environment → transport exchange →
+vehicle wrenches → EOM → integrator → post-step → logger"; this ADR's post-step now reads
+"renormalize, **then sync the stage buffer to the accepted combined state buffer**"), run after
+every other post-step action has already settled the combined state buffer's final value for this
+frame:
+- After a wrench-fault rollback (`vehicle.cpp:203-209`'s existing `state_ = pre_step_state`) *or*
+  after `integrator.step()` completes normally and writes the RK4 weighted combination — whichever
+  happened this frame — the combined state buffer now holds this frame's accepted value, halted or
+  not.
+- After `post_step_renormalize()` (`vehicle.cpp:221`) has run unconditionally on that buffer (ADR-0001:
+  renormalized after every integrator step, halt or not) — the sync below must run *after* this, not
+  before, so the stage buffer reflects the renormalized quaternion too.
+- `Vehicle` then copies the combined state buffer's current contents into the stage buffer, in full —
+  the same plain memory copy the per-stage refresh already performs, just against the settled value
+  instead of a trial one. This single copy is unconditional (it runs whether or not the frame
+  halted), matching renormalization's own "invariant, not suspended by a halt" framing directly above
+  it in the per-frame order, so "the stage buffer equals the accepted state outside a derivative
+  call" holds after every frame without exception.
+- `Vehicle::init()` performs the identical copy once, at the end of phase one below, after every
+  state-owning model's `initial_state()` has seeded the combined state buffer — so the invariant
+  already holds before frame 0's own `step()` ever runs, not only from frame 1 onward.
+- `Vehicle::reset()` (ADR-0017, `vehicle.cpp:94-99`, currently unwired to any caller) is noted here as
+  a future interaction, not solved by this ADR: if a later milestone wires it to restore state as well
+  as inputs, it would need the identical resync, named here so it is not rediscovered as a surprise
+  gap when that wiring happens.
 
 **Integrator functor contract — corrected after Codex plan critique below.** The original draft
 said `Integrator::step`'s arithmetic (`y + dt*f(...)`, the RK4 tableau) is "otherwise unchanged."
@@ -674,30 +790,62 @@ it owns a `std::vector<double>` sized exactly once in its own constructor and ex
 its public interface at all. "Never resized after construction" is then a fact about which
 operations exist to call, not only a documented intention.
 
-**R1 (bit-identity) — acceptance strengthened twice after Codex plan critique below.** The original
-draft's proposed evidence ("existing NESC/determinism goldens pass unmodified") is insufficient on
-its own: `tests/physics/nesc_cases_test.cpp`-family checks compare against *tolerance bands*, not
-bit-identity, and the existing determinism test compares two runs of the *same* implementation
-against each other, not the pre-change `Eom` against the post-change `RigidBody6DofDynamics` — a
-trajectory that changed consistently could pass both without ever being bit-identical to today's.
-A first correction added a dedicated new test comparing derivative output between the pre- and
-post-change arithmetic — re-verification then caught two further gaps in that fix, both closed
-here: **(a)** plain `==` on `double` is not bitwise equality (`+0.0 == -0.0` is `true` while their
-bit patterns differ), so the comparison must be representation-level (`std::bit_cast<std::uint64_t>`
-or `std::memcmp` over each `double`, not `==`); **(b)** comparing `derivative()`'s raw output alone
-cannot catch a bug in the RK4 tableau's own rewritten trial-state construction, final weighted
-combination, or `post_step` quaternion renormalization — all rewritten by this ADR's own integrator
-functor-contract change, none exercised by a derivative-only comparison. **Corrected acceptance**: a
-dedicated new test drives identical initial states through a **complete integration step** (not
-just one `derivative()` call) under both the pre-change `Eom`/`Integrator::step` arithmetic (kept as
-a private reference implementation inside the test, or the pre-change code itself if still available
-at implementation time) and the post-change `RigidBody6DofDynamics`/rewritten `Integrator::step`,
-including `post_step` normalization, for a representative set of sampled states with matching build
-settings (same compiler flags/optimization level for both sides of the comparison, since
-representation-level equality is sensitive to that), asserting representation-level equality
-throughout — not inferred from tolerance-banded, same-implementation-only, or derivative-only tests.
-This is in addition to, not instead of, running the existing NESC/determinism suite unmodified under
-all four presets.
+**R1 (bit-identity) — acceptance strengthened three times: twice after the first Codex plan critique
+round, a third time by Joe's own instruction, 2026-09-20, changing the evidence's own source.** The
+original draft's proposed evidence ("existing NESC/determinism goldens pass unmodified") is
+insufficient on its own: `tests/physics/nesc_cases_test.cpp`-family checks compare against *tolerance
+bands*, not bit-identity, and the existing determinism test compares two runs of the *same*
+implementation against each other, not the pre-change `Eom` against the post-change
+`RigidBody6DofDynamics` — a trajectory that changed consistently could pass both without ever being
+bit-identical to today's. A first correction added a dedicated new test comparing derivative output
+between the pre- and post-change arithmetic — re-verification then caught two further gaps in that
+fix, both closed here: **(a)** plain `==` on `double` is not bitwise equality (`+0.0 == -0.0` is
+`true` while their bit patterns differ), so the comparison must be representation-level
+(`std::bit_cast<std::uint64_t>` or `std::memcmp` over each `double`, not `==`); **(b)** comparing
+`derivative()`'s raw output alone cannot catch a bug in the RK4 tableau's own rewritten trial-state
+construction, final weighted combination, or `post_step` quaternion renormalization — all rewritten
+by this ADR's own integrator functor-contract change, none exercised by a derivative-only comparison.
+
+**Evidence source changed, per Joe's instruction: a frozen golden captured from the pre-change build,
+not a private reference implementation kept inside the test.** The second-round fix above still
+proposed comparing against "the pre-change `Eom`/`Integrator::step` arithmetic (kept as a private
+reference implementation inside the test, or the pre-change code itself if still available at
+implementation time)" — a second, hand-maintained or merely still-compiling copy of the pre-change
+arithmetic living alongside the post-change code, which itself could silently drift from what the
+pre-change build actually produced (a transcription slip in a "private reference implementation," or
+a compiler/flag difference against "the pre-change code itself if still available," would both go
+undetected by this design). **Corrected acceptance**: at ADR-0021's implementation time, before any
+of this ADR's own code changes land, run the **current, pre-change** build once against a
+representative set of sampled initial states through a complete integration step (RK4, including
+`post_step` renormalization), and capture the resulting states' bit patterns
+(`std::bit_cast<std::uint64_t>` per `double`) into a new frozen golden file under `tests/golden/`
+(exact location/format decided at implementation time) — a real, human-owned oracle artifact per
+`AGENTS.md`'s existing rule ("the oracle is human-owned: `tests/golden/**` ... require Joe's explicit
+authorization"), which Joe has said he will authorize (arming `ASTRA_TOUCH_GOLDENS`/
+`.claude/touch-goldens`, `docs/process/workflow.md`'s existing guard) when implementation reaches this
+step. The post-change test then drives the identical sampled initial states through the post-change
+`RigidBody6DofDynamics`/rewritten `Integrator::step` (including `post_step` normalization) and asserts
+representation-level equality against this frozen golden — never against a second implementation
+compiled into the same post-change binary, which cannot independently confirm what the pre-change
+build actually did.
+
+**Capture manifest — closes the second re-verification round's own medium finding, 2026-09-20:
+matching build settings alone does not make the golden reproducible or attributable.** Bit patterns
+and compiler flags/optimization level are insufficient by themselves: without the exact sampled
+initial-state bits, a later run using different (even nominally "representative") samples cannot
+reproduce the comparison, and without a toolchain/revision record, a future mismatch cannot be
+distinguished from an arithmetic regression once the pre-change build is no longer easily available.
+The golden capture is therefore committed with an accompanying manifest recording, at minimum: the
+exact pre-change revision (git SHA) the golden was captured from; the exact sampled initial-state
+bit patterns used (not merely a description of how they were chosen — the actual values, since the
+capture must be exactly reproducible, not merely re-derivable); the capture harness itself (the test
+or script that ran the pre-change build and wrote the golden) and its own configuration; the compiler
+and dependency versions (clang version, Eigen version, libstdc++/libc++ ABI) and target triple used;
+and the compiler flags/optimization level already required above. This manifest is checked into the
+repository alongside the golden file itself (both under `tests/golden/**`, both requiring Joe's
+`ASTRA_TOUCH_GOLDENS` authorization to create), not left as prose in this ADR alone. This is in
+addition to, not instead of, running the existing NESC/determinism suite unmodified under all four
+presets.
 
 **R2 (no allocation).** The combined state buffer, and `Integrator`'s and `Vehicle`'s own scratch
 buffers (per the corrected functor contract above), are each sized exactly once, in `Vehicle::init()`
@@ -756,38 +904,54 @@ state to Python and would otherwise hardcode the 13-layout a second time.
 
 ## Consequences and validation
 
-Costs: `kCoreApiVersion` bump (`Model`'s vtable gains three new virtuals, even defaulted; every
-plugin recompiles per existing policy); real changes to `state.hpp`, `vehicle_state.hpp` (a genuine
-constructor/return-type retype, not just prose, per the correction above),
-`eom.hpp/.cpp`, `vehicle.hpp/.cpp`, `simulation.hpp/.cpp`, `health_monitor.hpp/.cpp`, and
-`integrator.hpp` (functor contract change from return-by-value to write-into-buffer, plus owning
-its own scratch buffers, plus the new `Vehicle`-owned stage buffer and its per-stage copy, plus the
-new `bind_state()` model hook) — a materially larger set of real changes than the original draft's
-"one implementation plus a few call sites" framing suggested, corrected here rather than understated;
-`tests/unit/kernel/vehicle_state_test.cpp`'s address-identity assertion rewritten; Python
-`_core.cpp`'s `STATE_SIZE`/offset module constants need a length-N-aware replacement before PR 5
-relies on them. Benefits: any future vehicle model (engine spool dynamics, actuator lag, flex modes,
-fuel burn) can own its own continuous state, integrated at full sub-stage fidelity, with zero
-further core interface change; **per Joe's revision above, any `wrench_b()` or `integrate_state()`
-can also read any other model's or the rigid body's live sub-stage state**, not only its own — closes
-audit item 2/3 in §3's contradiction table more completely than the first-critique draft did. **Still
-not delivered**: an algebraic loop between two or more models' own *outputs* within one evaluation
-(a genuine implicit/fixed-point coupling) — state reads are sub-stage-exact and unrestricted per the
-mechanism above; only mutual output dependence remains unsupported. Migration/rollback: fully
-reversible pre-any-external-consumer (no plugin outside this tree implements `Model`/`DynamicsModel`
-yet); the `kCoreApiVersion` bump is the existing precedented mechanism (ADR-0018's own 5→6 bump for a
-settling vtable shape, cited directly).
+Costs: `kCoreApiVersion` bump (`Model`'s vtable gains four new virtuals now, not three — `resolve_peers()`
+joins `state_count()`/`initial_state()`/`integrate_state()`, all defaulted; every plugin recompiles
+per existing policy); real changes to `state.hpp`, `vehicle_state.hpp` (a genuine constructor/
+return-type retype, not just prose, per the correction above), `eom.hpp/.cpp`, `vehicle.hpp/.cpp`
+(the two-phase init split, the stage buffer and its per-stage-plus-post-step sync, the new
+`bind_state()`/`resolve_peers()` hooks), `simulation.hpp/.cpp`, `health_monitor.hpp/.cpp`,
+`integrator.hpp` (functor contract change from return-by-value to write-into-buffer, plus owning its
+own scratch buffers), and `wrench_source.hpp`'s own documentation (the purity-contract amendment
+above) — a materially larger set of real changes than the original draft's "one implementation plus a
+few call sites" framing suggested, corrected here rather than understated; `tests/unit/kernel/
+vehicle_state_test.cpp`'s address-identity assertion rewritten; Python `_core.cpp`'s
+`STATE_SIZE`/offset module constants need a length-N-aware replacement before PR 5 relies on them; a
+new frozen golden under `tests/golden/` (R1 below), requiring Joe's `ASTRA_TOUCH_GOLDENS`/
+`.claude/touch-goldens` authorization to create. Benefits: any future vehicle model (engine spool
+dynamics, actuator lag, flex modes, fuel burn) can own its own continuous state, integrated at full
+sub-stage fidelity, with zero further core interface change; **per Joe's revision above, any
+`wrench_b()` or `integrate_state()` can also read any other model's or the rigid body's live
+sub-stage state**, not only its own — closes audit item 2/3 in §3's contradiction table more
+completely than the first-critique draft did. **Still not delivered**: an algebraic loop between two
+or more models' own *outputs* within one evaluation (a genuine implicit/fixed-point coupling) — state
+reads are sub-stage-exact and unrestricted per the mechanism above; only mutual output dependence
+remains unsupported. Migration/rollback: fully reversible pre-any-external-consumer (no plugin
+outside this tree implements `Model`/`DynamicsModel` yet); the `kCoreApiVersion` bump is the existing
+precedented mechanism (ADR-0018's own 5→6 bump for a settling vtable shape, cited directly).
 
-Acceptance: a dedicated new bitwise-equality test against the pre-change `Eom` arithmetic, not
-tolerance-banded or same-implementation-only tests (R1, corrected above); existing NESC/determinism
-goldens additionally pass unmodified under all four presets; `tests/physics/no_alloc_test.cpp`
-extended with a state-owning test model, covering the integrator's, `Vehicle`'s combined-state, and
-`Vehicle`'s new stage-buffer scratch, not only the combined state buffer alone (R2, corrected above);
-a test proving a state-owning model's own value, read through both its `bind_state()` pointer and a
-peer's `SignalRegistry`-resolved read of the same signal, is identical at every one of a frame's four
-RK4 sub-stages — sub-stage-exact, not frame-latched (the coupling mechanism above, superseding the
-first-critique draft's frame-latched-staleness test); a dedicated implementation plan's own full
-acceptance table at implementation time.
+Acceptance: a dedicated new bitwise-equality test against a **frozen golden captured from the
+pre-change build** (not a private reference implementation or "the pre-change code itself if still
+available," per Joe's own correction, R1 above); existing NESC/determinism goldens additionally pass
+unmodified under all four presets; `tests/physics/no_alloc_test.cpp` extended with a state-owning
+test model, covering the integrator's, `Vehicle`'s combined-state, and `Vehicle`'s new stage-buffer
+scratch, not only the combined state buffer alone (R2, corrected above); a test proving a
+state-owning model's own value, read through both its `bind_state()` pointer and a peer's
+`SignalRegistry`-resolved read of the same signal (via `resolve_peers()`), is identical at every one
+of a frame's four RK4 sub-stages — sub-stage-exact, not frame-latched; a test proving two models with
+mutual state dependence both resolve successfully in `resolve_peers()` regardless of their relative
+`vehicle.models` config order (closes Codex finding 2 directly, not just by design argument); a test
+proving the stage buffer equals the combined state buffer's contents immediately after `integrate()`
+returns, both on a normal frame and a halted (wrench-fault-rolled-back) one, and at the end of
+`Vehicle::init()` before frame 0 (closes Codex finding 1 directly); a test proving two state-owning
+models configured with a duplicate published state name throw a recoverable `ConfigError` at init
+rather than terminating the process, and a test proving a model whose `resolve_peers()` requires a
+peer signal that does not exist throws a `ConfigError` naming it rather than caching a null pointer
+(closes the second round's own high finding on `bind_state()`/`resolve_peers()`'s throwing contract);
+`wrench_source.hpp`'s amended purity-contract text lands as part of this ADR's own diff, not deferred;
+the frozen golden's own accompanying manifest (pre-change revision, exact sampled input-state bits,
+capture harness/config, compiler/dependency versions, target, flags — R1 above) is itself checked into
+the repository alongside the golden, not merely described in prose; a dedicated implementation plan's
+own full acceptance table at implementation time.
 
 ## Approval
 
@@ -910,9 +1074,45 @@ further.**
   preparation obligation every caller relies on) so a future implementer or reviewer does not read
   the unamended comment and conclude the revision violates it.
 
-None of the three findings are fixed in this draft yet. Per Joe's own instruction, this result is
-being shown to him as-is rather than looped through a further fix/re-verify round on this ADR before
-he has decided anything.
+None of the three findings were fixed at the time this result was first shown to Joe; per his own
+instruction, that result was shown as-is rather than looped through a further fix/re-verify round on
+this ADR before he had decided anything.
+
+**Joe's fix instruction, 2026-09-20: fix all three findings, plus change R1's evidence source.** All
+four folded into the Decision section above: the "Stage buffer invariant" subsection (finding 1); the
+"Two-phase init" subsection (finding 2); the "`wrench_source.hpp`'s own purity-contract text — exact
+amendment" subsection (finding 3); R1's own "Evidence source changed" subsection (the frozen-golden
+capture, replacing the private-reference-implementation approach).
+
+**Codex re-verification (adversarial-review, working-tree scope, `2026-09-20`, second round, focused
+only on these four deltas, not the ground either 2026-09-19 round or the first 2026-09-20 round
+already covered): verdict "needs-attention," one high finding and one medium finding.**
+
+- **High**: the new `bind_state()`/`resolve_peers()` hooks were drafted `noexcept`, but `bind_state()`
+  typically calls `SignalRegistry::add()`, which itself throws on a duplicate name
+  (`signal_registry.hpp:26-32`) — a `noexcept` hook calling it would `std::terminate()` the process on
+  an ordinary configuration mistake (two state-owning models publishing the same name) instead of
+  reporting a recoverable init error. `resolve_peers()` had the identical problem in the other
+  direction: `find()` returns `nullptr` for a missing signal with no specified way for the hook to
+  reject that configuration. **Fixed**: both hooks drop `noexcept` and are documented init-time-only,
+  may-throw, matching `bind_inputs()`'s own existing "init-time only: may throw" contract exactly; a
+  model requiring a peer signal that resolves to `nullptr` must throw a typed config error naming it,
+  the same pattern `requires_environment()`'s own init-time check already establishes.
+- **Medium**: the frozen-golden R1 evidence change (accepted as sound in principle) did not specify
+  enough to make the capture reproducible or attributable later: matching compiler flags/optimization
+  level alone does not fix the exact sampled input-state bits, the capture harness, or the
+  toolchain/revision the golden was captured under, so a later mismatch could not be distinguished
+  from a real regression once the pre-change build is no longer easily available. **Fixed**: a new
+  "Capture manifest" subsection requires the golden to ship with an accompanying manifest — pre-change
+  git SHA, the exact sampled initial-state bit patterns (not merely how they were chosen), the capture
+  harness and its own config, compiler/dependency versions and target, and the flags already required
+  — checked into `tests/golden/**` alongside the golden itself, both requiring Joe's
+  `ASTRA_TOUCH_GOLDENS` authorization to create.
+
+Both fixed directly, without a third Codex dispatch, per Joe's own instruction that this is the last
+planning round: both are narrow, mechanical corrections (a `noexcept` removal matching an
+already-established sibling contract, and a manifest requirement alongside an already-accepted
+mechanism) rather than new technical claims that could themselves hide a further gap.
 
 ---
 
@@ -951,22 +1151,34 @@ everything from scratch. Summary, in full under each ADR's own "Approval" sectio
   sub-stage-exact from both `integrate_state()` and `wrench_b()` via an init-resolved pointer into a
   new `Vehicle`-owned stage buffer, replacing the critique-fixed but Joe-judged-too-narrow
   frame-latched-bus rule; only an algebraic loop between models' own outputs stays out of scope. A
-  third, focused Codex re-verification against this revision is run next, appended to ADR-0021's own
-  "Approval" section, before Joe decides this ADR.
+  third, focused Codex re-verification against this revision (2026-09-20, first round) found two
+  high findings (stage buffer went stale outside a derivative call; init-time resolution alone
+  couldn't support mutual cross-model state dependence) and one medium (`wrench_source.hpp`'s purity
+  text unamended) — all three fixed per Joe's own follow-up instruction, alongside a change to R1's
+  own evidence source (a frozen golden captured from the pre-change build, not a private reference
+  implementation). A **fourth, focused Codex re-verification** against exactly those four deltas
+  (2026-09-20, second round) found one high finding (the new `bind_state()`/`resolve_peers()` hooks
+  were `noexcept` but need to throw on a config error) and one medium (the frozen golden's own
+  capture needed a fuller reproducibility manifest) — both fixed directly, without a further Codex
+  dispatch, per Joe's own instruction that this was the last planning round.
 
-Every finding across all three dispatches is recorded with its own verdict and fix, not summarized
+Every finding across all four dispatches is recorded with its own verdict and fix, not summarized
 away — nothing was accepted on the strength of a clean-sounding one-line verdict alone.
 
 ## Questions and decision
 
 **Joe's decisions, 2026-09-20: ADR-0019 accepted as drafted. ADR-0020 accepted with the addition
 recorded in its own "Approval" section (core-side `check_environment` finiteness check). ADR-0021 —
-revise before deciding; revision above, fresh Codex re-verification pending, then Joe decides.**
-Accepting one ADR does not require accepting the others, though ADR-0020's implementation is
-sequenced before ADR-0021's per the intent document's own recommendation, adopted above. **No code
-has been written this session**; PR 4 implementation stays stopped. Once Joe decides ADR-0021: all
-accepted ADRs move from this plan file into `docs/decisions/00NN-*.md` (numbers 0019-0021 are
-provisional, assigned here for readability, confirmed at acceptance time against whatever the next
-free ADR numbers are then; Joe arms touch-goldens for that move), `docs/architecture.md` §1/§7 get
-their own implementation-time rewrite pass, ADR-0020 is implemented, and PR 4 is rebuilt from
-`docs/plans/pr4-notional-aero-turbofan.md` against the corrected interface.
+revised twice per Joe's own instructions, most recently with the second re-verification round's two
+findings fixed; awaiting Joe's decision.** Accepting one ADR does not require accepting the others,
+though ADR-0020's implementation is sequenced before ADR-0021's per the intent document's own
+recommendation, adopted above. **No code has been written this session**; PR 4 implementation stays
+stopped. ADR-0019 and ADR-0020 are already fully decided and do not need to wait on ADR-0021: ready
+for Joe to arm `ASTRA_TOUCH_GOLDENS`/`.claude/touch-goldens` (`docs/process/workflow.md`'s existing
+guard, since `docs/decisions/**` is oracle-protected the same as `tests/golden/**`,
+`docs/process/workflow.md:111-112`) so they can move into `docs/decisions/00NN-*.md` now (numbers
+0019-0021 provisional, confirmed at acceptance time against whatever the next free ADR numbers are
+then), independent of ADR-0021's own outcome. Once Joe decides ADR-0021: it moves the same way if
+accepted, `docs/architecture.md` §1/§7 get their own implementation-time rewrite pass, ADR-0020 is
+implemented, and PR 4 is rebuilt from `docs/plans/pr4-notional-aero-turbofan.md` against the
+corrected interface.
