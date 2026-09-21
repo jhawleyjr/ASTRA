@@ -13,7 +13,6 @@
 #include <Eigen/Core>
 #include <array>
 #include <bit>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -45,6 +44,7 @@ using astra::StateVector;
 using astra::Wrench;
 
 std::uint64_t bits(double value) { return std::bit_cast<std::uint64_t>(value); }
+double from_bits(std::uint64_t value) { return std::bit_cast<double>(value); }
 
 void print_state_bits(std::ostream& out, const StateVector& y, int indent) {
   out << std::string(static_cast<std::size_t>(indent), ' ') << "{{";
@@ -60,64 +60,66 @@ void print_state_bits(std::ostream& out, const StateVector& y, int indent) {
 // Five sampled initial states (ADR-0021 R1): rest; translation and rotation together (exercises the
 // Coriolis-like and gyroscopic cross terms); near gimbal lock; a deliberately off-unit-norm
 // quaternion (exercises post_step_renormalize's real branch, not only the derivative); large and
-// negative-magnitude values throughout. Computed at runtime, not hand-transcribed decimal literals:
-// std::sin/cos and Eigen::Vector4d::normalize() are exact IEEE-754 operations, identical across
-// every preset this harness is cross-checked under (the whole point of that cross-check), so there
-// is no transcription-truncation risk (docs/lessons.md, 2026-09-19) in writing them this way.
+// negative-magnitude values throughout. Hardcoded bit patterns, not runtime-computed: an earlier
+// version of this function built samples 1/2/4's quaternions via std::sin/cos and
+// Eigen::Vector4d::normalize() at runtime, reasoning that IEEE-754 operations are exact and
+// therefore reproducible across presets -- wrong. A first capture run found debug and release
+// disagreeing by 1 ULP on exactly the two components sample 2's quaternion built via a
+// multiply-add-shaped expression (`ca * cb * cc + sa * sb * sc`); the six underlying std::sin/cos
+// results were confirmed bit-identical between presets (printed and diffed directly), so the
+// divergence is `-ffp-contract`'s contraction of that expression shape differing by optimization
+// level -- not a hardware FMA instruction (this build passes no -march/-mfma, so none is even
+// available) and not the transcendental functions themselves. "No -ffast-math" only makes a
+// *single* floating-point operation reproducible; it says nothing about whether the compiler
+// contracts a multi-operation *expression* identically at every optimization level. Every sample
+// below is therefore a literal `std::uint64_t` bit pattern, reconstructed via `from_bits()`
+// (`std::bit_cast<double>`) -- values taken from a `release`-preset run (see
+// rigid_body_6dof_r1_manifest.md's own note on this), computed once, never recomputed by this
+// program again. See docs/lessons.md's matching entry for the general rule.
 std::array<StateVector, 5> sample_states() {
   std::array<StateVector, 5> ys;
 
-  ys[0] = StateVector::Zero();
-  ys[0](astra::state::kQuaternion) = 1.0;  // rest at the origin, identity attitude
+  ys[0] << from_bits(0x0ULL), from_bits(0x0ULL), from_bits(0x0ULL),            // p_n
+      from_bits(0x0ULL), from_bits(0x0ULL), from_bits(0x0ULL),                 // v_b
+      from_bits(0x3ff0000000000000ULL), from_bits(0x0ULL), from_bits(0x0ULL),  // q_nb (w,x)
+      from_bits(0x0ULL),                                                       // q_nb (y)
+      from_bits(0x0ULL), from_bits(0x0ULL), from_bits(0x0ULL);                 // omega_b
 
-  ys[1] << 100.0, 200.0, 300.0,  // p_n
-      50.0, 10.0, -5.0,          // v_b
-      0.0, 0.0, 0.0, 0.0,        // q_nb (overwritten below with a normalized value)
-      0.4, -0.2, 0.6;            // omega_b
-  {
-    Eigen::Vector4d q{1.0, 0.2, -0.3, 0.4};
-    q.normalize();
-    ys[1].segment<4>(astra::state::kQuaternion) = q;
-  }
+  ys[1] << from_bits(0x4059000000000000ULL), from_bits(0x4069000000000000ULL),
+      from_bits(0x4072c00000000000ULL),  // p_n
+      from_bits(0x4049000000000000ULL), from_bits(0x4024000000000000ULL),
+      from_bits(0xc014000000000000ULL),  // v_b
+      from_bits(0x3fec2ca7610cde1eULL), from_bits(0x3fc68a1f80d71819ULL),
+      from_bits(0xbfd0e797a0a15212ULL), from_bits(0x3fd68a1f80d71819ULL),  // q_nb
+      from_bits(0x3fd999999999999aULL), from_bits(0xbfc999999999999aULL),
+      from_bits(0x3fe3333333333333ULL);  // omega_b
 
-  {
-    // Near gimbal lock (theta close to but not exactly +pi/2), via the exact Euler-to-quaternion
-    // form tests/golden/frames/adr0001_cases.hpp already documents (Stevens & Lewis eq. 1.8-16).
-    const double phi = 0.3;
-    const double theta = 1.55;  // rad; +pi/2 is ~1.5708
-    const double psi = 0.4;
-    const double half_phi = phi / 2.0;
-    const double half_theta = theta / 2.0;
-    const double half_psi = psi / 2.0;
-    const double ca = std::cos(half_phi);
-    const double sa = std::sin(half_phi);
-    const double cb = std::cos(half_theta);
-    const double sb = std::sin(half_theta);
-    const double cc = std::cos(half_psi);
-    const double sc = std::sin(half_psi);
-    ys[2] << 500.0, -200.0, 1000.0,   // p_n
-        20.0, 0.0, 3.0,               // v_b
-        ca * cb * cc + sa * sb * sc,  // w
-        sa * cb * cc - ca * sb * sc,  // x
-        ca * sb * cc + sa * cb * sc,  // y
-        ca * cb * sc - sa * sb * cc,  // z
-        0.05, 0.02, -0.01;            // omega_b
-  }
+  ys[2] << from_bits(0x407f400000000000ULL), from_bits(0xc069000000000000ULL),
+      from_bits(0x408f400000000000ULL),  // p_n
+      from_bits(0x4034000000000000ULL), from_bits(0x0ULL),
+      from_bits(0x4008000000000000ULL),  // v_b
+      from_bits(0x3fe6d1a5853ab3f2ULL), from_bits(0xbfa0cd763f61321fULL),
+      from_bits(0x3fe6607ca4bbbe70ULL), from_bits(0x3fa3625db240dac2ULL),  // q_nb, near gimbal lock
+      from_bits(0x3fa999999999999aULL), from_bits(0x3f947ae147ae147bULL),
+      from_bits(0xbf847ae147ae147bULL);  // omega_b
 
-  ys[3] << -50.0, 10.0, 0.0,  // p_n
-      -30.0, 5.0, 2.0,        // v_b
-      2.0, 0.5, -0.3, 0.1,    // q_nb, norm != 1 on purpose
-      1.0, -0.5, 0.2;         // omega_b
+  ys[3] << from_bits(0xc049000000000000ULL), from_bits(0x4024000000000000ULL),
+      from_bits(0x0ULL),  // p_n
+      from_bits(0xc03e000000000000ULL), from_bits(0x4014000000000000ULL),
+      from_bits(0x4000000000000000ULL),  // v_b
+      from_bits(0x4000000000000000ULL), from_bits(0x3fe0000000000000ULL),
+      from_bits(0xbfd3333333333333ULL), from_bits(0x3fb999999999999aULL),  // q_nb, norm != 1
+      from_bits(0x3ff0000000000000ULL), from_bits(0xbfe0000000000000ULL),
+      from_bits(0x3fc999999999999aULL);  // omega_b
 
-  ys[4] << -10000.0, 5000.0, -2500.0,  // p_n
-      -300.0, 250.0, -150.0,           // v_b
-      0.0, 0.0, 0.0, 0.0,              // q_nb (overwritten below with a normalized value)
-      -3.0, 2.5, -1.5;                 // omega_b
-  {
-    Eigen::Vector4d q{-1.0, 3.0, -2.0, 0.5};
-    q.normalize();
-    ys[4].segment<4>(astra::state::kQuaternion) = q;
-  }
+  ys[4] << from_bits(0xc0c3880000000000ULL), from_bits(0x40b3880000000000ULL),
+      from_bits(0xc0a3880000000000ULL),  // p_n
+      from_bits(0xc072c00000000000ULL), from_bits(0x406f400000000000ULL),
+      from_bits(0xc062c00000000000ULL),  // v_b
+      from_bits(0xbfd0f43a45cdedadULL), from_bits(0x3fe96e5768b4e483ULL),
+      from_bits(0xbfe0f43a45cdedadULL), from_bits(0x3fc0f43a45cdedadULL),  // q_nb
+      from_bits(0xc008000000000000ULL), from_bits(0x4004000000000000ULL),
+      from_bits(0xbff8000000000000ULL);  // omega_b
 
   return ys;
 }
