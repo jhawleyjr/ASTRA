@@ -1,6 +1,6 @@
 # Feature + implementation plan: PLAN.md M3 PR 3d — implement ADR-0020
 
-Status: **draft**
+Status: **approved by Joe, 2026-09-20** (Q1-Q4 decided; see "Questions and decision" below)
 Owner: Joe
 Risk: **3** (`core/interfaces/`, `core/kernel/`, plugin-facing ABI — `docs/process/workflow.md`'s
 highest tier)
@@ -135,35 +135,57 @@ to validate `requires_environment()` against it). **New `Vehicle` member**: `boo
 false;`, set from `availability.wind` inside `init()`, alongside the two new plugin-path members
 below.
 
-**Call site and control flow — revised after Codex plan critique below.** The original draft called
-`check_environment` before the `wrench_sources_` loop but let the loop run anyway on a failure
-(matching `check_wrench`'s own "uniform evaluation, no short-circuit" rule) — Codex correctly found
-this contradicts R4's own "zero `wrench_b()` calls" acceptance claim: `check_wrench`'s rule exists
-because evaluating IS how a wrench fault is detected; `check_environment`'s fault is already known
-*before* any `wrench_b()` call, so there is no equivalent reason to still call every configured
-plugin on input already known to be broken — the whole point of restoring this guarantee core-side.
-**Corrected design**: immediately after `stage_env` is built (after the `atmosphere_ != nullptr`
-branch, `vehicle.cpp:157-160`) and strictly before the `wrench_sources_` loop begins, call
-`health.check_environment(stage_env, wind_configured_, atmosphere_ != nullptr, wind_plugin_path_,
-atmosphere_plugin_path_, ctx, index_)`. **On a halt this specific stage**: set `wrench_fault` (first-
-fault-wins, unchanged) and **skip the `wrench_sources_` loop entirely for this stage** — no
-`wrench_b()` call reaches any configured plugin this stage, restoring the exact guarantee the
-deleted `final wrench_b()` guard gave; treat the total applied wrench as zero for this stage's EOM
-evaluation (the frame's own state is discarded on the default halt action regardless, per the
-existing wrench-fault rollback, `vehicle.cpp:203-209`; under `warn`, the run continues with a
-zero-wrench stage, an explicit, disclosed choice, not an accidental one). `published_wrench_` (k1
-only) is set to zero the same way. **This is a per-stage skip, not a per-frame abort**: a later
-stage in the same frame with a since-recovered (or never-broken) environment sample still evaluates
-`wrench_sources_` normally — `EnvironmentSample` is rebuilt fresh every sub-stage (PR 3c), so a fault
-is not assumed to persist across stages within one frame. R4's acceptance below tests both a fault
-present at every stage and one appearing only from k2 onward.
+**Call site and control flow — revised twice: after Codex's plan critique, then again per Joe's own
+Q4 decision.** The original draft called `check_environment` before the `wrench_sources_` loop but
+let the loop run anyway on a failure (matching `check_wrench`'s own "uniform evaluation, no
+short-circuit" rule) — Codex correctly found this contradicts R4's own "zero `wrench_b()` calls"
+acceptance claim: `check_wrench`'s rule exists because evaluating IS how a wrench fault is detected;
+`check_environment`'s fault is already known *before* any `wrench_b()` call, so there is no
+equivalent reason to still call every configured plugin on input already known to be broken. A
+first fix made `check_environment` itself skip the `wrench_sources_` loop on any failure; **Joe's own
+Q4 decision goes further and separates atmosphere's two distinct failure classes *before*
+`check_environment` ever runs**, resolving the domain-check-precedence conflict Codex separately
+found (Q4), not merely disclosing it:
+
+1. When `atmosphere_ != nullptr` (unchanged existing gate, `vehicle.cpp:157`): if `health.
+   domain_enabled()`, compute `altitude_m = eom_->earth().altitude(vs_stage)` and check it against
+   `atmosphere_->valid_range()` using the identical NaN-safe negated form `simulation.cpp:420`
+   already uses (`!(altitude_m >= range.min_m && altitude_m <= range.max_m)`), **before** calling
+   `atmosphere_->at()` this stage.
+2. **Out of range** (including a NaN `altitude_m`, covered by the same negated form): call the
+   existing `health.report_out_of_domain(atmosphere_plugin_path_, ctx, index_)` — no new
+   `HealthMonitor` method for this half, it is the same method `Vehicle::check_domain` and
+   `Simulation::step`'s own post-step check already call for exactly this purpose. Apply the result
+   under `wrench_fault`'s existing first-fault-wins rule and **skip the `wrench_sources_` loop this
+   stage** — `stage_env.atmosphere` is left unsampled (never read, since the loop is skipped).
+3. **In range** (or `domain_enabled()` is false, matching "domain: off restores current behavior" —
+   `altitude_m` is still computed unconditionally when `atmosphere_ != nullptr`, since `at()` already
+   needed it every stage before this plan): sample `stage_env.atmosphere = atmosphere_->at
+   (altitude_m)` exactly as today, **then** call `health.check_environment(stage_env, wind_configured_,
+   atmosphere_ != nullptr, wind_plugin_path_, atmosphere_plugin_path_, ctx, index_)` (still under
+   `nan`, Q1) — this call can now only ever observe an atmosphere sample already confirmed in-range,
+   so a still-non-finite result is unambiguously a genuinely broken model (`nan_atmosphere`'s own
+   enormous `valid_range()` keeps it "in range" by construction, so it still reaches this path,
+   exactly as intended). On a `check_environment` halt: identical first-fault-wins handling and
+   `wrench_sources_`-loop skip as step 2.
+
+Either skip path treats the total applied wrench as zero for this stage's EOM evaluation (the
+frame's own state is discarded on the default halt action regardless, per the existing wrench-fault
+rollback, `vehicle.cpp:203-209`; under `warn`, the run continues with a zero-wrench stage — an
+explicit, disclosed choice, documented in `check_environment`'s own header comment per Joe's
+instruction, not an accidental one). `published_wrench_` (k1 only) is set to zero the same way.
+**This is a per-stage skip, not a per-frame abort**: a later stage in the same frame with a
+since-recovered (or never out-of-range/never-broken) environment sample evaluates normally —
+`EnvironmentSample` is rebuilt fresh every sub-stage (PR 3c), so neither fault is assumed to persist
+across stages within one frame. R4's acceptance below tests both fault classes present at every
+stage and each appearing only from k2 onward.
 
 **New `Vehicle` members**: `std::string wind_plugin_path_;`, `std::string atmosphere_plugin_path_;`,
 and `bool wind_configured_` (above), alongside the existing `earth_plugin_path_`/`gravity_plugin_path_`
 (`vehicle.hpp:231-232`), set from `PhysicsSpec`/`EnvironmentAvailability` in `Vehicle::init()` the
 same way `earth_plugin_path_`/`gravity_plugin_path_` already are (`vehicle.cpp:70-72`). Empty plugin-
-path strings are never actually named on a halt, since the corresponding `*_configured` flag gates
-whether that field is checked at all.
+path strings are never actually named on a halt, since the corresponding `*_configured` flag (or the
+domain pre-check, for atmosphere) gates whether that field is checked at all.
 
 **`Vehicle::PhysicsSpec`** (`vehicle.hpp:61-68`) gains one new field: `std::string
 atmosphere_plugin_path;`, alongside the existing `earth_plugin_path`/`gravity_plugin_path`. Wind's
@@ -179,15 +201,18 @@ also stored as `sim.atmosphere_plugin_path_`) threads into the `PhysicsSpec{...}
 lines 392-394. `wind_plugin_path` (line 339) threads into `vehicle.init()`'s new parameter directly
 (same call, `vehicle.cpp:395-396`), not through `PhysicsSpec`.
 
-**Failure behavior**, restated precisely: a non-finite, *configured* `wind_n`/`atmosphere` field now
-halts (default action) via `check_environment`, naming the wind/atmosphere plugin, **and skips every
-configured `wrench_b()` call this stage** — closing `environment_sample.hpp`'s own two already-
-disclosed gaps and restoring the exact no-silent-NaN-into-a-plugin guarantee the deleted `final`
-guard gave. **Known interaction, not silently introduced — see Q4**: this may also change which
-check preempts the already-disclosed "atmosphere-domain-check misattribution window" (`PLAN.md`'s own
-open item), since both `check_environment` (per-stage) and the existing post-step domain check can
-now independently observe the identical all-NaN `AtmoState` a legitimate `valid_range()` excursion
-produces.
+**Failure behavior**, restated precisely: a non-finite, *configured* `wind_n`, or an in-range but
+genuinely non-finite `atmosphere` sample, now halts (default action) via `check_environment`, naming
+the wind/atmosphere plugin, **and skips every configured `wrench_b()` call this stage** — closing
+`environment_sample.hpp`'s own two already-disclosed gaps and restoring the exact
+no-silent-NaN-into-a-plugin guarantee the deleted `final` guard gave. Separately, an atmosphere
+sample that is out of the model's own declared `valid_range()` (a legitimate, documented condition,
+never itself a fault) is now caught **before** `check_environment` ever runs, by a new per-stage
+domain pre-check reusing the existing `report_out_of_domain`/`kOutOfDomain`/`sim.health.domain`
+path — **this is the resolution of `PLAN.md`'s "Atmosphere-domain-check misattribution window" item
+(Q4), not merely a disclosed interaction**: the two failure classes (legitimately out of range, vs.
+genuinely broken within range) are now separated at the source, before either check needs to
+disambiguate an already-produced ambiguous value.
 
 ## Repository findings
 
@@ -271,11 +296,17 @@ produces.
   design**, specifically to be indistinguishable at the value level — confirmed by reading
   `nan_atmosphere.cpp`'s own header comment). This is the **same already-disclosed PLAN.md item**
   ("Atmosphere-domain-check misattribution window ... PR 3c's own disclosed, accepted gap ... Needs
-  its own plan-reviewed decision, not a bolt-on") — this plan does not create a new gap, but it does
-  change which check is likely to preempt the other for this scenario, and (unlike today, where both
-  the pre-existing gap's own `kNonFiniteWrench` path and the domain check share no config knob) an
-  operator's `sim.health.domain` action could now be silently overridden by `sim.health.nan` for
-  exactly this scenario if `check_environment` fires first. **Not resolved by this plan — see Q4.**
+  its own plan-reviewed decision, not a bolt-on") — this plan does not create a new gap, but a naive
+  implementation would change which check preempts the other for this scenario, letting
+  `sim.health.nan` silently override an operator's own `sim.health.domain` choice. **Resolved by
+  Joe's Q4 decision above**: the new per-stage domain pre-check runs *before* atmosphere is ever
+  sampled, so this exact scenario is caught as `kOutOfDomain` (governed by `sim.health.domain`,
+  unchanged) before `check_environment` could ever see the ambiguous all-NaN value — this test's own
+  existing `kOutOfDomain`/atmosphere-plugin-name assertions should hold unchanged in substance, though
+  the precise `ctx.frame` the halt fires on may shift earlier (the pre-check can trigger on an
+  earlier RK4 sub-stage's own trial altitude within the crossing frame, not only the frame's final
+  post-step state) — verify against the real implementation, not assumed, and adjust any frame-count
+  assertion if needed.
 - `docs/architecture.md` §7 (rev 7, already rewritten this session) is the target code shape this
   plan implements against — confirmed consistent with everything read above; no further architecture
   edit needed as part of this plan.
@@ -287,7 +318,7 @@ produces.
 | R1 marker interfaces | `aero_model.hpp`/`propulsion_model.hpp` rewritten to the code block above; `aero_model.cpp`/`propulsion_model.cpp` **trimmed to the destructor only, not deleted** (Codex finding — key-function definition); `aero_inputs.hpp`/`propulsion_inputs.hpp` deleted | none | compiles and links; `nesc_aero`/`nan_wrench` unaffected and still pass unmodified |
 | R2 `air_data.hpp` | new header + `.cpp`, relocated arithmetic | R1 (same commit, source moves) | `tests/unit/util/air_data_test.cpp` (new): the still-air/wind-subtraction/V→0/signed-zero cases from the deleted `aero_model_test.cpp`, now against the free functions directly |
 | R3 `check_environment` | `health_monitor.hpp`/`.cpp`: new method taking explicit `wind_configured`/`atmosphere_configured` (Codex finding — no unconditional field check), `HealthCheck::kNonFiniteEnvironment` enumerator | none | `tests/unit/kernel/health_monitor_test.cpp` (extended): non-finite `wind_n` halts naming `wind_source` only when `wind_configured`; non-finite/infinite atmosphere field (density, speed_of_sound — the R-001 case) halts naming `atmosphere_source` only when `atmosphere_configured`; an unconfigured field (the other `*_configured` false) is never checked even when its `EnvironmentSample` value is the documented all-NaN/zero default; `warn`/`off` actions behave like the existing `nan` key's other checks |
-| R4 call site, skip-on-fault, and plugin-path/availability plumbing | `vehicle.hpp`/`.cpp`: three new members (`wind_plugin_path_`, `atmosphere_plugin_path_`, `wind_configured_`), the `check_environment` call plus the **skip-`wrench_sources_`-loop-this-stage** control flow (Codex finding — restores the actual zero-call guarantee) in the derivative functor; `PhysicsSpec` gains one field (`atmosphere_plugin_path`; wind's path threads as a new `Vehicle::init()` parameter instead, Codex finding); `simulation.cpp` threads both locals through | R3 | a new `Vehicle`-level integration test (or extended `tests/unit/kernel/vehicle_test.cpp`) proving a stage with a non-finite, *configured* `env.atmosphere.speed_of_sound_m_s` halts naming the configured atmosphere plugin's path, **and that zero `wrench_sources_` entries are called that stage** (a counting stub proves it — not merely correct attribution, the actual call count), for a fault present at k1 and, separately, a fault first appearing at k2; a test proving an *unconfigured* wind/atmosphere never halts even though its `EnvironmentSample` field is the documented default; **`simulation_halt_test.cpp`'s `NanAtmosphereInRangeHaltsNamingTheWrenchConsumerNotTheAtmospherePlugin` renamed and its assertions flipped to `kNonFiniteEnvironment`/`"tests/plugins/nan_atmosphere"`, plus a zero-call assertion** — the named proof this requirement actually closes the disclosed gap it exists for; `aero_propulsion_seam_test.cpp`'s own third test updated the same way |
+| R4 call site, domain pre-check, skip-on-fault, and plugin-path/availability plumbing | `vehicle.hpp`/`.cpp`: three new members (`wind_plugin_path_`, `atmosphere_plugin_path_`, `wind_configured_`); the altitude-vs-`valid_range()` pre-check (reusing `report_out_of_domain`, Q4) before atmosphere sampling; the `check_environment` call after sampling; the **skip-`wrench_sources_`-loop-this-stage** control flow shared by both fault paths in the derivative functor; `PhysicsSpec` gains one field (`atmosphere_plugin_path`; wind's path threads as a new `Vehicle::init()` parameter instead); `simulation.cpp` threads both locals through | R3 | a new `Vehicle`-level integration test (or extended `tests/unit/kernel/vehicle_test.cpp`) proving: a stage with a non-finite, *configured*, **in-range** `env.atmosphere.speed_of_sound_m_s` halts `kNonFiniteEnvironment` naming the atmosphere plugin, with zero `wrench_sources_` calls that stage (a counting stub proves it), for a fault present at k1 and, separately, first appearing at k2; a stage whose altitude leaves `valid_range()` halts `kOutOfDomain` naming the atmosphere plugin, atmosphere never sampled, zero `wrench_sources_` calls, **before** any `check_environment` involvement; a test proving an *unconfigured* wind/atmosphere never halts even though its `EnvironmentSample` field is the documented default; `PLAN.md`'s "Atmosphere-domain-check misattribution window" item updated to record resolution; `simulation_halt_test.cpp`'s `NanAtmosphereInRangeHaltsNamingTheWrenchConsumerNotTheAtmospherePlugin` renamed/reasserted to `kNonFiniteEnvironment`/`"tests/plugins/nan_atmosphere"` plus a zero-call assertion, and its `LeavingTheAtmosphereValidRangeMidRunHaltsNamingTheAtmospherePlugin` verified (and its frame-count assertion adjusted if the real implementation halts earlier than before); `aero_propulsion_seam_test.cpp`'s own third test updated the same way as the first regression test; `check_environment`'s own header comment documents the "zero wrench under `warn`" behavior (Joe's instruction) |
 | R5 rebuilt stubs | `aero_stub.cpp`/`propulsion_stub.cpp` override `wrench_b()` directly | R1, R2 | existing PR 3 integration-test pattern (`aero_propulsion_seam_test.cpp`, rebuilt if R6 below finds it needs it) passes |
 | R6 `for_testing`'s own wind-path parity (narrowed — Codex finding: `for_testing` has no atmosphere parameter at all today, so only wind's plumbing applies here) | `simulation.hpp`/`.cpp`: `for_testing`'s own construction gets a `wind_plugin_path` parameter (or an explicit, commented empty default) alongside its existing wind-availability handling | R4 | a test proving a `for_testing`-built vehicle with a non-finite, configured `wind_n` behaves consistently with `from_config` for wind specifically; **explicitly out of scope**: `for_testing` exercising a non-finite *atmosphere* at all, since it has no atmosphere path today — not a regression this plan introduces |
 | R7 `kCoreApiVersion` | `core_api.hpp.in`: bump 6→7, comment naming this PR/ADR-0020, same precedent as version 6's own entry | R1 | `just build` under every preset; a stale-descriptor rejection test (existing pattern) still passes |
@@ -363,48 +394,48 @@ the *implementation* of whichever option Joe picks, not this plan's own text fur
 
 ### Questions and decision
 
-- **Q1** — `check_environment`'s `sim.health` action: reuse the existing `nan` key (this plan's
-  default, matching `check_state`/`check_wrench`'s own precedent) or add a new `environment` key.
-  Consequence of reusing `nan`: an operator cannot independently silence environment-NaN detection
-  while keeping state/wrench-NaN detection on, or vice versa — **and, per Q4 below, cannot
-  independently silence `check_environment`'s own preemption of the domain check either**, since both
-  now compete for the same `nan`/`domain` action pair on an atmosphere `valid_range()` excursion.
-  Owner: Joe. **Proposed default above; flagged for explicit confirmation, not assumed silently.**
-- **Q2** — resolved by Codex's own finding, not still open: `for_testing` has no atmosphere parameter
-  at all, so only `wind_plugin_path` needs a `for_testing` counterpart (a new, small parameter on its
-  existing signature, or an explicit empty default with a comment — Joe's call, but a strictly
-  smaller decision than this plan originally framed it as).
-- **Q3** — resolved by the same finding: `atmosphere_plugin_path` goes on `PhysicsSpec` (matching
-  `earth_plugin_path`/`gravity_plugin_path`'s existing placement, since atmosphere is genuinely part
-  of the required-or-absent-together physics bundle); `wind_plugin_path` does not (it threads as its
-  own `Vehicle::init()` parameter, matching how `EnvironmentAvailability` itself is already threaded
-  independently of `PhysicsSpec` today).
-- **Q4 — new, from the Codex plan critique, genuinely unresolved.** `check_environment` and the
-  existing post-step domain check can now both independently observe the identical all-NaN
-  `AtmoState` a legitimate `AtmosphereModel::valid_range()` excursion produces mid-frame (the same
-  already-disclosed `PLAN.md` "Atmosphere-domain-check misattribution window" item, not a new gap
-  this plan introduces) — but `check_environment` runs earlier (per sub-stage, inside
-  `Vehicle::integrate()`) than the domain check (post-step, in `Simulation::step`), so it is very
-  likely to *win* that race in practice, meaning an atmosphere `valid_range()` excursion would now
-  typically halt as `kNonFiniteEnvironment` (governed by `sim.health.nan`) rather than `kOutOfDomain`
-  (governed by `sim.health.domain`) — a real behavior change for anyone who configures those two
-  actions differently (e.g. `domain: warn` to tolerate a boundary approach, `nan: halt` to catch a
-  genuinely broken model), not merely a relabeling. Three options, none implemented by this plan
-  without Joe's decision: **(a)** accept the new precedence as-is, documenting it plainly (cheapest,
-  changes existing operator-visible behavior); **(b)** have `check_environment` skip a field that is
-  *exactly* the default-constructed `AtmoState{}`/all-NaN pattern, on the theory that a "partially
-  broken" sample (some finite, some not) is unambiguously `check_environment`'s own R-001 territory
-  while a fully-default one defers to the domain check — cheap, but does not actually distinguish
-  legitimate-excursion from `nan_atmosphere`'s own genuinely-broken all-NaN return, since both produce
-  the identical pattern by construction (confirmed by reading `nan_atmosphere.cpp`); **(c)** scope
-  this plan's own `LeavingTheAtmosphereValidRangeMidRunHaltsNamingTheAtmospherePlugin` regression test
-  update as the actual resolution of the PLAN.md item, deciding explicitly (not incidentally) that
-  `check_environment`'s earlier, per-stage timing is now the *correct* place to catch this, and
-  updating both the test's own name/docstring and the PLAN.md item's own text to record that as
-  resolved, not merely disclosed. **This plan's author has no recommendation between (a) and (c)** —
-  a genuine design call this repository's own workflow says goes to Joe, not decided unilaterally
-  under review pressure. Owner: Joe.
+- **Q1 — decided by Joe, 2026-09-20: reuse the existing `nan` key.** No new `sim.health` config
+  surface for `check_environment`.
+- **Q2/Q3 — decided by Joe, 2026-09-20: as resolved above** (a `for_testing` wind-path parameter, no
+  atmosphere-path counterpart there; `atmosphere_plugin_path` on `PhysicsSpec`, `wind_plugin_path` as
+  a separate `Vehicle::init()` parameter).
+- **Q4 — decided by Joe, 2026-09-20: none of (a)-(c). A fourth design, checking domain *before*
+  sampling, separates the two failure classes at the source instead of trying to disambiguate an
+  already-produced value.** In the per-stage derivative functor, when `atmosphere_ != nullptr` and
+  `health.domain_enabled()`: compute the stage's own altitude
+  (`eom_->earth().altitude(vs_stage)`) and check it against `atmosphere_->valid_range()` using the
+  **identical NaN-safe negated form** `Simulation::from_config`'s own init-time check already uses
+  (`simulation.cpp:420`, `!(altitude_m >= range.min_m && altitude_m <= range.max_m)`, never the
+  "simplified" `<`/`>` form, which is false — silently accepting — for a NaN altitude) —
+  **before** `atmosphere_->at()` is ever called this stage. **Out of range** (or a NaN stage
+  altitude, covered for free by the same negated form): `health.report_out_of_domain
+  (atmosphere_plugin_path_, ctx, index_)` — the existing method `Vehicle::check_domain` and
+  `Simulation::step`'s own post-step check already use for exactly this purpose, no new
+  `HealthMonitor` method needed for this half — under `wrench_fault`'s existing first-fault-wins
+  rule, and **skip that stage's `wrench_sources_` loop** (the same skip mechanism `check_environment`'s
+  own fault already uses, reused here, not a second implementation). Atmosphere is **not** sampled
+  this stage in that case (`stage_env.atmosphere` stays at whatever `environment_`'s own frame-start
+  copy already held — never read, since the wrench loop is skipped). **In range**: sample
+  `atmosphere_->at(altitude_m)` exactly as today, then run `check_environment` (still under `nan`,
+  Q1) against the now-sampled fields plus `wind_n`. This means `check_environment`'s own atmosphere
+  check can now only ever see a sample the domain check has already confirmed is in-range — a
+  genuinely broken model (`nan_atmosphere`, whose own enormous `valid_range()` keeps it "in range" by
+  construction, per its own header comment) is what reaches it, never an expected excursion. **This
+  is the actual resolution of `PLAN.md`'s "Atmosphere-domain-check misattribution window" item** —
+  update that item's own text to record it fixed, not merely disclosed, and update both affected
+  regression tests (`simulation_halt_test.cpp`'s `NanAtmosphereInRangeHaltsNamingTheWrenchConsumer-
+  NotTheAtmospherePlugin`, unaffected in substance by this new pre-check since `nan_atmosphere` stays
+  "in range" — rename/reassert to `kNonFiniteEnvironment`/`"tests/plugins/nan_atmosphere"` as already
+  planned; and `LeavingTheAtmosphereValidRangeMidRunHaltsNamingTheAtmospherePlugin`, whose existing
+  `kOutOfDomain`/atmosphere-plugin-name assertions should now hold **exactly as already written**,
+  but the halt can fire up to three RK4 sub-stages earlier within the boundary-crossing frame than
+  before — the actual `ctx.frame`/exact-halt-timing needs verifying against the real implementation,
+  not assumed unchanged, since the test may need a frame-count adjustment even though its `check`/
+  `source` assertions do not). **Also required, per Joe's instruction**: `check_environment`'s own
+  header comment documents the "zero wrench for a faulted stage under `warn`" behavior explicitly —
+  under a non-halting `warn` action (either check), the run continues with that stage's total applied
+  wrench treated as zero, not the last-known-good value, an explicit, disclosed choice.
 
-Joe's plan approval: **pending** (this document, including the Codex plan critique's findings folded
-in above — one round, not yet re-verified, since Q1-Q4 need Joe's decision before a second pass would
-have anything new to check).
+Joe's plan approval: **approved, 2026-09-20**, with Q1-Q4 decided as recorded above. Implementation
+begins next: `/review-cycle`, full gate, `/human-review` packet, draft PR — Joe stops the workflow
+there for his own review, not merge.
