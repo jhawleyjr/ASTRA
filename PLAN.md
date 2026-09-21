@@ -511,6 +511,17 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       `aircraft/notional_transport`'s own `physical/mass` plugins (M3 PR 1) document and use the
       product-of-inertia convention explicitly instead; the shared plugin's keys are unchanged and
       still undocumented. Not started.
+- [ ] `icd/astra_icd.h`'s elevator/aileron/rudder fields have no documented positive-deflection sense
+      (M3 PR 4 planning): the header comment says only "rad, positive per ADR-0001 sign conventions,"
+      and ADR-0001 itself only says the definition is "documented alongside them" — nowhere actually
+      states whether positive means trailing-edge-up or -down, left or right. `aircraft/notional_
+      transport`'s `physical/aero` plugin (PR 4) is the first consumer that needs a definition to
+      exist, and adopts JSBSim's own sense directly (elevator trailing-edge-down, positive aileron =
+      right-wing-down roll, rudder trailing-edge-left — inferred from `docs/refs/aircrafts/737.xml`'s
+      own `Cmde`/`Clda`/`Cndr`/`Cldr` signs, approved by Joe as the ICD convention). Pinning it for
+      this one aircraft's own controls does not resolve the framework-wide gap: `icd/astra_icd.h`'s
+      own comment should eventually state the physical sense directly instead of pointing at
+      ADR-0001, which does not itself state it. Not started.
 - [ ] `cmake/AstraPlugin.cmake`'s `astra_finalize_plugins()` hardcodes which test executables get a
       plugin build-order dependency (`astra_unit_tests`, `astra_physics_tests`, and — since M3
       PR 1 — `astra_notional_transport_mass_test`, `astra_template_mass_test`), by explicit design
