@@ -12,11 +12,12 @@ confirmed: clean compile/link, then an ASan-detected crash). Fixed with per-airc
 `new-aircraft.sh` rewrite, and a static-plugins regression test. Two Codex fix-verification rounds
 closed two follow-up gaps in that fix (an aircraft named `template` bypassed the rewrite; §18 still
 documented a `cp -r` route that skips it — **Joe explicitly authorized this last fix out-of-band**,
-"does not reset the 2/2 budget"). **All findings closed.** Full history: 11 commits, `fecdda8`
-(plan) through `7d15c62` (final); see `docs/reviews/pr4-notional-aero-turbofan-human.md`.
+"does not reset the 2/2 budget"). **All findings closed.** Full history: 13 commits, `fecdda8`
+(plan) through `5970abf` (final, a `docs/lessons.md` append); see
+`docs/reviews/pr4-notional-aero-turbofan-human.md`.
 
 **Pushed and marked ready for review, per Joe's own instruction**: PR #41
-(https://github.com/jhawleyjr/ASTRA/pull/41), head `7d15c62`. No further action taken.
+(https://github.com/jhawleyjr/ASTRA/pull/41), head `5970abf`. No further action taken.
 
 ## Last verified result
 Full gate: **`check: OK`**, exit 0, on `8b77c24` (from-scratch build) — four presets × 362/362
