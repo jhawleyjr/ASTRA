@@ -139,4 +139,28 @@ TEST(NoAlloc, ZeroHeapAllocationsOverOneThousandFramesWithAeroAndPropulsionModel
          "running (ADR-0020)";
 }
 
+// docs/plans/pr4-notional-aero-turbofan.md, R7: the real notional_transport aero/turbofan plugins'
+// own wrench_b() (Eigen matrix/cross-product arithmetic, the finiteness check, the AERORP/CG moment
+// transfer) must not allocate either. Reuses the shipped cruise.yaml directly -- a real aircraft
+// config, not a synthetic no_alloc fixture -- via ASTRA_AIRCRAFT_DIR, the same file
+// notional_transport_cruise_config_test.cpp exercises for correctness; this test exercises it for
+// allocation only.
+TEST(NoAlloc, ZeroHeapAllocationsOverOneThousandFramesWithTheNotionalTransportCruiseConfig) {
+  const astra::Config config = astra::Config::from_file(std::string{ASTRA_AIRCRAFT_DIR} +
+                                                        "/notional_transport/configs/cruise.yaml");
+  astra::Simulation sim = astra::Simulation::from_config(config, ASTRA_TEST_PLUGIN_DIR);
+  ASSERT_EQ(sim.frames(), 1000U);
+
+  const std::size_t before = astra_test::allocation_count();
+  const astra::HaltReason halt = sim.run();
+  const std::size_t after = astra_test::allocation_count();
+
+  EXPECT_FALSE(halt) << "halted on check " << static_cast<int>(halt.check) << " at frame "
+                     << halt.frame;
+  EXPECT_EQ(sim.clock().frame(), 1000U) << "the run must complete, not merely allocate nothing "
+                                           "while halting early";
+  EXPECT_EQ(after, before) << "zero allocations over 1000 frames with the real aero/turbofan "
+                              "plugins configured (docs/plans/pr4-notional-aero-turbofan.md)";
+}
+
 }  // namespace

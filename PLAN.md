@@ -511,6 +511,17 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       `aircraft/notional_transport`'s own `physical/mass` plugins (M3 PR 1) document and use the
       product-of-inertia convention explicitly instead; the shared plugin's keys are unchanged and
       still undocumented. Not started.
+- [ ] `icd/astra_icd.h`'s elevator/aileron/rudder fields have no documented positive-deflection sense
+      (M3 PR 4 planning): the header comment says only "rad, positive per ADR-0001 sign conventions,"
+      and ADR-0001 itself only says the definition is "documented alongside them" — nowhere actually
+      states whether positive means trailing-edge-up or -down, left or right. `aircraft/notional_
+      transport`'s `physical/aero` plugin (PR 4) is the first consumer that needs a definition to
+      exist, and adopts JSBSim's own sense directly (elevator trailing-edge-down, positive aileron =
+      right-wing-down roll, rudder trailing-edge-left — inferred from `docs/refs/aircrafts/737.xml`'s
+      own `Cmde`/`Clda`/`Cndr`/`Cldr` signs, approved by Joe as the ICD convention). Pinning it for
+      this one aircraft's own controls does not resolve the framework-wide gap: `icd/astra_icd.h`'s
+      own comment should eventually state the physical sense directly instead of pointing at
+      ADR-0001, which does not itself state it. Not started.
 - [ ] `cmake/AstraPlugin.cmake`'s `astra_finalize_plugins()` hardcodes which test executables get a
       plugin build-order dependency (`astra_unit_tests`, `astra_physics_tests`, and — since M3
       PR 1 — `astra_notional_transport_mass_test`, `astra_template_mass_test`), by explicit design
@@ -629,7 +640,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         pr2/pr3 pass floated at PR 0 time did not happen (PR 2 shipped independently); this PR's own,
         separate Codex plan critique found twelve findings, all accepted and folded into the plan,
         none reopening the interface/ownership/version decisions, so no second critique was needed.
-  - [ ] PR 3d — **framework realignment to Joe's stated intent** (`docs/refs/
+  - [x] PR 3d — **framework realignment to Joe's stated intent** (`docs/refs/
         astra_framework_intent_and_state_audit.md`, main checkout, gitignored), superseding ADR-0000's
         "commercial transport" purpose clause, the `Inputs`/`final` parts of ADR-0018, and ADR-0003's
         fixed-13-state-layout decision. **ADR-0019/0020/0021 accepted, 2026-09-20**
@@ -656,8 +667,8 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         wind); one Codex re-verify pass confirmed both fixes, no new findings. **Approved by Joe,
         2026-09-20**, pending a follow-up commit (domain-off/nan-off documentation, per-stage counting
         documentation, full-gate rerun to a retained log, packet fixes) -- follow-up committed
-        (`1aad091`, `b4864b9`). PR #40 (covers this and the realignment ADRs above) pushed and marked
-        ready for review; not yet merged.
+        (`1aad091`, `b4864b9`). PR #40 (covers this and the realignment ADRs above) merged as
+        `6590b7c`, 2026-09-20 (squash merge, Joe).
         Binding ADRs: ADR-0019, ADR-0020. Tier 3. Plan critique: done
         (`docs/plans/pr3d-adr0020-implementation.md`, Codex plan critique folded in, approved by Joe
         including Q1-Q4).

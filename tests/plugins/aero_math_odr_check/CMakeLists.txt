@@ -1,0 +1,1 @@
+astra_add_plugin(SOURCES aero_math_odr_check.cpp)

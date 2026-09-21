@@ -1,5 +1,6 @@
 # The GoogleTest unit suite: fast, run by every preset and by the Stop hook (.claude/hooks/stop-check.sh).
 add_executable(astra_unit_tests
+  aero/aero_math_namespace_isolation_test.cpp
   atmosphere/isa1976_test.cpp
   config/config_test.cpp
   earth/earth_kinematics_test.cpp
@@ -72,4 +73,36 @@ target_link_libraries(astra_template_mass_test PRIVATE astra::core GTest::gtest_
 target_compile_definitions(astra_template_mass_test PRIVATE
   "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\"")
 gtest_discover_tests(astra_template_mass_test TEST_PREFIX "template_mass."
+                     DISCOVERY_MODE PRE_TEST PROPERTIES LABELS unit)
+
+# docs/plans/pr4-notional-aero-turbofan.md, R1/R4: aero_math.hpp/turbofan_math.hpp's own pure
+# compute_wrench(), called directly with hand-built Inputs/Coefficients -- no plugin instance, no
+# Config, no PluginLoader, hence no compile definitions -- the same "unit-tested with no simulator"
+# pattern astra_frames_test above and wind/dryden_filter_test.cpp already demonstrate.
+add_executable(astra_notional_transport_aero_math_test aero/notional_transport_aero_math_test.cpp)
+target_link_libraries(astra_notional_transport_aero_math_test PRIVATE astra::core GTest::gtest_main)
+gtest_discover_tests(astra_notional_transport_aero_math_test TEST_PREFIX "notional_transport_aero_math."
+                     DISCOVERY_MODE PRE_TEST PROPERTIES LABELS unit)
+
+add_executable(astra_notional_transport_turbofan_math_test
+  turbofan/notional_transport_turbofan_math_test.cpp)
+target_link_libraries(astra_notional_transport_turbofan_math_test PRIVATE astra::core GTest::gtest_main)
+gtest_discover_tests(astra_notional_transport_turbofan_math_test
+                     TEST_PREFIX "notional_transport_turbofan_math."
+                     DISCOVERY_MODE PRE_TEST PROPERTIES LABELS unit)
+
+# R9: the un-edited aircraft/_template copies of aero/turbofan throw ConfigError on their own
+# TODO-zeroed config -- same shape as astra_template_mass_test above.
+add_executable(astra_template_aero_test aero/template_aero_test.cpp)
+target_link_libraries(astra_template_aero_test PRIVATE astra::core GTest::gtest_main)
+target_compile_definitions(astra_template_aero_test PRIVATE
+  "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\"")
+gtest_discover_tests(astra_template_aero_test TEST_PREFIX "template_aero."
+                     DISCOVERY_MODE PRE_TEST PROPERTIES LABELS unit)
+
+add_executable(astra_template_turbofan_test turbofan/template_turbofan_test.cpp)
+target_link_libraries(astra_template_turbofan_test PRIVATE astra::core GTest::gtest_main)
+target_compile_definitions(astra_template_turbofan_test PRIVATE
+  "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\"")
+gtest_discover_tests(astra_template_turbofan_test TEST_PREFIX "template_turbofan."
                      DISCOVERY_MODE PRE_TEST PROPERTIES LABELS unit)

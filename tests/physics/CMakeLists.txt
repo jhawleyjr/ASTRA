@@ -26,9 +26,34 @@ target_link_libraries(astra_physics_tests PRIVATE astra::core GTest::gtest_main)
 target_compile_definitions(astra_physics_tests PRIVATE
   "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""
   "ASTRA_TEST_CONFIG_DIR=\"${ASTRA_SOURCE_DIR}/tests/configs\""
-  "ASTRA_TEST_NESC_CASE_DIR=\"${ASTRA_SOURCE_DIR}/tests/physics/nesc\"")
+  "ASTRA_TEST_NESC_CASE_DIR=\"${ASTRA_SOURCE_DIR}/tests/physics/nesc\""
+  "ASTRA_AIRCRAFT_DIR=\"${ASTRA_SOURCE_DIR}/aircraft\"")
 # nesc/nesc_cases_test.cpp includes tests/golden/nesc/*.hpp (human-owned) as "golden/nesc/*.hpp", the
 # astra_frames_test pattern.
 target_include_directories(astra_physics_tests PRIVATE "${ASTRA_SOURCE_DIR}/tests")
 gtest_discover_tests(astra_physics_tests TEST_PREFIX "physics." DISCOVERY_MODE PRE_TEST
                      PROPERTIES LABELS physics)
+
+# docs/plans/pr4-notional-aero-turbofan.md, R2/R5: PLAN.md's own PR 4 acceptance line names
+# tests/physics/notional_transport/ for the hand-picked-condition tests that "exercise the rebuilt
+# aero/propulsion wrench_b() overrides directly" -- own executables, same TEST_PREFIX shape as
+# tests/unit/CMakeLists.txt's astra_notional_transport_mass_test, so `ctest -R
+# notional_transport_aero_wrench`/`_turbofan_wrench` select them.
+add_executable(astra_notional_transport_aero_wrench_test notional_transport/aero_wrench_test.cpp)
+target_link_libraries(astra_notional_transport_aero_wrench_test PRIVATE astra::core GTest::gtest_main)
+target_compile_definitions(astra_notional_transport_aero_wrench_test PRIVATE
+  "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""
+  "ASTRA_AIRCRAFT_DIR=\"${ASTRA_SOURCE_DIR}/aircraft\"")
+gtest_discover_tests(astra_notional_transport_aero_wrench_test
+                     TEST_PREFIX "notional_transport_aero_wrench."
+                     DISCOVERY_MODE PRE_TEST PROPERTIES LABELS physics)
+
+add_executable(astra_notional_transport_turbofan_wrench_test
+  notional_transport/turbofan_wrench_test.cpp)
+target_link_libraries(astra_notional_transport_turbofan_wrench_test PRIVATE astra::core GTest::gtest_main)
+target_compile_definitions(astra_notional_transport_turbofan_wrench_test PRIVATE
+  "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""
+  "ASTRA_AIRCRAFT_DIR=\"${ASTRA_SOURCE_DIR}/aircraft\"")
+gtest_discover_tests(astra_notional_transport_turbofan_wrench_test
+                     TEST_PREFIX "notional_transport_turbofan_wrench."
+                     DISCOVERY_MODE PRE_TEST PROPERTIES LABELS physics)
