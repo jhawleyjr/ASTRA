@@ -653,7 +653,11 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         finding, fixed: added `tests/unit/kernel/vehicle_environment_test.cpp` with three new counting/
         flaky test plugins proving the actual zero-`wrench_b()`-call guarantee, a fault first appearing
         at RK4 stage k2, the isolated R-001 infinite-speed-of-sound case, and a configured non-finite
-        wind); one Codex re-verify pass confirmed both fixes, no new findings. Not yet committed/PR'd.
+        wind); one Codex re-verify pass confirmed both fixes, no new findings. **Approved by Joe,
+        2026-09-20**, pending a follow-up commit (domain-off/nan-off documentation, per-stage counting
+        documentation, full-gate rerun to a retained log, packet fixes) -- follow-up committed
+        (`1aad091`, `b4864b9`). PR #40 (covers this and the realignment ADRs above) pushed and marked
+        ready for review; not yet merged.
         Binding ADRs: ADR-0019, ADR-0020. Tier 3. Plan critique: done
         (`docs/plans/pr3d-adr0020-implementation.md`, Codex plan critique folded in, approved by Joe
         including Q1-Q4).
