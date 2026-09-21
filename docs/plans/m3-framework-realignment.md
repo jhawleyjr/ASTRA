@@ -171,6 +171,8 @@ could be "accepted" while doing nothing about the document a session actually re
 genuinely depends on ADR-0021) is now part of this ADR's own acceptance, not a deferred follow-up.
 No second critique requested — the fix is narrow and doesn't reopen any other part of the draft.
 
+**Joe's decision, 2026-09-20: Accepted, as drafted.**
+
 ---
 
 # ADR-0020 (draft): `AeroModel`/`PropulsionModel` as true interfaces (supersedes ADR-0018's `Inputs`/`final` parts)
@@ -293,16 +295,49 @@ just the isfinite guard, a second, independent guarantee ADR-0018 provided.
    at all still gets today's safe behavior; only an author who *actively* overrides it takes on that
    responsibility explicitly and visibly, in a code review's plain view. This closes the
    "forgot to declare atmosphere" gap without reintroducing `final`.
-2. The isfinite guard itself **cannot** be made compiler-enforced without exactly the `final` method
-   §1 of the intent document rules out — this is accepted as a real, permanent, named regression:
-   **a plugin's forgotten or incomplete finiteness check on raw environment fields it reads can
-   produce a finite, wrong output that this framework's automated checks cannot always catch.** The
-   mitigation is process-level, not compiler-level: `air_data.hpp`'s header comment and
-   `aircraft/_template`'s own aero/propulsion stubs must both cite R-001 by name as the concrete,
-   already-happened failure mode a finiteness check over *every raw field read, not just derived
-   ones* prevents, so every future plugin author and every future Codex review of one is primed to
-   check for exactly this. This is weaker than ADR-0018's guarantee, and that is stated here
-   explicitly for Joe's sign-off, not assumed or minimized.
+2. The isfinite guard itself **cannot** be made compiler-enforced on a *plugin's own arithmetic*
+   without exactly the `final` method §1 of the intent document rules out — this remains a real,
+   named regression at the level of what an individual plugin author's own code does with a value
+   it already holds: **a plugin's forgotten or incomplete finiteness check on a raw environment
+   field, or a raw state field, it reads directly (bypassing whatever it derives from them) can
+   still produce a finite, wrong output that this framework's automated checks cannot always
+   catch.** The mitigation for *that* residual case is process-level, not compiler-level:
+   `air_data.hpp`'s header comment and `aircraft/_template`'s own aero/propulsion stubs must both
+   cite R-001 by name as the concrete, already-happened failure mode a finiteness check over
+   *every raw field read, not just derived ones* prevents, so every future plugin author and every
+   future Codex review of one is primed to check for exactly this.
+3. **Joe's decision, 2026-09-20: a new core-side finiteness check of the `EnvironmentSample` itself
+   closes the R-001 class of gap directly, not merely by disclosure or process.** This is the
+   guarantee ADR-0018's `final wrench_b()` actually provided for R-001's own failure mode (an
+   infinite `speed_of_sound_m_s` producing a finite-looking `mach`): the corrupted value entered
+   through the environment sample, before any plugin's arithmetic touched it. `Vehicle::integrate()`'s
+   per-stage derivative functor (`core/src/kernel/vehicle.cpp:152-194`) already builds `stage_env`,
+   the exact `EnvironmentSample` every `wrench_b()` call that stage will see, before its
+   `wrench_sources_` loop runs. A new `HealthMonitor::check_environment(const EnvironmentSample&,
+   ..., ctx, vehicle_index)` (mirroring `check_wrench`'s own shape: per-frame path, no allocation,
+   no exceptions, a configured `sim.health` action) runs there, immediately after `stage_env` is
+   built and strictly before the first `wrench_b()` call of that stage — checking `wind_n` when
+   wind is configured and every populated `atmosphere` field when atmosphere is configured for
+   NaN/Inf, naming the wind or atmosphere plugin path on a halt (the same source
+   `Simulation::from_config`/`Simulation::step` already retain as `atmosphere_plugin_path_`,
+   `simulation.hpp:173`; threading an equivalent name into `Vehicle` for this call, alongside its
+   existing `earth_plugin_path_`/`gravity_plugin_path_`, is an implementation detail, not decided
+   here). This is not a new idea invented for this ADR: it closes the exact gap
+   `EnvironmentSample`'s own header already discloses twice, verbatim, for `wind_n` and
+   `atmosphere` (`core/include/astra/kernel/environment_sample.hpp:18-51`, both citing "HealthMonitor
+   has no environment check, only check_wrench and check_state ... it needs to validate
+   EnvironmentSample as a whole") — confirmed unaddressed this session by reading
+   `core/src/kernel/simulation.cpp:602-616`'s existing post-step altitude-range check, which
+   validates the *altitude* against `valid_range()`, never the returned `AtmoState`'s own field
+   values, and runs once per frame, after `integrate()`, not per sub-stage before any `wrench_b()`
+   call. Because this check runs core-side, in `Vehicle`, before any plugin's `wrench_b()` executes,
+   the no-silent-NaN guarantee for environment-sourced corruption no longer depends on any
+   individual `AeroModel`/`PropulsionModel` author remembering to check raw environment fields
+   themselves — restored at the one point every wrench-computing plugin's environment input funnels
+   through, by an explicit core-owned check, with nothing `final` anywhere in the interface. This
+   narrows item 2 above to what it actually still covers: a plugin's own *state*-derived or
+   *self-cached* corruption, never an environment-sourced one, which this decision now catches
+   unconditionally.
 
 No templates — the interface stays ordinary virtual dispatch (§7's own stated Python-side reason,
 restated, not re-litigated).
@@ -367,7 +402,10 @@ override `wrench_b()` directly (small — `nesc_aero` is the existing, working p
 ground); `docs/architecture.md` §7's code sketch and surrounding prose, and §18, rewritten; the
 "hand-built-fixture, no-simulator" testability promise (§7) is preserved as a documented *plugin-side
 convention the template demonstrates*, not a core guarantee — stated explicitly so its removal from
-core is not misread as removing the promise itself. Migration/rollback: fully reversible, no external
+core is not misread as removing the promise itself; **new, per Joe's decision above**: a new
+`HealthMonitor::check_environment` method and its call site in `Vehicle::integrate()`'s per-stage
+derivative functor, plus whatever plumbing gives `Vehicle` the atmosphere/wind plugin path(s) to
+name on a halt. Migration/rollback: fully reversible, no external
 plugin exists yet; `docs/plans/pr4-notional-aero-turbofan.md` is superseded — its frame-conversion
 math, S&L force/moment-transfer citation, and dropped-terms analysis remain reusable once PR 4 is
 rebuilt against this interface, only the `compute(const AeroInputs&)` signature assumption needs
@@ -378,11 +416,18 @@ the new interface; `nesc_aero`/`nan_wrench` continue to pass **unmodified** (a r
 mean this ADR's own reasoning about them is wrong); `AeroModel`/`PropulsionModel`'s non-final
 `requires_environment()` default is unit-tested to still return `{wind: false, atmosphere: true}`
 for a plugin that doesn't override it; `air_data.hpp` and both template stubs cite R-001 by name;
-full gate.
+**a new test proves a non-finite `wind_n`/`atmosphere` field is caught by `check_environment` before
+any configured `wrench_b()` executes that stage — a fault the pre-existing `check_wrench` test suite
+cannot exercise, since it only ever sees a plugin's already-computed output, never the environment
+sample that fed it — matching R-001's own scenario (an infinite `speed_of_sound_m_s`) as the primary
+case**; full gate.
 
 ## Approval
 
-Proposed, pending Joe's decision.
+**Joe's decision, 2026-09-20: Accepted, with one addition — the core-side `check_environment` finiteness
+check in item 3 above, folded into this ADR's own Decision/Consequences/Acceptance rather than left
+as a follow-up**, so the no-silent-NaN guarantee ADR-0018's `final` used to provide survives this
+ADR's removal of `final`, without reintroducing anything `final` in the interface.
 
 **Codex plan critique (adversarial-review, working-tree scope, `2026-09-19`): verdict
 "needs-attention," one high finding and one medium finding.**
@@ -497,74 +542,111 @@ check value equality instead of address identity, since address identity was nev
 `VehicleState`'s own header actually promised (its comment says "read-only, non-owning view", not
 "identical object").
 
-**Model-owned continuous states.** `Model` gains three new virtuals, each defaulted to a zero-state
-no-op so every existing subclass keeps compiling and behaving identically without any edit:
+**Model-owned continuous states — signature revised by Joe's own instruction, 2026-09-20, before this
+round's Codex re-verification (not itself a reviewer-driven fix; superseding the two bullets below
+that a first Codex critique had already approved in the narrower form).** `Model` gains three new
+virtuals, each defaulted to a zero-state no-op so every existing subclass keeps compiling and
+behaving identically without any edit:
 
 ```cpp
 [[nodiscard]] virtual int state_count() const noexcept { return 0; }
 virtual void initial_state(double* q) const noexcept {}
-virtual void integrate_state(double t, const double* q, const EnvironmentSample& env,
+virtual void integrate_state(double t, const VehicleState& vs, const EnvironmentSample& env,
                               double* dq) const noexcept {}
 ```
 
-(`EnvironmentSample&` added after Codex re-verification below caught a self-contradiction: the
-coupling-boundary text says a model's derivative may depend on the environment sample, but the
-signature as first drafted gave it no way to receive one. This mirrors `WrenchSource::wrench_b(vs,
-env)`'s own existing parameter shape exactly, so `Vehicle`'s already-existing per-stage `stage_env`
-construction — built once per RK4 sub-stage today for `wrench_b()` calls, PR 3c's own pattern — is
-passed through to `integrate_state()` calls too, with no new plumbing mechanism: it is sub-stage-
-fresh, the same freshness `wrench_b()`'s own atmosphere argument already has, not frame-latched like
-a bound control input. Bound control inputs are read the same way `wrench_b()` already reads them —
-via a `const double*` a state-owning model resolves once at init through `InputRegistry`, not
-through this function's parameter list.)
+`integrate_state()` takes the sub-stage `VehicleState`, not a bare `const double* q` of the model's
+own slice — the identical `(vs, env)` shape `WrenchSource::wrench_b()` already has (`wrench_b(const
+VehicleState& vs, const EnvironmentSample& env)`, `wrench_source.hpp:60-61`), so a model's own
+continuous-state derivative reads the rigid-body block (`vs.p_n()`, `vs.v_b()`, `vs.q_nb()`,
+`vs.omega_b()`) the same way any wrench computation already does — the first critique round's own
+"engine spool-lag rate that depends on airspeed" example now needs no separate plumbing: `vs.v_b()`
+already gives it airspeed's own body-frame components at this exact sub-stage. `dq` remains an
+explicit parameter: it is the write target for this call only, whichever of `Integrator`'s own
+sized-once scratch buffers (per the functor-contract correction below) this particular RK4 stage is
+filling — unlike the state buffer described next, its target address is not stable enough across the
+run to pre-resolve once at init. `EnvironmentSample` stays a parameter for the same reason the first
+Codex re-verification round already gave: it is `Vehicle`'s own already-constructed per-stage
+`stage_env`, sub-stage-fresh, passed through with no new plumbing (unchanged from that fix).
 
-`Vehicle::init()`'s existing discovery pass (the same one that already walks `WrenchSource`s for
-`bind_inputs()`) sums every model's `state_count()`, allocates **one** contiguous buffer of size `13
-+ sum(model states)` **once** (an init-time allocation, permitted; never resized in `step()` — R2),
-and hands each state-owning model a fixed `double*`/`const double*` view into its own slice (offset
+**A model's own state slice — read via an init-resolved pointer into a `Vehicle`-owned stage buffer,
+not via a `q` parameter (this is the mechanism, not just the `vs` parameter above, that Joe's
+instruction requires).** `Vehicle::init()`'s existing discovery pass (the same one that already
+walks `WrenchSource`s for `bind_inputs()`) sums every model's `state_count()`, allocates **one**
+contiguous buffer of size `13 + sum(model states)` **once** (an init-time allocation, permitted;
+never resized in `step()` — R2) — the **combined state buffer**, the actual `y` `Vehicle` advances
+frame to frame and hands to `Integrator::step()`, sized-once-by-type per the "Enforcing ... by type"
+section below. Separately, `Vehicle` owns a second, identically-sized **stage buffer**, also
+allocated once at init: at the top of the per-stage derivative functor (see below), before any
+`wrench_b()` or `integrate_state()` call for that stage runs, `Vehicle` copies that stage's own trial
+state — the same values `Integrator` is evaluating this k1..k4 call against — into this stage buffer.
+The two buffers hold genuinely different values for most of a frame's evaluation: the combined state
+buffer stays at the frame-start value until the RK4 weighted combination writes the new value at
+frame end (exactly like `state_` today), while the stage buffer cycles through each of the four
+trial states (`y`, `y+½dt·k1`, `y+½dt·k2`, `y+dt·k3`) as `Integrator` evaluates them — the stage
+buffer is what a mid-frame plugin read must see, never the frame-start buffer. Every state-owning
+model resolves, once at init, a `const double*` into its own slice of the **stage** buffer (offset
 computed once at init and stored as a plain `int`, matching `SignalRegistry`/`InputRegistry`'s own
-"resolve once, never look up again" discipline).
+"resolve once, never look up again" discipline) via a new `bind_state(const double* own_slice)` hook
+(mirroring `WrenchSource::bind_inputs()`'s own init-time timing and shape, `wrench_source.hpp:71-80`).
+Because the stage buffer's *address* never moves after init but its *contents* are refreshed every
+sub-stage, a model can dereference that pointer from inside **either** `integrate_state()` **or**
+`wrench_b()` — at any point during that stage's evaluation, not only when it happens to be the
+callee — and read its own current, sub-stage-exact value. This is the specific mechanism that answers
+the critique round below without reopening `wrench_b(vs, env)`'s own fixed signature (ADR-0020 keeps
+that deliberately unchanged): a `PropulsionModel` whose thrust depends on its own spool state reads
+that state through this pointer directly inside `wrench_b()`, with no per-frame publish step.
 
-**Cross-model/rigid-body coupling — scoped down after Codex plan critique below.** The original
-draft claimed a single combined buffer "preserves" coupled RK4 evaluation because every state lives
-in one block a single integrator advances together. A reviewer correctly found this incomplete:
-`integrate_state()` as specified receives only the model's *own* slice — a model whose own
-derivative genuinely needs another model's or the rigid-body's *live, sub-stage* value (the
-reviewer's example: an engine spool-lag rate that depends on airspeed) has no way to read it, and
-conversely `wrench_b(vs, env)`'s signature is unchanged (ADR-0020 keeps it that way deliberately),
-so a `PropulsionModel` whose *thrust* depends on its *own* spool state has no way to read that
-state's live sub-stage value inside `wrench_b()` either. Solving fully general, sub-stage-exact,
-bidirectional coupling between arbitrary models is a materially harder problem (closer to a
-dependency-graph/co-simulation scheduler than an integrator change) and is **not** solved by this
-ADR. Instead, this ADR draws an explicit, disclosed line, using a mechanism this codebase already
-has and has already accepted the same trade-off for:
-- A model's own `integrate_state()` derivative may depend on `t`, its own state slice, its own
-  already-resolved bound control inputs (`InputRegistry`, ADR-0017), and the environment sample —
-  **not** on another model's state slice or the rigid-body state directly. This is not an
-  arbitrary restriction: it is exactly Zipfel's own cited module-bus description (App. E.2.3/E.2.5)
-  — "each module ... reads any input it needs from a shared named module-variable bus," never from
-  another module's raw memory — so this restriction is the architecturally correct reading of the
-  same citation this ADR already relies on, not a compromise invented to dodge the hard case.
-- A state-owning model that wants a `WrenchSource`'s `wrench_b()` to see its own current value
-  (the engine-spool-feeds-thrust case) **publishes it to `SignalRegistry` once per frame**, after
-  integration — the identical frame-latched-bus pattern `env.wind_n` and every published control
-  already use (`wrench_source.hpp`'s own documented exception: "env's wind_n is frame-latched ...
-  every RK4 sub-stage's env carries the identical value"). A consuming `wrench_b()` resolves that
-  signal once at init (the existing `SignalRegistry::find()` discipline) and reads whatever value
-  was last published — **frame-latched, not sub-stage-fresh**, an explicit, disclosed accuracy
-  trade-off consistent with a pattern this repository has already accepted elsewhere, not a new one.
-- **What this ADR does NOT deliver**: sub-stage-exact bidirectional coupling between a model's own
-  continuous state and the wrench computation that might depend on it. A vehicle needing that level
-  of fidelity needs a further, dedicated design — named here as an open follow-up, not silently
-  absent.
+**Cross-model reads use the same mechanism, through `SignalRegistry`, sub-stage-exact — replacing the
+frame-latched-bus coupling rule the first-critique draft of this ADR adopted, per Joe's instruction.**
+A state-owning model additionally registers each element of its own stage-buffer slice with
+`SignalRegistry::add()` at init (the existing `bind_inputs()`/`init()`-time call, inside the same
+`SignalRegistry::PrefixScope` already open), pointing at the **live stage-buffer address**, not at a
+separately latched copy (`SignalRegistry::add()`'s own contract already requires only that the target
+outlive the registry, `signal_registry.hpp:26-30` — the stage buffer, allocated once at init and never
+freed before the vehicle is, satisfies that as-is). Any other model resolving that name via
+`SignalRegistry::find()` — the existing "resolve once at init" discipline every other signal consumer
+already follows — gets the identical pointer, and therefore the identical sub-stage-exact freshness,
+as the owning model's own reads: there is no separate frame-latch step for a model-owned state,
+because the stage buffer *is* refreshed every sub-stage, not once per frame. This is a strictly
+different mechanism from `env.wind_n`'s own frame-latching (`wrench_source.hpp`'s documented
+exception, unchanged by this ADR): `wind_n` is an externally sampled environment field, latched once
+per frame by `Simulation::step` before the wrench stage even begins, never a model-owned continuous
+state whose storage this ADR controls — nothing here reopens that design or that citation. This
+closes the first-critique draft's own disclosed gap directly: the engine-spool-feeds-thrust case now
+reads the live, sub-stage value, not a value carried over from the previous frame.
 
-`Vehicle`'s per-frame derivative functor (today's lambda at `vehicle.cpp:152`) evaluates the
-rigid-body `DynamicsModel::derivative()` over its own slice using the already-summed applied wrench
-(unchanged — computed from `wrench_b()` calls exactly as today, per the coupling boundary above),
-then every state-owning model's `integrate_state()` over its own slice, passing the same
-already-constructed per-stage `stage_env` the lambda already builds for that sub-stage's `wrench_b()`
-calls (no new construction, no new plumbing — the value already exists at the call site), writing
-into one combined `dq` buffer.
+- **What stays out of scope: algebraic loops between model *outputs*, not state reads.** A model's
+  own state, at any point once this stage's trial value has been written into the stage buffer, is
+  already a known, fully-determined number — reading it from another model's `wrench_b()` or
+  `integrate_state()` is an ordinary dereference, not a simultaneous-equation solve, regardless of
+  which model owns it or which model reads it. What this ADR still does **not** support is two or
+  more models' *outputs* (typically wrenches, or in principle a derivative) depending on *each other*
+  within the same evaluation, such that neither can be computed without already knowing the other —
+  a genuine implicit/fixed-point coupling, which would need a dependency-graph or co-simulation
+  scheduler this ADR does not build. `Vehicle`'s fixed per-frame evaluation order (copy trial state
+  into the stage buffer; accumulate the rigid-body wrench from every `wrench_b()`; evaluate every
+  state-owning model's `integrate_state()`) already prevents this class of loop from being
+  expressible by construction: nothing this ADR adds lets a wrench computation depend on a derivative
+  not yet computed this same call, or vice versa. This is a narrower, and strictly weaker,
+  restriction than the first-critique draft's "own slice only" rule — Nutaro's own `der_func(q, dq)`
+  (§5.5, already cited above) is the textbook shape this now matches exactly: the solver hands the
+  system function the *whole* trial state `q`, not a per-subsystem slice, and the system function is
+  free to read any of it computing any part of `dq`; only a genuine algebraic loop between two
+  subsystems' own outputs is outside what a single `der_func` call, or this ADR's single evaluation
+  order, can express.
+
+`Vehicle`'s per-frame derivative functor (today's lambda at `vehicle.cpp:152`), for each stage
+`Integrator` calls it at: first copies that stage's trial state (the `y` `Integrator` hands it, per
+the corrected functor contract below) into the stage buffer described above — the one new step this
+ADR's revision adds to the existing sequence; builds `stage_env` exactly as today; evaluates every
+`wrench_b()` (now able to dereference any resolved stage-buffer pointer, its own model's own slice or
+another model's, per the mechanism above) and sums the applied wrench exactly as today; evaluates the
+rigid-body `DynamicsModel::derivative()` over the `VehicleState` view of this same stage buffer; then
+evaluates every state-owning model's `integrate_state(t, vs, stage_env, dq)` over its own slice —
+passing the identical `vs`/`stage_env` pair this same stage's `wrench_b()` calls already received,
+not a separately constructed one — writing each model's own derivative into its own slice of one
+combined `dq` buffer.
 
 **Integrator functor contract — corrected after Codex plan critique below.** The original draft
 said `Integrator::step`'s arithmetic (`y + dt*f(...)`, the RK4 tableau) is "otherwise unchanged."
@@ -656,13 +738,12 @@ state to Python and would otherwise hardcode the 13-layout a second time.
 
 - **Keep `StateVector` fixed at 13 and bolt extra per-model states on as separate parallel vectors,
   each with its own integration.** Rejected: breaks RK4's requirement that all coupled state advance
-  through one consistent set of k1-k4 sub-stage evaluations *for whatever coupling this ADR does
-  support* (a model's own state evolving against its own bound inputs/environment, at full sub-stage
-  fidelity) — two separate integrators would get that wrong even for the simple case. This
-  rejection stands even after scoping cross-model coupling down to the frame-latched bus above: the
-  chosen design still integrates every declared state through one RK4 evaluation, which two
-  parallel integrators cannot do consistently, regardless of how much cross-model coupling either
-  design actually supports.
+  through one consistent set of k1-k4 sub-stage evaluations for whatever coupling this ADR supports
+  (per Joe's revision above, now every model's state and the rigid-body block, all sub-stage-exact
+  to each other via the shared stage buffer) — two separate integrators would get that wrong even
+  for the simple case. This rejection stands regardless of how the cross-model coupling mechanism
+  itself is scoped: the chosen design still integrates every declared state through one RK4
+  evaluation, which two parallel integrators cannot do consistently.
 - **`Eigen::VectorXd` as the runtime state type.** Rejected: heap-allocates on construction and,
   via Eigen's expression templates, can allocate temporaries on ordinary arithmetic even when
   "sized once" unless every operation is hand-written to avoid them. A plain contiguous buffer
@@ -680,28 +761,33 @@ plugin recompiles per existing policy); real changes to `state.hpp`, `vehicle_st
 constructor/return-type retype, not just prose, per the correction above),
 `eom.hpp/.cpp`, `vehicle.hpp/.cpp`, `simulation.hpp/.cpp`, `health_monitor.hpp/.cpp`, and
 `integrator.hpp` (functor contract change from return-by-value to write-into-buffer, plus owning
-its own scratch buffers) — a materially larger set of real changes than the original draft's "one
-implementation plus a few call sites" framing suggested, corrected here rather than understated;
+its own scratch buffers, plus the new `Vehicle`-owned stage buffer and its per-stage copy, plus the
+new `bind_state()` model hook) — a materially larger set of real changes than the original draft's
+"one implementation plus a few call sites" framing suggested, corrected here rather than understated;
 `tests/unit/kernel/vehicle_state_test.cpp`'s address-identity assertion rewritten; Python
 `_core.cpp`'s `STATE_SIZE`/offset module constants need a length-N-aware replacement before PR 5
 relies on them. Benefits: any future vehicle model (engine spool dynamics, actuator lag, flex modes,
 fuel burn) can own its own continuous state, integrated at full sub-stage fidelity, with zero
-further core interface change; closes audit item 2/3 in §3's contradiction table. **Explicitly not
-delivered** (see the coupling-boundary correction above): sub-stage-exact coupling between a
-model's own state and a wrench that depends on it — only frame-latched coupling via
-`SignalRegistry`, matching the existing `wind_n` precedent. Migration/rollback: fully reversible
-pre-any-external-consumer (no plugin outside this tree implements `Model`/`DynamicsModel` yet); the
-`kCoreApiVersion` bump is the existing precedented mechanism (ADR-0018's own 5→6 bump for a settling
-vtable shape, cited directly).
+further core interface change; **per Joe's revision above, any `wrench_b()` or `integrate_state()`
+can also read any other model's or the rigid body's live sub-stage state**, not only its own — closes
+audit item 2/3 in §3's contradiction table more completely than the first-critique draft did. **Still
+not delivered**: an algebraic loop between two or more models' own *outputs* within one evaluation
+(a genuine implicit/fixed-point coupling) — state reads are sub-stage-exact and unrestricted per the
+mechanism above; only mutual output dependence remains unsupported. Migration/rollback: fully
+reversible pre-any-external-consumer (no plugin outside this tree implements `Model`/`DynamicsModel`
+yet); the `kCoreApiVersion` bump is the existing precedented mechanism (ADR-0018's own 5→6 bump for a
+settling vtable shape, cited directly).
 
 Acceptance: a dedicated new bitwise-equality test against the pre-change `Eom` arithmetic, not
 tolerance-banded or same-implementation-only tests (R1, corrected above); existing NESC/determinism
 goldens additionally pass unmodified under all four presets; `tests/physics/no_alloc_test.cpp`
-extended with a state-owning test model, covering the integrator's and `Vehicle`'s own scratch
-buffers, not only the combined state buffer (R2, corrected above); a test proving a state-owning
-model's published signal is visible to a `wrench_b()` reader at the documented frame-latched
-staleness, not sub-stage-fresh (the coupling boundary above); a dedicated implementation plan's own
-full acceptance table at implementation time.
+extended with a state-owning test model, covering the integrator's, `Vehicle`'s combined-state, and
+`Vehicle`'s new stage-buffer scratch, not only the combined state buffer alone (R2, corrected above);
+a test proving a state-owning model's own value, read through both its `bind_state()` pointer and a
+peer's `SignalRegistry`-resolved read of the same signal, is identical at every one of a frame's four
+RK4 sub-stages — sub-stage-exact, not frame-latched (the coupling mechanism above, superseding the
+first-critique draft's frame-latched-staleness test); a dedicated implementation plan's own full
+acceptance table at implementation time.
 
 ## Approval
 
@@ -765,6 +851,69 @@ corrections to already-accepted design decisions (a comparison method and a miss
 new technical claims that could themselves hide a further gap — unlike the first three findings,
 which changed what the ADR actually does.
 
+**Joe's revision, 2026-09-20 — reopens Finding 1's own resolution, before any decision on this ADR.**
+The two re-verification passes above closed the critique round as drafted; Joe's own review of the
+resulting design went further than that round's "needs-attention" verdict required and reopened
+Finding 1's fix specifically (the "own slice only" / frame-latched-bus scoping), on the grounds that
+it under-delivers relative to Nutaro's own cited `der_func(q, dq)` shape (§5.5, already this ADR's own
+textbook basis) without a compensating benefit — the buffer-and-pointer mechanism needed to support
+sub-stage-exact *own*-slice reads (already required for R2's no-allocation rule) supports sub-stage-
+exact *cross-model* reads at no extra design cost, so restricting to "own slice only" was leaving
+capability on the table that the chosen mechanism already paid for. Changed, in the Decision section
+above: `integrate_state()` now takes the sub-stage `VehicleState` directly (closing the rigid-body
+half of the original Finding 1 gap without the frame-latched workaround); a model's own state slice,
+and any other model's, is readable sub-stage-exact from both `integrate_state()` and `wrench_b()` via
+an init-resolved pointer into a new `Vehicle`-owned stage buffer, refreshed by copy at each RK4 trial;
+the frame-latched-bus coupling rule is replaced by this mechanism; only an algebraic loop between
+models' own outputs (not state reads) remains out of scope. This is a substantive change to a
+finding's own already-verified fix, not a wording pass — a fresh, focused Codex re-verification
+against the current text is warranted before Joe decides, and is run next, its result appended below.
+
+**Codex re-verification (adversarial-review, working-tree scope, `2026-09-20`, focused on Joe's own
+2026-09-20 revision only, not the parts of ADR-0021 the two prior rounds already closed): verdict
+"needs-attention," two high findings and one medium finding. Not yet fixed — recorded for Joe's
+decision, per his own instruction to run one re-verify and show him the result before deciding
+further.**
+
+- **High**: the stage buffer as specified refreshes only before derivative evaluations, so outside a
+  derivative call it holds the *last RK4 trial value* (`y + dt·k3` after a completed RK4 step, or the
+  frame-start value after Euler) — never the true post-step, weighted-combination, post-rollback, or
+  post-renormalization state. `Vehicle::integrate()`'s existing wrench-fault rollback
+  (`vehicle.cpp:203-209`) and unconditional post-step renormalize (`vehicle.cpp:218-221`) both leave
+  the stage buffer stale relative to `state_`. Any `SignalRegistry` reader of a published state-owning
+  model's slice outside a derivative call — including a future model's own next-frame `step()`, which
+  already runs before `integrate()` (`simulation.cpp:578-588`) — would read a trial value, not the
+  accepted state. Codex flags this would also bite an eventual logger (not yet built, `PLAN.md`) with
+  no mid-stage sampling required to trigger it. **Not addressed by the revision as drafted; a real gap
+  in this session's own text**, not disputed.
+- **High**: the revision's "resolve once at init" phrasing does not by itself support mutual
+  cross-model state dependence. `Vehicle::init()`'s existing pass initializes and binds each model
+  before loading the next (`vehicle.cpp:21-51`); `SignalRegistry::find()` returns `nullptr` for a name
+  not yet registered (`signal_registry.hpp:34-37`). If model A's derivative reads B's state and B's
+  reads A's, no load order makes both init-time `find()` calls succeed — an ordinary explicit-coupling
+  ordering problem, not the algebraic-output-loop case this revision's own text says stays out of
+  scope. The final buffer size also cannot be known/bound until every model's `state_count()` has been
+  collected, which the current single-pass discovery loop does not guarantee before the first model's
+  own init runs. **A real gap: the revision's "any model can read any other's slice" claim needs a
+  two-phase init (discover every model and its state count; allocate and bind stable slices; publish
+  every state signal; then resolve every peer read) that this session's text did not specify.**
+- **Medium**: the revision, as drafted, does not update `wrench_source.hpp`'s own purity contract
+  text (`wrench_source.hpp:31-33`, "a pure function of (vs, env) with no hidden per-call state";
+  `:40-45`, a bound member "MAY differ between frames" but "must still see the IDENTICAL value across
+  all four of one frame's calls"). This revision explicitly makes a bound state-slice pointer's
+  *contents* differ across a single frame's four calls (by sub-stage), which is what the revision
+  intends, but the existing contract's own words still say otherwise. Codex's own assessment: the full
+  ODE evaluation stays mathematically well-defined because `Vehicle` prepares the whole trial snapshot
+  before any call reads it — this is not a correctness defect in the mechanism itself — but the
+  contract's text needs an explicit amendment (permit a read-only binding into the same complete trial
+  snapshot `vs` already reflects; keep prohibiting any call-dependent *mutation*; state the
+  preparation obligation every caller relies on) so a future implementer or reviewer does not read
+  the unamended comment and conclude the revision violates it.
+
+None of the three findings are fixed in this draft yet. Per Joe's own instruction, this result is
+being shown to him as-is rather than looped through a further fix/re-verify round on this ADR before
+he has decided anything.
+
 ---
 
 ## Mapping and sequence (implementation, once any ADR above is accepted)
@@ -772,8 +921,8 @@ which changed what the ADR actually does.
 | Requirement | Change / owned paths | Dependencies | Acceptance command |
 |---|---|---|---|
 | ADR-0020 implemented | `aero_model.hpp`/`propulsion_model.hpp` become marker classes; new `util/air_data.hpp`; rebuilt `aero_stub`/`propulsion_stub` | ADR-0020 accepted | existing PR 3 seam-test pattern, rebuilt |
-| PR 4 rebuilt | `docs/plans/pr4-notional-aero-turbofan.md` reworked against direct `wrench_b()` override; `thrust_ref_n` margin fixed; `Cmadot` now representable | ADR-0020 implemented | new plan, own acceptance table |
-| ADR-0021 implemented | `dynamics_model.hpp`, `RigidBody6DofDynamics`, `Model`'s three defaulted virtuals, `Vehicle`/`Integrator`/`Simulation`/`HealthMonitor` updated | ADR-0021 accepted; independent of PR 4 | R1-R4 above, existing goldens unmodified |
+| PR 4 rebuilt | `docs/plans/pr4-notional-aero-turbofan.md` reworked against direct `wrench_b()` override; `thrust_ref_n` margin fixed; `Cmadot` still dropped — no `alpha_dot` source exists until ADR-0021's model-owned state lands | ADR-0020 implemented | new plan, own acceptance table |
+| ADR-0021 implemented | `dynamics_model.hpp`, `RigidBody6DofDynamics`, `Model`'s three defaulted virtuals, `Vehicle`'s new stage buffer/`bind_state()`, `Vehicle`/`Integrator`/`Simulation`/`HealthMonitor` updated — makes `Cmadot` representable (a lagged-alpha model-owned state), not itself PR 4's own scope | ADR-0021 accepted; independent of PR 4 | R1-R4 above, existing goldens unmodified |
 | PR 5 (nanobind) | Specified against length-N state from the start | ADR-0021 implemented | PLAN.md's own PR 5 line, revised |
 
 One Claude builder per ADR's implementation by default; no split proposed here (this document is
@@ -796,22 +945,28 @@ everything from scratch. Summary, in full under each ADR's own "Approval" sectio
   preserves versus gives up; stated precisely now rather than softened.
 - **ADR-0021** (dynamics interface / model-owned state): one critique (three high, one medium
   finding), two re-verification passes (the second catching two further gaps the first fix
-  introduced) — all fixed. This ADR's design is substantially different, and substantially more
-  honest about its own actual scope (explicit non-support for sub-stage-exact cross-model coupling),
-  than the first draft. This was the most consequential critique of the three, exactly matching
-  where the intent document's own audit said the real complexity lives.
+  introduced) — all fixed, verdict "needs-attention" resolved. **Then reopened by Joe's own
+  instruction, 2026-09-20**, before any decision: `integrate_state()` now takes the sub-stage
+  `VehicleState` directly, and a model's own state slice — and any other model's — is readable
+  sub-stage-exact from both `integrate_state()` and `wrench_b()` via an init-resolved pointer into a
+  new `Vehicle`-owned stage buffer, replacing the critique-fixed but Joe-judged-too-narrow
+  frame-latched-bus rule; only an algebraic loop between models' own outputs stays out of scope. A
+  third, focused Codex re-verification against this revision is run next, appended to ADR-0021's own
+  "Approval" section, before Joe decides this ADR.
 
 Every finding across all three dispatches is recorded with its own verdict and fix, not summarized
 away — nothing was accepted on the strength of a clean-sounding one-line verdict alone.
 
 ## Questions and decision
 
-All three ADRs are drafts, each independently critiqued and revised. Joe's decision needed on each
-independently — accepting one does not require accepting the others, though ADR-0020's
-implementation is sequenced before ADR-0021's per the intent document's own recommendation, adopted
-above. **No code has been written this session**; PR 4 implementation stays stopped. Once Joe
-decides: accepted ADRs move from this plan file into `docs/decisions/00NN-*.md` (numbers 0019-0021
-are provisional, assigned here for readability, confirmed at actual acceptance time against
-whatever the next free ADR numbers are then), architecture.md's affected sections get their own
-implementation-time rewrite pass, and PR 4 is rebuilt from `docs/plans/pr4-notional-aero-turbofan.md`
-against whichever interface actually lands.
+**Joe's decisions, 2026-09-20: ADR-0019 accepted as drafted. ADR-0020 accepted with the addition
+recorded in its own "Approval" section (core-side `check_environment` finiteness check). ADR-0021 —
+revise before deciding; revision above, fresh Codex re-verification pending, then Joe decides.**
+Accepting one ADR does not require accepting the others, though ADR-0020's implementation is
+sequenced before ADR-0021's per the intent document's own recommendation, adopted above. **No code
+has been written this session**; PR 4 implementation stays stopped. Once Joe decides ADR-0021: all
+accepted ADRs move from this plan file into `docs/decisions/00NN-*.md` (numbers 0019-0021 are
+provisional, assigned here for readability, confirmed at acceptance time against whatever the next
+free ADR numbers are then; Joe arms touch-goldens for that move), `docs/architecture.md` §1/§7 get
+their own implementation-time rewrite pass, ADR-0020 is implemented, and PR 4 is rebuilt from
+`docs/plans/pr4-notional-aero-turbofan.md` against the corrected interface.
