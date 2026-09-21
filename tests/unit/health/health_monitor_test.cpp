@@ -182,6 +182,34 @@ TEST(HealthMonitor, QuaternionNormDriftAboveOneEMinusSixHaltsNamingQNb) {
   EXPECT_EQ(halt.frame, 7U);
 }
 
+// Codex general review (M3 PR 4a): quaternion drift above tolerance under a non-halting
+// quaternion_action_ must not short-circuit past the extra_slices check below it -- a state-owning
+// model's own NaN must still halt under nan: halt, even when this frame's quaternion drift also
+// exceeds tolerance under quaternion: warn.
+TEST(HealthMonitor, QuaternionWarnDoesNotSuppressAStateOwnerNanHaltUnderNanHalt) {
+  SignalRegistry registry;
+  HealthMonitor monitor = make_monitor(registry, "quaternion: warn");
+  const StepContext ctx{.t = 0.0, .dt = 0.001, .frame = 9};
+
+  std::array<double, 14> y{};
+  StateVector rigid_body = valid_state();
+  rigid_body(astra::state::kQuaternion) = 1.0 + 2e-6;  // drifted past tolerance
+  for (int i = 0; i < astra::kStateSize; ++i) {
+    y[static_cast<std::size_t>(i)] = rigid_body(i);
+  }
+  y[13] = kNan;  // the state-owning model's own slot
+
+  constexpr astra::NamedStateSlice kBadSlice{"v0.state_owner.state.0", 13, 1};
+  const std::array<astra::NamedStateSlice, 1> extra_slices{kBadSlice};
+
+  const HaltReason halt =
+      monitor.check_state(std::span<const double>(y.data(), y.size()), kNames,
+                          std::span<const astra::NamedStateSlice>(extra_slices), ctx, 0);
+  ASSERT_TRUE(halt);
+  EXPECT_EQ(halt.check, HealthCheck::kNonFiniteState);
+  EXPECT_EQ(halt.source, "v0.state_owner.state.0");
+}
+
 TEST(HealthMonitor, QuaternionNormDriftBelowOneEMinusSixDoesNotHalt) {
   SignalRegistry registry;
   HealthMonitor monitor = make_monitor(registry);

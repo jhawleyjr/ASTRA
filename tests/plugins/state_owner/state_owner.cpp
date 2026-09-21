@@ -20,6 +20,14 @@
 //                      "reader" role: RK4-integrates the peer's own live value, so a stale,
 //                      frame-latched read would integrate to a different, independently
 //                      computable closed form than a genuinely sub-stage-fresh one).
+//   self_rate         (optional double, default 0.0): Codex general review (M3 PR 4a) -- exercises
+//                      bind_state() itself, not only a peer's SignalRegistry-resolved read.
+//                      Additive: dq[0] = rate_-or-peer_ + self_rate * bind_state()'s own current
+//                      value, self-referential exponential growth (dq/dt = k*q) when isolated
+//                      (rate_ = 0, no peer), closed-form q(t) = initial_value * exp(k*t). A stale
+//                      or unbound own-state read would diverge from this closed form far beyond
+//                      RK4's own O(dt^5) truncation error; a Vehicle that stopped calling
+//                      bind_state() at all would dereference a null own_state_ instead.
 #include <memory>
 #include <string>
 #include <string_view>
@@ -47,6 +55,7 @@ class StateOwner final : public astra::Model {
     name_ = instance.empty() ? "state_owner" : "state_owner_" + instance;
     initial_value_ = config.number("initial_value", 0.0);
     rate_ = config.number("rate", 0.0);
+    self_rate_ = config.number("self_rate", 0.0);
     resolve_peer_name_ = config.text("resolve_peer_name", "");
   }
   void reset() override {}
@@ -57,10 +66,13 @@ class StateOwner final : public astra::Model {
 
   void initial_state(double* q) const noexcept override { q[0] = initial_value_; }
 
+  void bind_state(const double* own_stage_slice) override { own_state_ = own_stage_slice; }
+
   void integrate_state(double /*t*/, const astra::VehicleState& /*vs*/,
                        const astra::EnvironmentSample& /*env*/,
                        double* dq) const noexcept override {
-    dq[0] = (peer_value_ != nullptr) ? *peer_value_ : rate_;
+    const double base = (peer_value_ != nullptr) ? *peer_value_ : rate_;
+    dq[0] = base + self_rate_ * (*own_state_);
   }
 
   void resolve_peers(const astra::SignalRegistry& registry) override {
@@ -80,8 +92,10 @@ class StateOwner final : public astra::Model {
   std::string config_path_;
   double initial_value_ = 0.0;
   double rate_ = 0.0;
+  double self_rate_ = 0.0;
   std::string resolve_peer_name_;
   const double* peer_value_ = nullptr;
+  const double* own_state_ = nullptr;
 };
 
 std::unique_ptr<astra::Model> create() { return std::make_unique<StateOwner>(); }

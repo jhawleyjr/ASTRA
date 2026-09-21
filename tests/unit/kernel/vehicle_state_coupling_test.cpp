@@ -7,6 +7,7 @@
 // all reuse (this repo's frugal-plugin-count style, matching counting_aero/nan_wrench).
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <string>
 
 #include "astra/config/config.hpp"
@@ -61,6 +62,29 @@ TEST(VehicleStateCoupling, StateOwnerAndPeerReadTheIdenticalSubStageValueAtEvery
   constexpr double kRate = 2.0;
   const double expected = kRate * kDt * kDt / 2.0;
   EXPECT_NEAR(*reader_value, expected, 1e-15);
+}
+
+// Codex general review (M3 PR 4a): the tests above exercise a peer's SignalRegistry-resolved read
+// and a plain constant rate, but never bind_state() itself -- they would still pass if Vehicle
+// stopped calling bind_state() or bound the wrong buffer. self_rate closes that gap: an isolated
+// instance's own derivative depends on its own bind_state()-bound current value (dq/dt = k*q,
+// self-referential exponential growth), so a stale or unbound own-state read diverges from the
+// closed form q(t) = q0*exp(k*t) far beyond RK4's own O(dt^5) truncation error, and an unbound
+// own_state_ (Vehicle never calling bind_state()) dereferences null instead of silently passing.
+TEST(VehicleStateCoupling, OwnStateBindingIsSubStageFreshAndMatchesExponentialGrowth) {
+  const std::string yaml =
+      fixture("    - { plugin: tests/plugins/state_owner, initial_value: 1.0, self_rate: 1.0 }\n");
+  Simulation sim = load(yaml, "own-state-sub-stage-fresh");
+
+  const HaltReason halt = sim.step();
+  ASSERT_FALSE(halt);
+
+  const double* value = sim.registry().find("v0.state_owner.state.0");
+  ASSERT_NE(value, nullptr);
+  constexpr double kDt = 0.001;
+  constexpr double kSelfRate = 1.0;
+  const double expected = std::exp(kSelfRate * kDt);
+  EXPECT_NEAR(*value, expected, 1e-10);
 }
 
 class MutualStateDependence : public ::testing::TestWithParam<bool> {};

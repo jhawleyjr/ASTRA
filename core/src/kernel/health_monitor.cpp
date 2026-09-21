@@ -114,8 +114,16 @@ HaltReason HealthMonitor::check_state(std::span<const double> y, const StateName
   const double drift = std::abs(q_nb.norm() - 1.0);
   max_quaternion_drift_ = std::max(max_quaternion_drift_, drift);
   if (drift > kQuaternionNormTolerance) {
-    return apply(quaternion_action_, quaternion_count_, HealthCheck::kQuaternionNorm, names.q_nb,
-                 ctx, vehicle_index);
+    // Codex general review (M3 PR 4a): a bare `return apply(...)` here returned apply()'s own
+    // falsy result under a configured "warn"/"off" quaternion action too, not only under "halt" --
+    // silently skipping the extra_slices check below whenever drift also exceeded tolerance, even
+    // though a model-owned NaN there should still halt under a "halt" nan_action_. Only an actual
+    // halt from this check should short-circuit past the extra_slices loop.
+    if (const HaltReason halt = apply(quaternion_action_, quaternion_count_,
+                                      HealthCheck::kQuaternionNorm, names.q_nb, ctx, vehicle_index);
+        halt) {
+      return halt;
+    }
   }
 
   // ADR-0021: any state-owning model beyond the rigid body -- generic finiteness only, named per
