@@ -7,15 +7,21 @@
 // known, allocate the combined/stage/pre-step-scratch buffers exactly once (13 for the rigid-body
 // block, plus every state-owning model's own slice); seed the rigid-body block (zeroed by
 // RigidBody6DofDynamics::initial_state(), then overwritten by the caller's own initial state
-// through state()) and publish its 13 named signals; then, for every state-owning Model, call
-// initial_state()/bind_state() and publish its own slice's signals (named
-// "<name_>.<model.name()>.state.<i>", local per-model index -- two same-type instances neither
-// configured to disambiguate their own name() collide here, on purpose: SignalRegistry::add()'s
-// existing duplicate-name check catches it, surfaced as a ConfigError, not a silent overwrite).
-// Phase two -- resolve_peers() for every loaded model, state-owning or not, only after every
-// model's phase one (including publishing) has finished, so two models with mutual state
-// dependence both resolve regardless of vehicle.models order. Ends with an unconditional sync of
-// the stage buffer to the combined buffer, so the invariant already holds before frame 0's step().
+// through state()) and every state-owning Model's own slice (initial_state()) into the combined
+// buffer, then sync the stage buffer to match -- before any model's own bind_state() or
+// resolve_peers() hook runs, since either may dereference its bound pointer immediately rather than
+// only caching it for a later per-frame call (Codex adversarial review, M3 PR 4a); only then
+// publish the rigid-body block's 13 named signals and, for every state-owning Model, bind_state()
+// and publish its own slice's signals (named "<name_>.<model.name()>.state.<i>", local per-model
+// index
+// -- two same-type instances neither configured to disambiguate their own name() collide here, on
+// purpose: SignalRegistry::add()'s existing duplicate-name check catches it, surfaced as a
+// ConfigError, not a silent overwrite). Phase two -- resolve_peers() for every loaded model,
+// state-owning or not, only after every model's phase one (including publishing) has finished, so
+// two models with mutual state dependence both resolve regardless of vehicle.models order. The
+// stage buffer already equals the combined buffer from phase one's own sync onward -- nothing
+// after it writes combined_ (bind_state() hands out a read-only pointer; resolve_peers() only
+// resolves and caches pointers) -- so the invariant already holds before frame 0's step().
 #pragma once
 
 #include <array>
@@ -338,14 +344,24 @@ class Vehicle {
   void load_physics_and_mass(const PluginLoader& loader, const PhysicsSpec* physics,
                              SignalRegistry& registry, std::size_t& running_offset);
 
+  // Seeds the rigid-body block's and every state-owning model's own initial value into combined_,
+  // then syncs stage_ to match -- before any model's own bind_state()/resolve_peers() hook runs
+  // (Codex adversarial review, M3 PR 4a: either hook may dereference its bound pointer immediately,
+  // not only cache it for a later per-frame call, so stage_ must already hold every model's real
+  // initial value, not StateBuffer's default zeroed contents, by the time either first runs). Only
+  // ever called from init(), after combined_/stage_ are emplaced; the one and only sync phase one
+  // performs (see init()'s own comment for why no second sync is needed at the end of phase two).
+  void seed_initial_state();
+
   // The rigid-body block's own 13 named signals (ADR-0021 design decision, "Resolved: the
   // rigid-body signal question"), published unconditionally whenever physics is configured. Only
-  // ever called from init(), after combined_/stage_ are emplaced and rigid_body_ has a value.
+  // ever called from init(), after seed_initial_state() has already run.
   void publish_rigid_body_signals(SignalRegistry& registry);
 
-  // Phase one, part B: seeds, binds, and publishes every state-owning model's own slice (see this
-  // header's own top comment for the full contract, including the deliberate local-index-collision
-  // design). Only ever called from init(), after combined_/stage_ are emplaced.
+  // Phase one, part B: binds and publishes every state-owning model's own slice (see this header's
+  // own top comment for the full contract, including the deliberate local-index-collision design).
+  // Only ever called from init(), after seed_initial_state() has already seeded combined_ and
+  // synced stage_ to match.
   void bind_and_publish_state_owners(SignalRegistry& registry);
 
   std::uint32_t index_;

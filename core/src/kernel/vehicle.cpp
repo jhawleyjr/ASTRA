@@ -137,16 +137,47 @@ void Vehicle::publish_rigid_body_signals(SignalRegistry& registry) {
   // NOLINTEND(readability-magic-numbers)
 }
 
-// ADR-0021 phase one, part B: see this method's own declaration comment (vehicle.hpp). Only ever
-// called from init(), after combined_/stage_ are emplaced -- the guard below is redundant for
-// correctness but keeps clang-tidy's bugprone-unchecked-optional-access satisfied.
-void Vehicle::bind_and_publish_state_owners(SignalRegistry& registry) {
+// ADR-0021: seeds the rigid-body block's and every state-owning model's own initial value into
+// combined_, then syncs stage_ to match -- before any model's own bind_state()/resolve_peers() hook
+// runs. Codex adversarial review (M3 PR 4a): the original ordering called initial_state()
+// interleaved with bind_state() inside the same per-owner loop bind_and_publish_state_owners() now
+// runs, and synced stage_ only once, at the very end of init() -- after both bind_state() and phase
+// two's resolve_peers() had already run against a stage buffer still holding StateBuffer's default
+// (zeroed) contents. A model whose bind_state() or resolve_peers() dereferences its bound pointer
+// immediately (not only caches it for a later per-frame integrate_state()/wrench_b() call) observed
+// zero instead of the real seeded value. Only ever called from init(), after combined_/stage_ are
+// emplaced -- the guard below is redundant for correctness but keeps clang-tidy's
+// bugprone-unchecked-optional-access satisfied.
+void Vehicle::seed_initial_state() {
   if (!combined_.has_value() || !stage_.has_value()) {
+    return;
+  }
+  if (rigid_body_.has_value()) {
+    // Zeroed here; Simulation::from_config/for_testing overwrite this slice through state()'s own
+    // mutable accessor immediately after init() returns (see sync_stage_buffer()'s own comment,
+    // vehicle.hpp, for why that external write needs its own re-sync). Vehicle itself never reads
+    // "initial.state" -- that stays Simulation's own responsibility.
+    rigid_body_->initial_state(combined_->data());
+  }
+  for (const StateOwnerEntry& owner : state_owners_) {
+    owner.model->initial_state(combined_->data() + owner.offset);
+  }
+  stage_->copy_from(*combined_);
+}
+
+// ADR-0021 phase one, part B: see this method's own declaration comment (vehicle.hpp). Only ever
+// called from init(), after seed_initial_state() has already seeded combined_ and synced stage_ to
+// match -- a model's own bind_state() may dereference its bound pointer immediately, not only cache
+// it for a later per-frame call (Codex adversarial review finding), so stage_ must already hold
+// every model's real initial value, not a still-zero placeholder, by the time this runs. The guard
+// below is redundant for correctness but keeps clang-tidy's bugprone-unchecked-optional-access
+// satisfied.
+void Vehicle::bind_and_publish_state_owners(SignalRegistry& registry) {
+  if (!stage_.has_value()) {
     return;
   }
   state_owner_health_slices_.reserve(state_owners_.size());
   for (const StateOwnerEntry& owner : state_owners_) {
-    owner.model->initial_state(combined_->data() + owner.offset);
     owner.model->bind_state(stage_->data() + owner.offset);
     for (std::size_t i = 0; i < owner.count; ++i) {
       const std::string signal_name = name_ + "." + owner.name + ".state." + std::to_string(i);
@@ -190,15 +221,11 @@ void Vehicle::init(const PluginLoader& loader, const std::vector<ModelSpec>& mod
   pre_step_scratch_.emplace(running_offset);
   integrator_.emplace(running_offset, integrator_kind, dt);
 
+  seed_initial_state();
+
   if (rigid_body_.has_value()) {
-    // Zeroed here; Simulation::from_config/for_testing overwrite this slice through state()'s own
-    // mutable accessor immediately after init() returns, exactly as they overwrote the pre-
-    // ADR-0021 state_ member. Vehicle itself never reads "initial.state" -- that stays Simulation's
-    // own responsibility.
-    rigid_body_->initial_state(combined_->data());
     publish_rigid_body_signals(registry);
   }
-
   bind_and_publish_state_owners(registry);
 
   // ADR-0021 phase two: resolve_peers() for every loaded model, state-owning or not, only after
@@ -207,9 +234,10 @@ void Vehicle::init(const PluginLoader& loader, const std::vector<ModelSpec>& mod
   for (LoadedPlugin& loaded : plugins_) {
     loaded.model->resolve_peers(registry);
   }
-
-  // ADR-0021: the stage-buffer invariant already holds before frame 0's own step() ever runs.
-  stage_->copy_from(*combined_);
+  // ADR-0021: the stage-buffer invariant already holds before frame 0's own step() ever runs --
+  // seed_initial_state()'s own sync above is the one and only sync phase one performs; nothing
+  // between it and here writes combined_ (bind_state() hands out a read-only pointer;
+  // resolve_peers() only resolves and caches pointers, per Model::resolve_peers()'s own contract).
 }
 
 // ADR-0017: relative order between inputs_.reset() and each model's own reset() does not matter --

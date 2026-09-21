@@ -28,6 +28,14 @@
 //                      or unbound own-state read would diverge from this closed form far beyond
 //                      RK4's own O(dt^5) truncation error; a Vehicle that stopped calling
 //                      bind_state() at all would dereference a null own_state_ instead.
+//
+// Always-published diagnostic signals ("<name>.own_value_at_bind",
+// "<name>.peer_value_at_resolve", both NaN until captured): Codex adversarial review (M3 PR 4a) --
+// bind_state()/resolve_peers() eagerly dereference and record what they saw AT THAT MOMENT, not
+// only cache the pointer for a later per-frame call, so a test can assert both hooks already see
+// the real seeded initial value, not a still-zero placeholder Vehicle::init() has not yet synced
+// into the stage buffer.
+#include <limits>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -48,7 +56,7 @@ using astra::ConfigError;
 
 class StateOwner final : public astra::Model {
  public:
-  void init(const Config& config, astra::SignalRegistry& /*registry*/) override {
+  void init(const Config& config, astra::SignalRegistry& registry) override {
     origin_ = std::string(config.origin());
     config_path_ = config.path();
     const std::string instance = config.text("instance", "");
@@ -57,6 +65,16 @@ class StateOwner final : public astra::Model {
     rate_ = config.number("rate", 0.0);
     self_rate_ = config.number("self_rate", 0.0);
     resolve_peer_name_ = config.text("resolve_peer_name", "");
+    // Two instances neither configured to disambiguate their own name() collide on these names too
+    // (vehicle.hpp's own top comment: deliberate) -- SignalRegistry::add() throws a plain
+    // astra::Error, not ConfigError, so this plugin translates it itself, the same as Vehicle's own
+    // bind_and_publish_state_owners() does for the "state.<i>" signals published after init().
+    try {
+      registry.add(name_ + ".own_value_at_bind", &own_value_at_bind_, "");
+      registry.add(name_ + ".peer_value_at_resolve", &peer_value_at_resolve_, "");
+    } catch (const astra::Error& e) {
+      throw ConfigError(origin_, config_path_, e.what());
+    }
   }
   void reset() override {}
   void step(const astra::StepContext& /*ctx*/) override {}
@@ -66,7 +84,10 @@ class StateOwner final : public astra::Model {
 
   void initial_state(double* q) const noexcept override { q[0] = initial_value_; }
 
-  void bind_state(const double* own_stage_slice) override { own_state_ = own_stage_slice; }
+  void bind_state(const double* own_stage_slice) override {
+    own_state_ = own_stage_slice;
+    own_value_at_bind_ = *own_stage_slice;
+  }
 
   void integrate_state(double /*t*/, const astra::VehicleState& /*vs*/,
                        const astra::EnvironmentSample& /*env*/,
@@ -84,6 +105,7 @@ class StateOwner final : public astra::Model {
       throw ConfigError(origin_, config_path_ + ".resolve_peer_name",
                         "no signal named '" + resolve_peer_name_ + "'");
     }
+    peer_value_at_resolve_ = *peer_value_;
   }
 
  private:
@@ -96,6 +118,8 @@ class StateOwner final : public astra::Model {
   std::string resolve_peer_name_;
   const double* peer_value_ = nullptr;
   const double* own_state_ = nullptr;
+  double own_value_at_bind_ = std::numeric_limits<double>::quiet_NaN();
+  double peer_value_at_resolve_ = std::numeric_limits<double>::quiet_NaN();
 };
 
 std::unique_ptr<astra::Model> create() { return std::make_unique<StateOwner>(); }
