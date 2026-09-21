@@ -1,0 +1,54 @@
+// R1 (ADR-0021 bit-identity): frozen, pre-change RigidBody arithmetic, captured from
+// the 26ad594 build. Human-owned (tests/golden/**); see
+// rigid_body_6dof_r1_manifest.md for how, when, and under what this was captured.
+// Never hand-edit; re-run capture_r1_golden.sh under a fresh Joe authorization instead.
+#pragma once
+
+#include <array>
+#include <cstdint>
+
+namespace astra::test::r1 {
+
+constexpr std::array<std::array<std::uint64_t, 13>, 5> kRigidBody6DofR1Initial = {
+    {{{0x0ULL, 0x0ULL, 0x0ULL, 0x0ULL, 0x0ULL, 0x0ULL, 0x3ff0000000000000ULL, 0x0ULL, 0x0ULL,
+       0x0ULL, 0x0ULL, 0x0ULL, 0x0ULL}},
+     {{0x4059000000000000ULL, 0x4069000000000000ULL, 0x4072c00000000000ULL, 0x4049000000000000ULL,
+       0x4024000000000000ULL, 0xc014000000000000ULL, 0x3fec2ca7610cde1eULL, 0x3fc68a1f80d71819ULL,
+       0xbfd0e797a0a15212ULL, 0x3fd68a1f80d71819ULL, 0x3fd999999999999aULL, 0xbfc999999999999aULL,
+       0x3fe3333333333333ULL}},
+     {{0x407f400000000000ULL, 0xc069000000000000ULL, 0x408f400000000000ULL, 0x4034000000000000ULL,
+       0x0ULL, 0x4008000000000000ULL, 0x3fe6d1a5853ab3f2ULL, 0xbfa0cd763f61321fULL,
+       0x3fe6607ca4bbbe70ULL, 0x3fa3625db240dac2ULL, 0x3fa999999999999aULL, 0x3f947ae147ae147bULL,
+       0xbf847ae147ae147bULL}},
+     {{0xc049000000000000ULL, 0x4024000000000000ULL, 0x0ULL, 0xc03e000000000000ULL,
+       0x4014000000000000ULL, 0x4000000000000000ULL, 0x4000000000000000ULL, 0x3fe0000000000000ULL,
+       0xbfd3333333333333ULL, 0x3fb999999999999aULL, 0x3ff0000000000000ULL, 0xbfe0000000000000ULL,
+       0x3fc999999999999aULL}},
+     {{0xc0c3880000000000ULL, 0x40b3880000000000ULL, 0xc0a3880000000000ULL, 0xc072c00000000000ULL,
+       0x406f400000000000ULL, 0xc062c00000000000ULL, 0xbfd0f43a45cdedadULL, 0x3fe96e5768b4e483ULL,
+       0xbfe0f43a45cdedadULL, 0x3fc0f43a45cdedadULL, 0xc008000000000000ULL, 0x4004000000000000ULL,
+       0xbff8000000000000ULL}}}};
+constexpr std::array<double, 6> kRigidBody6DofR1Wrench = {1500, -300, 800, 200, -150, 75};
+constexpr std::array<std::array<std::uint64_t, 13>, 5> kRigidBody6DofR1Result = {
+    {{{0x3ea92a736f740fdbULL, 0xbe8421f5fdc98158ULL, 0x3ed63e66e07ada48ULL, 0x3f589375497f3217ULL,
+       0xbf33a925d40e327fULL, 0x3f85b8f075ee1e7fULL, 0x3feffffffffffff2ULL, 0x3e6ad7f29b70d421ULL,
+       0xbe5ad7f296fbeaadULL, 0x3e4421f5fb8f0ca1ULL, 0x3f2a36e2ec7c1b2bULL, 0xbf1a36e2e3c7c333ULL,
+       0x3f03a92a3efe324bULL}},
+     {{0x4059019cc8408f7bULL, 0x40690124c0ee2659ULL, 0x4072c06d6896e34eULL, 0x404901920a347042ULL,
+       0x4023f014e1d449caULL, 0xc014057e8954f5a5ULL, 0x3fec2b48666947d8ULL, 0x3fc68e73aad3a77cULL,
+       0xbfd0e8bed6df6739ULL, 0x3fd68f071d63c27aULL, 0x3fd99ddc17e40310ULL, 0xbfc997a1c8711f2dULL,
+       0x3fe333abcb279843ULL}},
+     {{0x407f400dcb892e11ULL, 0xc068fffc38f9a3b1ULL, 0x408f3fd72def706bULL, 0x4033fddbd4ba4741ULL,
+       0x3f1cdf78cb14e5fcULL, 0x400802daa9efb20aULL, 0x3fe6d199031279a6ULL, 0xbfa0cba0a3673365ULL,
+       0x3fe6608d349aa061ULL, 0x3fa35f8f86d9cdd7ULL, 0x3fa9b3d3d3c33f8cULL, 0x3f946094055fb7d8ULL,
+       0xbf846759a702a3fbULL}},
+     {{0xc04910aa4d76e3fdULL, 0x402406289f643ef3ULL, 0xbf9663cba8d79d75ULL, 0xc03dfbd572ca86f7ULL,
+       0x40141b68904ef329ULL, 0x40005fc33fd71a3aULL, 0x3feeae35a416a66bULL, 0x3fcebf28e37c8d35ULL,
+       0xbfc2712bb730369cULL, 0x3fa89a911e2addf1ULL, 0x3ff0010629de5b6aULL, 0xbfdfff73e4892c9aULL,
+       0x3fc99eecd84970fbULL}},
+     {{0xc0c38831a0c40ccdULL, 0x40b38828324465e2ULL, 0xc0a387fdc084e7dbULL, 0xc072bffab0890481ULL,
+       0x406f3fd1b6ee118eULL, 0xc062c04181d4e62cULL, 0xbfd0d435e25247feULL, 0x3fe9737a2be692bdULL,
+       0xbfe0f3ae0275aa17ULL, 0x3fc1014336171401ULL, 0xc007fbc028eea5b4ULL, 0x400405eee38d8ee4ULL,
+       0xbff7f82a23a82382ULL}}}};
+
+}  // namespace astra::test::r1
