@@ -2,36 +2,34 @@
 
 ## In flight
 **M3 PR 4a** (ADR-0021: `DynamicsModel` interface + `RigidBody6DofDynamics`, `Model`'s five new
-state virtuals, `Vehicle` two-phase init, combined state buffer). Plan approved by Joe, Revision 3:
-`docs/plans/pr4a-dynamics-model.md`.
+state virtuals, `Vehicle` two-phase init, combined state buffer) is **implemented, reviewed, and
+packeted for Joe's decision** — nothing left for Claude to do until Joe responds. Plan:
+`docs/plans/pr4a-dynamics-model.md` (Revision 3). Implementation committed `65bed84`..`e0edd16`,
+working tree clean. R1/R1-Sim golden capture frozen at `ba383ab` (unchanged this round;
+`tests/golden/**` untouched, guard on). Three-capture history for that golden is in the human-review
+packet below.
 
-**R1/R1-Sim golden capture is done and the goldens are frozen**, committed through `ba383ab`.
-`cross_preset_agreement: r1=true, r1sim=true` (all four presets), recorded in
-`tests/golden/dynamics/rigid_body_6dof_r1_manifest.md`. Three capture attempts, all disclosed (full
-history for the human-review packet, condensed here): (1) debug/release 1-ULP disagreement in a
-runtime-computed sample, diagnosed (`-ffp-contract` expression-shape contraction, not FMA — no
-`-march`/`-mfma` in this build) and fixed by hardcoding all five samples as literal bit patterns;
-(2) re-run agreed and committed, but the generated R1-Sim header proved over-braced
-(`-Wmany-braces-around-scalar-init`, fatal under `-Werror`) once actually compiled; fixed; (3) clean
-re-run, both goldens compile under `-Werror`, committed as `ba383ab`. `docs/lessons.md` has the
-verified-cause entry. **Joe removed `.claude/touch-goldens`; the guard is back on — `tests/golden/**`
-untouched from here.**
+Codex review (Tier 3, three fresh-context passes): general + adversarial found R-001 (major,
+health_monitor.cpp quaternion-warn suppressing the state-owner NaN check), R-002 (minor,
+state_owner test plugin never exercised `bind_state()` itself), R-003 (major, vehicle.cpp's
+`bind_state()`/`resolve_peers()` could observe a still-zero stage buffer before the one sync at the
+end of `init()`). All three fixed, all three independently verified by a fresh fix-verification
+adversarial pass (head `35f9387`): "New findings: none." Findings record:
+`docs/reviews/pr4a-dynamics-model-review.md`.
 
 ## Last verified result
-No full gate run yet this session (implementation not started). Carried over: PR #41's own full
-gate `check: OK` on `8b77c24`, superseded by this session's own upcoming full-gate run once
-implementation is complete.
+Full four-preset gate `check: OK` at head `e0edd16` (current), retained at
+`docs/reviews/evidence/8e5ad1a-full-gate.log` — format/docs/hooks/ruff clean, debug/release/
+static-plugins/asan all 384/384, tidy clean, pyright 0 errors, pytest 41/41. Supersedes the
+pre-review-fix baseline at `docs/reviews/evidence/a30dd50-full-gate.log` (380/380, predates R-001..
+R-003's fixes).
 
 ## Next step
-Implement the plan's "Mapping and sequence" table: write the R1/R1-Sim comparison tests first
-(against the not-yet-existing `RigidBody6DofDynamics`/rewritten `Integrator`, so they fail to
-compile until the implementation lands), then `DynamicsModel`, `RigidBody6DofDynamics` (retiring
-`Eom`), `Model`'s five new virtuals, `kCoreApiVersion` 7→8, `wrench_source.hpp`'s purity-contract
-amendment, `VehicleState`'s retype, `StateBuffer`, the rewritten `Integrator`, `Vehicle`'s two-phase
-init/stage buffer/rigid-body signal publish, the `state_owner` test plugin, the coupling/duplicate/
-missing-peer/R2/health-check tests, and `docs/architecture.md`'s status line. Fast checks while
-iterating; full gate to a retained log under `docs/reviews/evidence/` on the candidate; Codex
-general + adversarial review (Tier 3); human-review packet including the three-capture history above.
+**Joe's decision.** Human-review packet: `docs/reviews/pr4a-dynamics-model-human.md` — candidate
+base `origin/main` at `26ad594`, head `e0edd16`, decision record left pending. No PR opened yet
+(branch not pushed). Once Joe decides: open the PR against `main` and record the decision, or
+route back to the named defect category (fix/retest/re-review, plan revision, spec revision, or a
+new/superseding ADR) per workflow.md's routing if changes are required.
 
 ## Tried / failed
 Correction rounds: 0/2. Failed integrations: 0/2.
