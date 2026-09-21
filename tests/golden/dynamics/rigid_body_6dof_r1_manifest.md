@@ -1,19 +1,19 @@
 # R1 / R1-Sim capture manifest (ADR-0021)
 
-Captured 2026-09-21T07:17:52Z by tests/golden/dynamics/capture_r1_golden.sh,
+Captured 2026-09-21T07:22:43Z by tests/golden/dynamics/capture_r1_golden.sh,
 per docs/plans/pr4a-dynamics-model.md's "R1 golden capture" section.
 
 - `baseline_revision`: `26ad594` -- the pre-change revision this
   golden's arithmetic actually is. Verified byte-identical to this capture in
   `core/`, `plugins/`, `cmake/`, the top-level build files, and
   `aircraft/notional_transport/` immediately before the harness commit below.
-- `capture_revision`: `553f23e2f5a9a1b914605f4443976eb03c1281f6` -- the actual commit the harness ran
+- `capture_revision`: `609769a88faa152d784a5e0bd2c5344f49e8b44d` -- the actual commit the harness ran
   from (the harness file itself, and this worktree's own docs bookkeeping ahead of
   it, postdate `baseline_revision`; the captured arithmetic does not).
 - `cross_preset_agreement`:
   - r1: `true`
   - r1sim: `true`
-- Capture harness: `tests/golden/dynamics/capture_r1_golden.cpp`, blob `96e180dd2be097b609718e71205ec97e40e67433`.
+- Capture harness: `tests/golden/dynamics/capture_r1_golden.cpp`, blob `6f26896d9b44dac797a857e5f4d4ee94f880132f`.
 - Frozen fixture: `tests/golden/dynamics/cruise_end_to_end_r1_fixture.yaml`, blob `201b6a2f51f301058eef9f2aa7e47428d36f85b8` (copied verbatim from `aircraft/notional_transport/configs/cruise.yaml` at capture time).
 - Sampled initial-state bit patterns (R1): see `kRigidBody6DofR1Initial` in
   `rigid_body_6dof_r1_golden.hpp` -- the actual values, not a description.
