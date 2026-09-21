@@ -205,9 +205,14 @@ void run_r1sim(const std::string& plugin_dir, const std::string& fixture_yaml) {
   const astra::HaltReason halt = sim.run();
   const StateVector state = sim.vehicles().front().state();
 
-  std::cout << "constexpr std::array<std::uint64_t, 13> kCruiseEndToEndR1Result = {{\n";
+  // print_state_bits already emits its own {{...}} (the fully-braced form a plain, non-nested
+  // std::array<uint64_t, 13> needs); wrapping it in a further brace pair here over-braces it --
+  // -Wmany-braces-around-scalar-init under this repo's -Werror, caught by compiling the golden
+  // header directly before trusting it (unlike run_r1's nested std::array<std::array<...>,5>
+  // case just above, where this same helper's {{...}} is exactly one of five required rows).
+  std::cout << "constexpr std::array<std::uint64_t, 13> kCruiseEndToEndR1Result = \n";
   print_state_bits(std::cout, state, 4);
-  std::cout << "\n}};\n";
+  std::cout << ";\n";
   std::cout << "constexpr std::uint64_t kCruiseEndToEndR1Frames = " << sim.frames() << ";\n";
   std::cout << "constexpr bool kCruiseEndToEndR1Halted = " << (halt ? "true" : "false") << ";\n";
 }
