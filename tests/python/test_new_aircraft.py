@@ -75,6 +75,47 @@ def test_rewrites_the_aero_and_turbofan_math_namespace(tmp_path: Path) -> None:
     assert "aircraft_template_turbofan_math" not in turbofan_text
 
 
+def test_rejects_the_name_template_which_would_collide_with_the_templates_own_namespace(
+    tmp_path: Path,
+) -> None:
+    """Codex fix-verification finding on the namespace-rewrite fix above: the rewrite is a plain
+    string substitution of "aircraft_template_..." -> "aircraft_<name>_...". For name="template"
+    (legal under the [a-z0-9_]+ regex and distinct from the already-rejected "_template"), that
+    substitution is a no-op, silently recreating the exact namespace collision the rewrite exists
+    to prevent. Must be rejected outright, the same as "_template" itself."""
+    root = _make_root(tmp_path)
+    result = _run(root, "template")
+    assert result.returncode != 0
+    assert not (root / "aircraft" / "template").exists()
+
+
+def test_two_generated_aircraft_get_pairwise_distinct_math_namespaces(tmp_path: Path) -> None:
+    """Codex fix-verification finding: proves the rewrite mechanism itself, not just one aircraft's
+    own text, actually produces collision-free namespaces -- two independently generated aircraft,
+    and _template's own un-rewritten token, must all differ from each other."""
+    root = _make_root(tmp_path)
+    for name in ("gliderx", "seaplane"):
+        result = _run(root, name)
+        assert result.returncode == 0, result.stderr
+
+    template_text = (
+        root / "aircraft" / "_template" / "physical" / "aero" / "aero_math.hpp"
+    ).read_text()
+    gliderx_text = (
+        root / "aircraft" / "gliderx" / "physical" / "aero" / "aero_math.hpp"
+    ).read_text()
+    seaplane_text = (
+        root / "aircraft" / "seaplane" / "physical" / "aero" / "aero_math.hpp"
+    ).read_text()
+
+    namespaces = set()
+    for text in (template_text, gliderx_text, seaplane_text):
+        start = text.index("namespace astra::aircraft_")
+        end = text.index(" {", start)
+        namespaces.add(text[start:end])
+    assert len(namespaces) == 3, f"expected three distinct namespaces, got {namespaces}"
+
+
 def test_rejects_a_name_with_disallowed_characters(tmp_path: Path) -> None:
     root = _make_root(tmp_path)
     result = _run(root, "Not-Valid!")

@@ -31,6 +31,17 @@ if [[ "$name" == "_template" ]]; then
   echo "new-aircraft: '_template' is the template itself, not a new aircraft name" >&2
   exit 2
 fi
+# Codex fix-verification finding (this file's own namespace-rewrite fix, above): the rewrite is a
+# plain string substitution of "aircraft_template_..." -> "aircraft_${name}_...". For name=
+# "template" (a legal, distinct-from-"_template" string this regex would otherwise accept), that
+# substitution replaces the token with itself -- a silent no-op that leaves the new aircraft
+# sharing _template's own namespace, recreating the exact One Definition Rule hazard this rewrite
+# exists to prevent. Rejected outright rather than special-cased, since any future addition to the
+# rewrite list would need the same reservation and it is easy to forget.
+if [[ "$name" == "template" ]]; then
+  echo "new-aircraft: 'template' would collide with _template's own math namespace" >&2
+  exit 2
+fi
 
 repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd -- "$repo_root"
