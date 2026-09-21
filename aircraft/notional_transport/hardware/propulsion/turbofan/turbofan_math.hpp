@@ -16,7 +16,7 @@
 #include "astra/interfaces/wrench.hpp"
 #include "astra/util/air_data.hpp"
 
-namespace astra::thrust_lapse {
+namespace astra::aircraft_notional_transport_turbofan_math {
 
 // Assembled by wrench_b() from EnvironmentSample plus this plugin's own bound throttle input.
 struct Inputs {
@@ -61,4 +61,4 @@ struct Coefficients {
   return wrench;
 }
 
-}  // namespace astra::thrust_lapse
+}  // namespace astra::aircraft_notional_transport_turbofan_math

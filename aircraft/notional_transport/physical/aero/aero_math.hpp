@@ -28,7 +28,7 @@
 #include "astra/interfaces/wrench.hpp"
 #include "astra/util/air_data.hpp"
 
-namespace astra::linear_aero {
+namespace astra::aircraft_notional_transport_aero_math {
 
 // Assembled by wrench_b() from (VehicleState, EnvironmentSample) via air_data:: plus this plugin's
 // own bound control inputs. density_kg_m3 is the one raw atmosphere field this model's own math
@@ -155,4 +155,4 @@ struct Coefficients {
   return wrench;
 }
 
-}  // namespace astra::linear_aero
+}  // namespace astra::aircraft_notional_transport_aero_math

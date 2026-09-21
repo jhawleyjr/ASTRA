@@ -17,9 +17,9 @@
 
 namespace {
 
-using astra::linear_aero::Coefficients;
-using astra::linear_aero::compute_wrench;
-using astra::linear_aero::Inputs;
+using astra::aircraft_notional_transport_aero_math::Coefficients;
+using astra::aircraft_notional_transport_aero_math::compute_wrench;
+using astra::aircraft_notional_transport_aero_math::Inputs;
 
 // docs/plans/pr4-notional-aero-turbofan.md's own "Worked numbers": transcribed from
 // docs/refs/aircrafts/737.xml, re-verified against the source this session.

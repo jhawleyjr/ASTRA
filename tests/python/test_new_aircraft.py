@@ -46,6 +46,35 @@ def test_copies_template_and_rewrites_config_paths(tmp_path: Path) -> None:
     assert "aircraft/_template" not in config_text
 
 
+def test_rewrites_the_aero_and_turbofan_math_namespace(tmp_path: Path) -> None:
+    """docs/plans/pr4-notional-aero-turbofan.md (Joe's own review, real finding): aero_math.hpp/
+    turbofan_math.hpp's Inputs/Coefficients/compute_wrench() live in an aircraft-specific C++
+    namespace, not a generic one -- ASTRA_STATIC_PLUGINS links every plugin's object into one
+    binary, so two aircraft sharing one namespace would be a silent One Definition Rule violation
+    the instant a copied aircraft's own math header is edited to differ from _template's. The
+    namespace token must be rewritten on copy, exactly like the YAML plugin paths."""
+    root = _make_root(tmp_path)
+    result = _run(root, "gliderx")
+    assert result.returncode == 0, result.stderr
+
+    dest = root / "aircraft" / "gliderx"
+    aero_math_text = (dest / "physical" / "aero" / "aero_math.hpp").read_text()
+    aero_text = (dest / "physical" / "aero" / "aero.cpp").read_text()
+    turbofan_math_text = (
+        dest / "hardware" / "propulsion" / "turbofan" / "turbofan_math.hpp"
+    ).read_text()
+    turbofan_text = (dest / "hardware" / "propulsion" / "turbofan" / "turbofan.cpp").read_text()
+
+    assert "astra::aircraft_gliderx_aero_math" in aero_math_text
+    assert "astra::aircraft_gliderx_aero_math" in aero_text
+    assert "astra::aircraft_gliderx_turbofan_math" in turbofan_math_text
+    assert "astra::aircraft_gliderx_turbofan_math" in turbofan_text
+    assert "aircraft_template_aero_math" not in aero_math_text
+    assert "aircraft_template_aero_math" not in aero_text
+    assert "aircraft_template_turbofan_math" not in turbofan_math_text
+    assert "aircraft_template_turbofan_math" not in turbofan_text
+
+
 def test_rejects_a_name_with_disallowed_characters(tmp_path: Path) -> None:
     root = _make_root(tmp_path)
     result = _run(root, "Not-Valid!")

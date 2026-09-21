@@ -1,5 +1,6 @@
 # The GoogleTest unit suite: fast, run by every preset and by the Stop hook (.claude/hooks/stop-check.sh).
 add_executable(astra_unit_tests
+  aero/aero_math_namespace_isolation_test.cpp
   atmosphere/isa1976_test.cpp
   config/config_test.cpp
   earth/earth_kinematics_test.cpp

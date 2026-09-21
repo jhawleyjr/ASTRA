@@ -6,6 +6,15 @@
 # rewriting to "aircraft/<name>". Repo root is this script's own parent directory (matches
 # scripts/check-fast.sh's convention), not `git rev-parse`, so this works unmodified from any
 # worktree: it always writes into the checkout that contains it, never the main checkout.
+#
+# docs/plans/pr4-notional-aero-turbofan.md (Codex adversarial-review finding, Joe's own re-review):
+# _math.hpp's own Inputs/Coefficients/compute_wrench() live in an aircraft-specific C++ namespace
+# (astra::aircraft_template_{aero,turbofan}_math), not a generic one -- ASTRA_STATIC_PLUGINS links
+# every plugin's object into one binary, so two aircraft sharing one namespace (the generic-name
+# mistake this fixes) would be a silent One Definition Rule violation the instant a copied
+# aircraft's own math header is edited to differ from _template's. The namespace tokens below are
+# therefore rewritten on copy exactly like the YAML plugin paths above, not left as a manual step a
+# new-aircraft author could forget.
 set -euo pipefail
 
 if [[ $# -ne 1 ]]; then
@@ -44,6 +53,12 @@ trap 'rm -rf -- "$dest"' ERR
 cp -r aircraft/_template/. "$dest/"
 find "$dest/configs" -type f -name '*.yaml' -exec \
   sed -i "s#aircraft/_template#$dest#g" {} +
+# _math.hpp's own aircraft-specific namespace (see this file's own header comment): rewritten in
+# every .hpp/.cpp this aircraft owns, not just the YAML, so a static-plugins build never links two
+# aircraft's math headers under the same namespace.
+find "$dest" -type f \( -name '*.hpp' -o -name '*.cpp' \) -exec \
+  sed -i "s#aircraft_template_aero_math#aircraft_${name}_aero_math#g; \
+          s#aircraft_template_turbofan_math#aircraft_${name}_turbofan_math#g" {} +
 
 trap - ERR
 echo "Created $dest from aircraft/_template. Its physical/mass config is still zeroed/TODO --" \

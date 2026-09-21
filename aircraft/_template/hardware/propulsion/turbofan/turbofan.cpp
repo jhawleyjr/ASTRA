@@ -52,9 +52,10 @@ double checked_positive(const Config& config, std::string_view key) {
 class TemplateTurbofan final : public astra::PropulsionModel {
  public:
   void init(const Config& config, astra::SignalRegistry& /*registry*/) override {
-    // "station" is a plugin-defined label only, not read for geometry -- read here only so it
-    // counts as a consumed config key (an unread key is a ConfigError, §15), never stored.
-    static_cast<void>(config.text("station"));
+    // "station" is a plugin-defined label only, not read for geometry -- stored only so name() can
+    // tell the two configured instances apart (a HealthMonitor halt naming "the offending plugin"
+    // would otherwise say "turbofan" for either engine, useless for diagnosing which one).
+    name_ = "turbofan." + config.text("station");
     coeffs_.r_engine_b =
         Eigen::Vector3d(config.number("x_offset_from_cg_m"), config.number("y_offset_from_cg_m"),
                         config.number("z_offset_from_cg_m"));
@@ -63,7 +64,7 @@ class TemplateTurbofan final : public astra::PropulsionModel {
   }
   void reset() override {}
   void step(const astra::StepContext& /*ctx*/) override {}
-  [[nodiscard]] std::string_view name() const override { return "turbofan"; }
+  [[nodiscard]] std::string_view name() const override { return name_; }
 
   void bind_inputs(astra::InputRegistry& inputs, astra::SignalRegistry& registry) override {
     throttle_ = inputs.add(registry, "controls.throttle", "1");
@@ -72,9 +73,13 @@ class TemplateTurbofan final : public astra::PropulsionModel {
   [[nodiscard]] astra::Wrench wrench_b(
       const astra::VehicleState& /*vs*/,
       const astra::EnvironmentSample& env) const noexcept override {
-    namespace turbofan = astra::thrust_lapse;
+    namespace turbofan = astra::aircraft_template_turbofan_math;
 
     turbofan::Inputs in;
+    // Not range-checked against [0, 1]: the thrust law is linear in throttle with no clamp, so a
+    // value outside that range simply scales thrust beyond or below the reference-condition value.
+    // HealthMonitor::check_input already guarantees finite, but not in-range; a real actuator or
+    // FCS model bounding commanded throttle is out of this notional plugin's own scope.
     in.throttle = *throttle_;
     in.density_kg_m3 = env.atmosphere.density_kg_m3;
 
@@ -85,8 +90,9 @@ class TemplateTurbofan final : public astra::PropulsionModel {
   }
 
  private:
-  astra::thrust_lapse::Coefficients coeffs_;
+  astra::aircraft_template_turbofan_math::Coefficients coeffs_;
   const double* throttle_ = nullptr;
+  std::string name_ = "turbofan";
 };
 
 std::unique_ptr<astra::Model> create() { return std::make_unique<TemplateTurbofan>(); }

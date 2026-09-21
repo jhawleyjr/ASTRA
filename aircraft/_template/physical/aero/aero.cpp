@@ -85,7 +85,7 @@ class TemplateAero final : public astra::AeroModel {
   [[nodiscard]] astra::Wrench wrench_b(
       const astra::VehicleState& vs, const astra::EnvironmentSample& env) const noexcept override {
     namespace air_data = astra::air_data;
-    namespace aero = astra::linear_aero;
+    namespace aero = astra::aircraft_template_aero_math;
 
     const Eigen::Vector3d v_rel_b = air_data::relative_velocity_b(vs, env);
 
@@ -108,7 +108,7 @@ class TemplateAero final : public astra::AeroModel {
   }
 
  private:
-  astra::linear_aero::Coefficients coeffs_;
+  astra::aircraft_template_aero_math::Coefficients coeffs_;
   const double* elevator_ = nullptr;
   const double* aileron_ = nullptr;
   const double* rudder_ = nullptr;

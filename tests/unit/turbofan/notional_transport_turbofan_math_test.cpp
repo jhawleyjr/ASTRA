@@ -13,9 +13,9 @@
 
 namespace {
 
-using astra::thrust_lapse::Coefficients;
-using astra::thrust_lapse::compute_wrench;
-using astra::thrust_lapse::Inputs;
+using astra::aircraft_notional_transport_turbofan_math::Coefficients;
+using astra::aircraft_notional_transport_turbofan_math::compute_wrench;
+using astra::aircraft_notional_transport_turbofan_math::Inputs;
 
 // docs/plans/pr4-notional-aero-turbofan.md's own "Worked numbers": thrust_ref_n derived from
 // Condition N's own drag (aero_math_test.cpp's ConditionNNominalWingsLevel), so throttle=0.5 at
