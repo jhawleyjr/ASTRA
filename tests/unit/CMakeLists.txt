@@ -16,11 +16,13 @@ add_executable(astra_unit_tests
   kernel/simulation_physical_config_test.cpp
   kernel/simulation_test.cpp
   kernel/state_test.cpp
+  kernel/vehicle_environment_test.cpp
   kernel/vehicle_state_test.cpp
   plugin/load_all_test.cpp
   plugin/loader_test.cpp
   signals/input_registry_test.cpp
   signals/signal_registry_test.cpp
+  util/air_data_test.cpp
   util/geodesy_test.cpp
   util/random_test.cpp
   util/units_test.cpp
@@ -29,9 +31,7 @@ add_executable(astra_unit_tests
   wind/table_test.cpp
   wind/wind_determinism_test.cpp
   wind/wind_test.cpp
-  wrench/aero_model_test.cpp
-  wrench/nesc_aero_test.cpp
-  wrench/propulsion_model_test.cpp)
+  wrench/nesc_aero_test.cpp)
 target_link_libraries(astra_unit_tests PRIVATE astra::core GTest::gtest_main)
 target_compile_definitions(astra_unit_tests PRIVATE
   "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""

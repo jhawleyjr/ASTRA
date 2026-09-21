@@ -1,8 +1,8 @@
-// A minimal concrete AeroModel (ADR-0018) for integration tests exercising the real, unconditional
+// A minimal concrete AeroModel (ADR-0020) for integration tests exercising the real, unconditional
 // requires_environment().atmosphere = true path end to end through Simulation, including ADR-0017's
-// write seam actually driving compute()'s output (PLAN.md M3 PR 3's own acceptance line -- not
+// write seam actually driving wrench_b()'s output (PLAN.md M3 PR 3's own acceptance line -- not
 // satisfied by a plugin with no writable input). Registers one writable input,
-// "controls.elevator", the same name/unit tests/plugins/input_consumer already uses. compute()
+// "controls.elevator", the same name/unit tests/plugins/input_consumer already uses. wrench_b()
 // returns a force deliberately simple enough to hand-check in a test: dynamic pressure scaled by
 // the currently-latched elevator value, not a real aerodynamic model.
 #include <memory>
@@ -11,9 +11,11 @@
 #include "astra/config/config.hpp"
 #include "astra/core_api.hpp"
 #include "astra/interfaces/aero_model.hpp"
+#include "astra/kernel/vehicle_state.hpp"
 #include "astra/plugin/descriptor.hpp"
 #include "astra/signals/input_registry.hpp"
 #include "astra/signals/signal_registry.hpp"
+#include "astra/util/air_data.hpp"
 
 namespace {
 
@@ -30,9 +32,15 @@ class AeroStub final : public astra::AeroModel {
     elevator_ = inputs.add(registry, "controls.elevator", "rad");
   }
 
-  [[nodiscard]] astra::Wrench compute(const astra::AeroInputs& inputs) const noexcept override {
+  [[nodiscard]] astra::Wrench wrench_b(
+      const astra::VehicleState& vs, const astra::EnvironmentSample& env) const noexcept override {
+    namespace air_data = astra::air_data;
+    const Eigen::Vector3d v_rel_b = air_data::relative_velocity_b(vs, env);
+    const double true_airspeed_mps = air_data::true_airspeed(v_rel_b);
+    const double dynamic_pressure_pa =
+        air_data::dynamic_pressure(env.atmosphere.density_kg_m3, true_airspeed_mps);
     astra::Wrench wrench;
-    wrench.force_b(0) = inputs.dynamic_pressure_pa * (*elevator_);
+    wrench.force_b(0) = dynamic_pressure_pa * (*elevator_);
     return wrench;
   }
 

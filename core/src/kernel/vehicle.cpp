@@ -1,5 +1,6 @@
 #include "astra/kernel/vehicle.hpp"
 
+#include <cmath>
 #include <utility>
 
 #include "astra/errors.hpp"
@@ -11,10 +12,14 @@ Vehicle::Vehicle(std::uint32_t index, std::string name) : index_(index), name_(s
 
 void Vehicle::init(const PluginLoader& loader, const std::vector<ModelSpec>& models,
                    SignalRegistry& registry, const PhysicsSpec* physics,
-                   EnvironmentAvailability availability) {
+                   EnvironmentAvailability availability, std::string wind_plugin_path) {
   state_names_ = {name_ + ".state.p_n", name_ + ".state.v_b", name_ + ".state.q_nb",
                   name_ + ".state.omega_b"};
   wrench_total_name_ = name_ + ".wrench_total";
+  // ADR-0020: what report_non_finite_environment names on a non-finite wind_n halt, and whether
+  // wind_n is even a real, checkable value this run (vs. still air's own legitimate zero default).
+  wind_configured_ = availability.wind;
+  wind_plugin_path_ = std::move(wind_plugin_path);
 
   plugins_.reserve(models.size() + (physics != nullptr ? 1 : 0));
   wrench_sources_.reserve(models.size());  // upper bound: not every model is a WrenchSource
@@ -70,6 +75,7 @@ void Vehicle::init(const PluginLoader& loader, const std::vector<ModelSpec>& mod
     earth_plugin_path_ = physics->earth_plugin_path;
     gravity_plugin_path_ = physics->gravity_plugin_path;
     atmosphere_ = physics->atmosphere;
+    atmosphere_plugin_path_ = physics->atmosphere_plugin_path;
 
     // PLAN.md M2 PR 3c: the vehicle's applied wrench, evaluated at the frame-start (k1) RK4
     // sub-stage only, published core-side -- see integrate()'s own comment for why this replaced
@@ -124,6 +130,90 @@ HaltReason Vehicle::check_domain(const StateVector& y, const StepContext& ctx,
   return {};
 }
 
+// ADR-0020 (docs/plans/pr3d-adr0020-implementation.md, Q4): factored out of integrate()'s own
+// derivative functor to stay under clang-tidy's readability-function-cognitive-complexity
+// threshold, the same reason check_domain above is its own function. Separates two distinct
+// atmosphere failure classes at the source, before either check needs to disambiguate an
+// already-produced ambiguous value. An altitude out of the model's own declared valid_range() is a
+// legitimate, documented condition (AtmoState's own all-NaN-outside-range contract), never itself a
+// fault -- checked and named here, before atmosphere is ever sampled, so it can never reach
+// report_non_finite_environment below to be misattributed as a genuinely broken model.
+//
+// Returns whether this stage's wrench_sources_ loop should be skipped entirely -- true whenever
+// either check below fires, regardless of the configured action, since neither returned HaltReason
+// can itself answer "was a fault detected" (both are falsy under "no fault" and under a configured
+// "warn" action too) -- a bug this session's own test run found (nan_count over-counted, because a
+// later stage's own real fault was silently dropped once an earlier stage had already set
+// wrench_fault, the same !wrench_fault guard that must gate the REPORTED reason, not the skip
+// decision, incorrectly gated both). wrench_fault itself is updated under the correct, narrower
+// !wrench_fault guard (first-fault-wins). stage_env.atmosphere is sampled fresh here when in range,
+// left untouched (never read) otherwise. Per-frame path: no allocation, no exceptions.
+bool Vehicle::prepare_stage_environment(const VehicleState& vs_stage, EnvironmentSample& stage_env,
+                                        const StepContext& ctx, HealthMonitor& health,
+                                        HaltReason& wrench_fault) noexcept {
+  // Only ever called from integrate()'s own derivative functor, itself only reached after that
+  // function's own eom_.has_value() early return -- this guard is redundant for correctness but
+  // keeps clang-tidy's bugprone-unchecked-optional-access satisfied within this function's own
+  // body, the same reason check_domain's own guard above does (its own comment explains why).
+  if (!eom_.has_value()) {
+    return false;
+  }
+  bool skip_wrench_stage = false;
+  if (atmosphere_ != nullptr) {
+    const double altitude_m = eom_->earth().altitude(vs_stage);
+    if (health.domain_enabled()) {
+      const AltitudeRange range = atmosphere_->valid_range();
+      // NaN-safe form, matching Simulation::from_config's own init-time check (simulation.cpp) --
+      // the "simplified" a<min||a>max form is false for a NaN altitude, which would silently
+      // accept it instead of rejecting it.
+      // NOLINTNEXTLINE(readability-simplify-boolean-expr)
+      if (!(altitude_m >= range.min_m && altitude_m <= range.max_m)) {
+        if (const HaltReason halt =
+                health.report_out_of_domain(atmosphere_plugin_path_, ctx, index_);
+            halt && !wrench_fault) {
+          wrench_fault = halt;
+        }
+        skip_wrench_stage = true;
+      }
+    }
+    if (!skip_wrench_stage) {
+      stage_env.atmosphere = atmosphere_->at(altitude_m);  // fresh per stage
+    }
+  }
+  if (skip_wrench_stage) {
+    return true;
+  }
+
+  // Codex review finding: detection must not be inferred from the source name's own emptiness --
+  // a caller that ever configured wind/atmosphere but left the diagnostic path string empty
+  // (today's callers never do, but nothing here enforced it) would have silently skipped both the
+  // report and the wrench-stage skip, exactly the silent corruption this guard exists to prevent.
+  // non_finite_environment is tracked as its own bool, independent of what name (if any) ends up
+  // in the halt. Wind checked first, matching report_non_finite_environment's own "whichever fails
+  // first is the one named" rule (health_monitor.hpp).
+  bool non_finite_environment = false;
+  std::string_view non_finite_source;
+  if (wind_configured_ && !stage_env.wind_n.allFinite()) {
+    non_finite_environment = true;
+    non_finite_source = wind_plugin_path_;
+  } else if (atmosphere_ != nullptr && !(std::isfinite(stage_env.atmosphere.temperature_k) &&
+                                         std::isfinite(stage_env.atmosphere.pressure_pa) &&
+                                         std::isfinite(stage_env.atmosphere.density_kg_m3) &&
+                                         std::isfinite(stage_env.atmosphere.speed_of_sound_m_s))) {
+    non_finite_environment = true;
+    non_finite_source = atmosphere_plugin_path_;
+  }
+  if (non_finite_environment) {
+    if (const HaltReason halt =
+            health.report_non_finite_environment(non_finite_source, ctx, index_);
+        halt && !wrench_fault) {
+      wrench_fault = halt;
+    }
+    return true;
+  }
+  return false;
+}
+
 HaltReason Vehicle::integrate(const Integrator& integrator, const StepContext& ctx,
                               HealthMonitor& health) noexcept {
   if (!eom_.has_value()) {
@@ -154,31 +244,42 @@ HaltReason Vehicle::integrate(const Integrator& integrator, const StepContext& c
     EnvironmentSample stage_env = environment_;  // copies the frame-latched wind_n verbatim -- wind
                                                  // stays frame-latched (Dryden's begin_frame/RNG
                                                  // draw timing is unaffected by this PR)
-    if (atmosphere_ != nullptr) {
-      stage_env.atmosphere = atmosphere_->at(eom_->earth().altitude(vs_stage));  // fresh per stage
-    }
+
+    const bool skip_wrench_stage =
+        prepare_stage_environment(vs_stage, stage_env, ctx, health, wrench_fault);
+
+    // A stage skipped by either check above never calls a single configured WrenchSource -- total
+    // stays Wrench{}'s own zero default, an explicit, disclosed choice under a non-halting action
+    // (report_non_finite_environment's own header comment documents this), not the last-known-good
+    // value.
     Wrench total;
-    for (const WrenchEntry& entry : wrench_sources_) {
-      const Wrench contribution = entry.model->wrench_b(vs_stage, stage_env);
-      if (const HaltReason halt = health.check_wrench(contribution, entry.plugin_path, ctx, index_);
-          halt && !wrench_fault) {
-        wrench_fault =
-            halt;  // first fault wins; keep evaluating so total/logging stay well-defined
+    if (!skip_wrench_stage) {
+      for (const WrenchEntry& entry : wrench_sources_) {
+        const Wrench contribution = entry.model->wrench_b(vs_stage, stage_env);
+        if (const HaltReason halt =
+                health.check_wrench(contribution, entry.plugin_path, ctx, index_);
+            halt && !wrench_fault) {
+          wrench_fault =
+              halt;  // first fault wins; keep evaluating so total/logging stay well-defined
+        }
+        total.force_b += contribution.force_b;
+        total.moment_b += contribution.moment_b;
       }
-      total.force_b += contribution.force_b;
-      total.moment_b += contribution.moment_b;
-    }
-    // Codex review (pre-existing): individually finite contributions can still sum to a non-finite
-    // total (e.g. two sources each near DBL_MAX), which the per-contribution checks above cannot
-    // catch -- check the accumulated wrench too, before it reaches the EOM. Called uniformly every
-    // stage, deliberately not short-circuited once wrench_fault is set: a short-circuit gated on a
-    // returned HaltReason would only actually skip anything under a halt-configured action
-    // (check_wrench returns falsy under warn regardless of whether a fault was detected), an
-    // action-dependent counting inconsistency worse than evaluating uniformly (PR 3c plan
-    // critique).
-    if (const HaltReason halt = health.check_wrench(total, wrench_total_name_, ctx, index_);
-        halt && !wrench_fault) {
-      wrench_fault = halt;
+      // Codex review (pre-existing): individually finite contributions can still sum to a
+      // non-finite total (e.g. two sources each near DBL_MAX), which the per-contribution checks
+      // above cannot catch -- check the accumulated wrench too, before it reaches the EOM. Called
+      // uniformly every stage the loop above actually runs, deliberately not short-circuited once
+      // wrench_fault is set within this loop: a short-circuit gated on a returned HaltReason would
+      // only actually skip anything under a halt-configured action (check_wrench returns falsy
+      // under warn regardless of whether a fault was detected), an action-dependent counting
+      // inconsistency worse than evaluating uniformly (PR 3c plan critique). This is a materially
+      // different skip than the pre-emptive one above: that one never starts the loop at all, based
+      // on input already known bad before any wrench_b() call; this rule is about not stopping
+      // partway through a loop that did start.
+      if (const HaltReason halt = health.check_wrench(total, wrench_total_name_, ctx, index_);
+          halt && !wrench_fault) {
+        wrench_fault = halt;
+      }
     }
     if (stage == 0) {
       // The vehicle's published applied-wrench signal is the frame-start (k1) total only, never

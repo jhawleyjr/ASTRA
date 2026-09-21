@@ -114,9 +114,10 @@ TEST(NoAlloc, ZeroHeapAllocationsOverOneThousandFramesWithAWriteSeamInputConfigu
                               "configured (ADR-0017)";
 }
 
-// PLAN.md M3 PR 3 (ADR-0018), R9: AeroModel/PropulsionModel's own new wrench_b() -- wind
-// subtraction, the atan2-based angle assembly, and the isfinite guard's own std::isfinite calls
-// and all-NaN Wrench construction -- must not allocate either, with a real write-seam input
+// PLAN.md M3 PR 3d (ADR-0020): aero_stub/propulsion_stub's own wrench_b() overrides -- wind
+// subtraction and the atan2-based angle assembly via air_data.hpp -- and the new per-stage domain
+// pre-check plus HealthMonitor::report_non_finite_environment (replacing ADR-0018's removed
+// per-plugin isfinite guard) must not allocate either, with a real write-seam input
 // (tests/plugins/aero_stub) and a real physical.atmosphere both configured.
 TEST(NoAlloc, ZeroHeapAllocationsOverOneThousandFramesWithAeroAndPropulsionModels) {
   const astra::Config config = astra::Config::from_file(std::string{ASTRA_TEST_CONFIG_DIR} +
@@ -132,8 +133,10 @@ TEST(NoAlloc, ZeroHeapAllocationsOverOneThousandFramesWithAeroAndPropulsionModel
                         "means the allocation count below was measured over fewer than 1000 frames";
   EXPECT_EQ(sim.clock().frame(), 1000U) << "the run must complete, not merely allocate nothing "
                                            "while halting early";
-  EXPECT_EQ(after, before) << "zero allocations over 1000 frames with AeroModel/PropulsionModel's "
-                              "own wrench_b() running (ADR-0018)";
+  EXPECT_EQ(after, before)
+      << "zero allocations over 1000 frames with aero_stub/propulsion_stub's "
+         "own wrench_b() and the new domain pre-check/report_non_finite_environment path "
+         "running (ADR-0020)";
 }
 
 }  // namespace

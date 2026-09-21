@@ -484,16 +484,25 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       warn/halt, Dryden bitwise determinism, ADR-0001/0002 units/frames on the new
       `wrench_total` signals) both clean, verdict approve, zero fix rounds needed. Human-review
       packet: `docs/reviews/pr3c-substage-wrench-human.md`.
-- [ ] Atmosphere-domain-check misattribution window — PR 3c's own disclosed, accepted gap
+- [x] Atmosphere-domain-check misattribution window — PR 3c's own disclosed, accepted gap
       (`docs/plans/pr3c-substage-wrench.md`, `docs/decisions/0016-per-rk4-substage-wrench-
-      evaluation.md`), the same class ADR-0012 already accepted for gravity/Earth, now newly
-      instanced for atmosphere: since PR 3c recomputes `AtmoState` fresh at each RK4 sub-stage's own
-      altitude, a stage whose `y` drifts outside `AtmosphereModel::valid_range()` mid-integration can
+      evaluation.md`), the same class ADR-0012 already accepted for gravity/Earth, newly instanced
+      for atmosphere: since PR 3c recomputes `AtmoState` fresh at each RK4 sub-stage's own altitude,
+      a stage whose `y` drifts outside `AtmosphereModel::valid_range()` mid-integration could
       surface as `kNonFiniteWrench` (naming the consuming `WrenchSource`), one frame sooner than and
       instead of `Simulation::step`'s own post-step `kOutOfDomain` check (which would correctly name
-      the atmosphere plugin). Not fixed, not exercised by any of the ten NESC cases (none crosses an
-      atmosphere boundary mid-run). Needs its own plan-reviewed decision, not a bolt-on, the same
-      posture ADR-0012's own gravity/Earth instance took. Not started.
+      the atmosphere plugin). **Resolved by ADR-0020 (M3 PR 3d, 2026-09-20, Q4 of
+      `docs/plans/pr3d-adr0020-implementation.md`)**, as part of implementing
+      `HealthMonitor::check_environment`, not a standalone fix: `Vehicle::integrate()`'s per-stage
+      derivative functor now checks the stage's own altitude against `AtmosphereModel::
+      valid_range()` (the same NaN-safe form `Simulation::from_config`'s own init-time check uses)
+      *before* sampling atmosphere at all -- out of range reports `kOutOfDomain` naming the
+      atmosphere plugin directly, atmosphere is never sampled that stage, and `check_environment`
+      (the new NaN/Inf check replacing the old per-plugin isfinite guard) therefore only ever
+      observes an already-confirmed-in-range sample, never the ambiguous all-NaN value a legitimate
+      excursion produces. `tests/unit/kernel/simulation_halt_test.cpp`'s
+      `LeavingTheAtmosphereValidRangeMidRunHaltsNamingTheAtmospherePlugin` verified against the real
+      implementation.
 - [ ] `plugins/physical/mass/constant`'s `ixy`/`ixz`/`iyz` config keys have no documented sign
       convention (M3 PR 1 review): the plugin places them directly, unnegated, into the inertia
       tensor's off-diagonal entries, which only matches the standard aerospace convention
@@ -626,19 +635,28 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         fixed-13-state-layout decision. **ADR-0019/0020/0021 accepted, 2026-09-20**
         (`docs/decisions/0019-vehicle-agnostic-purpose.md`, `0020-aero-propulsion-true-interfaces.md`,
         `0021-dynamics-model-owned-state.md`; full critique/revision record:
-        `docs/plans/m3-framework-realignment.md`). Implements ADR-0020 first (blocks PR 4, below):
+        `docs/plans/m3-framework-realignment.md`). Implements ADR-0020 (unblocks PR 4, below):
         `AeroModel`/`PropulsionModel` become minimal marker interfaces (no `compute()`, no
-        `AeroInputs`/`PropulsionInputs`, no `final`); new `core/include/astra/util/air_data.hpp`
-        utilities; new `HealthMonitor::check_environment` core-side finiteness check in
-        `Vehicle::integrate()`'s per-stage functor, closing the no-silent-NaN gap `final`'s removal
-        would otherwise open; rebuilt `aero_stub`/`propulsion_stub` overriding `wrench_b()` directly.
-        `docs/architecture.md` §1/§6/§7/§18 rewritten to match (this PR's own doc pass, ahead of code).
-        Accept: rebuilt stubs pass PR 3's existing integration-test pattern; `nesc_aero`/`nan_wrench`
-        pass unmodified; a new test proves `check_environment` catches a non-finite `wind_n`/
-        `atmosphere` field before any `wrench_b()` call that stage (R-001's own scenario); `air_data.hpp`
-        and both template stubs cite R-001 by name. Binding ADRs: ADR-0019, ADR-0020. Tier 3. Plan
-        critique: done (`docs/plans/m3-framework-realignment.md`, three ADRs, each independently
-        Codex-critiqued and re-verified). Implementation plan: pending, shown to Joe before coding.
+        `AeroInputs`/`PropulsionInputs`, no `final` except one non-final `requires_environment()`
+        override each); new `core/include/astra/util/air_data.hpp` utilities; new
+        `HealthMonitor::report_non_finite_environment` plus a new per-stage domain pre-check in
+        `Vehicle::prepare_stage_environment` (checks the stage's own altitude against
+        `AtmosphereModel::valid_range()` before sampling, closing PLAN.md's own "Atmosphere-domain-check
+        misattribution window" item too, not only ADR-0020's own scope), both skipping that stage's
+        `wrench_sources_` loop entirely on a fault, closing the no-silent-NaN gap `final`'s removal
+        would otherwise open; rebuilt `aero_stub`/`propulsion_stub` overriding `wrench_b()` directly;
+        `kCoreApiVersion` 6 -> 7. `docs/architecture.md` §1/§6/§7/§18 already rewritten to match
+        (ahead of code, same session).
+        **Implemented and validated, 2026-09-20**: full gate green (`check: OK`, all four presets,
+        clang-tidy, pyright, pytest); Codex general review (one P2 finding, fixed: fault detection was
+        conflated with an optional diagnostic name's own emptiness) and adversarial review (one medium
+        finding, fixed: added `tests/unit/kernel/vehicle_environment_test.cpp` with three new counting/
+        flaky test plugins proving the actual zero-`wrench_b()`-call guarantee, a fault first appearing
+        at RK4 stage k2, the isolated R-001 infinite-speed-of-sound case, and a configured non-finite
+        wind); one Codex re-verify pass confirmed both fixes, no new findings. Not yet committed/PR'd.
+        Binding ADRs: ADR-0019, ADR-0020. Tier 3. Plan critique: done
+        (`docs/plans/pr3d-adr0020-implementation.md`, Codex plan critique folded in, approved by Joe
+        including Q1-Q4).
   - [ ] PR 4 — `aircraft/notional_transport/physical/aero` (linear-coefficient aero) and
         `hardware/propulsion/turbofan` (thrust lapse), O2/O3's numbers transcribed from
         `docs/refs/aircrafts/737.xml`'s `<aerodynamics>`/`<propulsion>` blocks (same source as O1's

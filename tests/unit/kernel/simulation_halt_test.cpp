@@ -2,9 +2,10 @@
 // checks/actions/naming rules live in tests/unit/health/health_monitor_test.cpp): a test plugin
 // injecting a NaN wrench at frame 500 halts naming that plugin; q set to norm 1.1 halts naming
 // v0.state.q_nb. Also the Codex review finding on this PR: two finite wrench contributions that
-// overflow to Inf on summation. M2 PR 3 adds the disclosed atmosphere-NaN misattribution
-// regression (Codex adversarial review): the halt names the WRENCH consumer, not the
-// AtmosphereModel that actually produced the NaN.
+// overflow to Inf on summation. M2 PR 3 disclosed an atmosphere-NaN misattribution regression
+// (Codex adversarial review): the halt named the WRENCH consumer, not the AtmosphereModel that
+// actually produced the NaN -- fixed by ADR-0020's HealthMonitor::report_non_finite_environment (M3
+// PR 3d).
 #include <gtest/gtest.h>
 
 #include <cmath>
@@ -144,19 +145,17 @@ initial:
          "an explicit revert rather than by never having called integrator.step() at all";
 }
 
-// Disclosed-gap regression test (Codex adversarial review, M2 PR 3;
-// environment_sample.hpp's own comment on EnvironmentSample::atmosphere): a broken
-// AtmosphereModel that returns NaN squarely INSIDE its own declared valid_range() (so ADR-0012's
-// out-of-domain check, which fires post-step on an out-of-RANGE altitude, never applies) reaches
-// tests/plugins/nesc_aero as env.atmosphere.density_kg_m3 == NaN; nesc_aero's own drag/damping
-// forms multiply that NaN through every term (0 * NaN == NaN in IEEE754, so this happens even with
-// nesc_aero's own all-zero-coefficient default config), and HealthMonitor::check_wrench catches
-// the resulting non-finite wrench. The halt names tests/plugins/nesc_aero -- the WRENCH source --
-// never tests/plugins/nan_atmosphere, the plugin that actually produced the NaN. This is the
-// disclosed misattribution itself, not a bug in this test: it exists so a future fix (the new
-// per-frame domain-validity HealthMonitor capability environment_sample.hpp's own comment names)
-// changes what this test asserts, visibly, rather than the gap staying silently true forever.
-TEST(SimulationHalt, NanAtmosphereInRangeHaltsNamingTheWrenchConsumerNotTheAtmospherePlugin) {
+// Formerly a disclosed-gap regression test (Codex adversarial review, M2 PR 3;
+// environment_sample.hpp's own comment on EnvironmentSample::atmosphere) -- **fixed by ADR-0020**
+// (docs/decisions/0020-aero-propulsion-true-interfaces.md, PLAN.md M3 PR 3d): a broken
+// AtmosphereModel that returns NaN squarely INSIDE its own declared valid_range() (so the
+// per-stage domain pre-check, which fires on an out-of-RANGE altitude, never intercepts it --
+// nan_atmosphere's own enormous valid_range() keeps it "in range" by construction) is now caught
+// by HealthMonitor::report_non_finite_environment before tests/plugins/nesc_aero's wrench_b() is
+// ever called, naming tests/plugins/nan_atmosphere directly -- not the wrench consumer, which used
+// to be misattributed here. This is the actual resolution of the disclosed gap this test used to
+// pin, not merely a relabeling: nesc_aero's own wrench_b() is never called at all this frame.
+TEST(SimulationHalt, NanAtmosphereInRangeHaltsNamingTheAtmospherePlugin) {
   const Config config = Config::from_string(R"(
 sim:
   dt: 0.001
@@ -176,10 +175,19 @@ physical:
   const HaltReason halt = sim.run();
 
   ASSERT_TRUE(halt);
-  EXPECT_EQ(halt.check, HealthCheck::kNonFiniteWrench);
-  EXPECT_EQ(halt.source, "tests/plugins/nesc_aero")
-      << "misattributed by design (disclosed, not fixed): the halt names the wrench consumer, "
-         "not tests/plugins/nan_atmosphere, which is the plugin that actually produced the NaN";
+  EXPECT_EQ(halt.check, HealthCheck::kNonFiniteEnvironment);
+  EXPECT_EQ(halt.source, "tests/plugins/nan_atmosphere")
+      << "fixed by ADR-0020: report_non_finite_environment names the environment source directly, "
+         "never the "
+         "wrench consumer";
+  const double* nan_count = sim.registry().find("health.nan");
+  ASSERT_NE(nan_count, nullptr);
+  EXPECT_EQ(*nan_count, 4.0)
+      << "report_non_finite_environment runs every RK4 sub-stage, uniformly, the same PR 3c "
+         "counting rule "
+         "check_wrench already follows -- four stage-evaluations saw the fault this one frame, "
+         "not a per-frame count of one; nesc_aero's own wrench_b() is never called on any of "
+         "them, so no check_wrench count is added on top";
 }
 
 // The default (halt) proven above; this is the loosened side of §15's "a config can loosen them per
@@ -326,10 +334,18 @@ initial:
   EXPECT_TRUE(sim.vehicles().front().state().allFinite());
 }
 
-// A run leaving physical.atmosphere's valid_range() mid-run halts naming that plugin, checked
-// post-step in Simulation::step against the same range from_config's own init-time check reads
-// (isa1976's [-5000, 86000] m). earth/flat's altitude is -p_n's down component, so a positive,
-// growing down component drives the altitude below the floor.
+// A run leaving physical.atmosphere's valid_range() mid-run halts naming that plugin, against the
+// same range from_config's own init-time check reads (isa1976's [-5000, 86000] m). earth/flat's
+// altitude is -p_n's down component, so a positive, growing down component drives the altitude
+// below the floor. As of ADR-0020 (M3 PR 3d), the excursion is caught by Vehicle::integrate()'s
+// own new per-stage domain pre-check -- against a sub-stage's own trial altitude, before atmosphere
+// is ever sampled that stage -- not only Simulation::step's pre-existing post-step check below it;
+// this test's own kOutOfDomain/atmosphere-plugin-name assertions hold under either call site, since
+// both report through the identical HealthMonitor::report_out_of_domain call. This is also the
+// resolution of PLAN.md's "Atmosphere-domain-check misattribution window" item: the per-stage
+// pre-check now runs strictly before HealthMonitor::report_non_finite_environment could ever
+// observe this same excursion's own all-NaN AtmoState and misattribute it as a genuinely broken
+// model.
 TEST(SimulationHalt, LeavingTheAtmosphereValidRangeMidRunHaltsNamingTheAtmospherePlugin) {
   const Config config = Config::from_string(R"(
 sim:

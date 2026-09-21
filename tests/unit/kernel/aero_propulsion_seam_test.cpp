@@ -92,12 +92,16 @@ TEST(AeroPropulsionSeam, BothSpecializationsContributeToTheCombinedWrench) {
   EXPECT_NE(*force_y, 0.0) << "propulsion_stub's own contribution";
 }
 
-// R8-guard: the unconditional isfinite guard (b) applies on this real, end-to-end path too, not
-// only in aero_model_test.cpp's/propulsion_model_test.cpp's own unit-level tests -- a broken
+// ADR-0020: the unconditional no-silent-NaN guarantee ADR-0018's removed final wrench_b() guard
+// gave is restored core-side, applying on this real, end-to-end path too, not only in
+// tests/unit/util/air_data_test.cpp's/health_monitor_test.cpp's own unit-level tests -- a broken
 // atmosphere sample (tests/plugins/nan_atmosphere, already established by
-// tests/unit/kernel/simulation_halt_test.cpp) halts naming the consuming plugin, never a
-// plausible-looking trajectory.
-TEST(AeroPropulsionSeam, NonFiniteAtmosphereHaltsNamingTheConsumingPluginEndToEnd) {
+// tests/unit/kernel/simulation_halt_test.cpp) now halts naming the atmosphere plugin itself,
+// before any configured WrenchSource's wrench_b() ever runs -- corrected from this test's own
+// prior assertion (misattributed by design, disclosed not fixed, until this PR): the halt used to
+// name aero_stub, the consuming plugin, never tests/plugins/nan_atmosphere, which actually
+// produced the NaN.
+TEST(AeroPropulsionSeam, NonFiniteAtmosphereHaltsNamingTheAtmospherePluginEndToEnd) {
   const Config config =
       Config::from_string(fixture("tests/plugins/nan_atmosphere", 1.0), "seam-nan-atmosphere");
   Simulation sim = load(config);
@@ -105,10 +109,19 @@ TEST(AeroPropulsionSeam, NonFiniteAtmosphereHaltsNamingTheConsumingPluginEndToEn
   const astra::HaltReason halt = sim.step();
 
   ASSERT_TRUE(halt);
-  EXPECT_EQ(halt.check, HealthCheck::kNonFiniteWrench);
-  EXPECT_EQ(halt.source, "tests/plugins/aero_stub")
-      << "aero_stub is listed first in vehicle.models, so its per-contribution check_wrench call "
-         "is the first-fault-wins report (ADR-0016)";
+  EXPECT_EQ(halt.check, HealthCheck::kNonFiniteEnvironment);
+  EXPECT_EQ(halt.source, "tests/plugins/nan_atmosphere")
+      << "report_non_finite_environment names the environment source, never the consuming "
+         "WrenchSource -- "
+         "nan_atmosphere's own enormous valid_range() keeps it \"in range\" by construction, so "
+         "the domain pre-check does not intercept it first (ADR-0020, Q4)";
+  const double* aero_force = sim.registry().find("v0.wrench_total.force_b_x");
+  ASSERT_NE(aero_force, nullptr);
+  EXPECT_EQ(*aero_force, 0.0)
+      << "report_non_finite_environment's own failure skips the wrench_sources_ loop entirely -- "
+         "aero_stub's "
+         "wrench_b() is never called this stage, so the published total stays at Wrench{}'s own "
+         "zero default, not a value aero_stub computed from broken input";
 }
 
 }  // namespace
