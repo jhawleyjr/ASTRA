@@ -40,6 +40,10 @@ readonly R1_GOLDEN="${DYNAMICS_DIR}/rigid_body_6dof_r1_golden.hpp"
 readonly R1SIM_GOLDEN="${DYNAMICS_DIR}/cruise_end_to_end_r1_golden.hpp"
 readonly PRESETS=(debug release asan static-plugins)
 readonly JOBS="$(nproc)"
+# Global, not `local` to main(): the EXIT trap fires at the top-level script scope, after main()
+# returns, by which point a `local` would already be out of scope (the bug an earlier version of
+# this script had -- "workdir: unbound variable" on an otherwise-successful run).
+WORKDIR=""
 
 log() { echo "capture_r1_golden.sh: $*"; }
 die() {
@@ -257,18 +261,17 @@ main() {
   commit_harness
   readonly CAPTURE_REVISION="$(git rev-parse HEAD)"
 
-  local workdir
-  workdir="$(mktemp -d)"
-  trap 'rm -rf "${workdir}"' EXIT
+  WORKDIR="$(mktemp -d)"
+  trap 'rm -rf "${WORKDIR}"' EXIT
 
-  capture_under_all_presets "${workdir}"
-  cross_check "${workdir}"
+  capture_under_all_presets "${WORKDIR}"
+  cross_check "${WORKDIR}"
 
   if [[ "${AGREEMENT[r1]}" != true || "${AGREEMENT[r1sim]}" != true ]]; then
     die "cross-preset disagreement (see above) -- no golden written. Report this to Joe."
   fi
 
-  write_goldens "${workdir}"
+  write_goldens "${WORKDIR}"
   commit_goldens
 
   log "DONE. cross_preset_agreement: r1=${AGREEMENT[r1]} r1sim=${AGREEMENT[r1sim]}."
