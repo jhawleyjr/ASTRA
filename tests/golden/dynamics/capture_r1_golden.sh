@@ -73,10 +73,17 @@ check_no_drift_from_baseline() {
   log "no drift from baseline ${BASELINE_REVISION} in the guarded paths."
 }
 
-# --- Step 3: freeze the cruise.yaml fixture and commit the harness. ---
+# --- Step 3: freeze the cruise.yaml fixture and commit the harness, if there's anything new to
+# commit. Idempotent: a re-run after a harness fix (already committed separately, e.g. the R1
+# cross-preset-reproducibility fix) finds nothing staged here and just proceeds from the current
+# HEAD, rather than failing on "nothing to commit". ---
 commit_harness() {
   cp "${FIXTURE_SRC}" "${FIXTURE_DST}"
   git add "${CAPTURE_STEP_OWN_PATHS[@]}" "${FIXTURE_DST}"
+  if git diff --cached --quiet; then
+    log "harness/fixture already committed at $(git rev-parse HEAD); nothing new to commit."
+    return
+  fi
   git commit -m "M3 PR 4a: R1/R1-Sim golden capture harness and frozen cruise.yaml fixture
 
 Adds tests/golden/dynamics/capture_r1_golden.{cpp,sh} (the R1/R1-Sim capture harness and its
