@@ -296,23 +296,23 @@ public:
 }  // namespace astra
 ```
 
-**Status:** real and built as `WrenchSource`-derived, `Inputs`-struct/`final`-`compute()` classes
-(ADR-0018, PLAN.md M3 PR 3); **superseded by ADR-0020** (2026-09-20,
-`docs/decisions/0020-aero-propulsion-true-interfaces.md`) to the marker-interface shape above — not
-yet implemented (PLAN.md M3 PR 3d). `AeroModel`/`PropulsionModel` derive from `WrenchSource`, not
-`Model` directly (unchanged from ADR-0018). No override of `wrench_b()`, no `compute()`, no
+**Status:** real and built as the marker-interface shape above (ADR-0020, PLAN.md M3 PR 3d,
+`docs/decisions/0020-aero-propulsion-true-interfaces.md` — superseding ADR-0018's earlier
+`Inputs`-struct/`final`-`compute()` design, PLAN.md M3 PR 3). `AeroModel`/`PropulsionModel` derive
+from `WrenchSource`, not `Model` directly. No override of `wrench_b()`, no `compute()`, no
 `AeroInputs`/`PropulsionInputs` struct in core — a concrete plugin overrides `wrench_b()` directly,
 the pattern `tests/plugins/nesc_aero`/`nan_wrench` already use. `requires_environment()` keeps a
 **non-final** safe default (`{wind: false, atmosphere: true}`): an author who never touches it gets
 today's safe behavior; only an author who actively overrides it takes on that responsibility
 explicitly. **Air-data math is a core utility**, not a mandatory struct: `core/include/astra/util/
-air_data.hpp` (not yet built) offers `relative_velocity_b`, `true_airspeed`, `angle_of_attack`,
-`sideslip`, `dynamic_pressure`, `mach` as free functions a concrete plugin composes; a plugin may
-still define its own plugin-side `Inputs`-shaped struct plus a `compute()`-style split purely as its
-own convention for hand-built-fixture testability (the template demonstrates this pattern; core no
-longer prescribes it). **The no-silent-NaN guarantee ADR-0018's `final` used to provide is restored
-core-side, not plugin-side**: `HealthMonitor::check_environment` (ADR-0020's own addition, not yet
-built) checks `Vehicle::integrate()`'s per-stage `EnvironmentSample` for NaN/Inf before any
+air_data.hpp` offers `relative_velocity_b`, `true_airspeed`, `angle_of_attack`, `sideslip`,
+`dynamic_pressure`, `mach` as free functions a concrete plugin composes; a plugin may still define
+its own plugin-side `Inputs`-shaped struct plus a `compute()`-style split purely as its own
+convention for hand-built-fixture testability — `aircraft/notional_transport/physical/aero/
+aero_math.hpp` and `aircraft/_template`'s own copy (PLAN.md M3 PR 4) are the concrete demonstration
+of this pattern; core no longer prescribes it. **The no-silent-NaN guarantee ADR-0018's `final` used
+to provide is restored core-side, not plugin-side**: `HealthMonitor::check_environment` (ADR-0020's
+own addition) checks `Vehicle::integrate()`'s per-stage `EnvironmentSample` for NaN/Inf before any
 `wrench_b()` call that stage runs, naming the wind/atmosphere plugin on a halt — closing
 `EnvironmentSample`'s own previously-disclosed gap directly. The control-input write seam itself —
 `InputRegistry`, `WrenchSource::bind_inputs()` — is settled and built (ADR-0017, PLAN.md M3 PR 2);
@@ -327,7 +327,7 @@ itself (see below).
 
 **Control inputs in v1.** A `WrenchSource` (`AeroModel`/`PropulsionModel`) declares each control it reads as a named, writable input through a new `bind_inputs(InputRegistry&, SignalRegistry&)` hook (ADR-0017), called once per `WrenchSource` at init, inside the vehicle's own signal namespace — `elevator_ = inputs.add(registry, "controls.elevator", "rad")` returns a `const double*` into `InputRegistry`'s own registry-owned storage, also published read-only as `v0.controls.elevator`. A config literal (`vehicle.initial_controls`, this milestone), Python's `sim.write_input()` (PR 5), and M4's transport/`ActuatorModel` all write through the same `write()`/`InputRegistry::latch()` seam — `latch()` runs once per vehicle per major frame (§5), after that vehicle's own `step()` and before the integrator, giving zero-order hold across a frame's four RK4 sub-stages with no one-frame lag for a `step()`-time writer. Two instances of one plugin (e.g. a turbofan's left/right engines) share one value under one name by default. Surface positions and throttle come straight from the ICD command frame with an ideal actuator (commanded = achieved) until M4; `ActuatorModel` slots in between later without changing `wrench_b()`'s own `(VehicleState, EnvironmentSample)` signature — ADR-0017 discloses, not solves, whether a non-`WrenchSource` `ActuatorModel` can reach this seam directly.
 
-**Reference plugins shipped under `plugins/`:** `physical/`: ISA-1976 atmosphere; constant-uniform wind and Dryden turbulence (MIL-F-8785C, seeded); gravity: constant, inverse-square, WGS-84 with J2; Earth: flat, round-nonrotating, WGS-84 rotating. `sim/`: loopback and shm transports (PLAN.md M4 scope, not yet built). **PLAN.md M3 scope, not yet built, under `aircraft/notional_transport/`:** constant mass properties, linear-coefficient aero with stability and control derivatives (parameters adapted from JSBSim's "737" example aircraft, Dave Culp/Aeromatic — still a notional/example airframe, not a validated real 737), and a simple thrust-lapse turbofan implementing `AeroModel`/`PropulsionModel` above. `aircraft/_template/` (also not yet built) holds stripped-down versions of the same three with the numbers zeroed and marked `TODO`, so a new aircraft starts from something that compiles and trims. Integrators (Euler for tests, RK4 default) live in the core, not as plugins — they are part of the kernel's contract with the state vector. The framework builds its own reference models through exactly the same `astra_add_plugin` path a user's models take, so the on-ramp is exercised by every build.
+**Reference plugins shipped under `plugins/`:** `physical/`: ISA-1976 atmosphere; constant-uniform wind and Dryden turbulence (MIL-F-8785C, seeded); gravity: constant, inverse-square, WGS-84 with J2; Earth: flat, round-nonrotating, WGS-84 rotating. `sim/`: loopback and shm transports (PLAN.md M4 scope, not yet built). **PLAN.md M3, built under `aircraft/notional_transport/`:** constant mass properties (PR 1), linear-coefficient aero with stability and control derivatives (PR 4; parameters transcribed/derived from JSBSim's "737" example aircraft, Dave Culp/Aeromatic — still a notional/example airframe, not a validated real 737), and a simple density-ratio thrust-lapse turbofan (PR 4) implementing `AeroModel`/`PropulsionModel` above. `aircraft/_template/` holds stripped-down versions of the same three with the numbers zeroed and marked `TODO`, so a new aircraft starts from something that compiles and trims once its own numbers are filled in. Integrators (Euler for tests, RK4 default) live in the core, not as plugins — they are part of the kernel's contract with the state vector. The framework builds its own reference models through exactly the same `astra_add_plugin` path a user's models take, so the on-ramp is exercised by every build.
 
 ## 8. Integration
 
@@ -415,7 +415,7 @@ Fixed-width types, 8-byte natural alignment, sizes asserted, version in every fr
 
 One `Config` tree, loaded from YAML (`yaml-cpp`, apt) or built from a Python dict, validated at init, frozen for the run, and copied into the log. Every selectable component is named by its plugin path, so a run's composition — which Earth, which engine, which IMU — is entirely a configuration choice over the plugins the build produced.
 
-The example below is condensed from `aircraft/notional_transport/configs/cruise.yaml` (PLAN.md M3 PR 1) — its explanatory comments trimmed for length, but every key and value identical to the shipped file: every key shown is one `Simulation::from_config` actually reads today — an unconsumed key is a `ConfigError` (§15). Vehicle wrench sources (aero, propulsion — any `WrenchSource`) all register into the one flat `vehicle.models` list; there is no separate typed `physical.aero`/`hardware.propulsion` slot. The aero and turbofan entries are commented out because those plugins don't exist yet (PLAN.md M3 PR 3/PR 4); `physical.mass` is real as of PR 1.
+The example below is condensed from `aircraft/notional_transport/configs/cruise.yaml` (PLAN.md M3 PR 1/PR 4) — its explanatory comments trimmed for length, but every key and value identical to the shipped file: every key shown is one `Simulation::from_config` actually reads today — an unconsumed key is a `ConfigError` (§15). Vehicle wrench sources (aero, propulsion — any `WrenchSource`) all register into the one flat `vehicle.models` list; there is no separate typed `physical.aero`/`hardware.propulsion` slot.
 
 ```yaml
 # aircraft/notional_transport: an example airframe, not a validated real Boeing 737. mass/aero/
@@ -429,10 +429,58 @@ sim:
   dt: 0.001
   frames: 1000
 vehicle:
-  models: []
-  # - plugin: aircraft/notional_transport/physical/aero          # PR 4, needs AeroModel (PR 3)
-  # - plugin: aircraft/notional_transport/hardware/propulsion/turbofan, station: left   # PR 4
-  # - plugin: aircraft/notional_transport/hardware/propulsion/turbofan, station: right  # PR 4
+  models:
+    # Linear-coefficient aero (PLAN.md M3 PR 4, ADR-0020) -- every coefficient transcribed from
+    # 737.xml's own <aerodynamics> block; cl_alpha_per_rad/croll_aileron_per_rad/cm_elevator_per_rad
+    # are secant-slope/cruise-Mach-evaluated constants, not the source's raw tables (see the plan).
+    - plugin: aircraft/notional_transport/physical/aero
+      wing_area_m2: 108.78945984       # m^2; 1171 FT2 x 0.09290304
+      wingspan_m: 28.864560          # m; 94.70 FT x 0.3048
+      mean_chord_m: 3.752088         # m; 12.31 FT x 0.3048
+      r_aero_b_x_m: 0.3556           # AERORP relative to CG, body axes (see the plan's own
+      r_aero_b_y_m: 0.0              # "Frame-conversion math")
+      r_aero_b_z_m: -1.6256
+      cl_0: 0.20
+      cl_alpha_per_rad: 4.3478260869565215
+      cl_elevator_per_rad: 0.2
+      cd_0: 0.021
+      cd_k: 0.043
+      cy_beta_per_rad: -1.0          # JSBSim's own +right SIDE convention, used directly (NOT
+                                      # S&L's -C; see the plan's "Force/moment assembly")
+      croll_beta_per_rad: -0.09
+      croll_p_per_rad: -0.4
+      croll_r_per_rad: 0.09
+      croll_aileron_per_rad: 0.0743
+      croll_rudder_per_rad: 0.01
+      cm_alpha_per_rad: -0.6
+      cm_q_per_rad: -27.0
+      cm_elevator_per_rad: -0.8544
+      cn_beta_per_rad: 0.26
+      cn_r_per_rad: -0.35
+      cn_rudder_per_rad: -0.20
+    # Linear thrust-lapse turbofan (PLAN.md M3 PR 4): thrust_ref_n derived from this same config's
+    # own cruise drag/thrust equilibrium (no real CFM56 spec exists in docs/refs/), sized so
+    # throttle=0.5 balances cruise drag exactly (see the plan's "Worked numbers").
+    - plugin: aircraft/notional_transport/hardware/propulsion/turbofan
+      station: left
+      x_offset_from_cg_m: 2.5146     # engine relative to CG, body axes
+      y_offset_from_cg_m: -4.9022
+      z_offset_from_cg_m: 0.0
+      thrust_ref_n: 29878.121867743088
+      density_ref_kgm3: 0.4128
+    - plugin: aircraft/notional_transport/hardware/propulsion/turbofan
+      station: right
+      x_offset_from_cg_m: 2.5146
+      y_offset_from_cg_m: 4.9022
+      z_offset_from_cg_m: 0.0
+      thrust_ref_n: 29878.121867743088
+      density_ref_kgm3: 0.4128
+  initial_controls:
+    controls:
+      elevator: 0.0
+      aileron: 0.0
+      rudder: 0.0
+      throttle: 0.5                 # matches thrust_ref_n's own half-throttle design point
 physical:
   earth: plugins/physical/earth/wgs84_rotating
   gravity: plugins/physical/gravity/wgs84_j2
@@ -454,7 +502,7 @@ initial:
     omega_b: [0.0, 0.0, 0.0]
 ```
 
-`vehicle.initial_controls` (ADR-0017, not shown above since the notional_transport cruise config has no `WrenchSource` with a writable input yet) declares each write-seam input's config-literal value as ordinary nested YAML under the input's own relative dotted name, e.g. `initial_controls: { controls: { elevator: 0.0 } }` for a `WrenchSource` that registered `controls.elevator` — no `v0.` prefix, matching `physical.mass`'s own existing unprefixed-key convention. Validated finite at init (a `ConfigError` naming the input's own key, never a silent default) and applied before frame 0 ever runs.
+`vehicle.initial_controls` (ADR-0017) declares each write-seam input's config-literal value as ordinary nested YAML under the input's own relative dotted name — no `v0.` prefix, matching `physical.mass`'s own existing unprefixed-key convention. Validated finite at init (a `ConfigError` naming the input's own key, never a silent default) and applied before frame 0 ever runs.
 
 An aircraft folder can carry several configs (cruise, cruise with turbulence, a variant with a different engine), and any config can point at a plugin in another aircraft's folder or in `plugins/` — paths are paths.
 

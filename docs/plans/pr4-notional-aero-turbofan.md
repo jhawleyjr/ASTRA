@@ -316,7 +316,7 @@ ambiguity. Each set of outputs was computed once here by an independent re-imple
 formulas above (not the plugin's own code) — the literal numbers the tests assert against.
 
 Geometry and coefficients (transcribed from `docs/refs/aircrafts/737.xml`, re-verified this session
-against the source file directly): `S = 108.789460 m²` (1171 ft² × 0.09290304),
+against the source file directly): `S = 108.78945984 m²` (1171 ft² × 0.09290304),
 `b = 28.864560 m` (94.70 ft × 0.3048), `c̄ = 3.752088 m` (12.31 ft × 0.3048),
 `r_aero_b = (0.3556, 0.0, -1.6256) m`, `r_engine_left_b = (2.5146, -4.9022, 0.0) m`,
 `r_engine_right_b = (2.5146, 4.9022, 0.0) m` (all reused verbatim from "Frame-conversion math").

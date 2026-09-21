@@ -1,14 +1,64 @@
 # Starting point for a new aircraft (docs/architecture.md §18): `just new-aircraft <name>` copies
 # this file to aircraft/<name>/configs/cruise.yaml and rewrites the aircraft/_template plugin paths
 # below to aircraft/<name>. Only keys Simulation::from_config actually reads appear here
-# (docs/architecture.md §13, §15: an unconsumed key is a ConfigError) -- aero/turbofan plugins
-# don't exist yet (PLAN.md M3 PR 3/PR 4), so they're not shown even as comments; add them once
-# built.
+# (docs/architecture.md §13, §15: an unconsumed key is a ConfigError).
 sim:
   dt: 0.001
   frames: 1000
 vehicle:
-  models: []
+  models:
+    # Linear-coefficient aero (docs/plans/pr4-notional-aero-turbofan.md). 0.0 is rejected at init
+    # (wing_area_m2/wingspan_m/mean_chord_m must be positive) -- fill in your own aircraft's
+    # <aerodynamics> data (or equivalent) before this compiles into a real trim.
+    - plugin: aircraft/_template/physical/aero
+      wing_area_m2: 0.0        # TODO: m^2
+      wingspan_m: 0.0          # TODO: m
+      mean_chord_m: 0.0        # TODO: m
+      r_aero_b_x_m: 0.0        # TODO: AERORP relative to CG, body axes, m
+      r_aero_b_y_m: 0.0        # TODO
+      r_aero_b_z_m: 0.0        # TODO
+      cl_0: 0.0                # TODO
+      cl_alpha_per_rad: 0.0    # TODO
+      cl_elevator_per_rad: 0.0 # TODO
+      cd_0: 0.0                # TODO
+      cd_k: 0.0                # TODO
+      cy_beta_per_rad: 0.0     # TODO -- your own source's own SIDE-axis convention: see
+                                # aircraft/notional_transport/configs/cruise.yaml's own comment
+                                # before assuming your source's sign matches S&L's -C bookkeeping.
+      croll_beta_per_rad: 0.0     # TODO
+      croll_p_per_rad: 0.0        # TODO
+      croll_r_per_rad: 0.0        # TODO
+      croll_aileron_per_rad: 0.0  # TODO
+      croll_rudder_per_rad: 0.0   # TODO
+      cm_alpha_per_rad: 0.0       # TODO
+      cm_q_per_rad: 0.0           # TODO
+      cm_elevator_per_rad: 0.0    # TODO
+      cn_beta_per_rad: 0.0        # TODO
+      cn_r_per_rad: 0.0           # TODO
+      cn_rudder_per_rad: 0.0      # TODO
+    # Linear thrust-lapse turbofan (docs/plans/pr4-notional-aero-turbofan.md). 0.0 is rejected at
+    # init (thrust_ref_n/density_ref_kgm3 must be positive).
+    - plugin: aircraft/_template/hardware/propulsion/turbofan
+      station: left
+      x_offset_from_cg_m: 0.0  # TODO: engine relative to CG, body axes, m
+      y_offset_from_cg_m: 0.0  # TODO
+      z_offset_from_cg_m: 0.0  # TODO
+      thrust_ref_n: 0.0        # TODO: N
+      density_ref_kgm3: 0.0    # TODO: kg/m^3
+    - plugin: aircraft/_template/hardware/propulsion/turbofan
+      station: right
+      x_offset_from_cg_m: 0.0  # TODO
+      y_offset_from_cg_m: 0.0  # TODO
+      z_offset_from_cg_m: 0.0  # TODO
+      thrust_ref_n: 0.0        # TODO
+      density_ref_kgm3: 0.0    # TODO
+  # ADR-0017: config-literal value for each write-seam input the models above registered.
+  initial_controls:
+    controls:
+      elevator: 0.0  # TODO: rad
+      aileron: 0.0   # TODO: rad
+      rudder: 0.0    # TODO: rad
+      throttle: 0.0  # TODO: 0..1
 physical:
   earth: plugins/physical/earth/flat
   gravity: plugins/physical/gravity/constant

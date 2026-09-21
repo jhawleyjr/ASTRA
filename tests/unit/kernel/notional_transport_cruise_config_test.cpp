@@ -1,8 +1,12 @@
-// aircraft/notional_transport/configs/cruise.yaml (PLAN.md M3 PR 1, docs/architecture.md §13):
+// aircraft/notional_transport/configs/cruise.yaml (PLAN.md M3 PR 1/PR 4, docs/architecture.md §13):
 // the shipped config actually loads through Simulation::from_config and steps -- not just
-// documentation. No aero/propulsion yet (vehicle.models is empty; PR 3/4), so this exercises
-// mass+earth+gravity+atmosphere+wind wiring only; the vehicle free-falls under gravity for the
-// short run below, which is expected and not a physics claim.
+// documentation. As of PR 4, vehicle.models carries the real aero/turbofan plugins plus an
+// initial_controls block (elevator/aileron/rudder=0.0, throttle=0.5 -- thrust_ref_n's own
+// half-throttle design point); this test proves loading, control-write-seam wiring, and 1000 frames
+// with no halt, not a trimmed flight (v_b's own initial 230 m/s wings-level state is not solved for
+// equilibrium -- PR 6 does that). A wrong/missing initial_controls entry would halt frame 0 on
+// HealthMonitor::check_input naming the unwritten control; this test's own green result is
+// therefore also this PR's own R6 acceptance evidence for that seam.
 #include <gtest/gtest.h>
 
 #include <string>
