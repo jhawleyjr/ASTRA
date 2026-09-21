@@ -544,21 +544,24 @@ check value equality instead of address identity, since address identity was nev
 
 **Model-owned continuous states — signature revised by Joe's own instruction, 2026-09-20, before this
 round's Codex re-verification (not itself a reviewer-driven fix; superseding the two bullets below
-that a first Codex critique had already approved in the narrower form).** `Model` gains five new
-virtuals (four as first drafted, plus `resolve_peers()` added by the two-phase-init fix below), each
-defaulted to a zero-state/no-op so every existing subclass keeps compiling and behaving identically
-without any edit:
+that a first Codex critique had already approved in the narrower form).** `Model` gains **five** new
+virtuals — `state_count()`, `initial_state()`, `integrate_state()`, `bind_state()`, `resolve_peers()`
+— each defaulted to a zero-state/no-op so every existing subclass keeps compiling and behaving
+identically without any edit:
 
 ```cpp
 [[nodiscard]] virtual int state_count() const noexcept { return 0; }
 virtual void initial_state(double* q) const noexcept {}
 virtual void integrate_state(double t, const VehicleState& vs, const EnvironmentSample& env,
                               double* dq) const noexcept {}
-// Phase one (Vehicle::init()): hands a state-owning model its own combined-state-buffer slice (to
-// seed via initial_state()) and its own stage-buffer slice (to read sub-stage-exact thereafter).
-// A model with state_count() == 0 never has this called. Init-time only: may throw (it typically
-// calls SignalRegistry::add(), which itself throws on a duplicate name -- see the fix below).
-virtual void bind_state(double* own_combined_slice, const double* own_stage_slice) {}
+// Phase one (Vehicle::init()): `Vehicle` itself calls initial_state() directly against a model's
+// own combined-state-buffer slice to seed it -- a model never holds that mutable pointer. This
+// hook hands the model only its own READ-ONLY stage-buffer slice, to read sub-stage-exact
+// thereafter from wrench_b()/integrate_state(); no model ever holds a mutable pointer into the
+// state buffer. A model with state_count() == 0 never has this called. Init-time only: may throw
+// (it typically calls SignalRegistry::add(), which itself throws on a duplicate name -- see the
+// fix below).
+virtual void bind_state(const double* own_stage_slice) {}
 // Phase two (Vehicle::init(), after every model's phase one has run): resolves reads of a peer
 // model's published state signal(s) via registry.find(...), caching the result as a member.
 // Init-time only: may throw -- a model requiring a peer signal that find() returns nullptr for
@@ -600,9 +603,17 @@ immediately afterward, so it never stays parked at a trial value outside a deriv
 state-owning model resolves, once at init, a `const double*` into its own slice of the **stage**
 buffer (offset computed once at init and stored as a plain `int`, matching
 `SignalRegistry`/`InputRegistry`'s own "resolve once, never look up again" discipline) via a new
-`bind_state(const double* own_slice)` hook (mirroring `WrenchSource::bind_inputs()`'s own init-time
-shape, `wrench_source.hpp:71-80`, but run in a later init phase — see the two-phase init below).
-Because the stage buffer's *address* never moves after init but its *contents* are refreshed every
+`bind_state(const double* own_stage_slice)` hook (mirroring `WrenchSource::bind_inputs()`'s own
+init-time shape, `wrench_source.hpp:71-80`, but run in a later init phase — see the two-phase init
+below). **Read-only by construction, per Joe's own instruction: `bind_state()` takes only this
+`const double*` into the stage buffer — never a mutable pointer into the combined state buffer.**
+`Vehicle` itself calls the model's existing `initial_state(double* q)` virtual directly, against
+that model's own combined-buffer slice, to seed it during phase one; a model is never handed that
+mutable address to hold onto, so nothing a model does inside `wrench_b()`/`integrate_state()` can
+reach the combined state buffer at all, only the read-only stage buffer — the one write path into
+the combined buffer stays exactly where it already was (`initial_state()` at init, and the RK4
+weighted combination `Vehicle`/`Integrator` perform from each model's own `dq` contribution). Because
+the stage buffer's *address* never moves after init but its *contents* are refreshed every
 sub-stage, a model can dereference that pointer from inside **either** `integrate_state()` **or**
 `wrench_b()` — at any point during that stage's evaluation, not only when it happens to be the
 callee — and read its own current, sub-stage-exact value. This is the specific mechanism that answers
@@ -642,15 +653,19 @@ could also do the binding:
   completes for every model, which is why binding cannot happen inside it — `Vehicle` allocates the
   combined state buffer and the stage buffer (size `13 + sum(model states)`, computed once, now that
   the sum is actually known) and, for each state-owning model in the same order, reopens that model's
-  own `PrefixScope` and calls its new `bind_state(double* own_combined_slice, const double*
-  own_stage_slice)` hook, which both lets the model seed its own initial value into the combined
-  buffer (via the existing `initial_state(double* q)` virtual, called through this same slice) and
-  registers each of its own stage-buffer elements with `SignalRegistry::add()` — publishing, per the
-  paragraph above, before phase two runs for *any* model. `bind_state()` is init-time-only and may
-  throw, unlike the per-frame hooks above: `SignalRegistry::add()` itself already throws on a
-  duplicate name (`signal_registry.hpp:26-32`), and a `noexcept` `bind_state()` calling it would
-  `std::terminate()` the whole process on a configuration mistake (two state-owning models
-  publishing the same name) instead of reporting a recoverable init error — closed by dropping
+  own `PrefixScope`, calls `model->initial_state(double* q)` (the existing virtual, unchanged
+  signature) **directly against that model's own combined-buffer slice** to seed it — the model is
+  never handed that mutable pointer to hold onto, only used for this one call — then calls the new
+  `bind_state(const double* own_stage_slice)` hook, handing the model its own **read-only** stage-
+  buffer slice for later use inside `wrench_b()`/`integrate_state()`, and registers each of its own
+  stage-buffer elements with `SignalRegistry::add()` — publishing, per the paragraph above, before
+  phase two runs for *any* model. **No model ever holds a mutable pointer into the state buffer**,
+  per Joe's own instruction: the combined buffer's one write path stays exactly where it already was
+  (`initial_state()`, called by `Vehicle` itself, and the RK4 weighted combination). `bind_state()`
+  is init-time-only and may throw, unlike the per-frame hooks above: `SignalRegistry::add()` itself
+  already throws on a duplicate name (`signal_registry.hpp:26-32`), and a `noexcept` `bind_state()`
+  calling it would `std::terminate()` the whole process on a configuration mistake (two state-owning
+  models publishing the same name) instead of reporting a recoverable init error — closed by dropping
   `noexcept` from this hook's own signature, matching `bind_inputs()`'s existing "init-time only: may
   throw" contract exactly (`wrench_source.hpp:71-80`).
 - **Phase two — resolve peers.** A new `Model`-level virtual, `virtual void resolve_peers(const
@@ -904,9 +919,10 @@ state to Python and would otherwise hardcode the 13-layout a second time.
 
 ## Consequences and validation
 
-Costs: `kCoreApiVersion` bump (`Model`'s vtable gains four new virtuals now, not three — `resolve_peers()`
-joins `state_count()`/`initial_state()`/`integrate_state()`, all defaulted; every plugin recompiles
-per existing policy); real changes to `state.hpp`, `vehicle_state.hpp` (a genuine constructor/
+Costs: `kCoreApiVersion` bump (`Model`'s vtable gains **five** new virtuals — `state_count()`,
+`initial_state()`, `integrate_state()`, `bind_state()`, `resolve_peers()` — all defaulted; every
+plugin recompiles per existing policy); real changes to `state.hpp`, `vehicle_state.hpp` (a genuine
+constructor/
 return-type retype, not just prose, per the correction above), `eom.hpp/.cpp`, `vehicle.hpp/.cpp`
 (the two-phase init split, the stage buffer and its per-stage-plus-post-step sync, the new
 `bind_state()`/`resolve_peers()` hooks), `simulation.hpp/.cpp`, `health_monitor.hpp/.cpp`,
@@ -1114,6 +1130,14 @@ planning round: both are narrow, mechanical corrections (a `noexcept` removal ma
 already-established sibling contract, and a manifest requirement alongside an already-accepted
 mechanism) rather than new technical claims that could themselves hide a further gap.
 
+**Joe's decision, 2026-09-20: Accepted, with one final change — `bind_state()` takes only `const
+double* own_stage_slice`.** `Vehicle` itself calls a state-owning model's existing `initial_state()`
+directly against that model's own combined-state-buffer slice, at init, to seed it; no model is ever
+handed a mutable pointer into the state buffer at all. Folded into the Decision section above (the
+`Model` virtuals code block, "A model's own state slice," and "Two-phase init"); the "five new
+virtuals" count corrected throughout, including the Costs section (previously misstated as "four,
+not three"). This ADR moves to `docs/decisions/` as accepted.
+
 ---
 
 ## Mapping and sequence (implementation, once any ADR above is accepted)
@@ -1122,7 +1146,7 @@ mechanism) rather than new technical claims that could themselves hide a further
 |---|---|---|---|
 | ADR-0020 implemented | `aero_model.hpp`/`propulsion_model.hpp` become marker classes; new `util/air_data.hpp`; rebuilt `aero_stub`/`propulsion_stub` | ADR-0020 accepted | existing PR 3 seam-test pattern, rebuilt |
 | PR 4 rebuilt | `docs/plans/pr4-notional-aero-turbofan.md` reworked against direct `wrench_b()` override; `thrust_ref_n` margin fixed; `Cmadot` still dropped — no `alpha_dot` source exists until ADR-0021's model-owned state lands | ADR-0020 implemented | new plan, own acceptance table |
-| ADR-0021 implemented | `dynamics_model.hpp`, `RigidBody6DofDynamics`, `Model`'s three defaulted virtuals, `Vehicle`'s new stage buffer/`bind_state()`, `Vehicle`/`Integrator`/`Simulation`/`HealthMonitor` updated — makes `Cmadot` representable (a lagged-alpha model-owned state), not itself PR 4's own scope | ADR-0021 accepted; independent of PR 4 | R1-R4 above, existing goldens unmodified |
+| ADR-0021 implemented | `dynamics_model.hpp`, `RigidBody6DofDynamics`, `Model`'s five defaulted virtuals, `Vehicle`'s new stage buffer/`bind_state()`/`resolve_peers()`, `Vehicle`/`Integrator`/`Simulation`/`HealthMonitor` updated — makes `Cmadot` representable (a lagged-alpha model-owned state), not itself PR 4's own scope | ADR-0021 accepted; independent of PR 4 | R1-R4 above, existing goldens unmodified |
 | PR 5 (nanobind) | Specified against length-N state from the start | ADR-0021 implemented | PLAN.md's own PR 5 line, revised |
 
 One Claude builder per ADR's implementation by default; no split proposed here (this document is
@@ -1167,18 +1191,16 @@ away — nothing was accepted on the strength of a clean-sounding one-line verdi
 
 ## Questions and decision
 
-**Joe's decisions, 2026-09-20: ADR-0019 accepted as drafted. ADR-0020 accepted with the addition
-recorded in its own "Approval" section (core-side `check_environment` finiteness check). ADR-0021 —
-revised twice per Joe's own instructions, most recently with the second re-verification round's two
-findings fixed; awaiting Joe's decision.** Accepting one ADR does not require accepting the others,
-though ADR-0020's implementation is sequenced before ADR-0021's per the intent document's own
-recommendation, adopted above. **No code has been written this session**; PR 4 implementation stays
-stopped. ADR-0019 and ADR-0020 are already fully decided and do not need to wait on ADR-0021: ready
-for Joe to arm `ASTRA_TOUCH_GOLDENS`/`.claude/touch-goldens` (`docs/process/workflow.md`'s existing
-guard, since `docs/decisions/**` is oracle-protected the same as `tests/golden/**`,
-`docs/process/workflow.md:111-112`) so they can move into `docs/decisions/00NN-*.md` now (numbers
-0019-0021 provisional, confirmed at acceptance time against whatever the next free ADR numbers are
-then), independent of ADR-0021's own outcome. Once Joe decides ADR-0021: it moves the same way if
-accepted, `docs/architecture.md` §1/§7 get their own implementation-time rewrite pass, ADR-0020 is
-implemented, and PR 4 is rebuilt from `docs/plans/pr4-notional-aero-turbofan.md` against the
-corrected interface.
+**Joe's decisions, 2026-09-20: all three accepted.** ADR-0019 accepted as drafted. ADR-0020 accepted
+with the addition recorded in its own "Approval" section (core-side `check_environment` finiteness
+check). ADR-0021 accepted, after two rounds of revision per Joe's own instructions, with one final
+change recorded in its own "Approval" section (`bind_state()` takes only a read-only stage-buffer
+pointer; `Vehicle` itself seeds a model's combined-buffer slice via `initial_state()`, so no model
+ever holds a mutable pointer into the state buffer). **No code has been written this session**; PR 4
+implementation stays stopped, pending ADR-0020's own implementation. Joe has armed
+`ASTRA_TOUCH_GOLDENS`/`.claude/touch-goldens`; all three move into `docs/decisions/00NN-*.md` next
+(numbers 0019-0021 provisional in this plan file, confirmed against the actual next free ADR numbers
+at the move), with superseded-by notes added to ADR-0000 (Purpose paragraph), ADR-0003 (fixed-layout
+decision), and ADR-0018 (`Inputs`/`final` parts). Then: `docs/architecture.md` §1/§6/§7/§18 and
+`PLAN.md`'s M3 section get their own rewrite pass to match; a draft PR opens for these docs; then
+ADR-0020's own implementation plan is written and shown to Joe before any code.
