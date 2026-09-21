@@ -2,16 +2,16 @@
 
 PR / candidate base and head: branch `worktree-m3-pr4-notional-aero-turbofan`, pushed as
 **draft PR [#40](https://github.com/jhawleyjr/ASTRA/pull/40)**. This packet's own subject is the
-code candidate: commit `56af34e` (parent `a6ac7ce`), plus one follow-up commit addressing Joe's own
-review comments below (documentation of the domain-off/nan-off interaction and per-stage counting;
-this retained full-gate rerun; this packet's own corrections; `STATE.md` trimmed) — see that
-follow-up commit's own SHA in the Decision record below once made. This candidate's own base is
-`da18909` (`main`'s current tip, unchanged since the session started — confirmed by
-`git merge-base HEAD origin/main`). The full branch (`main..HEAD`, 11 commits before the follow-up)
-also carries this session's earlier M3 framework-realignment work (ADR-0019/0020/0021 acceptance,
+code candidate: commit `56af34e` (parent `a6ac7ce`), plus follow-up commit `1aad091` addressing
+Joe's own review comments below (documentation of the domain-off/nan-off interaction and per-stage
+counting; this retained full-gate rerun; this packet's own corrections; `STATE.md` trimmed). This
+candidate's own base is `da18909` (`main`'s current tip, unchanged since the session started —
+confirmed by `git merge-base HEAD origin/main`). The full branch (`main..HEAD`, 12 commits) also
+carries this session's earlier M3 framework-realignment work (ADR-0019/0020/0021 acceptance,
 `docs/architecture.md`/`PLAN.md` rewrite, PR 3d's own plan) — PR #40 covers all of it, retitled to
-say so; this packet's own evidence and findings are scoped to the PR 3d code candidate specifically,
-not the docs-only commits preceding it (those carry no executable behavior to validate).
+say so; this packet's own evidence and findings are scoped to the PR 3d code candidate specifically
+(`56af34e`..`1aad091`), not the docs-only commits preceding it (those carry no executable behavior
+to validate).
 Spec/plan/task: `docs/plans/pr3d-adr0020-implementation.md` (approved by Joe, 2026-09-20, Q1-Q4
 decided); `docs/decisions/0020-aero-propulsion-true-interfaces.md` (accepted).
 Risk: **3** (`core/kernel/`, plugin-facing ABI — `docs/process/workflow.md`'s highest tier).
