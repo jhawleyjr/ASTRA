@@ -1,11 +1,13 @@
 # Human review packet: M3 PR 4 — `aircraft/notional_transport/physical/aero` + `hardware/propulsion/turbofan`
 
 PR / candidate base and head: base `origin/main` at `6590b7c` (PR #40, confirmed current tip this
-session); head `8b77c24` on branch `worktree-m3-pr4-notional-transport`
+session); head `e3b3f6e` on branch `worktree-m3-pr4-notional-transport`
 (`fe61ab9` merge-bookkeeping → `fecdda8` plan approval → `08b4d2d` implementation → `2b157eb`
 Codex general-review fixes → `9334637` STATE.md → `f3cae77` this packet's first draft → `990864a`
 **Joe's own review**: fixed a real One Definition Rule hazard → `8b77c24` Codex fix-verification's
-own follow-up finding closed). Working tree clean at head; no dirty-tree scope.
+own follow-up finding closed, full gate green → `e3b3f6e` **Joe-authorized** docs-only fix closing
+the last open finding, `docs-check` green, no full-gate rerun needed). Working tree clean at head;
+no dirty-tree scope.
 Spec/plan: `docs/plans/pr4-notional-aero-turbofan.md` (Revision 2, **approved by Joe, 2026-09-20**,
 conditioned on four edits — all applied in Revision 2 and shown to Joe before implementation began).
 Risk: **Tier 3** (`aircraft/**/physical`, `aircraft/**/hardware`, per `docs/process/workflow.md`'s
@@ -66,7 +68,7 @@ directly by `tests/unit/kernel/notional_transport_cruise_config_test.cpp` (1000 
 | `./scripts/check-full.sh` (`just check`), on `2b157eb` | **`check: OK`**, exit 0 | `/tmp/check-full-pr4-3.log` (session-local; superseded by the retained run below) |
 | `./scripts/check-full.sh`, on `990864a` (superseded), from-scratch build | **`check: OK`**, exit 0 | Log deleted, Joe's own instruction: `8b77c24` is `990864a` plus a docs-only follow-up (§18 wording + this deletion), so `8b77c24`'s own gate run below already covers everything `990864a`'s did |
 | `./scripts/check-full.sh`, on `8b77c24` (final code candidate), from-scratch build | **`check: OK`**, exit 0 | `docs/reviews/evidence/8b77c24-full-gate.log` |
-| `just docs-check`, on the final candidate (docs-only diff on top of `8b77c24`, no code change, no full-gate rerun needed) | **`docs-check: OK`** (24 Markdown files checked) | session output |
+| `just docs-check`, on `e3b3f6e` (docs-only diff on top of `8b77c24`, no code change, no full-gate rerun needed) | **`docs-check: OK`** (24 Markdown files checked) | session output |
 | Four presets × unit+physics tests (`8b77c24`) | **362/362 each** (debug/release/static-plugins/asan) | `8b77c24` log |
 | clang-format | 0 violations | same log |
 | clang-tidy (`build/asan` + `build/python`) | 0 findings (`bugprone-reserved-identifier` caught a double-underscore namespace name mid-session — fixed before this log) | same log |
