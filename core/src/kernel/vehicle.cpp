@@ -148,6 +148,10 @@ HaltReason Vehicle::check_domain(const StateVector& y, const StepContext& ctx,
 // decision, incorrectly gated both). wrench_fault itself is updated under the correct, narrower
 // !wrench_fault guard (first-fault-wins). stage_env.atmosphere is sampled fresh here when in range,
 // left untouched (never read) otherwise. Per-frame path: no allocation, no exceptions.
+//
+// domain:off/nan:off interaction, and up-to-4x-per-frame counting under a non-halting action: see
+// HealthMonitor::report_non_finite_environment's own doc comment (health_monitor.hpp), which is the
+// authoritative account -- not restated here to avoid the two drifting apart.
 bool Vehicle::prepare_stage_environment(const VehicleState& vs_stage, EnvironmentSample& stage_env,
                                         const StepContext& ctx, HealthMonitor& health,
                                         HaltReason& wrench_fault) noexcept {
