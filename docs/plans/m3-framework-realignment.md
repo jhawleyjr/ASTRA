@@ -1,8 +1,11 @@
 # Plan: framework realignment to Joe's stated intent (supersedes 3 ADRs)
 
 Spec/brief: this file. Risk: **3** (core interfaces, ADR changes, `core/kernel/` — the highest tier
-in `docs/process/workflow.md`'s table). Status: draft, three ADRs proposed, **none accepted** —
-PR 4 implementation stays stopped until Joe decides. Plan approval: pending.
+in `docs/process/workflow.md`'s table). Status: **all three ADRs accepted by Joe, 2026-09-20, and
+moved into `docs/decisions/0019-vehicle-agnostic-purpose.md`, `0020-aero-propulsion-true-interfaces.md`,
+`0021-dynamics-model-owned-state.md`** — this file remains the full critique/revision record each of
+those records cites; the records themselves are the current, authoritative decision text. PR 4
+implementation stays stopped pending ADR-0020's own implementation.
 Intent/approval: `docs/refs/astra_framework_intent_and_state_audit.md` (main checkout, gitignored;
 "Joe's stated intent... input to superseding ADRs; not itself an ADR"), read directly this
 session. Audit base: `main` at `da18909` (current `main`, unchanged since).
