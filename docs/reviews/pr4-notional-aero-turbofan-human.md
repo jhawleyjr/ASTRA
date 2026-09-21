@@ -1,14 +1,18 @@
 # Human review packet: M3 PR 4 — `aircraft/notional_transport/physical/aero` + `hardware/propulsion/turbofan`
 
 PR / candidate base and head: base `origin/main` at `6590b7c` (PR #40, confirmed current tip this
-session); head `9334637` on branch `worktree-m3-pr4-notional-transport`
+session); head `8b77c24` on branch `worktree-m3-pr4-notional-transport`
 (`fe61ab9` merge-bookkeeping → `fecdda8` plan approval → `08b4d2d` implementation → `2b157eb`
-Codex-review fix batch → `9334637` STATE.md). Working tree clean at head; no dirty-tree scope.
+Codex general-review fixes → `9334637` STATE.md → `f3cae77` this packet's first draft → `990864a`
+**Joe's own review**: fixed a real One Definition Rule hazard → `8b77c24` Codex fix-verification's
+own follow-up finding closed). Working tree clean at head; no dirty-tree scope.
 Spec/plan: `docs/plans/pr4-notional-aero-turbofan.md` (Revision 2, **approved by Joe, 2026-09-20**,
 conditioned on four edits — all applied in Revision 2 and shown to Joe before implementation began).
 Risk: **Tier 3** (`aircraft/**/physical`, `aircraft/**/hardware`, per `docs/process/workflow.md`'s
 risk table).
-Decision requested: **approve behavior and merge** (squash, per Joe's own standing practice).
+Decision requested: **approve behavior and merge, or authorize one more correction round** — the
+workflow's two-round autonomous correction cap was reached this session with one finding still
+open (see "Independent review" and "Joe's attention").
 
 ## What changes and why
 
@@ -38,10 +42,12 @@ free-falling. `docs/architecture.md` §13's config excerpt and §7's status pros
 current reality (§7's prose was already stale before this PR, describing PR 3d as "not yet
 implemented" after it had, in fact, merged — fixed incidentally while updating the adjacent text).
 
-Diff stat: 29 files changed, 2349 insertions(+), 324 deletions(-) — 18 new files (6 plugin
-source/CMake files × 2 aircraft copies, 6 new test files), 11 modified (2 `cruise.yaml`, 2
-`docs/*.md`, the plan doc itself, `cmake/AstraPlugin.cmake`, 2 test `CMakeLists.txt`, 2 existing
-test files updated for the new real config, `STATE.md`).
+Diff stat (excluding the two retained full-gate logs under `docs/reviews/evidence/`, ~500 KB of
+plain-text `ctest`/`clang-tidy` output each, not code): 36 files changed, 2785 insertions(+), 324
+deletions(-) — plugin source/CMake files × 2 aircraft copies, the ODR-regression fixture plugin,
+9 new test files, `scripts/new-aircraft.sh`'s namespace rewrite, 2 `cruise.yaml`, 2 `docs/*.md`, the
+plan doc itself, `cmake/AstraPlugin.cmake`, 2 test `CMakeLists.txt`, 2 existing test files updated
+for the new real config, `PLAN.md`, `STATE.md`, this packet.
 
 **The consequential end-to-end path**: `aircraft/notional_transport/configs/cruise.yaml` →
 `Simulation::from_config` → `Vehicle::init` discovers both `WrenchSource`s, calls `bind_inputs()`
@@ -56,15 +62,18 @@ directly by `tests/unit/kernel/notional_transport_cruise_config_test.cpp` (1000 
 
 | Check / acceptance | Result / date / duration | Log or retained artifact / candidate |
 |---|---|---|
-| `./scripts/check-full.sh` (`just check`) | **`check: OK`**, exit 0, this session, on `2b157eb`→`9334637` (docs-only after) | `/tmp/check-full-pr4-3.log` |
-| Four presets × unit+physics tests | 361/361 each (debug/release/static-plugins/asan) — 359 pre-existing + 2 new regression tests from the review-fix batch | same log |
+| `./scripts/check-full.sh` (`just check`), on `2b157eb` | **`check: OK`**, exit 0 | `/tmp/check-full-pr4-3.log` (session-local; superseded by the retained runs below) |
+| `./scripts/check-full.sh`, on `990864a`, from-scratch build | **`check: OK`**, exit 0 | `docs/reviews/evidence/990864a-full-gate.log` |
+| `./scripts/check-full.sh`, on `8b77c24` (final candidate), from-scratch build | **`check: OK`**, exit 0 | `docs/reviews/evidence/8b77c24-full-gate.log` |
+| Four presets × unit+physics tests (final candidate) | **362/362 each** (debug/release/static-plugins/asan) | `8b77c24` log |
 | clang-format | 0 violations | same log |
-| clang-tidy (`build/asan` + `build/python`) | 0 findings | same log |
+| clang-tidy (`build/asan` + `build/python`) | 0 findings (`bugprone-reserved-identifier` caught a double-underscore namespace name mid-session — fixed before this log) | same log |
 | pyright (strict, `python/astra/`) | 0 errors, 0 warnings, 0 informations | same log |
-| pytest | 38/38 passed | same log |
+| pytest | **41/41 passed** (3 new cases since the first packet draft: two ODR-namespace regressions, one `ruff` line-length fix) | same log |
 | `docs-check` / hooks-test / ruff | OK / 144 passed / OK | same log |
 | Plan-stage: Condition N/O/Z + symmetric-yaw literals independently computed | Reproduced by a fresh Python re-implementation (not this plugin's own code), then reproduced again independently by Codex's own scalar calculation during adversarial review | `docs/plans/pr4-notional-aero-turbofan.md`'s own "Worked numbers"; adversarial-review transcript |
 | Build-time precision bug found and fixed | `wing_area_m2` transcribed as `108.789460` (6-decimal rounding) vs. the exact `1171 × 0.09290304 = 108.78945984`; failed the plan's own 1e-9 relative tolerance by ~1e-5 absolute until corrected | Caught by the first `ctest` run against the real build, not by inspection; fixed in `08b4d2d` before that commit closed |
+| ODR-hazard empirically confirmed, not just argued | Reintroduced the original shared-namespace bug by hand, rebuilt `static-plugins` from scratch: compiled and linked with **no error or warning**, then **crashed under ASan** (stack corruption) at runtime — confirms the linker really does silently pick one definition, exactly as Joe described | Session transcript; not separately logged (destructive local experiment, reverted before committing) |
 
 Toolchain: Ubuntu 24.04, clang-18, the pinned dev-group Python venv — unchanged from PR 3d's own
 environment. No new dependency. No `tests/golden/**` touch, no ADR change — this PR's own literal
@@ -111,17 +120,58 @@ the V→0 division-free algebra in both `_math.hpp` headers, ADR-0016 per-RK4-su
 allocation, the R-001-shaped finiteness check, whether the test literals are genuinely independent of
 the plugin's own code, and `_template`/real-aircraft byte-parity): **verdict approve, no material
 findings**. Independently re-derived the rotation-matrix/rate-damping/thrust-law arithmetic by a
-separate scalar calculation and confirmed it reproduces the plan's own literals; ran the new test
-binaries directly (ASan, leak detection disabled — LeakSanitizer does not work under this sandbox's
-ptrace restrictions, a known, pre-existing environment limitation, not specific to this candidate)
-and confirmed all pass; noted the review's own recommendation to run the full gate on the final
-candidate outside the sandbox before shipping — done, see "Evidence" above.
+separate scalar calculation and confirmed it reproduces the plan's own literals.
 
-Zero unresolved critical/major/minor findings as of this packet. No finding was rejected or deferred
-as an accepted risk.
+**Round 2 — Joe's own direct review of `2b157eb`** found one **major** finding neither Codex pass
+above had caught: `aircraft/notional_transport`'s and `aircraft/_template`'s `aero_math.hpp`/
+`turbofan_math.hpp` both declared their `Inputs`/`Coefficients`/`compute_wrench()` in the **same**
+generic C++ namespace (`astra::linear_aero`, `astra::thrust_lapse`). Under `ASTRA_STATIC_PLUGINS`
+every plugin's object links into one binary with no per-plugin visibility boundary (unlike the
+shared-object presets' own `-fvisibility=hidden`), so the moment a copied aircraft's own math header
+is edited to differ from `_template`'s, this is a silent One Definition Rule violation — the linker
+keeps one definition for both. **Empirically confirmed, not just argued** (see "Evidence"): forcing
+the collision by hand compiles and links `static-plugins` cleanly, then crashes under ASan at
+runtime. Fixed in `990864a`: each aircraft's math header now lives in its own namespace
+(`astra::aircraft_notional_transport_{aero,turbofan}_math`,
+`astra::aircraft_template_{aero,turbofan}_math`), `scripts/new-aircraft.sh` rewrites the token on
+copy, and a new regression (`tests/plugins/aero_math_odr_check` +
+`tests/unit/aero/aero_math_namespace_isolation_test.cpp`) loads the real plugin and a
+deliberately-different fixture in one process and checks both produce distinct, correct answers —
+runs under all four presets, static-plugins included, no special targeting. Also fixed in the same
+round: `turbofan.cpp`'s `name()` returned the bare `"turbofan"` for both engine instances (now
+`"turbofan.<station>"`, useless-for-diagnosis names was Joe's own point); a comment now documents
+that `controls.throttle` is not range-checked against `[0, 1]`.
+
+**Codex fix-verification of `990864a`** found the fix itself had a gap: naming a new aircraft
+literally `template` (no leading underscore, distinct from the already-rejected `_template`) made
+`new-aircraft.sh`'s namespace-rewrite `sed` a no-op, silently recreating the exact collision with
+`_template`'s own namespace. Fixed in `8b77c24`: `template` is now rejected outright; a new
+pairwise-uniqueness pytest test generates two real aircraft via the actual script and checks all
+three namespaces (both plus `_template`'s own) are pairwise distinct.
+
+**Codex's second fix-verification pass, against `8b77c24` (the final candidate)** — **one finding
+still open, medium severity, not fixed this session**: `docs/architecture.md` §18 step 1 still
+documents plain `cp -r aircraft/_template aircraft/my_aircraft` as equally valid to
+`just new-aircraft my_aircraft`, describing the latter as merely "the same [but] fixes the config's
+paths." That's now inaccurate — only `just new-aircraft` rewrites the C++ namespace token — so a
+user following the *documented* manual-copy path who then edits their aircraft's math (§18 step 2's
+own instruction) would silently recreate the exact ODR hazard just fixed. Codex's own judgment,
+requested explicitly: the two rounds of script-level fixes (rejecting `template`, the
+pairwise-uniqueness test) are a **proportionate response** to its own earlier "the fixture is
+disconnected from the real generation mechanism" concern — a full compiled-and-linked integration
+test of a dynamically generated aircraft was judged unnecessary. The §18 documentation gap is a
+**separate, still-open** finding, reached only on this second verification pass, after the session's
+two-round autonomous correction cap — **not fixed, per that cap; Joe's decision needed** (see "Joe's
+attention").
 
 ## Joe's attention
 
+- **Open finding, decision needed**: `docs/architecture.md` §18 step 1's `cp -r`-or-`just
+  new-aircraft` wording is now inaccurate and, if left as-is, invites exactly the ODR hazard this PR
+  just spent two correction rounds fixing. Two ways to close it: (a) make `just new-aircraft` the
+  only documented route (drop the `cp -r` alternative from step 1 entirely), or (b) keep `cp -r` as
+  a valid path but add an explicit instruction to rewrite both math namespaces by hand afterward.
+  Not fixed this session — the two-round autonomous correction cap was reached first.
 - **The side-force sign fix** (`aircraft/notional_transport/physical/aero/aero_math.hpp`'s own header
   comment and the plan's "Force/moment assembly" section): this plugin's wind-axis force vector is
   `(-D, Y, -L)` with `Y = cy_beta_per_rad * beta * qbar * S` (JSBSim's own native +right `SIDE`
@@ -145,9 +195,11 @@ as an accepted risk.
 
 ## Decision record
 
-State: pending
+State: **changes-required** (one open finding) or **pending** approval of the current candidate
+with that finding tracked as a follow-up — Joe's call, both are reasonable dispositions of an
+implementation-class documentation defect this narrow.
 Human decision/date/reference: pending
-Approved candidate/scope: pending (proposed: `9334637` on `worktree-m3-pr4-notional-transport`,
+Approved candidate/scope: pending (proposed: `8b77c24` on `worktree-m3-pr4-notional-transport`,
 squash-merge to `main`)
 Merge observed: not merged
 Release authorization: pending / not requested
@@ -155,11 +207,17 @@ Release authorization: pending / not requested
 Significant tradeoff rationale: none beyond what the plan already recorded (linear-coefficient
 aero over table interpolation, density-ratio-only thrust lapse over a spooled engine model — both
 Joe's own explicit "keep it the simplest possible example" instruction, not a cost/benefit trade
-made unilaterally here).
-Accepted risks: none new. The plan's own disclosed gaps (Cmadot, envelope monitors, engine-out)
-carry forward unchanged, owner Joe, follow-up trigger PR 4a (`Cmadot`) or a future PR (the others).
+made unilaterally here). The ODR-namespace fix's own scope (script + generation-time tests, not a
+full compiled-integration test of a dynamically generated aircraft) is a second, smaller tradeoff,
+made by Codex's own judgment during fix-verification and reported here, not decided unilaterally.
+Accepted risks: none new beyond the plan's own disclosed gaps (Cmadot, envelope monitors,
+engine-out — owner Joe, follow-up trigger PR 4a or a future PR).
 Nonblocking follow-ups: `PLAN.md`'s `cmake/AstraPlugin.cmake` `astra_finalize_plugins()`
 hardcoded-test-list follow-up (pre-existing, this PR added four more entries to the same list rather
-than fixing the underlying pattern — tracked, not this PR's job to fix); the ADR-0001/ICD
-elevator/aileron/rudder sign-convention documentation gap (tracked in `PLAN.md`, this session).
+than fixing the underlying pattern); the ADR-0001/ICD elevator/aileron/rudder sign-convention
+documentation gap (tracked in `PLAN.md`, this session).
+Blocking or trackable now (Joe's choice): the `docs/architecture.md` §18 `cp -r`-vs-`just
+new-aircraft` documentation gap above — an implementation-class defect (a doc now describes two
+paths as equivalent when they are not), not a planning or requirements defect, so the routing is a
+docs fix/re-verify, not a plan revision.
 Architectural decisions: none introduced or depended on beyond the already-accepted ADR-0020.
