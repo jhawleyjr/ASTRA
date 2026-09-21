@@ -5,31 +5,28 @@
 
 **M3 PR 4 implemented this session**, plan approved (Revision 2): `aircraft/notional_transport/
 physical/aero` + `hardware/propulsion/turbofan`, `wrench_b()`-direct per ADR-0020, mirrored into
-`aircraft/_template/`. Commits: `fecdda8` (plan) → `08b4d2d` (impl) → `2b157eb` (Codex general-review
-fixes) → `990864a` (**Joe's own review**: fixed a real One Definition Rule hazard — both aircraft's
-`aero_math.hpp`/`turbofan_math.hpp` shared one generic C++ namespace, a silent link-time collision
-under `ASTRA_STATIC_PLUGINS`) → `8b77c24` (Codex fix-verification: the fix had a gap — naming an
-aircraft `template` made the namespace rewrite a no-op; closed).
+`aircraft/_template/`. Key finding, **Joe's own review**: both aircraft's `aero_math.hpp`/
+`turbofan_math.hpp` shared one generic C++ namespace — a silent link-time One Definition Rule
+collision under `ASTRA_STATIC_PLUGINS` the instant a copied aircraft's math is edited (empirically
+confirmed: clean compile/link, then an ASan-detected crash). Fixed with per-aircraft namespaces, a
+`new-aircraft.sh` rewrite, and a static-plugins regression test. Two Codex fix-verification rounds
+closed two follow-up gaps in that fix (an aircraft named `template` bypassed the rewrite; §18 still
+documented a `cp -r` route that skips it — **Joe explicitly authorized this last fix out-of-band**,
+"does not reset the 2/2 budget"). **All findings closed.** Full history: 11 commits, `fecdda8`
+(plan) through `7d15c62` (final); see `docs/reviews/pr4-notional-aero-turbofan-human.md`.
 
-**Correction rounds: 2/2 used this session (unchanged).** A third finding (Codex's *second*
-fix-verification, against `8b77c24`: `docs/architecture.md` §18 still documented plain `cp -r` as
-equally valid to `just new-aircraft`, though only the latter rewrites the namespace) was reported as
-open rather than fixed autonomously, since the two-round cap was already spent. **Joe explicitly
-authorized one bounded fix for it, out-of-band from the cap** (his own instruction: "does not reset
-the 2/2 budget; record it in STATE as Joe-authorized"): §18 now names `just new-aircraft` as the only
-route with a clause on why; the superseded `990864a-full-gate.log` deleted; `docs-check` passed;
-Codex verified the delta (one `P2` — stale evidence references to the deleted log — fixed in the same
-pass). **All findings closed.**
+**Pushed and marked ready for review, per Joe's own instruction**: PR #41
+(https://github.com/jhawleyjr/ASTRA/pull/41), head `7d15c62`. No further action taken.
 
 ## Last verified result
 Full gate: **`check: OK`**, exit 0, on `8b77c24` (from-scratch build) — four presets × 362/362
 tests, 0 clang-tidy, 0 pyright, 41/41 pytest. Retained: `docs/reviews/evidence/8b77c24-full-gate.log`
-(`990864a`'s own log deleted per Joe, a strict subset). The Joe-authorized §18 fix is docs-only; no
-full-gate rerun needed (`docs-check: OK`, 24 files, this session).
+(`990864a`'s own log deleted per Joe, a strict subset). `e3b3f6e`'s docs-only follow-up needed no
+full-gate rerun (`docs-check: OK`, 24 files).
 
 ## Next step
-Push, open the draft PR, mark ready. PLAN.md's PR 4 checkbox stays unchecked until squash-merge; PR
-4a (ADR-0021) remains independent, not started.
+Joe squash-merges himself; not yet merged as of this handoff. PLAN.md's PR 4 checkbox stays
+unchecked until then. PR 4a (ADR-0021) remains independent, not started.
 
 ## Tried / failed
 Correction rounds: 2/2 used (round 1: include-path/finiteness fixes; round 2: ODR-namespace fix +
