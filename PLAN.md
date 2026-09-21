@@ -629,7 +629,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         pr2/pr3 pass floated at PR 0 time did not happen (PR 2 shipped independently); this PR's own,
         separate Codex plan critique found twelve findings, all accepted and folded into the plan,
         none reopening the interface/ownership/version decisions, so no second critique was needed.
-  - [ ] PR 3d — **framework realignment to Joe's stated intent** (`docs/refs/
+  - [x] PR 3d — **framework realignment to Joe's stated intent** (`docs/refs/
         astra_framework_intent_and_state_audit.md`, main checkout, gitignored), superseding ADR-0000's
         "commercial transport" purpose clause, the `Inputs`/`final` parts of ADR-0018, and ADR-0003's
         fixed-13-state-layout decision. **ADR-0019/0020/0021 accepted, 2026-09-20**
@@ -656,8 +656,8 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         wind); one Codex re-verify pass confirmed both fixes, no new findings. **Approved by Joe,
         2026-09-20**, pending a follow-up commit (domain-off/nan-off documentation, per-stage counting
         documentation, full-gate rerun to a retained log, packet fixes) -- follow-up committed
-        (`1aad091`, `b4864b9`). PR #40 (covers this and the realignment ADRs above) pushed and marked
-        ready for review; not yet merged.
+        (`1aad091`, `b4864b9`). PR #40 (covers this and the realignment ADRs above) merged as
+        `6590b7c`, 2026-09-20 (squash merge, Joe).
         Binding ADRs: ADR-0019, ADR-0020. Tier 3. Plan critique: done
         (`docs/plans/pr3d-adr0020-implementation.md`, Codex plan critique folded in, approved by Joe
         including Q1-Q4).
