@@ -10,11 +10,12 @@
 // algebraic fix; this file only assembles that header's Inputs from (VehicleState,
 // EnvironmentSample) via air_data:: and this plugin's own bound controls, then delegates.
 #include <Eigen/Core>
+#include <cmath>
 #include <memory>
 #include <string>
 #include <string_view>
 
-#include "aircraft/notional_transport/physical/aero/aero_math.hpp"
+#include "aero_math.hpp"
 #include "astra/config/config.hpp"
 #include "astra/core_api.hpp"
 #include "astra/errors.hpp"
@@ -36,9 +37,9 @@ std::string keyed_path(const Config& config, std::string_view key) {
 
 double checked_positive(const Config& config, std::string_view key) {
   const double value = config.number(key);
-  if (!(value > 0.0)) {
+  if (!std::isfinite(value) || !(value > 0.0)) {
     throw ConfigError(config.origin(), keyed_path(config, key),
-                      std::string{key} + " must be positive");
+                      std::string{key} + " must be finite and positive");
   }
   return value;
 }

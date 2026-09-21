@@ -16,11 +16,11 @@
 // has the thrust law and the (trivial, no-op) V->0 argument; this file only assembles that header's
 // Inputs from EnvironmentSample and this plugin's own bound throttle, then delegates.
 #include <Eigen/Core>
+#include <cmath>
 #include <memory>
 #include <string>
 #include <string_view>
 
-#include "aircraft/_template/hardware/propulsion/turbofan/turbofan_math.hpp"
 #include "astra/config/config.hpp"
 #include "astra/core_api.hpp"
 #include "astra/errors.hpp"
@@ -29,6 +29,7 @@
 #include "astra/plugin/descriptor.hpp"
 #include "astra/signals/input_registry.hpp"
 #include "astra/signals/signal_registry.hpp"
+#include "turbofan_math.hpp"
 
 namespace {
 
@@ -41,9 +42,9 @@ std::string keyed_path(const Config& config, std::string_view key) {
 
 double checked_positive(const Config& config, std::string_view key) {
   const double value = config.number(key);
-  if (!(value > 0.0)) {
+  if (!std::isfinite(value) || !(value > 0.0)) {
     throw ConfigError(config.origin(), keyed_path(config, key),
-                      std::string{key} + " must be positive");
+                      std::string{key} + " must be finite and positive");
   }
   return value;
 }

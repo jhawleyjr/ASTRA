@@ -56,4 +56,45 @@ TEST(TemplateAero, ZeroedConfigThrowsConfigErrorNamingTheTodoField) {
   }
 }
 
+// Codex general-review finding (turbofan.cpp's density_ref_kgm3, same helper here): `value > 0.0`
+// alone is true for +Inf, so checked_positive() used to accept an infinite wing_area_m2. Fixed:
+// checked_positive() now also requires std::isfinite().
+TEST(TemplateAero, InfiniteWingAreaThrowsConfigError) {
+  astra::PluginLoader loader{ASTRA_TEST_PLUGIN_DIR};
+  astra::LoadedPlugin loaded = loader.load("aircraft/_template/physical/aero");
+  auto* const aero = dynamic_cast<AeroModel*>(loaded.model.get());
+  astra::SignalRegistry registry;
+
+  try {
+    aero->init(Config::from_string("wing_area_m2: .inf\n"
+                                   "wingspan_m: 1.0\n"
+                                   "mean_chord_m: 1.0\n"
+                                   "r_aero_b_x_m: 0.0\n"
+                                   "r_aero_b_y_m: 0.0\n"
+                                   "r_aero_b_z_m: 0.0\n"
+                                   "cl_0: 0.0\n"
+                                   "cl_alpha_per_rad: 0.0\n"
+                                   "cl_elevator_per_rad: 0.0\n"
+                                   "cd_0: 0.0\n"
+                                   "cd_k: 0.0\n"
+                                   "cy_beta_per_rad: 0.0\n"
+                                   "croll_beta_per_rad: 0.0\n"
+                                   "croll_p_per_rad: 0.0\n"
+                                   "croll_r_per_rad: 0.0\n"
+                                   "croll_aileron_per_rad: 0.0\n"
+                                   "croll_rudder_per_rad: 0.0\n"
+                                   "cm_alpha_per_rad: 0.0\n"
+                                   "cm_q_per_rad: 0.0\n"
+                                   "cm_elevator_per_rad: 0.0\n"
+                                   "cn_beta_per_rad: 0.0\n"
+                                   "cn_r_per_rad: 0.0\n"
+                                   "cn_rudder_per_rad: 0.0\n",
+                                   "template-aero-infinite-wing-area-fixture"),
+               registry);
+    FAIL() << "expected ConfigError";
+  } catch (const ConfigError& error) {
+    EXPECT_EQ(error.config_path(), "wing_area_m2");
+  }
+}
+
 }  // namespace
