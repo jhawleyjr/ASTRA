@@ -321,7 +321,6 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
   const double dt = config.number("sim.dt");
   sim.frames_ = checked_frame_count(config, config.integer("sim.frames"));
   sim.clock_ = VirtualClock(dt);
-  sim.integrator_ = Integrator(IntegratorKind::kRk4, dt);
 
   const PluginLoader loader(std::move(plugin_dir));
   const Config vehicle_models = config.at("vehicle.models");
@@ -398,8 +397,9 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
                                             atmosphere_plugin_path};
     vehicle.init(loader, specs, sim.registry_, &physics_spec,
                  Vehicle::EnvironmentAvailability{wind != nullptr, atmosphere != nullptr},
-                 wind_plugin_path);
+                 wind_plugin_path, dt, IntegratorKind::kRk4);
     vehicle.state() = read_initial_state(config);
+    vehicle.sync_stage_buffer();
 
     const Eigen::Vector3d p_n = vehicle.state().segment<state::kPositionSize>(state::kPosition);
     const Config initial_state_node =
@@ -416,7 +416,7 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
       // trajectory that leaves the range mid-run is checked post-step by Simulation::step below
       // (ADR-0012), against sim.atmosphere_ set just above -- the gap PR 1b disclosed, closed by
       // PR 2c, not this check's job.
-      const double altitude_m = earth->altitude(VehicleState{vehicle.state()});
+      const double altitude_m = earth->altitude(VehicleState{vehicle.state().data()});
       const AltitudeRange range = atmosphere->valid_range();
       // Same NaN-safety reasoning as isa1976.cpp's own valid_range check -- the "simplified"
       // a<min||a>max form is false for a NaN altitude, which would silently accept it instead of
@@ -432,7 +432,8 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
       }
     }
   } else {
-    vehicle.init(loader, specs, sim.registry_, nullptr, Vehicle::EnvironmentAvailability{});
+    vehicle.init(loader, specs, sim.registry_, nullptr, Vehicle::EnvironmentAvailability{}, {}, dt,
+                 IntegratorKind::kRk4);
   }
 
   apply_initial_controls(config, vehicle);
@@ -543,6 +544,7 @@ Simulation Simulation::for_testing(const PluginLoader& loader,
                    Vehicle::EnvironmentAvailability{wind != nullptr}, wind_plugin_path);
     }
     vehicle.state() = initial_state;
+    vehicle.sync_stage_buffer();
     sim.vehicles_.push_back(std::move(vehicle));
     ++index;
   }
@@ -571,7 +573,15 @@ HaltReason Simulation::step() noexcept {
     // nothing to share with this one.
     EnvironmentSample sample;  // wind zero / atmosphere all-NaN by default
     if (wind_ != nullptr || atmosphere_ != nullptr) {
-      const VehicleState vs{vehicle.state()};
+      // ADR-0021: vehicle.state() returns an Eigen::Map by value, not a reference into Vehicle's
+      // own storage -- constructing VehicleState from it directly (VehicleState{vehicle.state()})
+      // would bind through an implicit Map-to-StateVector conversion, materializing a temporary
+      // that dies at the end of THIS statement, dangling the very next line (caught by ASan: a
+      // stack-use-after-scope, since vs here is used across several statements, not consumed
+      // within one full expression the way earth->altitude(VehicleState{vehicle.state()})
+      // elsewhere in this file safely is). .data() instead aliases Vehicle's own live combined_
+      // buffer directly, exactly like the old `const StateVector&`-returning state() did.
+      const VehicleState vs{vehicle.state().data()};
       // earth_ is always set whenever wind_ or atmosphere_ is (all three load only under a
       // "physical" section, and earth loads first, unconditionally -- see the sim.earth_
       // assignment above in from_config).
@@ -597,7 +607,7 @@ HaltReason Simulation::step() noexcept {
     if (const HaltReason halt = latch_vehicle_inputs(vehicle, *health_, ctx); halt) {
       return halt;
     }
-    if (const HaltReason halt = vehicle.integrate(integrator_, ctx, *health_); halt) {
+    if (const HaltReason halt = vehicle.integrate(ctx, *health_); halt) {
       // The clock does not advance: halt.frame == clock_.frame() and this frame's other vehicles
       // (ADR-0011: there can be more than one) do not step -- a halt stops the run.
       return halt;
@@ -612,7 +622,7 @@ HaltReason Simulation::step() noexcept {
     // health_->domain_enabled() is false -- no altitude() call, matching "domain: off restores
     // current behavior".
     if (atmosphere_ != nullptr && health_->domain_enabled()) {
-      const double altitude_m = earth_->altitude(VehicleState{vehicle.state()});
+      const double altitude_m = earth_->altitude(VehicleState{vehicle.state().data()});
       const AltitudeRange range = atmosphere_->valid_range();
       // Same NaN-safety reasoning as isa1976.cpp's own valid_range check and from_config's
       // init-time twin above: the "simplified" a<min||a>max form is false for a NaN altitude,

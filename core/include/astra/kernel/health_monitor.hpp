@@ -17,12 +17,13 @@
 // here, never model or registry pointers.
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
+#include <span>
 #include <string_view>
 
 #include "astra/interfaces/model.hpp"
 #include "astra/interfaces/wrench.hpp"
-#include "astra/kernel/state.hpp"
 
 namespace astra {
 
@@ -49,6 +50,15 @@ struct StateNames {
   std::string_view v_b;
   std::string_view q_nb;
   std::string_view omega_b;
+};
+
+// ADR-0021: one state-owning model's own slice of the combined state buffer, beyond the rigid-body
+// block, for check_state's generic finiteness check below -- named per model (like check_wrench's
+// own per-plugin, not per-component, naming), not per scalar.
+struct NamedStateSlice {
+  std::string_view name;
+  std::size_t offset;
+  std::size_t count;
 };
 
 // Trivially copyable; no allocation, no std::string -- safe to return from the per-frame path
@@ -89,10 +99,15 @@ class HealthMonitor {
                                         const StepContext& ctx,
                                         std::uint32_t vehicle_index) noexcept;
 
-  // Checks a state vector: each ADR-0003 segment for NaN/Inf, naming the first bad one from names;
-  // then, once every segment is finite, quaternion norm drift beyond 1e-6 (before renormalization),
-  // naming names.q_nb. Per-frame path: no allocation, no exceptions.
-  [[nodiscard]] HaltReason check_state(const StateVector& y, const StateNames& names,
+  // Checks the combined state buffer: each ADR-0003 rigid-body segment (the buffer's own first 13
+  // doubles) for NaN/Inf, naming the first bad one from names; then, once every rigid-body segment
+  // is finite, quaternion norm drift beyond 1e-6 (before renormalization), naming names.q_nb; then
+  // (ADR-0021) a generic finiteness check over each of extra_slices, naming that model on a halt --
+  // no per-model-specific health logic beyond finiteness, and no quaternion-norm-style check for a
+  // model-owned state (only the rigid body's own attitude has that meaning). Per-frame path: no
+  // allocation, no exceptions.
+  [[nodiscard]] HaltReason check_state(std::span<const double> y, const StateNames& names,
+                                       std::span<const NamedStateSlice> extra_slices,
                                        const StepContext& ctx,
                                        std::uint32_t vehicle_index) noexcept;
 

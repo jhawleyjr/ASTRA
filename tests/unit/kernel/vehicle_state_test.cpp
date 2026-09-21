@@ -18,7 +18,11 @@ TEST(VehicleState, AccessorsReadTheirAdr0003Slice) {
   EXPECT_EQ(vs.v_b(), (Eigen::Vector3d{4.0, 5.0, 6.0}));
   EXPECT_EQ(vs.q_nb(), (astra::frames::Quaternion{0.5, 0.5, 0.5, 0.5}));
   EXPECT_EQ(vs.omega_b(), (Eigen::Vector3d{7.0, 8.0, 9.0}));
-  EXPECT_EQ(&vs.vector(), &y);
+  // ADR-0021: vector() returns an Eigen::Map by value (a view, not an owning copy), retyped from a
+  // `const StateVector&` reference so it can also view a slice of a runtime-sized buffer -- address
+  // identity with y was never a contract this class's own header promised ("read-only, non-owning
+  // view", not "identical object"), so this checks value equality instead.
+  EXPECT_EQ(vs.vector(), y);
 }
 
 }  // namespace

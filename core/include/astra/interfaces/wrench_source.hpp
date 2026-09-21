@@ -57,6 +57,18 @@ class WrenchSource : public Model {
   // cannot observe it changing within a frame. env's atmosphere, by contrast, IS a fresh sample of
   // the stage's own state as of PR 3c: EnvironmentSample's own header has the full account of which
   // field is which and why. Per-frame path (§14): no allocation, no exceptions, every call.
+  //
+  // ADR-0021 amendment: a read-only binding into Vehicle's own stage buffer (own state slice via
+  // Model::bind_state(), or a peer's via Model::resolve_peers()) is part of this pure function's
+  // actual domain, not an exception to it: the function is pure over the complete per-stage trial
+  // snapshot Vehicle prepares before any call this stage -- vs, env, and every resolved
+  // stage-buffer binding together -- not over (vs, env) alone. Every frame-latched input
+  // (env.wind_n, every ADR-0017 write-seam value) remains identical across all four of one frame's
+  // calls, exactly as before this ADR. A stage-buffer binding varies by sub-stage, by design,
+  // tracking that stage's own trial state, but stays identical between two calls at the same
+  // sub-stage of the same frame. No call may write through a stage-buffer binding -- the same
+  // read-only-from-wrench_b() prohibition this comment's own ADR-0017 paragraph already establishes
+  // for its write-seam handles.
   [[nodiscard]] virtual Wrench wrench_b(const VehicleState& vs,
                                         const EnvironmentSample& env) const noexcept = 0;
 

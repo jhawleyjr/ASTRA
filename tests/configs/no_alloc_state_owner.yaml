@@ -1,0 +1,15 @@
+# tests/physics/no_alloc_test.cpp (ADR-0021, R2): a state-owning model (tests/plugins/state_owner)
+# alongside a well-behaved wrench source, over the full per-frame path -- the combined/stage/
+# pre-step-scratch StateBuffers and the Integrator's own k1..k4/trial scratch must all stay sized
+# exactly once at init, never reallocated per frame.
+sim:
+  dt: 0.001
+  frames: 1000
+vehicle:
+  models:
+    - { plugin: tests/plugins/nan_wrench, force_x: 1.0 }
+    - { plugin: tests/plugins/state_owner, rate: 1.0 }
+physical:
+  earth: plugins/physical/earth/flat
+  gravity: plugins/physical/gravity/constant
+  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 }

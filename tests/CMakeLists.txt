@@ -6,8 +6,15 @@ include(GoogleTest)
 astra_discover_plugins(tests/plugins)
 add_subdirectory(unit)
 add_subdirectory(physics)
-# EXCLUDE_FROM_ALL target, never built by the default `all`; see tests/golden/dynamics/CMakeLists.txt.
-add_subdirectory(golden/dynamics)
+# tests/golden/dynamics/CMakeLists.txt (the R1/R1-Sim capture harness's EXCLUDE_FROM_ALL target) is
+# deliberately NOT added here. The capture step it existed for is done (goldens frozen at `ba383ab`,
+# docs/plans/pr4a-dynamics-model.md); its source stays under tests/golden/dynamics/ (human-owned,
+# untouched by this PR) for provenance, but is no longer a live CMake target -- if it stayed wired
+# in, its still-uncompiled source (which references Eom/post_step_renormalize, both retired by this
+# PR) would appear in every preset's compile_commands.json and fail `just tidy`, even though the
+# target itself is EXCLUDE_FROM_ALL and never actually built by `just check`. A future golden
+# re-capture re-adds this subdirectory for the duration of that one authorized step, the same way
+# this PR's own capture session did.
 
 # The ICD static asserts under a C11 compiler that is not the sim's (ADR-0006): gcc and clang, -std=c11,
 # pedantic, warnings as errors. A failing assert is a compile error, which is the test.

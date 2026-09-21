@@ -7,6 +7,7 @@
 
 #include "astra/config/config.hpp"
 #include "astra/errors.hpp"
+#include "astra/kernel/state.hpp"
 #include "astra/signals/signal_registry.hpp"
 #include "astra/util/frames.hpp"
 
@@ -83,13 +84,15 @@ HaltReason HealthMonitor::check_wrench(const Wrench& wrench, std::string_view so
   return apply(nan_action_, nan_count_, HealthCheck::kNonFiniteWrench, source, ctx, vehicle_index);
 }
 
-HaltReason HealthMonitor::check_state(const StateVector& y, const StateNames& names,
+HaltReason HealthMonitor::check_state(std::span<const double> y, const StateNames& names,
+                                      std::span<const NamedStateSlice> extra_slices,
                                       const StepContext& ctx,
                                       std::uint32_t vehicle_index) noexcept {
-  const Eigen::Vector3d p_n = y.segment<state::kPositionSize>(state::kPosition);
-  const Eigen::Vector3d v_b = y.segment<state::kVelocitySize>(state::kVelocity);
-  const frames::Quaternion q_nb = y.segment<state::kQuaternionSize>(state::kQuaternion);
-  const Eigen::Vector3d omega_b = y.segment<state::kAngularRateSize>(state::kAngularRate);
+  const Eigen::Map<const StateVector> rigid_body(y.data());
+  const Eigen::Vector3d p_n = rigid_body.segment<state::kPositionSize>(state::kPosition);
+  const Eigen::Vector3d v_b = rigid_body.segment<state::kVelocitySize>(state::kVelocity);
+  const frames::Quaternion q_nb = rigid_body.segment<state::kQuaternionSize>(state::kQuaternion);
+  const Eigen::Vector3d omega_b = rigid_body.segment<state::kAngularRateSize>(state::kAngularRate);
 
   if (!p_n.allFinite()) {
     return apply(nan_action_, nan_count_, HealthCheck::kNonFiniteState, names.p_n, ctx,
@@ -110,11 +113,25 @@ HaltReason HealthMonitor::check_state(const StateVector& y, const StateNames& na
 
   const double drift = std::abs(q_nb.norm() - 1.0);
   max_quaternion_drift_ = std::max(max_quaternion_drift_, drift);
-  if (drift <= kQuaternionNormTolerance) {
-    return {};
+  if (drift > kQuaternionNormTolerance) {
+    return apply(quaternion_action_, quaternion_count_, HealthCheck::kQuaternionNorm, names.q_nb,
+                 ctx, vehicle_index);
   }
-  return apply(quaternion_action_, quaternion_count_, HealthCheck::kQuaternionNorm, names.q_nb, ctx,
-               vehicle_index);
+
+  // ADR-0021: any state-owning model beyond the rigid body -- generic finiteness only, named per
+  // model (not per scalar), no quaternion-norm-style check (only the rigid body's own attitude has
+  // that meaning).
+  for (const NamedStateSlice& slice : extra_slices) {
+    const bool finite =
+        std::all_of(y.begin() + static_cast<std::ptrdiff_t>(slice.offset),
+                    y.begin() + static_cast<std::ptrdiff_t>(slice.offset + slice.count),
+                    [](double v) { return std::isfinite(v); });
+    if (!finite) {
+      return apply(nan_action_, nan_count_, HealthCheck::kNonFiniteState, slice.name, ctx,
+                   vehicle_index);
+    }
+  }
+  return {};
 }
 
 HaltReason HealthMonitor::report_out_of_domain(std::string_view source, const StepContext& ctx,
