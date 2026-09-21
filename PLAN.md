@@ -540,7 +540,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       each mode against its own tolerance; a 300 s open-loop run matches its own frozen regression
       trajectory (not an oracle), independently cross-checked against the linearized model's
       phugoid-cycle prediction. §16's M3 row is corrected to this wording by PR 0.
-  - [ ] PR 0 — Neutral status markers on `docs/architecture.md`: §7/§8/§12 note the `AeroModel`/
+  - [x] PR 0 — merged as `91aa358` (#36, 2026-09-19). Neutral status markers on `docs/architecture.md`: §7/§8/§12 note the `AeroModel`/
         `AeroInputs`/`Simulation` Python bindings as not-yet-built M3 scope, without rewriting §7's
         shape yet (that lands with PR 2/3's ADR, once the control-input design is actually pinned, to
         avoid rewriting it twice); §13's typed `physical.aero`/`hardware.propulsion` example is marked
@@ -556,7 +556,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         Joe approves the wording (recorded in this plan's own approval), and the diff itself still
         gets a Codex review pass even though no code changes and no full gate applies. Plan critique:
         no.
-  - [ ] PR 1 — `aircraft/_template/` and `aircraft/notional_transport/` scaffolding (`physical/
+  - [x] PR 1 — merged as `829df62` (#37, 2026-09-19). `aircraft/_template/` and `aircraft/notional_transport/` scaffolding (`physical/
         {aero,mass}/`, `hardware/propulsion/turbofan/`, `configs/`), `just new-aircraft <name>`.
         `physical/mass` is a `MassPropertiesModel` plugin (existing interface, O1's mass/inertia only
         -- no CG: `MassProps` is `{mass, inertia_b}`, wrench is about CG per §7, engine-station offsets
@@ -597,7 +597,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         R1–R13, `docs/plans/pr2-write-seam.md`, all passing. Human review packet: `docs/reviews/
         pr2-write-seam-human.md`. Binding ADRs: ADR-0017 (accepted). Tier 3. Plan critique: done
         (twice).
-  - [ ] PR 3 — `AeroModel`/`PropulsionModel` as `WrenchSource` specializations: compute α/β/q̄/Mach
+  - [x] PR 3 — merged as `da18909` (#39, 2026-09-19). `AeroModel`/`PropulsionModel` as `WrenchSource` specializations: compute α/β/q̄/Mach
         from `(vs, env)`, read the model's own PR 2 control-input members, assemble `AeroInputs`/
         `PropulsionInputs`, call a pure-virtual `compute()` that is `const noexcept` (§7's non-const
         sketch is what changes, not the ADR-0016 purity rule). Hand-built-`AeroInputs` unit testing
