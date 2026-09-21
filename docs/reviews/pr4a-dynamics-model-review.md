@@ -3,16 +3,19 @@
 Spec/plan: docs/decisions/0021-dynamics-model-owned-state.md, docs/plans/pr4a-dynamics-model.md
 (Revision 3, approved)
 Builder: Claude (Sonnet 5)
-Reviewer: Codex (openai-codex plugin 1.0.6; general review and adversarial review, both fresh
-context, per Tier 3)
+Reviewer: Codex (openai-codex plugin 1.0.6; general review, adversarial review, and a fix-
+verification adversarial review, all fresh context, per Tier 3)
 Scope: branch diff against origin/main (merge-base 26ad59482a7172e5f4ff65d6791cf565902815b3),
 including uncommitted/new files at time of each dispatch. General review ran against head 4ba0662.
 Adversarial review ran against head ff5c11b (after the general review's own fixes were committed).
+Fix-verification adversarial review ran against head 35f9387 (after both prior rounds' fixes and
+this findings file itself were committed).
 Validation: `ctest --preset asan` (382-384/382-384 pass across rounds), `just tidy`/`just format`
 clean after each fix. Full four-preset gate retained at docs/reviews/evidence/a30dd50-full-gate.log
-(pre-review baseline); a fresh full-gate run is pending after this round's fixes, tracked in
-STATE.md.
-Round: initial (general + adversarial, both round 1)
+(pre-review baseline, predates all three fixes); a fresh full-gate run against the fix-containing
+head is the next step, tracked in STATE.md.
+Round: initial (general + adversarial, round 1); fix-verification (round 1's own fixes), verified
+clean
 
 ## Finding R-001
 
@@ -96,21 +99,25 @@ precedent, so the pre-existing `DuplicateStateSignalNameThrowsConfigError` test 
 `state.<i>` signal). Added regression
 `HookTimeReadsSeeTheRealSeededInitialValuesNotZeroInBothModelOrders`, parameterized over both
 `vehicle.models` orders (reusing the existing `MutualStateDependence` fixture).
-Verification: reviewer (same adversarial pass that raised this finding, head ff5c11b, is the pass
-that found it -- not yet re-verified by a fresh pass after the fix). Independently confirmed by
-rebuild + `ctest --preset asan` (384/384 pass, including the new parameterized regression in both
-orders) and `just tidy`/`just format` clean. A fresh fix-verification adversarial-review pass against
-this finding is the next step before the full-gate rerun and human-review packet.
-History: round 1 (adversarial review), found; fixed same round, committed ff5c11b; fix-verification
-pass pending.
+Verification: reviewer (fresh fix-verification adversarial pass, head 35f9387 against origin/main
+26ad594, focus named all three findings by ID): "R-003: fixed -- vehicle.cpp:151-166 seeds
+combined_ via RigidBody6DofDynamics::initial_state(), then every state owner's initial_state(), then
+copies into stage_. init():224 calls this before bind_and_publish_state_owners():229 (bind_state at
+:181) and resolve_peers():235. Caller-side rigid-body configuration writes are separately
+synchronized." Independently confirmed by rebuild + `ctest --preset asan` (384/384 pass, including
+the new parameterized regression in both orders) and `just tidy`/`just format` clean.
+History: round 1 (adversarial review), found and fixed same round, committed ff5c11b; verified round
+1 fix-verification pass, head 35f9387.
 
 ## Completion
 
-Major/critical open count: 0 (R-001, R-003 major; both fixed, R-001 independently verified by the
-reviewer's own adversarial pass, R-003 pending its own fix-verification pass). R-002 minor, fixed.
-No rejected findings. No deferrals. Scope reviewed: full branch diff against origin/main, both
-passes. Validation gap: the full four-preset gate has not yet been rerun against the
-fix-containing head (ff5c11b) -- the retained log at a30dd50-full-gate.log predates all three
-fixes; a fresh gate run and a fix-verification adversarial pass (per
-docs/agents/review-dispatch.md's "Fix verification" section) are both still pending before this
-round can close.
+Major/critical open count: 0. All three findings (R-001, R-003 major; R-002 minor) independently
+verified fixed by a fresh Codex adversarial pass (head 35f9387 against origin/main 26ad594), which
+also inspected the full fix delta (core/src/kernel/vehicle.cpp, core/include/astra/kernel/
+vehicle.hpp, core/src/kernel/health_monitor.cpp, tests/plugins/state_owner/state_owner.cpp,
+tests/unit/kernel/vehicle_state_coupling_test.cpp, tests/unit/health/health_monitor_test.cpp) and
+its affected callers/invariants: "New findings: none." No rejected findings. No deferrals. Scope
+reviewed: full branch diff against origin/main, all three passes (general, adversarial,
+fix-verification). Validation gap closed by this round's own work: a fresh full four-preset gate run
+against the fix-containing head is the next step (tracked in STATE.md), superseding the pre-review
+baseline at docs/reviews/evidence/a30dd50-full-gate.log.
