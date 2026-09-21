@@ -6,35 +6,35 @@
 **M3 PR 4 implemented this session**, plan approved (Revision 2): `aircraft/notional_transport/
 physical/aero` + `hardware/propulsion/turbofan`, `wrench_b()`-direct per ADR-0020, mirrored into
 `aircraft/_template/`. Commits: `fecdda8` (plan) → `08b4d2d` (impl) → `2b157eb` (Codex general-review
-fixes, verified clean by adversarial review) → `990864a` (Joe's own review: fixed a real One
-Definition Rule hazard — both aircraft's `aero_math.hpp`/`turbofan_math.hpp` shared one generic C++
-namespace; under `ASTRA_STATIC_PLUGINS` this silently corrupts whichever plugin the linker doesn't
-keep once a copied aircraft's math is edited — plus `name()`/throttle-comment fixes) → `8b77c24`
-(Codex fix-verification found the fix had a gap: naming a new aircraft `template`, no underscore,
-made `new-aircraft.sh`'s own namespace rewrite a no-op; closed, plus a namespace-uniqueness test).
+fixes) → `990864a` (**Joe's own review**: fixed a real One Definition Rule hazard — both aircraft's
+`aero_math.hpp`/`turbofan_math.hpp` shared one generic C++ namespace, a silent link-time collision
+under `ASTRA_STATIC_PLUGINS`) → `8b77c24` (Codex fix-verification: the fix had a gap — naming an
+aircraft `template` made the namespace rewrite a no-op; closed).
 
-**Correction rounds: 2/2 used, per the workflow's own cap — stopping here, one finding open.**
-Codex's *second* fix-verification pass (against `8b77c24`) found one more real, medium-severity
-issue: `docs/architecture.md` §18 step 1 still documents plain `cp -r aircraft/_template
-aircraft/my_aircraft` as equally valid to `just new-aircraft`, but only the latter rewrites the C++
-namespace token — a user following the documented manual-copy path who then edits their aircraft's
-math (step 2's own instruction) would silently recreate the exact ODR hazard just fixed. **Not
-fixed this session — the round cap was reached; this is Joe's call**, not a third autonomous round.
+**Correction rounds: 2/2 used this session (unchanged).** A third finding (Codex's *second*
+fix-verification, against `8b77c24`: `docs/architecture.md` §18 still documented plain `cp -r` as
+equally valid to `just new-aircraft`, though only the latter rewrites the namespace) was reported as
+open rather than fixed autonomously, since the two-round cap was already spent. **Joe explicitly
+authorized one bounded fix for it, out-of-band from the cap** (his own instruction: "does not reset
+the 2/2 budget; record it in STATE as Joe-authorized"): §18 now names `just new-aircraft` as the only
+route with a clause on why; the superseded `990864a-full-gate.log` deleted; `docs-check` passed;
+Codex verified the delta (one `P2` — stale evidence references to the deleted log — fixed in the same
+pass). **All findings closed.**
 
 ## Last verified result
-Full gate (`./scripts/check-full.sh`): **`check: OK`**, exit 0, this session, on `8b77c24` (from a
-from-scratch build, `build/` removed first) — four presets × 362/362 tests each, 0 clang-tidy
-findings, 0 pyright errors, 41/41 pytest. Retained:
-`docs/reviews/evidence/{990864a,8b77c24}-full-gate.log`.
+Full gate: **`check: OK`**, exit 0, on `8b77c24` (from-scratch build) — four presets × 362/362
+tests, 0 clang-tidy, 0 pyright, 41/41 pytest. Retained: `docs/reviews/evidence/8b77c24-full-gate.log`
+(`990864a`'s own log deleted per Joe, a strict subset). The Joe-authorized §18 fix is docs-only; no
+full-gate rerun needed (`docs-check: OK`, 24 files, this session).
 
 ## Next step
-Joe decides: accept `8b77c24` and track the §18 gap separately, or ask for one more fix round.
-Human-review packet updated with the final candidate and this open finding. PLAN.md's PR 4 checkbox
-stays unchecked until merge. PR 4a (ADR-0021) remains independent, not started.
+Push, open the draft PR, mark ready. PLAN.md's PR 4 checkbox stays unchecked until squash-merge; PR
+4a (ADR-0021) remains independent, not started.
 
 ## Tried / failed
-Correction rounds: 2/2 used (round 1: include-path + finiteness fixes, verified clean; round 2:
-ODR-namespace fix + its own follow-up gap, one open finding remaining). Failed integrations: 0/2.
+Correction rounds: 2/2 used (round 1: include-path/finiteness fixes; round 2: ODR-namespace fix +
+follow-up gap). Plus one Joe-authorized fix outside the round budget (§18 + log cleanup). All
+closed. Failed integrations: 0/2.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.

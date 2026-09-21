@@ -10,9 +10,10 @@ Spec/plan: `docs/plans/pr4-notional-aero-turbofan.md` (Revision 2, **approved by
 conditioned on four edits — all applied in Revision 2 and shown to Joe before implementation began).
 Risk: **Tier 3** (`aircraft/**/physical`, `aircraft/**/hardware`, per `docs/process/workflow.md`'s
 risk table).
-Decision requested: **approve behavior and merge, or authorize one more correction round** — the
-workflow's two-round autonomous correction cap was reached this session with one finding still
-open (see "Independent review" and "Joe's attention").
+Decision requested: **approve behavior and merge.** (An earlier draft of this packet requested
+authorization for one more fix, since the workflow's two-round autonomous correction cap had been
+reached with one finding open; Joe granted that fix directly, out-of-band from the cap, and it is
+now closed — see "Independent review" and "Decision record.")
 
 ## What changes and why
 
@@ -62,10 +63,11 @@ directly by `tests/unit/kernel/notional_transport_cruise_config_test.cpp` (1000 
 
 | Check / acceptance | Result / date / duration | Log or retained artifact / candidate |
 |---|---|---|
-| `./scripts/check-full.sh` (`just check`), on `2b157eb` | **`check: OK`**, exit 0 | `/tmp/check-full-pr4-3.log` (session-local; superseded by the retained runs below) |
-| `./scripts/check-full.sh`, on `990864a`, from-scratch build | **`check: OK`**, exit 0 | `docs/reviews/evidence/990864a-full-gate.log` |
-| `./scripts/check-full.sh`, on `8b77c24` (final candidate), from-scratch build | **`check: OK`**, exit 0 | `docs/reviews/evidence/8b77c24-full-gate.log` |
-| Four presets × unit+physics tests (final candidate) | **362/362 each** (debug/release/static-plugins/asan) | `8b77c24` log |
+| `./scripts/check-full.sh` (`just check`), on `2b157eb` | **`check: OK`**, exit 0 | `/tmp/check-full-pr4-3.log` (session-local; superseded by the retained run below) |
+| `./scripts/check-full.sh`, on `990864a` (superseded), from-scratch build | **`check: OK`**, exit 0 | Log deleted, Joe's own instruction: `8b77c24` is `990864a` plus a docs-only follow-up (§18 wording + this deletion), so `8b77c24`'s own gate run below already covers everything `990864a`'s did |
+| `./scripts/check-full.sh`, on `8b77c24` (final code candidate), from-scratch build | **`check: OK`**, exit 0 | `docs/reviews/evidence/8b77c24-full-gate.log` |
+| `just docs-check`, on the final candidate (docs-only diff on top of `8b77c24`, no code change, no full-gate rerun needed) | **`docs-check: OK`** (24 Markdown files checked) | session output |
+| Four presets × unit+physics tests (`8b77c24`) | **362/362 each** (debug/release/static-plugins/asan) | `8b77c24` log |
 | clang-format | 0 violations | same log |
 | clang-tidy (`build/asan` + `build/python`) | 0 findings (`bugprone-reserved-identifier` caught a double-underscore namespace name mid-session — fixed before this log) | same log |
 | pyright (strict, `python/astra/`) | 0 errors, 0 warnings, 0 informations | same log |
@@ -149,29 +151,29 @@ literally `template` (no leading underscore, distinct from the already-rejected 
 pairwise-uniqueness pytest test generates two real aircraft via the actual script and checks all
 three namespaces (both plus `_template`'s own) are pairwise distinct.
 
-**Codex's second fix-verification pass, against `8b77c24` (the final candidate)** — **one finding
-still open, medium severity, not fixed this session**: `docs/architecture.md` §18 step 1 still
-documents plain `cp -r aircraft/_template aircraft/my_aircraft` as equally valid to
-`just new-aircraft my_aircraft`, describing the latter as merely "the same [but] fixes the config's
-paths." That's now inaccurate — only `just new-aircraft` rewrites the C++ namespace token — so a
-user following the *documented* manual-copy path who then edits their aircraft's math (§18 step 2's
-own instruction) would silently recreate the exact ODR hazard just fixed. Codex's own judgment,
-requested explicitly: the two rounds of script-level fixes (rejecting `template`, the
-pairwise-uniqueness test) are a **proportionate response** to its own earlier "the fixture is
-disconnected from the real generation mechanism" concern — a full compiled-and-linked integration
-test of a dynamically generated aircraft was judged unnecessary. The §18 documentation gap is a
-**separate, still-open** finding, reached only on this second verification pass, after the session's
-two-round autonomous correction cap — **not fixed, per that cap; Joe's decision needed** (see "Joe's
-attention").
+**Codex's second fix-verification pass, against `8b77c24`** found one more finding, medium
+severity: `docs/architecture.md` §18 step 1 still documented plain `cp -r aircraft/_template
+aircraft/my_aircraft` as equally valid to `just new-aircraft my_aircraft`, describing the latter as
+merely "the same [but] fixes the config's paths" — inaccurate once the namespace rewrite existed,
+since only `just new-aircraft` performs it. Codex's own judgment on the prior two script-level
+fixes (rejecting `template`, the pairwise-uniqueness test), requested explicitly: a **proportionate
+response** to its own earlier "the fixture is disconnected from the real generation mechanism"
+concern — a full compiled-and-linked integration test of a dynamically generated aircraft was
+judged unnecessary.
+
+This finding was reached after the session's own two-round autonomous correction cap, so it was
+reported to Joe rather than fixed autonomously. **Joe explicitly authorized one bounded fix for it
+(does not reset the two-round cap)**: §18 step 1 now documents `just new-aircraft` as the only
+route, with the `cp -r` alternative removed and a clause stating why (it rewrites both the config
+paths and the math-header namespaces); the superseded `990864a-full-gate.log` was deleted (its own
+gate run is fully subsumed by `8b77c24`'s); `just docs-check` passed; Codex verified the delta (one
+`P2` finding — the evidence-table/`STATE.md` references to the just-deleted log — fixed in the same
+pass, see "Evidence"). **Closed.**
 
 ## Joe's attention
 
-- **Open finding, decision needed**: `docs/architecture.md` §18 step 1's `cp -r`-or-`just
-  new-aircraft` wording is now inaccurate and, if left as-is, invites exactly the ODR hazard this PR
-  just spent two correction rounds fixing. Two ways to close it: (a) make `just new-aircraft` the
-  only documented route (drop the `cp -r` alternative from step 1 entirely), or (b) keep `cp -r` as
-  a valid path but add an explicit instruction to rewrite both math namespaces by hand afterward.
-  Not fixed this session — the two-round autonomous correction cap was reached first.
+- **Follow-up, not blocking**: nothing else identified this round. The `cp -r`/namespace gap above
+  is closed; §18 now names one route only.
 - **The side-force sign fix** (`aircraft/notional_transport/physical/aero/aero_math.hpp`'s own header
   comment and the plan's "Force/moment assembly" section): this plugin's wind-axis force vector is
   `(-D, Y, -L)` with `Y = cy_beta_per_rad * beta * qbar * S` (JSBSim's own native +right `SIDE`
@@ -195,12 +197,12 @@ attention").
 
 ## Decision record
 
-State: **changes-required** (one open finding) or **pending** approval of the current candidate
-with that finding tracked as a follow-up — Joe's call, both are reasonable dispositions of an
-implementation-class documentation defect this narrow.
-Human decision/date/reference: pending
-Approved candidate/scope: pending (proposed: `8b77c24` on `worktree-m3-pr4-notional-transport`,
-squash-merge to `main`)
+State: pending (all findings closed; awaiting Joe's merge decision)
+Human decision/date/reference: **Joe explicitly authorized the final §18/evidence-log fix**,
+2026-09-20 (does not count against the session's two-round autonomous correction cap); merge/PR
+decision itself still pending
+Approved candidate/scope: pending (proposed: this session's final commit on
+`worktree-m3-pr4-notional-transport`, squash-merge to `main`)
 Merge observed: not merged
 Release authorization: pending / not requested
 
@@ -216,8 +218,4 @@ Nonblocking follow-ups: `PLAN.md`'s `cmake/AstraPlugin.cmake` `astra_finalize_pl
 hardcoded-test-list follow-up (pre-existing, this PR added four more entries to the same list rather
 than fixing the underlying pattern); the ADR-0001/ICD elevator/aileron/rudder sign-convention
 documentation gap (tracked in `PLAN.md`, this session).
-Blocking or trackable now (Joe's choice): the `docs/architecture.md` §18 `cp -r`-vs-`just
-new-aircraft` documentation gap above — an implementation-class defect (a doc now describes two
-paths as equivalent when they are not), not a planning or requirements defect, so the routing is a
-docs fix/re-verify, not a plan revision.
 Architectural decisions: none introduced or depended on beyond the already-accepted ADR-0020.
