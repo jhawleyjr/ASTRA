@@ -1,38 +1,39 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines; true at handoff)
 
 ## In flight
-**M3 PR 6** (`astra.trim`: `scipy.optimize.root` writing PR 5's control inputs, driving
-`Simulation.derivative(state)` to zero at cruise) is starting, worktree `m3-pr6-trim` off
-`origin/main` at `cc11c30` (M3 PR 5, merged, PR #43). PLAN.md's PR 5 box checked off this session
-with the merge SHA; PR 6/7's PLAN.md lines corrected from `python/tests/` to `tests/python/`
-(this repo's actual pytest convention, per PR 5's own finding). Not yet planned: building the
-implementation plan via `/plan-feature`, Tier 2, no Codex plan critique (PLAN.md says no — PR 5's
-own surface pins the design).
+**M3 PR 6** (`astra.trim`) is implemented and validated, not yet reviewed or handed to Joe.
+Plan: `docs/plans/pr6-trim.md`, Revision 2, **approved by Joe, 2026-09-21** (D9: add `pyyaml`,
+pin actual current release at implementation time — done, `pyyaml==6.0.3`/`scipy==1.18.1`, both
+confirmed via `pip index versions` at pin time; D10: hardcode elevator `[-0.3, 0.3]` rad
+(`docs/refs/aircrafts/737.xml:201-206`) / throttle `[0, 1]` (`icd/astra_icd.h:46`) in the test, no
+plugin config keys — done; R3's thrust cross-check corrected from the plan's own first-draft
+`T = D + m g sin(alpha)` to the classical wind-axis identity `T cos(alpha) = D`, Joe's own fix).
+PLAN.md also got a one-line follow-up (D10) noting the undeclared elevator/throttle range as the
+second control-surface property with no ICD/config home.
 
-Settled ahead of planning (Joe, this session — do not reopen): D8 residual is the 6-vector
-`[v̇_b, ω̇_b]` from `derivative(state)`'s rigid-body block (`ṗ_n`/`q̇_nb` excluded — a trimmed
-aircraft still translates and its quaternion rate need not be zero), max-abs, no weighting,
-threshold `< 1e-6`; unknowns elevator/throttle/alpha/theta with gamma=0 collapsing theta=alpha to a
-3-unknown/3-residual square problem (v̇_x, v̇_z, q̇), asserting the other three residuals are already
-small; `scipy.optimize.root` method `hybr`; inputs written by name via `sim.write_input`, names and
-ranges read from the registry/plugin config, never hardcoded; still air only, no
-`sample_environment()` in PR 6; test path `tests/python/test_trim.py`; scipy joins the dev group,
-pinned in `pyproject.toml`. Four acceptance tests: residual < 1e-6 at cruise; the untrimmed initial
-guess fails by a wide margin; physical plausibility (alpha in [0,10] deg, elevator/throttle inside
-configured ranges, thrust ≈ drag); determinism (two runs from the same guess bitwise-identical).
+Implementation: `python/astra/trim.py` (`trim_straight_and_level`/`TrimResult`), `tests/python/
+test_trim.py` (7 tests: R1–R4 plus 3 supporting checks), `pyproject.toml` (`scipy`, `pyyaml` pinned).
+scipy/pyyaml ship no type stubs; that boundary is routed through explicit `cast()`s and two narrow
+`pyright: ignore[reportUnknownMemberType]` comments rather than loosening `python/astra`'s strict
+pyright scope (`pyrightconfig.json`'s own `"strict": ["python/astra"]`). Worktree branch
+`worktree-m3-pr6-trim`, not yet pushed, no PR opened yet.
 
 ## Last verified result
-Inherited from PR 5's own local full four-preset gate `check: OK` at head `3be7e84`
-(`docs/reviews/evidence/5964c63-full-gate.log`) — no code changed this session yet, so nothing new
-to verify. `origin/main` at `cc11c30` matches this worktree's branch head; working tree clean before
-this session's PLAN.md/STATE.md edits and `git worktree prune`.
+Local full four-preset gate `check: OK` at head `641ff4a`, retained at
+`docs/reviews/evidence/b8c4506-full-gate.log` (captured against implementation head `b8c4506`,
+before the evidence-retention commit itself) — hooks 144/144, debug/release/static-plugins/asan all
+387/387, tidy clean, pyright 0 errors, pytest 84/84 (77 existing + 7 new). Real solved trim point at
+cruise: `elevator ≈ 0.0267 rad`, `throttle ≈ 0.4986`, `alpha ≈ 1.35°`, `max|residual| ≈ 8e-17` (R1,
+`< 1e-6`); untrimmed-guess residual `≈ 3.43 m/s²` (R2, `> 1e-2`); R3's `T cos(alpha)` vs. hand-D
+cross-check misses by `0.31%` (`< 5%`); R4 bitwise-identical across two runs.
 
 ## Next step
-Write the PR 6 implementation plan (`/plan-feature`): map D8's residual and the four named
-acceptance tests above into a concrete plan, read the aero/turbofan plugin configs for the actual
-control-input names and throttle/elevator ranges (never hardcode them), pin the scipy version in
-`pyproject.toml`. No Codex plan critique (PLAN.md's own PR 6 line: "Plan critique: no"). Show Joe
-the plan before any code.
+Codex review (`/review-cycle`): general review, plus adversarial review focused on the trim math
+(D8 residual slice correctness, the collapsed-quaternion special case, the R3 wind-axis identity,
+determinism/no-hidden-state across repeated `derivative()`/`write_input()` calls) per workflow.md's
+"physics diffs also need adversarial review" — this PR is pure Python calling already-reviewed C++
+surface, so scope this proportionally, not as a full core-physics adversarial pass. Then
+`/human-review` before Joe's decision. No plan critique was required or done (PLAN.md's own line).
 
 ## Tried / failed
 Correction rounds: 0/2. Failed integrations: 0/2.
