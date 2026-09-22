@@ -160,10 +160,11 @@ format change for any existing consumer — `python/astra/trim.py` is unmodified
 
 ## Decision record
 
-State: pending
-Human decision/date/reference: pending
-Approved candidate/scope: pending
-Merge observed: not merged
+State: approved
+Human decision/date/reference: **Joe approved, 2026-09-22, in session**
+Approved candidate/scope: implementation `fec3d67` (head `693d9fe`, documentation/handoff commits
+on top) against base `origin/main` at `53064e0`
+Merge observed: not merged (Joe's own squash-merge, pending GitHub's `check` going green on the PR)
 Release authorization: not requested
 
 Significant tradeoff rationale: D18's CG-referenced correction is scoped to exactly the three
