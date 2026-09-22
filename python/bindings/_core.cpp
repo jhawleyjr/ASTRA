@@ -147,6 +147,22 @@ nb::ndarray<nb::numpy, double, nb::ndim<1>> simulation_derivative(
   return {data, {dq.size()}, owner};
 }
 
+// M3 PR 7 (docs/plans/pr7-linearize.md, D14/PR 6's own follow-up): the first vehicle's own
+// registered input names, in InputRegistry::names()'s registration order -- mirrors
+// simulation_derivative's own "free function over vehicles().front()" shape, not a new
+// astra::Simulation member (no core/ header or source change, no kCoreApiVersion bump). Every
+// std::string_view is converted to an owned Python str immediately, inside this call, while the
+// owning Simulation/Vehicle/InputRegistry is still alive on the stack above it -- unlike
+// PyHaltReason::source (a string_view held in a long-lived bound struct field, read lazily whenever
+// Python touches the property), this is an ordinary function return, converted once, at call time.
+std::vector<std::string> simulation_input_names(const astra::Simulation& sim) {
+  if (sim.vehicles().empty()) {
+    throw nb::value_error("Simulation.input_names: no vehicle configured");
+  }
+  const std::vector<std::string_view> names = sim.vehicles().front().inputs().names();
+  return {names.begin(), names.end()};
+}
+
 // The check the loader applies to every plugin (ADR-0009), applied to this module: the copy pip
 // installed into the venv must have been compiled against the libastra_core it just loaded, which
 // is the one shared object the loader never sees. A rebuilt build/python without `just python` is
@@ -473,5 +489,10 @@ NB_MODULE(_core, m) {
            "same state (docs/plans/pr5-nanobind-bindings.md R9), not a second implementation. "
            "Raises ValueError for a mismatched state length; Error if no physics is configured, "
            "if wind is configured but has never been latched by a real step()/run() call, or if "
-           "the probe evaluation itself faults.");
+           "the probe evaluation itself faults.")
+      .def("input_names", &simulation_input_names,
+           "The first vehicle's own registered write-seam input names (ADR-0017), in "
+           "InputRegistry::names()'s registration order -- a copy (docs/plans/"
+           "pr7-linearize.md, D14/PR 6's own follow-up). A caller writing through write_input "
+           "should discover names from here rather than hardcoding a literal.");
 }

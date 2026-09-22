@@ -1,40 +1,38 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines; true at handoff)
 
 ## In flight
-**M3 PR 6** (`astra.trim`: `trim_straight_and_level()`, `scipy.optimize.root` driving
-`Simulation.derivative(state)`'s residual to zero at cruise) is **approved by Joe and open as
-PR #44**, awaiting a green `check` on the current head before his own squash-merge. Plan:
-`docs/plans/pr6-trim.md` (Revision 2, approved 2026-09-21). Implementation candidate `031dca8`
-plus packet/STATE handoff commits through `f9e8238`; branch `worktree-m3-pr6-trim` pushed, PR
-https://github.com/jhawleyjr/ASTRA/pull/44 open and marked ready (not draft).
+**M3 PR 7** (`astra.linearize`: central-difference `A`/`B` about `astra.trim`'s cruise trim, five
+classical modes checked against S&L §4.2) is **approved by Joe and open as PR #45**, ready (not
+draft), awaiting his squash-merge. Plan: `docs/plans/pr7-linearize.md` (Revision 4, approved
+2026-09-22). Candidate `fec3d67`; branch `worktree-m3-pr7-linearize` pushed,
+https://github.com/jhawleyjr/ASTRA/pull/45. Base `origin/main` `53064e0`, confirmed unchanged via
+`git fetch` right before push. Includes PR 6's follow-up (`Simulation.input_names()` bound, no
+`kCoreApiVersion` bump); `astra.trim` unmodified (PLAN.md follow-up tracks that retrofit).
 
-Codex review (two passes, base `cc11c30`): general found R-001 (minor — a regression test never
-called the helper it claimed to test), fixed `4b6f398`; adversarial pass (D8 residual slices, the
-collapsed-quaternion special case, the R3 `T cos(alpha) = D` identity, determinism, the `earth/flat`
-guard, the accepted control-name-hardcoding deviation) independently confirmed the fix, found
-nothing else — **verdict approve**. Findings: `docs/reviews/pr6-trim-review.md`. Human-review
-decision: `docs/reviews/pr6-trim-human.md` — **Joe approved candidate `031dca8` against base
-`cc11c30`, 2026-09-21, in session**, conditional on a regression test for the `earth/flat` guard
-(satisfied by `031dca8` itself; the packet's earlier "verified by hand" wasn't evidence).
+**D18 (two revisions)**: Rev. 3 fixed short period/spiral via CG-referenced `Cm_alpha`/`Cl_beta`/
+`Cn_beta` (`aero_math.hpp` transfers them AERORP→CG; S&L's derivatives are CG-referenced), leaving
+phugoid `omega_n` an accepted `xfail`. **Rev. 4 (Joe's packet review, R-003)**: eq. 4.2-17b's own
+dominance assumption failed once `Cm_alpha` was CG-referenced; eq. 4.2-16 closes it to 0.9%,
+`xfail` removed, all 14 tests pass unmarked.
 
-Also flagged to Joe, unresolved: `.claude/settings.json` pins `opusplan`, this session ran on
-Sonnet 5 throughout — a launch/settings drift, his own call (not an ASTRA code issue).
+Three findings, all fixed/fix-verified, zero open, **correction rounds 2/2 consumed** (further
+findings go to Joe now, not a third round): R-001 (major, Codex general) control values/steps
+assumed a fixed position order, not `Simulation.input_names()`'s runtime order; R-002 (medium,
+Codex adversarial) the phugoid `xfail` swallowed the damping assertion; R-003 (Joe's own finding)
+the phugoid formula defect above. Findings: `docs/reviews/pr7-linearize-review.md`; packet (now
+the PR #45 body): `docs/reviews/pr7-linearize-human.md`.
 
 ## Last verified result
-Local full gate `check: OK` at head `6104206`, `docs/reviews/evidence/6104206-full-gate.log` —
-hooks 144/144, all four presets 387/387, pyright 0, pytest 84/84. The flat-earth regression test
-(`031dca8`) is Python-only, so the full gate wasn't rerun for it (Joe's own call);
-`pytest tests/python/` (85/85)/`ruff`/`pyright` rerun clean at that head instead. **GitHub's own
-`check` succeeded only against head `6f42fad`** (run 35691288789) — current tip `f9e8238` (STATE.md
-only) has no reported run yet; not claimed verified on the current head.
+Local full gate `check: OK` at `fec3d67`, `docs/reviews/evidence/fec3d67-full-gate.log` — four
+presets 387/387, hooks 144/144, pyright 0, pytest 99 passed, 0 `xfail`. **GitHub's own `check`
+succeeded on pushed head `b1d0fdc`** (run `35701866283`, verified via `gh run view`).
 
 ## Next step
-**Joe's squash-merge**, once PR #44's `check` is confirmed green on the actual current head —
-nothing further for Claude unless it fails or Joe requests changes. After merge: check off
-PLAN.md's PR 6 line with the merge SHA (not yet done).
+**Joe's squash-merge.** Nothing further for Claude unless he requests changes; a new finding goes
+to him (correction budget exhausted). After merge: check off PLAN.md's PR 7 line with the SHA.
 
 ## Tried / failed
-Correction rounds: 0/2. Failed integrations: 0/2.
+Correction rounds: 2/2. Failed integrations: 0/2.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.

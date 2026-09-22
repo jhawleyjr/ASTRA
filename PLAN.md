@@ -528,6 +528,10 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       own plausibility check hardcodes `elevator ∈ [-0.3, 0.3]` rad (737.xml) and `throttle ∈ [0, 1]`
       (the ICD's documented convention, not a config value) directly in its test rather than adding
       `aircraft/**/physical` config keys. Not started.
+- [ ] `astra.trim`'s own hardcoded control-input names (D10, PR 6, `docs/plans/pr6-trim.md`) are not
+      retrofitted to `InputRegistry::names()` by PR 7's own binding of it (M3 PR 7 planning): PR 7
+      reads control names through it for `astra.linearize` only, and `trim_straight_and_level` keeps
+      its literals. Not started.
 - [ ] `cmake/AstraPlugin.cmake`'s `astra_finalize_plugins()` hardcodes which test executables get a
       plugin build-order dependency (`astra_unit_tests`, `astra_physics_tests`, and — since M3
       PR 1 — `astra_notional_transport_mass_test`, `astra_template_mass_test`), by explicit design
@@ -744,12 +748,23 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         `Vehicle::integrate()`'s own per-frame path), and a fix-verification round on Joe's own
         human-review test addition -- all verdict approve, no material findings), approved by Joe.**
         PR #43 merged as `cc11c30`, 2026-09-21 (squash merge, Joe).
-  - [ ] PR 6 — `astra.trim`: `scipy.optimize.root` writing PR 5's inputs, driving `derivative(state)`
+  - [x] PR 6 — `astra.trim`: `scipy.optimize.root` writing PR 5's inputs, driving `derivative(state)`
         to zero at a flight condition. Residual norm/units (D8, Joe's pick, at this PR's planning
         time) -- S&L §3.6 uses a weighted sum-of-squares of state derivatives; §16 gives no norm, and
         the state mixes m, m/s, quaternion components, rad/s, so raw SSE isn't unit-consistent.
         Depends on PR 5. Accept: `pytest tests/python/test_trim.py` -- residual under D8's definition
         < 1e-6 at cruise. Binding ADRs: none new. Tier 2. Plan critique: no.
+        **Implemented, validated (full gate green at head `6104206`, all four presets, retained at
+        `docs/reviews/evidence/6104206-full-gate.log`; Codex two passes, base `cc11c30` -- general
+        found R-001 (minor: a regression test never called the helper it claimed to test), fixed
+        `4b6f398`; adversarial pass (D8 residual slices, the collapsed-quaternion special case, the
+        R3 `T cos(alpha) = D` identity, determinism, the `earth/flat` guard, the accepted
+        control-name-hardcoding deviation) independently confirmed the fix, found nothing else --
+        verdict approve), approved by Joe.** Human-review decision: Joe approved candidate `031dca8`
+        against base `cc11c30`, 2026-09-21, conditional on a regression test for the `earth/flat`
+        guard (satisfied by `031dca8` itself). Findings: `docs/reviews/pr6-trim-review.md`;
+        human-review packet: `docs/reviews/pr6-trim-human.md`. PR #44 merged as `53064e0`,
+        2026-09-21 (squash merge, Joe).
   - [ ] PR 7 — `astra.linearize`: central-difference A/B about trim; short period/phugoid/Dutch
         roll/roll/spiral checked as a sanity comparison against S&L §4.2's classical closed-form
         mode approximations, not an independent O4 source (supersedes O4: `docs/refs/aircrafts/
@@ -764,6 +779,22 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         rather than reading them from the registry as originally instructed, because the Python
         binding exposes no `InputRegistry::names()` enumeration (it exists in C++, PR 2). Bind it
         so PR 7 can discover control names instead of repeating the same hardcoding.
+        **Implemented, validated (full gate green, four presets; three Codex findings -- R-001
+        major, R-002 medium, R-003 major -- all fixed and fix-verified, zero remaining, correction
+        rounds 2/2 consumed).** `docs/plans/pr7-linearize.md` (Revision 4, D11-D18): D18 Revision 3,
+        a mid-session correction, found three of five modes missed D13's own closed-form tolerance
+        because the comparison used AERORP-referenced coefficients where S&L's own derivatives are
+        CG-referenced -- fixed by re-deriving the CG-referenced coefficients from first principles
+        in the test (not a tolerance change); short period and spiral now pass, phugoid `omega_n`
+        still missed (16.7%), first accepted as an expected `xfail`. **D18 Revision 4** (Joe's
+        packet review, R-003): that acceptance stopped one step short -- eq. 4.2-17b's own further
+        simplification (S&L's Lanchester result) assumes a dominance condition the raw `Cm_alpha`
+        satisfied and the CG-referenced one doesn't; using eq. 4.2-16 itself (the equation S&L's
+        text actually specifies) closes phugoid to 0.9%. `xfail` removed; all five modes pass
+        unmarked. **Approved by Joe, 2026-09-22, in session** (candidate `fec3d67`, base `53064e0`);
+        pushed and opened as PR #45, ready (not draft), GitHub's own `check` green at pushed head
+        `b1d0fdc`. Human-review packet: `docs/reviews/pr7-linearize-human.md`. Awaiting Joe's own
+        squash-merge.
   - [ ] PR 8 — Cruise config(s) (D6's `vehicle.models` schema) + 300 s open-loop run frozen as a
         regression trajectory (O5 -- not an oracle), generator-under-guard pattern from
         `tests/golden/nesc/`. Adds the actual independent check §16 (as corrected by PR 0) requires: a
@@ -772,7 +803,12 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         asan -R notional_transport_cruise_regression` matches the frozen trajectory under all four
         presets, guarded by `.claude/touch-goldens`; the phugoid-cycle cross-check passes its own
         stated tolerance. Binding ADRs: ADR-0004, ADR-0016, PR 2/3's ADR. Tier 3. Plan critique: no --
-        needs Joe's explicit oracle sign-off same as ADR-0013/14/15.
+        needs Joe's explicit oracle sign-off same as ADR-0013/14/15. **Follow-up from PR 7**
+        (`docs/plans/pr7-linearize.md`, D18): the phugoid-cycle cross-check above should use PR 7's
+        own numerical `A`, not S&L's closed-form approximation -- because that numerical model is
+        what PR 8 is actually validating against, not because the closed form is unreliable (PR 7's
+        own D18 Revision 4 got the closed-form phugoid frequency to within 0.9% once the right
+        equation, 4.2-16, and CG-referenced coefficient were used).
 - [ ] **M4 Lockstep** — shm transport + HAL + straight-and-level autopilot outside the sim tree; 10,000
       exchanges, zero missed; altitude ±30 m, heading ±2° under light Dryden; bit-identical logs; peer death
       halts within one timeout.
