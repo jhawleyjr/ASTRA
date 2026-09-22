@@ -1,7 +1,7 @@
 # M3 PR 8: trimmed cruise config, 300 s regression trajectory, phugoid cross-check
 
 Spec: Joe's PR 8 instruction (2026-09-22, in session), D19–D21; PLAN.md M3 PR 8 line.
-Risk: Tier 3 (`aircraft/**` config, `tests/golden/**`). Status: **Revision 2, draft, awaiting Joe's read**.
+Risk: Tier 3 (`aircraft/**` config, `tests/golden/**`). Status: **Revision 2, approved by Joe 2026-09-22** (with five conditions, below).
 Plan approval: pending. Plan critique: none (PLAN.md). Golden capture: armed by Joe separately.
 Base: `origin/main` `553700f`. Branch `worktree-m3-pr8-cruise-regression`.
 
@@ -24,6 +24,15 @@ closed: Dryden at t = 0, drift versus the period measurement, and 47 m versus 70
 - **Spec changes accepted.** No new binding (`Simulation.run(frames)` is already bound, PR 5). The
   harness and script go in `tests/capture/`. The script checks arming itself. Dryden stays on the
   regression run and is dropped for the phugoid run.
+
+- **Revision 2 approval conditions.** (1) The cruise.yaml provenance comment and the manifest state
+  that the trim is still-air and that the frozen run starts in seed-42 turbulence (frame-0 gust
+  (−3.08, 0.91, 6.63) m/s), so the trajectory is a turbulence response from trim, not a cruise hold.
+  (2) The packet reports the four-preset dry run's max |Δu|, altitude and pitch excursions with the
+  no-halt result. (3) The plan states the method bias's cause (finding 6: measured, not the
+  sampling/interpolation cause the approval note guessed). (4) The altitude column calls
+  `linearize._evaluate` directly (precedent: `test_trim.py`'s `trim._residual6`). (5) The packet
+  carries finding 6's table, not a single percentage.
 
 ## Repository findings
 
@@ -98,8 +107,10 @@ nothing committed): planning evidence, not acceptance evidence.
    | u − u_trim, linear least-squares detrend | 109.02 s | +0.45% | 0.0309 | +0.0036 |
    | 5×5 model's own simulated u(t), same method | 108.63 s | +0.09% | 0.0280 | +0.0007 |
 
-   The last row is the method's own bias: 1 Hz sampling, linear interpolation, and height-mode
-   contamination of the crossings and peaks. So the 0.04% is **partly fortuitous**: a +0.09% method
+   The last row is the method's own bias, and its cause is the slow height mode's u component
+   (λ = −0.00173 s⁻¹) shifting the crossings and peaks. It is not the sampling rate or the crossing
+   interpolation: the same method applied to the 5×5 phugoid component alone is off by 2e-7 in
+   period and 3e-5 in ζ at 1 Hz, and all modes together give +0.091% at 1, 10 and 100 Hz alike. So the 0.04% is **partly fortuitous**: a +0.09% method
    bias happens to offset the drift's effect. The robust claim is agreement within 0.5% in period
    and 0.004 in ζ under every reasonable reference. That is at least 10× inside 5% and 5× inside
    0.02, so the pass doesn't depend on the reference choice. Linear detrending is the worst row

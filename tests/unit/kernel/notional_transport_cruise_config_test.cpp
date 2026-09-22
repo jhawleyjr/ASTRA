@@ -1,10 +1,10 @@
 // aircraft/notional_transport/configs/cruise.yaml (PLAN.md M3 PR 1/PR 4, docs/architecture.md §13):
 // the shipped config actually loads through Simulation::from_config and steps -- not just
 // documentation. As of PR 4, vehicle.models carries the real aero/turbofan plugins plus an
-// initial_controls block (elevator/aileron/rudder=0.0, throttle=0.5 -- thrust_ref_n's own
-// half-throttle design point); this test proves loading, control-write-seam wiring, and 1000 frames
-// with no halt, not a trimmed flight (v_b's own initial 230 m/s wings-level state is not solved for
-// equilibrium -- PR 6 does that). A wrong/missing initial_controls entry would halt frame 0 on
+// initial_controls block (since PR 8, the still-air trim's elevator/throttle, aileron/rudder=0.0);
+// this test proves loading, control-write-seam wiring, and 1000 frames with no halt -- not that the
+// flight stays trimmed (the trim itself is checked by tests/python/test_cruise_phugoid.py, and the
+// run includes Dryden turbulence). A wrong/missing initial_controls entry would halt frame 0 on
 // HealthMonitor::check_input naming the unwritten control; this test's own green result is
 // therefore also this PR's own R6 acceptance evidence for that seam.
 #include <gtest/gtest.h>

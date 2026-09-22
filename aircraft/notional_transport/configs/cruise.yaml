@@ -62,15 +62,15 @@ vehicle:
       z_offset_from_cg_m: 0.0
       thrust_ref_n: 29878.121867743088
       density_ref_kgm3: 0.4128
-  # ADR-0017: config-literal value for each write-seam input the models above registered. Not a
-  # trim (PR 6 solves that) -- throttle=0.5 matches thrust_ref_n's own half-throttle design point,
-  # elevator/aileron/rudder=0.0 are the simplest notional starting point.
+  # ADR-0017: config-literal value for each write-seam input the models above registered.
+  # elevator/throttle are the still-air trim (see initial.state below for provenance);
+  # aileron/rudder=0.0 by the straight-and-level scenario.
   initial_controls:
     controls:
-      elevator: 0.0
+      elevator: 0.026674474137989946   # rad
       aileron: 0.0
       rudder: 0.0
-      throttle: 0.5
+      throttle: 0.4985979490507746
 physical:
   earth: plugins/physical/earth/wgs84_rotating
   gravity: plugins/physical/gravity/wgs84_j2
@@ -100,9 +100,19 @@ physical:
     # This gives the notional airframe a small (~0.34 deg), slightly nose-UP principal-axis tilt --
     # that is what the source's token gives, transcribed faithfully, not a sign error to "fix".
     ixz: -10846.5    # kg*m^2; integral(x*z*dm) = -(8000 SLUG*FT2) x 1.35581795
+# Trimmed initial state (M3 PR 8, D19; docs/plans/pr8-cruise-regression.md). v_b, euler_nb[1] and
+# initial_controls' elevator/throttle are astra.trim.trim_straight_and_level(this file, 230.0,
+# 10000.0)'s result at full repr precision -- astra.trim as of 553700f (unchanged since 53064e0),
+# default xtol=1e-12. euler_nb[1] is the trim alpha (gamma = 0, so theta = alpha). Residual (D8,
+# docs/plans/pr6-trim.md: max-abs of [v_dot_b, omega_dot_b] from Simulation.derivative at this state)
+# = 8.3e-17, in STILL AIR -- the trim drops physical.wind, and so does the test that re-checks this
+# state (tests/python/test_cruise_phugoid.py). With the Dryden model above, a run from this state
+# starts in seed-42 turbulence: the frame-0 gust is wind_n = (-3.08, 0.91, 6.63) m/s (stationary
+# start), and the same residual evaluated with that gust latched is 3.77 m/s^2 (mostly w_dot). A run
+# from this file is therefore a turbulence response from trim, not a cruise hold.
 initial:
   state:
     p_n: [0.0, 0.0, 10000.0]   # wgs84_rotating: lat (rad), lon (rad), altitude (m)
-    v_b: [230.0, 0.0, 0.0]     # m/s TAS, wings level -- not a trimmed state (PR 6 adds trim)
-    euler_nb: [0.0, 0.0, 0.0]  # heading 0, level
+    v_b: [229.9360238725, 0.0, 5.42447469393253]  # m/s, body axes; TAS 230 at trim alpha
+    euler_nb: [0.0, 0.023586859573503434, 0.0]    # [psi, theta, phi] rad; heading 0, theta = alpha
     omega_b: [0.0, 0.0, 0.0]

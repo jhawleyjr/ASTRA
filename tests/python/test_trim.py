@@ -67,12 +67,19 @@ def test_trim_converges_at_cruise() -> None:
 
 
 def test_untrimmed_guess_fails_by_a_wide_margin() -> None:
-    # cruise.yaml's own initial.state/initial_controls (v_b=[230,0,0] i.e. alpha=0, elevator=0,
-    # throttle=0.5) is the untrimmed guess -- no duplicated numbers. Hand-estimate: at alpha=0,
-    # CL = cl_0 = 0.20 against a required CL ~ 0.31 for level flight, a lift deficit of order 1e5 N,
-    # order 1 m/s^2 of v_dot_z -- four-plus orders of magnitude above both the 1e-6 (R1) and this
-    # test's own 1e-2 threshold.
-    config = trim._load_still_air_config(CRUISE_CONFIG)
+    # The untrimmed guess is v_b=[230,0,0] i.e. alpha=0, elevator=0, throttle=0.5 -- cruise.yaml's
+    # own initial.state/initial_controls before M3 PR 8 wrote the trim into it (D19,
+    # docs/plans/pr8-cruise-regression.md), so they are overridden back here. Hand-estimate: at
+    # alpha=0, CL = cl_0 = 0.20 against a required CL ~ 0.31 for level flight, a lift deficit of
+    # order 1e5 N, order 1 m/s^2 of v_dot_z -- four-plus orders of magnitude above both the 1e-6
+    # (R1) and this test's own 1e-2 threshold.
+    data = yaml.safe_load(Path(CRUISE_CONFIG).read_text(encoding="utf-8"))
+    data["physical"].pop("wind", None)  # still air, as trim._load_still_air_config does
+    data["initial"]["state"]["v_b"] = [TRUE_AIRSPEED_MPS, 0.0, 0.0]
+    data["initial"]["state"]["euler_nb"] = [0.0, 0.0, 0.0]
+    data["vehicle"]["initial_controls"]["controls"]["elevator"] = 0.0
+    data["vehicle"]["initial_controls"]["controls"]["throttle"] = 0.5
+    config = _core.Config.from_dict(data, origin=CRUISE_CONFIG)
     sim = _core.Simulation.from_config(config, _core.default_plugin_dir())
     state = np.array(sim.vehicles[0].state)
     residual = trim._residual6(sim, state)
