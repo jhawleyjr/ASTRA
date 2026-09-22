@@ -784,13 +784,17 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         of `Simulation.input_names()`'s own runtime order, silently misaligning if a config lists
         the turbofans before the aero model; R-002 medium: the phugoid `xfail` swallowed the
         damping assertion and any unrelated exception -- both fixed, fix-verification confirmed,
-        zero remaining), pending Joe's decision.** `docs/plans/pr7-linearize.md` (Revision 3,
-        D11-D18): D18, a mid-session correction, found three of five modes missed D13's own
-        closed-form tolerance because the comparison used AERORP-referenced coefficients where
+        zero remaining), pending Joe's decision.** `docs/plans/pr7-linearize.md` (Revision 4,
+        D11-D18): D18 Revision 3, a mid-session correction, found three of five modes missed D13's
+        own closed-form tolerance because the comparison used AERORP-referenced coefficients where
         S&L's own derivatives are CG-referenced -- fixed by re-deriving the CG-referenced
-        coefficients from first principles in the test (not a tolerance change); phugoid's own
-        `omega_n` (eq. 4.2-17b, no stability derivative to correct) is `xfail(strict=True)`, its
-        damping validated separately and passing. Human-review packet:
+        coefficients from first principles in the test (not a tolerance change); short period and
+        spiral now pass, phugoid `omega_n` still missed (16.7%), first accepted as an expected
+        `xfail`. **D18 Revision 4** (Joe's packet review): that acceptance stopped one step short
+        -- eq. 4.2-17b's own further simplification (S&L's Lanchester result) assumes a dominance
+        condition the raw `Cm_alpha` satisfied and the CG-referenced one doesn't; using eq. 4.2-16
+        itself (the equation S&L's text actually specifies) closes phugoid to 0.9%. `xfail`
+        removed; all five modes pass unmarked. Human-review packet:
         `docs/reviews/pr7-linearize-human.md`.
   - [ ] PR 8 — Cruise config(s) (D6's `vehicle.models` schema) + 300 s open-loop run frozen as a
         regression trajectory (O5 -- not an oracle), generator-under-guard pattern from
@@ -801,10 +805,11 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         presets, guarded by `.claude/touch-goldens`; the phugoid-cycle cross-check passes its own
         stated tolerance. Binding ADRs: ADR-0004, ADR-0016, PR 2/3's ADR. Tier 3. Plan critique: no --
         needs Joe's explicit oracle sign-off same as ADR-0013/14/15. **Follow-up from PR 7**
-        (`docs/plans/pr7-linearize.md`, D18): the phugoid-cycle cross-check above must use PR 7's
-        numerical `A`, never S&L eq. 4.2-17a/17b's closed-form approximation -- PR 7's own measured
-        result is that the closed-form phugoid frequency misses by 16.7% for this aircraft even
-        after correcting its coefficients to the CG reference S&L's own derivatives assume.
+        (`docs/plans/pr7-linearize.md`, D18): the phugoid-cycle cross-check above should use PR 7's
+        own numerical `A`, not S&L's closed-form approximation -- because that numerical model is
+        what PR 8 is actually validating against, not because the closed form is unreliable (PR 7's
+        own D18 Revision 4 got the closed-form phugoid frequency to within 0.9% once the right
+        equation, 4.2-16, and CG-referenced coefficient were used).
 - [ ] **M4 Lockstep** — shm transport + HAL + straight-and-level autopilot outside the sim tree; 10,000
       exchanges, zero missed; altitude ±30 m, heading ±2° under light Dryden; bit-identical logs; peer death
       halts within one timeout.

@@ -11,9 +11,9 @@ the plain body-axis Izz/Ixx, since the trim angle of attack is small (~1.5 deg -
 0.9993, a much smaller correction than the tolerances below already allow for).
 
 D18 (Revision 3, docs/plans/pr7-linearize.md): running R4 against the real numbers found short
-period, phugoid, and spiral outside D13's own tolerance. Short period and spiral were a real defect
-in D13's own coefficient list, not in astra.linearize (independently confirmed by R2/R3 and by a
-hand check against the derivation below to four significant figures): aero_math.hpp's own
+period, phugoid, and spiral outside D13's own tolerance. All three were a real defect in D13's own
+coefficient list, not in astra.linearize (independently confirmed by R2/R3 and by a hand check
+against the derivation below to four significant figures): aero_math.hpp's own
 moment_b = moment_native_b + r_aero_b.cross(force_b) transfers its tabulated
 Cm_alpha/Cl_beta/Cn_beta from AERORP to the CG (aero_math.hpp's own header, lines 14-15; r_aero_b
 is a cruise.yaml coefficient, lines 26-28), while S&L Sec. 4.2's own dimensional derivatives are
@@ -21,10 +21,17 @@ CG-referenced throughout. _cg_referenced_coefficients below re-derives the CG-re
 Cm_alpha/Cl_beta/Cn_beta from first principles (never calling aero_math.hpp or astra.linearize),
 and every mode formula below takes them as input -- the equations and tolerances themselves are
 unchanged. Cm_q/Cl_p/Cl_r/Cn_r have no transfer term: p/q/r never enter this aero model's force
-equations (aero_math.hpp), so r_aero_b.cross(force_b) has no rate dependence. Phugoid stays outside
-its bound after the correction, exactly as expected: eq. 4.2-17b (the level-flight Lanchester
-result used for omega_n) is (g/V_T)*sqrt(2) -- airspeed and gravity only, no stability derivative
-for any coefficient correction to move -- marked xfail(strict=True), not loosened.
+equations (aero_math.hpp), so r_aero_b.cross(force_b) has no rate dependence.
+
+D18 Revision 4 (Joe's packet review): the phugoid fix above was necessary but not sufficient --
+eq. 4.2-17b (the further-simplified Lanchester result, `(g/V_T)*sqrt(2)`) is itself only valid when
+S&L's own eq. 4.2-16 denominator is dominated by its mass-ratio term, an assumption the raw
+AERORP-tabulated Cm_alpha happened to satisfy but the smaller CG-referenced Cm_alpha does not
+(the neglected term is ~40% of the retained one for this aircraft). `_phugoid_approximation` uses
+eq. 4.2-16 itself (CL_V = Cm_V = 0, exact for this model), not 4.2-17a/17b; it now passes unmarked,
+no xfail. The actual lesson is not "this aircraft has no closed-form phugoid check" but "check a
+textbook simplification's own stated assumption against the real numbers before using it, not
+after it fails."
 """
 
 from __future__ import annotations
@@ -144,12 +151,28 @@ def _short_period_approximation(
     return linearize.OscillatoryMode(omega_n, zeta)
 
 
-def _phugoid_approximation() -> linearize.OscillatoryMode:
-    """S&L eq. 4.2-17b (Lanchester's level-flight result) for omega_n; eq. 4.2-18 for zeta, which
-    collapses to exactly 0 for this model (C_DV = C_TV = 0: neither cd_0/cd_k nor thrust_ref_n
-    carries any Mach/airspeed dependence in this notional aero/propulsion model). No D18 correction
-    applies: eq. 4.2-17b has no stability-derivative term of any kind to correct."""
-    omega_n = (STANDARD_GRAVITY_MPS2 / TRUE_AIRSPEED_MPS) * math.sqrt(2.0)
+def _phugoid_approximation(
+    qbar_pa: float, rho_kg_m3: float, alpha_rad: float, cm_alpha_cg: float
+) -> linearize.OscillatoryMode:
+    """S&L eq. **4.2-16** for omega_n -- not the further-simplified eq. 4.2-17a/17b (Lanchester's
+    level-flight result). S&L's own text is explicit that 4.2-16 "is the equation that will be used
+    to calculate the phugoid frequency," and 4.2-17a is a *further* approximation valid only when
+    the mass-ratio term (4m/(rho*S*c))*Cm_alpha dominates Cm_q*CL_alpha in 4.2-16's own denominator
+    -- with D18's CG-referenced Cm_alpha (~-0.315, roughly half the raw AERORP-tabulated -0.6), the
+    neglected Cm_q*CL_alpha term is ~40% of the retained one, so that dominance assumption fails for
+    this aircraft and 4.2-17a/17b must not be used. CL_V = Cm_V = 0 is exact for this model: no
+    Mach/airspeed dependence in cd_0/cd_k (aero_math.hpp) or the turbofan thrust law
+    (turbofan_math.hpp:6-8, "Has no true_airspeed_mps dependence at all"). CL_e is the trim lift
+    coefficient (W cos(alpha)/(qbar*S), the same quantity D18's own Cm_alpha_cg derivation already
+    computes). zeta uses eq. 4.2-18, unchanged, which still collapses to exactly 0 for this model
+    (C_DV = C_TV = 0, same reasoning)."""
+    cl_e = (MASS_KG * STANDARD_GRAVITY_MPS2 * math.cos(alpha_rad)) / (qbar_pa * WING_AREA_M2)
+    numerator = (2.0 * STANDARD_GRAVITY_MPS2 / MEAN_CHORD_M) * (cm_alpha_cg * 2.0 * cl_e)
+    denominator = (
+        CM_Q_PER_RAD * CL_ALPHA_PER_RAD
+        + (4.0 * MASS_KG / (rho_kg_m3 * WING_AREA_M2 * MEAN_CHORD_M)) * cm_alpha_cg
+    )
+    omega_n = math.sqrt(numerator / denominator)
     zeta = 0.0
     return linearize.OscillatoryMode(omega_n, zeta)
 
@@ -305,11 +328,13 @@ def test_short_period_matches_the_approximation(result: linearize.LinearizeResul
 
 
 def test_phugoid_zeta_matches_the_approximation(result: linearize.LinearizeResult) -> None:
-    # Codex adversarial review (base 53064e0): damping must be validated independently of the
-    # known omega_n miss below -- an un-narrowed xfail covering both assertions would never reach
-    # this one at all (the omega_n assert always raises first), silently disabling damping
-    # coverage.
-    approx = _phugoid_approximation()
+    # Codex adversarial review (base 53064e0): damping must be validated independently of omega_n
+    # -- kept as its own test even though omega_n below no longer needs an xfail (Joe's packet
+    # review, D18 Revision 4), so a future regression in either half is still isolated.
+    rho = _isa1976_density_kg_m3(ALTITUDE_M)
+    qbar = 0.5 * rho * TRUE_AIRSPEED_MPS**2
+    cm_alpha_cg, _, _ = _cg_referenced_coefficients(qbar, result.x0[7])
+    approx = _phugoid_approximation(qbar, rho, result.x0[7], cm_alpha_cg)
     numerical = linearize.modes(result.a).phugoid
     zeta_diff = abs(numerical.damping_ratio - approx.damping_ratio)
     assert zeta_diff < LONGITUDINAL_ZETA_ABS_TOL, (
@@ -318,21 +343,15 @@ def test_phugoid_zeta_matches_the_approximation(result: linearize.LinearizeResul
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "D18 (docs/plans/pr7-linearize.md): eq. 4.2-17b (Lanchester's level-flight omega_n, "
-        "(g/V_T)*sqrt(2)) carries no stability derivative, so the CG-referenced-coefficient "
-        "correction that fixes short period/spiral cannot apply here. Measured this session: "
-        "numerical omega_n 0.0502 rad/s vs approximate 0.0603 rad/s, 16.7% off (bound 15%) -- a "
-        "real, expected miss, not a tolerance to widen. strict=True + raises=AssertionError "
-        "(Codex adversarial review, base 53064e0): an unexpected pass, or any non-assertion "
-        "error, fails loudly instead of being silently absorbed as an expected failure."
-    ),
-)
 def test_phugoid_omega_n_matches_the_approximation(result: linearize.LinearizeResult) -> None:
-    approx = _phugoid_approximation()
+    # D18 Revision 4 (Joe's packet review): eq. 4.2-17a/17b's own further simplification (mass-ratio
+    # term dominates) does not hold once Cm_alpha is CG-referenced -- eq. 4.2-16 itself, the formula
+    # S&L's own text says "will be used to calculate the phugoid frequency," passes unmarked; see
+    # _phugoid_approximation's own docstring.
+    rho = _isa1976_density_kg_m3(ALTITUDE_M)
+    qbar = 0.5 * rho * TRUE_AIRSPEED_MPS**2
+    cm_alpha_cg, _, _ = _cg_referenced_coefficients(qbar, result.x0[7])
+    approx = _phugoid_approximation(qbar, rho, result.x0[7], cm_alpha_cg)
     numerical = linearize.modes(result.a).phugoid
 
     omega_ratio = abs(numerical.natural_frequency_rad_s - approx.natural_frequency_rad_s) / (
