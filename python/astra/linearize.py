@@ -54,10 +54,14 @@ _P, _Q, _R = 3, 4, 5
 _PHI, _THETA, _PSI = 6, 7, 8
 _STATE_SIZE = 9
 
-# D11: u = [elevator, aileron, rudder, throttle] -- Simulation.input_names()'s own registration
-# order (verified for cruise.yaml by tests/python/test_linearize.py::
-# test_input_names_returns_the_four_registered_control_names, R7), not assumed here.
-_CONTROL_SIZE = 4
+# D11: u = [elevator, aileron, rudder, throttle], conceptually -- the actual column order in u0/B
+# follows Simulation.input_names()'s own registration order at runtime, whatever it is, mapped by
+# name (linearize()'s own control_trim_values dict) rather than assumed by position (Codex general
+# review, base 53064e0: a fixed-position u0 silently mismatched control values to names once a
+# config's vehicle.models listed the turbofans before the aero model, reproduced with a
+# linearization residual of ~1.33 against a healthy <1e-16).
+_CONTROL_NAMES = ("controls.elevator", "controls.aileron", "controls.rudder", "controls.throttle")
+_CONTROL_SIZE = len(_CONTROL_NAMES)
 
 # D12.
 _V_STEP_MPS = 0.1
@@ -94,13 +98,15 @@ def state_step(index: int) -> float:
     raise ValueError(f"linearize.state_step: index {index} out of range [0, {_STATE_SIZE})")
 
 
-def control_step(index: int) -> float:
-    """D12's own fixed step for u's index-th component."""
-    if index in (0, 1, 2):  # elevator, aileron, rudder
+def control_step(name: str) -> float:
+    """D12's own fixed step for the named control input -- keyed by name, not position, since
+    Simulation.input_names()'s own registration order is not guaranteed to match D11's u =
+    [elevator, aileron, rudder, throttle] listing (Codex general review, base 53064e0)."""
+    if name in ("controls.elevator", "controls.aileron", "controls.rudder"):
         return _ANGLE_STEP_RAD
-    if index == 3:  # throttle
+    if name == "controls.throttle":
         return _THROTTLE_STEP
-    raise ValueError(f"linearize.control_step: index {index} out of range [0, {_CONTROL_SIZE})")
+    raise ValueError(f"linearize.control_step: unrecognized control name {name!r}")
 
 
 def _quaternion_from_euler(psi_rad: float, theta_rad: float, phi_rad: float) -> np.ndarray:
@@ -264,9 +270,28 @@ def linearize(
             0.0,
         ]
     )
-    # aileron/rudder pinned to 0 by the same straight-and-level scenario.
-    u0 = np.array([trim_result.elevator_rad, 0.0, 0.0, trim_result.throttle])
+    # aileron/rudder pinned to 0 by the same straight-and-level scenario. Keyed by name, not
+    # position: Simulation.input_names()'s own registration order is whatever vehicle.models
+    # actually lists, not necessarily D11's [elevator, aileron, rudder, throttle] listing order.
+    control_trim_values = {
+        "controls.elevator": trim_result.elevator_rad,
+        "controls.aileron": 0.0,
+        "controls.rudder": 0.0,
+        "controls.throttle": trim_result.throttle,
+    }
+    control_steps = {
+        "controls.elevator": angle_step,
+        "controls.aileron": angle_step,
+        "controls.rudder": angle_step,
+        "controls.throttle": throttle_step,
+    }
     input_names = sim.input_names()
+    if set(input_names) != set(_CONTROL_NAMES):
+        raise ValueError(
+            f"linearize: Simulation.input_names() returned {input_names!r}, expected exactly "
+            f"D11's four controls {sorted(_CONTROL_NAMES)!r}"
+        )
+    u0 = np.array([control_trim_values[name] for name in input_names])
 
     a = np.empty((_STATE_SIZE, _STATE_SIZE))
     for i in range(_STATE_SIZE):
@@ -278,9 +303,8 @@ def linearize(
         a[:, i] = _column(sim, base_state, x0, u0, i, step, "x")
 
     b = np.empty((_STATE_SIZE, _CONTROL_SIZE))
-    for j in range(_CONTROL_SIZE):
-        step = angle_step if j in (0, 1, 2) else throttle_step
-        b[:, j] = _column(sim, base_state, x0, u0, j, step, "u")
+    for j, name in enumerate(input_names):
+        b[:, j] = _column(sim, base_state, x0, u0, j, control_steps[name], "u")
 
     return LinearizeResult(
         trim=trim_result,

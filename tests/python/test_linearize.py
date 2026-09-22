@@ -265,8 +265,10 @@ def test_input_registry_reads_trim_values_after_any_column(
         linearize._column(sim, base_state, result.x0, result.u0, i, linearize.state_step(i), "x")
         assert_registry_matches_u0()
 
-    for j in range(4):
-        linearize._column(sim, base_state, result.x0, result.u0, j, linearize.control_step(j), "u")
+    for j, name in enumerate(result.input_names):
+        linearize._column(
+            sim, base_state, result.x0, result.u0, j, linearize.control_step(name), "u"
+        )
         assert_registry_matches_u0()
 
 
@@ -302,18 +304,34 @@ def test_short_period_matches_the_approximation(result: linearize.LinearizeResul
     )
 
 
+def test_phugoid_zeta_matches_the_approximation(result: linearize.LinearizeResult) -> None:
+    # Codex adversarial review (base 53064e0): damping must be validated independently of the
+    # known omega_n miss below -- an un-narrowed xfail covering both assertions would never reach
+    # this one at all (the omega_n assert always raises first), silently disabling damping
+    # coverage.
+    approx = _phugoid_approximation()
+    numerical = linearize.modes(result.a).phugoid
+    zeta_diff = abs(numerical.damping_ratio - approx.damping_ratio)
+    assert zeta_diff < LONGITUDINAL_ZETA_ABS_TOL, (
+        f"phugoid zeta: numerical {numerical.damping_ratio:.4g} vs "
+        f"approximate {approx.damping_ratio:.4g} ({zeta_diff:.4g} absolute off)"
+    )
+
+
 @pytest.mark.xfail(
     strict=True,
+    raises=AssertionError,
     reason=(
         "D18 (docs/plans/pr7-linearize.md): eq. 4.2-17b (Lanchester's level-flight omega_n, "
         "(g/V_T)*sqrt(2)) carries no stability derivative, so the CG-referenced-coefficient "
         "correction that fixes short period/spiral cannot apply here. Measured this session: "
         "numerical omega_n 0.0502 rad/s vs approximate 0.0603 rad/s, 16.7% off (bound 15%) -- a "
-        "real, expected miss, not a tolerance to widen. strict=True: an unexpected pass means the "
-        "aircraft or the differencing changed and needs a fresh look, not a silently kept marker."
+        "real, expected miss, not a tolerance to widen. strict=True + raises=AssertionError "
+        "(Codex adversarial review, base 53064e0): an unexpected pass, or any non-assertion "
+        "error, fails loudly instead of being silently absorbed as an expected failure."
     ),
 )
-def test_phugoid_matches_the_approximation(result: linearize.LinearizeResult) -> None:
+def test_phugoid_omega_n_matches_the_approximation(result: linearize.LinearizeResult) -> None:
     approx = _phugoid_approximation()
     numerical = linearize.modes(result.a).phugoid
 
@@ -323,11 +341,6 @@ def test_phugoid_matches_the_approximation(result: linearize.LinearizeResult) ->
     assert omega_ratio < LONGITUDINAL_OMEGA_REL_TOL, (
         f"phugoid omega_n: numerical {numerical.natural_frequency_rad_s:.4g} vs "
         f"approximate {approx.natural_frequency_rad_s:.4g} rad/s ({omega_ratio:.1%} off)"
-    )
-    zeta_diff = abs(numerical.damping_ratio - approx.damping_ratio)
-    assert zeta_diff < LONGITUDINAL_ZETA_ABS_TOL, (
-        f"phugoid zeta: numerical {numerical.damping_ratio:.4g} vs "
-        f"approximate {approx.damping_ratio:.4g} ({zeta_diff:.4g} absolute off)"
     )
 
 
