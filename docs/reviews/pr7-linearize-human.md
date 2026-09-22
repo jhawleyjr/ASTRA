@@ -1,14 +1,16 @@
 # Human review packet: M3 PR 7 — astra.linearize
 
 PR / candidate base and head: base `origin/main` at `53064e0` (M3 PR 6, merged, #44) — confirmed
-current tip via `git fetch`, unchanged since this worktree started; head `52f80f8` (worktree
-`worktree-m3-pr7-linearize`). Working tree clean at packet time.
+current tip via `git fetch`, unchanged since this worktree started; implementation candidate
+(last code/test commit) `fec3d67`, head `f0c4519` (plan/review/packet/STATE documentation commits
+on top, each itself a real deliverable Joe reviews below, not mechanical bookkeeping). Working
+tree clean at packet time.
 Spec/plan/task: `docs/plans/pr7-linearize.md` (Revision 4, **approved by Joe, 2026-09-22**)
 Risk: Tier 2 — feature, no `core/kernel/`, `plugins/physical`, `aircraft/**/physical`,
 `aircraft/**/hardware`, or ICD change. One `python/bindings/_core.cpp` addition
 (`Simulation.input_names()`) is a pure-copy read over an already-existing C++ method, no
 `kCoreApiVersion` bump.
-Decision requested: approve behavior and squash-merge candidate `52f80f8` against base `53064e0`.
+Decision requested: approve behavior and squash-merge candidate `f0c4519` against base `53064e0`.
 
 ## What changes and why
 
@@ -21,7 +23,7 @@ Includes PR 6's own follow-up: `Simulation.input_names()`, binding `InputRegistr
 control names are read from the registry rather than hardcoded (`astra.trim` itself is
 unmodified — a separate PLAN.md follow-up tracks that retrofit).
 
-Diff (`origin/main` `53064e0` → `52f80f8`, 11 files, +9892/−29 — the two retained full-gate logs
+Diff (`origin/main` `53064e0` → `f0c4519`, 11 files, +9902/−29 — the two retained full-gate logs
 account for ~8117 of the insertions):
 - `python/bindings/_core.cpp` (+23/−1): one new free function (`simulation_input_names`) plus one
   `.def("input_names", ...)` line, mirroring `simulation_derivative`'s own shape — no header/core
@@ -42,7 +44,11 @@ account for ~8117 of the insertions):
   because the closed form is unreliable — D18 below).
 - `docs/plans/pr7-linearize.md` (new, Revision 4): the approved spec/plan, including the three
   in-session revisions below.
-- `docs/reviews/pr7-linearize-review.md` (new): Codex findings record.
+- `docs/reviews/pr7-linearize-review.md` (new): findings record (R-001/R-002 Codex, R-003 Joe's
+  own packet review; all three fixed and fix-verified).
+- `docs/lessons.md`: two new append-only entries — the CG-vs-AERORP coefficient-reference gotcha,
+  and its own correction (a fixed coefficient doesn't validate the formula chosen around it; check
+  a textbook simplification's stated assumption against the real numbers before accepting a miss).
 - `STATE.md`: session handoff, rewritten per this session's own progression.
 
 No `core/`, `plugins/`, or `aircraft/**` file is touched.
@@ -63,9 +69,9 @@ No `core/`, `plugins/`, or `aircraft/**` file is touched.
 | R5: two `linearize()` calls give bitwise-identical `A`/`B` | Pass — `np.array_equal` on both matrices | `pytest tests/python/test_linearize.py::test_two_calls_are_bitwise_identical` |
 | R6: column isolation, checked after every individual column | Pass — registry equals `u0` after each of 9 state + 4 control `_column` calls | `pytest tests/python/test_linearize.py::test_input_registry_reads_trim_values_after_any_column` |
 | R7: `input_names()` returns the four registered names, in order | Pass — `["controls.elevator", "controls.aileron", "controls.rudder", "controls.throttle"]` | `pytest tests/python/test_linearize.py::test_input_names_returns_the_four_registered_control_names` |
-| `pytest tests/python/` (full suite, at head `02c13e5`) | 98 passed, 1 expected `xfail` in 0.36s | Rerun this session |
-| `ruff check .` / `ruff format --check .` / `pyright` (repo-wide, at head `02c13e5`) | Clean | Rerun this session |
-| Full four-preset gate (`just check`), final candidate | `check: OK` — hooks 144/144, debug/release/static-plugins/asan all 387/387, tidy clean, pyright 0 errors, pytest 99 passed, 0 `xfail` | `docs/reviews/evidence/fec3d67-full-gate.log` (post-R-003 fix; the packet's own head `52f80f8` adds only doc/plan bookkeeping after this commit, no code/test change) |
+| `pytest tests/python/` (full suite, at head `f0c4519`) | 99 passed, 0 `xfail` in 0.37s | Rerun this session |
+| `ruff check .` / `ruff format --check .` / `pyright` (repo-wide, at head `f0c4519`) | Clean | Rerun this session |
+| Full four-preset gate (`just check`), final candidate | `check: OK` — hooks 144/144, debug/release/static-plugins/asan all 387/387, tidy clean, pyright 0 errors, pytest 99 passed, 0 `xfail` | `docs/reviews/evidence/fec3d67-full-gate.log` (post-R-003 fix; the packet's own head `f0c4519` adds only doc/plan bookkeeping after this commit, no code/test change) |
 | Full four-preset gate, earlier candidate (superseded) | `check: OK` — 97 passed + 1 expected `xfail` (pre-R-001/R-002 fix); `0fa5e85`'s own re-run (98 passed + 1 expected `xfail`, pre-R-003) confirmed the same shape but wasn't separately retained | `docs/reviews/evidence/009715a-full-gate.log` (retained for the record only) |
 
 No golden/tolerance file is touched (`tests/golden/**` and `docs/decisions/**` untouched); the
