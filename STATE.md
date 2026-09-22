@@ -6,7 +6,7 @@
 Tier 3. Branch `worktree-m3-pr8-cruise-regression`, base `origin/main` `553700f` (PR #45). No Codex
 plan critique (PLAN.md). Joe's decisions D19 (trim literals in `cruise.yaml`), D20 (C++ regression
 test + guarded capture script), D21 (`Simulation.run()` binding + Python phugoid cross-check) are
-settled; the plan is `docs/plans/pr8-cruise-regression.md` (not yet written).
+settled; plan `docs/plans/pr8-cruise-regression.md` (draft; Q1/Q2 pending with Joe).
 
 **Golden capture is armed by Joe, separately.** Nothing under `tests/golden/**` is written until he
 arms it.
@@ -15,7 +15,7 @@ arms it.
 None this session. PR 7's gate result (`fec3d67`) is PR 7's evidence, not PR 8's.
 
 ## Next step
-`/plan-feature` → show Joe the plan before any code.
+Joe answers Q1 (test_trim untrimmed-guess test) and Q2 (phugoid reference: PR 7 A + altitude state); then build commit A. No code yet.
 
 ## Tried / failed
 Correction rounds: 0/2. Failed integrations: 0/2.
