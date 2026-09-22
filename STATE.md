@@ -3,40 +3,41 @@
 ## In flight
 **M3 PR 5** (nanobind bindings: `Simulation`, `Config` including `from_dict`, `SignalRegistry`/
 `HealthMonitor`/`VirtualClock`/`Vehicle` read views, PR 2's write seam, `Simulation.derivative()`)
-is **implemented, validated, and independently reviewed — awaiting Joe's human-review decision**.
-Plan: `docs/plans/pr5-nanobind-bindings.md` (approved by Joe, after one Codex plan critique and
-Joe's own second review round adding R2a's round-trip acceptance, verified empirically against
-yaml-cpp 0.8.0 before being written). Implementation candidate `7755432` (base `origin/main`
-`96c9459`), plus evidence commit `194fb4e`, Codex review record `7a0db9e`, human-review packet
-`aed4d37` — all on branch `worktree-m3-pr5-nanobind`, not yet pushed, no PR opened.
+is **implemented, validated, independently reviewed, and human-reviewed — awaiting Joe's explicit
+confirming reply**. Plan: `docs/plans/pr5-nanobind-bindings.md` (approved by Joe). Joe's own human
+review on candidate `7755432` was "approve pending one test addition, not a design change" — a
+third `SimulationDerivative` C++ test exercising a real `WrenchSource`/atmosphere sample through
+the shared derivative arithmetic, with an explicit discriminating-fixture proof. That addition is
+candidate `5964c63` (base `origin/main` `96c9459`), independently Codex-verified clean, and the
+packet's own Decision record now reads "approved by Joe against `5964c63` ... 2026-09-21" per his
+own instruction — presented back to him for confirmation, not yet treated as final until he
+replies. Branch `worktree-m3-pr5-nanobind`, head `28b1d90`, not pushed, no PR opened.
 
 ## Last verified result
-Local full four-preset gate `check: OK` at head `194fb4e` (`docs/reviews/evidence/
-7755432-full-gate.log`): format/docs/hooks/ruff clean, debug/release/static-plugins/asan all
-351/351 (349 pre-existing + 2 new `SimulationDerivative.*`, the R9 bit-identity proof), clang-tidy
-clean (core + `python/bindings/`), pyright 0 errors, pytest 77/77 (36 new, 41 pre-existing).
-`kCoreApiVersion` confirmed unchanged via `git diff` (checked, not assumed). Codex review both
-passes clean: general (no actionable regressions) and adversarial on Joe's own four-area focus
-(ownership/lifetime, probe side-effect isolation R5a/R5b, R9 bit-identity, no-alloc on the
-per-frame path) — verdict approve, no material findings. Full record:
-`docs/reviews/pr5-nanobind-bindings-review.md`.
+Local full four-preset gate `check: OK` at head `3be7e84` (`docs/reviews/evidence/
+5964c63-full-gate.log`, first attempt clean): format/docs/hooks/ruff clean, debug/release/
+static-plugins/asan all 352/352 (349 pre-existing + 3 `SimulationDerivative.*`), clang-tidy clean
+(core + `python/bindings/`), pyright 0 errors, pytest 77/77. `kCoreApiVersion` confirmed unchanged.
+Codex: general review clean, adversarial review on Joe's own four-area focus clean (verdict
+approve), fix-verification round on the human-review test addition clean (verdict approve, thread
+`01a0c72f-65be-7b72-adcd-7b3cf2b2caa8`). Full record: `docs/reviews/pr5-nanobind-bindings-review.md`.
+Packet: `docs/reviews/pr5-nanobind-bindings-human.md`.
 
 ## Next step
-**Joe's human-review decision** on `docs/reviews/pr5-nanobind-bindings-human.md` — approve
-behavior/merge, or route back per workflow.md (implementation defect / planning defect /
-requirements gap / architecture conflict). Not yet done: pushing the branch, opening the draft PR,
-or checking off PLAN.md's PR 5 line — all contingent on that decision, not performed
-preemptively. One disclosed, accepted-risk gap carried into PR 6's own scope: `derivative()` on a
-wind-configured `Simulation` that has never called `step()`/`run()` raises rather than silently
-reading still air (Design decision 2); no `sample_environment()` primitive added this PR, per
-Joe's own instruction.
+**Joe's confirming reply** on the packet's decision record. If confirmed: PLAN.md's PR 5 line gets
+checked off with the merge SHA once actually merged — not preemptively; pushing the branch/opening
+the draft PR are separate, explicitly authorized steps Joe has not yet given ("still no push/PR
+until I say so"). If he wants changes instead: route per workflow.md (implementation/planning/
+requirements/architecture). One disclosed, accepted-risk gap carried into PR 6's own scope:
+`derivative()` on a wind-configured `Simulation` that has never called `step()`/`run()` raises
+rather than silently reading still air (Design decision 2); no `sample_environment()` primitive
+added this PR, per Joe's own instruction.
 
 ## Tried / failed
-Correction rounds: 0/2. Failed integrations: 0/2. (Three local full-gate iterations during
-implementation itself — a clang-tidy `bugprone-unchecked-optional-access` guard, a
-`performance-unnecessary-value-param` fix, and a pyright stub-type annotation — are ordinary
-pre-review implementation iteration, not review-fix rounds; the gate that actually counts,
-`7755432`'s own, passed clean, and both Codex passes against it found nothing to fix.)
+Correction rounds: 0/2. Failed integrations: 0/2. (Implementation-phase gate iterations before the
+first clean full-gate result, and the one human-review-requested test addition — itself clean on
+first attempt — are ordinary iteration, not review-fix rounds; every actual Codex pass against a
+committed candidate came back clean on its first try.)
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.
