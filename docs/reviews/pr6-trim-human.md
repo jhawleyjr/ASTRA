@@ -1,12 +1,12 @@
 # Human review packet: M3 PR 6 — astra.trim
 
 PR / candidate base and head: base `origin/main` at `cc11c30` (M3 PR 5, merged, #43) — confirmed
-current tip, unchanged since this worktree started; head `fd4dbd4` (worktree `worktree-m3-pr6-trim`,
-not pushed, no PR opened). Working tree clean at packet time.
+current tip, unchanged since this worktree started; head `031dca8` (worktree `worktree-m3-pr6-trim`).
+Working tree clean at packet time.
 Spec/plan/task: `docs/plans/pr6-trim.md` (Revision 2, **approved by Joe, 2026-09-21**)
 Risk: Tier 2 — feature + one new dev dependency (`scipy`, `pyyaml`), no `core/`, `plugins/physical`,
 `aircraft/**/physical`, `aircraft/**/hardware`, or ICD change.
-Decision requested: approve behavior and squash-merge candidate `fd4dbd4` against base `cc11c30`.
+Decision requested: approve behavior and squash-merge candidate `031dca8` against base `cc11c30`.
 
 ## What changes and why
 
@@ -15,14 +15,15 @@ cruise trim (elevator, throttle, alpha unknowns; `theta = alpha` at `gamma = 0`)
 `Simulation.derivative(state)`'s rigid-body residual to zero via `scipy.optimize.root`. Before this
 PR, no Python-side trim capability existed; PR 7 (`astra.linearize`) depends on it.
 
-Diff (`origin/main` `cc11c30` → `fd4dbd4`, 9 files, +8882/−34 — two retained full-gate logs account
-for ~8100 of the insertions):
+Diff (`origin/main` `cc11c30` → `031dca8`, 10 files, +9031/−34 — two retained full-gate logs plus
+this packet account for ~8200 of the insertions):
 - `python/astra/trim.py` (new, 191 lines): `TrimResult` dataclass, `trim_straight_and_level()`,
   and four private helpers (`_read_yaml_dict`, `_earth_plugin_path`, `_load_still_air_config`,
   `_state_from_alpha`, `_residual6`).
-- `tests/python/test_trim.py` (new, 166 lines): 7 tests — R1–R4 named in the plan, plus 3
+- `tests/python/test_trim.py` (new, 182 lines): 8 tests — R1–R4 named in the plan, plus 4
   supporting checks (collapsed-quaternion cross-check, still-air config check, `write_input`
-  guard-name check).
+  guard-name check, and — added per Joe's own packet review, conditional on this commit — a
+  regression test for the `earth/flat` refusal guard).
 - `pyproject.toml`: `dev` group gains `scipy==1.18.1`, `pyyaml==6.0.3` (both confirmed the current
   PyPI release via `pip index versions` at pin time, not assumed from planning).
 - `docs/plans/pr6-trim.md` (new, Revision 2): the approved spec/plan.
@@ -44,9 +45,11 @@ already-reviewed nanobind surface (`Simulation.derivative`, `Simulation.write_in
 | R2: untrimmed guess fails by a wide margin | Pass — actual residual ≈ 3.43 m/s² (bound: > 1e-2) | `pytest tests/python/test_trim.py::test_untrimmed_guess_fails_by_a_wide_margin` |
 | R3: physically plausible (alpha/elevator/throttle in range; `T cos(alpha) = D` cross-check) | Pass — `alpha ≈ 1.35°`, `elevator ≈ 0.0267 rad`, `throttle ≈ 0.4986`; cross-check misses by 0.31% (bound: < 5%) | `pytest tests/python/test_trim.py::test_solution_is_physically_plausible` |
 | R4: determinism (bitwise-identical across two runs) | Pass — `np.array_equal` on state, exact `==` on controls | `pytest tests/python/test_trim.py::test_two_runs_from_the_same_guess_are_bitwise_identical` |
-| Full four-preset gate (`just check`) | `check: OK`, 2026-09-21, ~9 min | `docs/reviews/evidence/6104206-full-gate.log` (rerun at the final reviewed candidate, after R-001's fix) — hooks 144/144, debug/release/static-plugins/asan all 387/387, tidy clean, pyright 0 errors, pytest 84/84 (77 pre-existing + 7 new) |
-| Prior full-gate run (pre-review, superseded) | `check: OK` | `docs/reviews/evidence/b8c4506-full-gate.log` (retained for the record; `6104206`'s run above is the one that matters — captured after the review-found fix) |
-| `ruff`/`ruff format`/`pyright` (repo-wide) | Clean at every commit in this candidate | Run inline each edit; folded into the full-gate runs above |
+| Flat-earth guard regression (added per Joe's packet review) | Pass — `tmp_path` cruise.yaml variant, map spelling `{plugin: ...}` (exercises `_earth_plugin_path`'s dict branch), raises `ValueError` naming `physical.earth` | `pytest tests/python/test_trim.py::test_refuses_a_flat_earth_config` |
+| `pytest tests/python/` (full suite, at head `031dca8`) | 85/85 passed | Rerun this session, not retained as a log (short enough to state inline: `85 passed in 0.28s`) |
+| `ruff check .` / `ruff format --check .` / `pyright` (repo-wide, at head `031dca8`) | Clean | Rerun this session |
+| Full four-preset gate (`just check`) | **Not rerun for this commit** — Python-only test addition on an otherwise-untouched C++ tree (`tests/python/test_trim.py` only); the retained `6104206` run below already covers every C++/build/tidy/hook check this candidate touches, and nothing in `core/`/`plugins/`/`aircraft/**`/build config changed since | `docs/reviews/evidence/6104206-full-gate.log` (`check: OK`, captured at the review-final candidate before this commit — hooks 144/144, debug/release/static-plugins/asan all 387/387, tidy clean, pyright 0 errors, pytest 84/84) |
+| Prior full-gate run (pre-review, superseded) | `check: OK` | `docs/reviews/evidence/b8c4506-full-gate.log` (retained for the record only) |
 
 No golden/tolerance file is touched (`tests/golden/**` and `docs/decisions/**` untouched); the
 oracle guard did not need to be lifted. GitHub's own `check` has not run — this PR is not pushed.
@@ -100,22 +103,36 @@ cross-check (`T = D + m g sin(alpha)`) double-counted the weight term already ab
 own z-axis equilibrium; the implementation uses the corrected classical wind-axis identity
 `T cos(alpha) = D`, which the real solve confirms to 0.31% (your own estimate: ~0.03%).
 
-**One safety guard added in implementation review, now fixed**: `trim_straight_and_level` now
-refuses (raises `ValueError` naming `physical.earth`) rather than silently mis-trimming when given
-a config using `plugins/physical/earth/flat`, since `p_n[-1] = altitude_m` is only valid under a
-geodetic (round/wgs84_rotating) position representation (ADR-0003). Verified by hand (a synthetic
-flat-earth cruise.yaml variant raises as expected).
+**One safety guard added in implementation review, now fixed and now regression-tested**:
+`trim_straight_and_level` refuses (raises `ValueError` naming `physical.earth`) rather than
+silently mis-trimming when given a config using `plugins/physical/earth/flat`, since
+`p_n[-1] = altitude_m` is only valid under a geodetic (round/wgs84_rotating) position
+representation (ADR-0003). Originally only "verified by hand" — not evidence under STATE.md's own
+honesty rule, per your own packet review — now covered by
+`test_refuses_a_flat_earth_config` (`031dca8`), exercising both YAML spellings' worth of coverage
+across the test file (the map-spelling branch here; the plain-scalar spelling is what every other
+test's `cruise.yaml`-derived config already uses).
 
 **No changed dependency/interface beyond the two new dev-only Python packages** (`scipy`, `pyyaml`
 — neither touches `core/`, hot-path, or ABI). **Rollback**: revert the branch; no migration, no
 data, no config format change for any existing consumer.
 
+**Settings drift, flagged per your own request**: `.claude/settings.json` pins `"model": "opusplan"`,
+but this entire session actually ran on Sonnet 5 (confirmed by this session's own runtime
+identification: model ID `claude-sonnet-5`), not Opus. "Builder: Claude (Sonnet 5)" in this packet
+and in `docs/reviews/pr6-trim-review.md` is accurate to what actually ran, not a template
+placeholder — the discrepancy is between the pinned setting and the model this session was actually
+launched with, not an error in either review document. CLAUDE.md's own rule is that only you change
+`.claude/settings.json`; I made no change to it, so this is worth your own look at how this session
+was invoked.
+
 ## Decision record
 
-State: pending
-Human decision/date/reference: pending
-Approved candidate/scope: pending
-Merge observed: not merged
+State: approved
+Human decision/date/reference: **Joe approved, 2026-09-21, in session**, conditional on one commit
+(the flat-earth regression test) — condition satisfied by `031dca8`
+Approved candidate/scope: `031dca8` against base `origin/main` at `cc11c30`
+Merge observed: not merged (Joe's own squash-merge, pending GitHub's `check` going green on the PR)
 Release authorization: not requested
 
 Significant tradeoff rationale: R3's 5% cross-check bound is generous relative to the actual 0.31%
