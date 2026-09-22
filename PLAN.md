@@ -779,23 +779,22 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         rather than reading them from the registry as originally instructed, because the Python
         binding exposes no `InputRegistry::names()` enumeration (it exists in C++, PR 2). Bind it
         so PR 7 can discover control names instead of repeating the same hardcoding.
-        **Implemented, validated (full gate green, four presets; Codex general + adversarial,
-        two findings -- R-001 major: control values/steps assumed a fixed position order instead
-        of `Simulation.input_names()`'s own runtime order, silently misaligning if a config lists
-        the turbofans before the aero model; R-002 medium: the phugoid `xfail` swallowed the
-        damping assertion and any unrelated exception -- both fixed, fix-verification confirmed,
-        zero remaining), pending Joe's decision.** `docs/plans/pr7-linearize.md` (Revision 4,
-        D11-D18): D18 Revision 3, a mid-session correction, found three of five modes missed D13's
-        own closed-form tolerance because the comparison used AERORP-referenced coefficients where
-        S&L's own derivatives are CG-referenced -- fixed by re-deriving the CG-referenced
-        coefficients from first principles in the test (not a tolerance change); short period and
-        spiral now pass, phugoid `omega_n` still missed (16.7%), first accepted as an expected
-        `xfail`. **D18 Revision 4** (Joe's packet review): that acceptance stopped one step short
-        -- eq. 4.2-17b's own further simplification (S&L's Lanchester result) assumes a dominance
-        condition the raw `Cm_alpha` satisfied and the CG-referenced one doesn't; using eq. 4.2-16
-        itself (the equation S&L's text actually specifies) closes phugoid to 0.9%. `xfail`
-        removed; all five modes pass unmarked. Human-review packet:
-        `docs/reviews/pr7-linearize-human.md`.
+        **Implemented, validated (full gate green, four presets; three Codex findings -- R-001
+        major, R-002 medium, R-003 major -- all fixed and fix-verified, zero remaining, correction
+        rounds 2/2 consumed).** `docs/plans/pr7-linearize.md` (Revision 4, D11-D18): D18 Revision 3,
+        a mid-session correction, found three of five modes missed D13's own closed-form tolerance
+        because the comparison used AERORP-referenced coefficients where S&L's own derivatives are
+        CG-referenced -- fixed by re-deriving the CG-referenced coefficients from first principles
+        in the test (not a tolerance change); short period and spiral now pass, phugoid `omega_n`
+        still missed (16.7%), first accepted as an expected `xfail`. **D18 Revision 4** (Joe's
+        packet review, R-003): that acceptance stopped one step short -- eq. 4.2-17b's own further
+        simplification (S&L's Lanchester result) assumes a dominance condition the raw `Cm_alpha`
+        satisfied and the CG-referenced one doesn't; using eq. 4.2-16 itself (the equation S&L's
+        text actually specifies) closes phugoid to 0.9%. `xfail` removed; all five modes pass
+        unmarked. **Approved by Joe, 2026-09-22, in session** (candidate `fec3d67`, base `53064e0`);
+        pushed and opened as PR #45, ready (not draft), GitHub's own `check` green at pushed head
+        `b1d0fdc`. Human-review packet: `docs/reviews/pr7-linearize-human.md`. Awaiting Joe's own
+        squash-merge.
   - [ ] PR 8 — Cruise config(s) (D6's `vehicle.models` schema) + 300 s open-loop run frozen as a
         regression trajectory (O5 -- not an oracle), generator-under-guard pattern from
         `tests/golden/nesc/`. Adds the actual independent check §16 (as corrected by PR 0) requires: a
