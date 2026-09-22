@@ -4,8 +4,9 @@
 **M3 PR 7** (`astra.linearize`: central-difference `A`/`B` about `astra.trim`'s cruise trim, five
 classical modes checked against S&L §4.2) is **implemented, validated, and Codex-reviewed —
 human-review packet prepared, awaiting Joe's decision**. Plan: `docs/plans/pr7-linearize.md`
-(Revision 4, approved 2026-09-22). Candidate `d695c69`; branch `worktree-m3-pr7-linearize`, **not
-pushed, no PR opened**. Base `origin/main` at `53064e0` (confirmed current tip at packet time).
+(Revision 4, approved 2026-09-22). Implementation candidate `fec3d67`, plan/review/packet/STATE
+handoff commits through `f0c4519`; branch `worktree-m3-pr7-linearize`, **not pushed, no PR opened**.
+Base `origin/main` at `53064e0` (confirmed current tip at packet time).
 Includes PR 6's own follow-up (`Simulation.input_names()` bound, no `kCoreApiVersion` bump);
 `astra.trim` itself unmodified (PLAN.md follow-up tracks that retrofit).
 
