@@ -158,9 +158,14 @@ Findings: `docs/reviews/pr8-cruise-regression-review.md`.
 
 ## Decision record
 
-State: pending
-Human decision/date/reference: pending
-Approved candidate/scope: pending
+State: approved (pre-capture scope only; merge decision pending after commits B/C)
+Human decision/date/reference: Joe, 2026-09-22, in session: "Pre-capture candidate ed10734
+approved (base 553700f)." Arming follows (Joe touches `.claude/touch-goldens` himself). Joe's two
+findings for commit C's cycle (not a third correction round): (J-1) the damping test's second
+peak window must end at the record end, not at a third crossing, which lands at 292.59 s of a
+300 s record; (J-2) the capture script must refuse when a golden already exists, because a
+re-capture needs a fresh, explicit authorization, not just arming. Gate cost accepted as written.
+Approved candidate/scope: `ed10734` against base `553700f`, pre-capture
 Merge observed: not merged
 Release authorization: not requested
 
