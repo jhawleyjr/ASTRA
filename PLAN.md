@@ -779,6 +779,19 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         rather than reading them from the registry as originally instructed, because the Python
         binding exposes no `InputRegistry::names()` enumeration (it exists in C++, PR 2). Bind it
         so PR 7 can discover control names instead of repeating the same hardcoding.
+        **Implemented, validated (full gate green, four presets; Codex general + adversarial,
+        two findings -- R-001 major: control values/steps assumed a fixed position order instead
+        of `Simulation.input_names()`'s own runtime order, silently misaligning if a config lists
+        the turbofans before the aero model; R-002 medium: the phugoid `xfail` swallowed the
+        damping assertion and any unrelated exception -- both fixed, fix-verification confirmed,
+        zero remaining), pending Joe's decision.** `docs/plans/pr7-linearize.md` (Revision 3,
+        D11-D18): D18, a mid-session correction, found three of five modes missed D13's own
+        closed-form tolerance because the comparison used AERORP-referenced coefficients where
+        S&L's own derivatives are CG-referenced -- fixed by re-deriving the CG-referenced
+        coefficients from first principles in the test (not a tolerance change); phugoid's own
+        `omega_n` (eq. 4.2-17b, no stability derivative to correct) is `xfail(strict=True)`, its
+        damping validated separately and passing. Human-review packet:
+        `docs/reviews/pr7-linearize-human.md`.
   - [ ] PR 8 — Cruise config(s) (D6's `vehicle.models` schema) + 300 s open-loop run frozen as a
         regression trajectory (O5 -- not an oracle), generator-under-guard pattern from
         `tests/golden/nesc/`. Adds the actual independent check §16 (as corrected by PR 0) requires: a
@@ -787,7 +800,11 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         asan -R notional_transport_cruise_regression` matches the frozen trajectory under all four
         presets, guarded by `.claude/touch-goldens`; the phugoid-cycle cross-check passes its own
         stated tolerance. Binding ADRs: ADR-0004, ADR-0016, PR 2/3's ADR. Tier 3. Plan critique: no --
-        needs Joe's explicit oracle sign-off same as ADR-0013/14/15.
+        needs Joe's explicit oracle sign-off same as ADR-0013/14/15. **Follow-up from PR 7**
+        (`docs/plans/pr7-linearize.md`, D18): the phugoid-cycle cross-check above must use PR 7's
+        numerical `A`, never S&L eq. 4.2-17a/17b's closed-form approximation -- PR 7's own measured
+        result is that the closed-form phugoid frequency misses by 16.7% for this aircraft even
+        after correcting its coefficients to the CG reference S&L's own derivatives assume.
 - [ ] **M4 Lockstep** — shm transport + HAL + straight-and-level autopilot outside the sim tree; 10,000
       exchanges, zero missed; altitude ±30 m, heading ±2° under light Dryden; bit-identical logs; peer death
       halts within one timeout.
