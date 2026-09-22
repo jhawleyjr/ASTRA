@@ -488,4 +488,14 @@ read as the known, expected miss. Both fixed, `0fa5e85`; findings recorded at
 `docs/reviews/pr7-linearize-review.md`. Codex fix-verification (fresh context, same base, head
 `3210dd1`): **verdict approve**, both findings confirmed fixed, "New findings: none." Full gate
 re-run green after the fix batch (four presets 387/387, pyright 0, `pytest tests/python/` 98
-passed + 1 expected `xfail`). Zero open findings; correction rounds 1/2.
+passed + 1 expected `xfail`).
+
+**Joe's packet review, D18 Revision 4 (R-003, correction round 2/2)**: the phugoid `xfail` from
+R-002/Revision 3 was itself a defect, not an accepted limit — eq. 4.2-17b's own further
+simplification no longer held once `Cm_alpha` was CG-referenced. Fixed, `fec3d67`: eq. 4.2-16
+itself, `xfail` removed, phugoid `omega_n` now 0.89% off (bound 15%). Codex fix-verification
+(fresh context, base `53064e0`, head `492b990`): **verdict approve**, independently confirmed the
+eq. 4.2-16 algebra against the actual book text (S&L 3rd ed., p. 262), "New findings: none." Full
+gate re-run green at `fec3d67` (`docs/reviews/evidence/fec3d67-full-gate.log`): four presets
+387/387, hooks 144/144, pyright 0, `pytest tests/python/` 99 passed, 0 `xfail`. **Zero open
+findings across all three; correction rounds 2/2 consumed.**
