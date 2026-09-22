@@ -1,10 +1,12 @@
 # Human review packet: M3 PR 5 — nanobind bindings (Simulation, Config, SignalRegistry, write seam, derivative)
 
 PR / candidate base and head: base `origin/main` at `96c9459` (confirmed current tip, `git fetch`
-this session — `main` has not advanced past this base). Head `7a0db9e`
-(`worktree-m3-pr5-nanobind`), three commits over the plan: implementation `7755432`, retained
-evidence `194fb4e`, Codex review record `7a0db9e`. No PR opened yet — this is a local-only packet;
-opening the PR is a separate, explicitly authorized step.
+this session — `main` has not advanced past this base). Head `3be7e84`
+(`worktree-m3-pr5-nanobind`), commits over the plan (`0f16526`): implementation `7755432`,
+retained evidence `194fb4e`, Codex review record `7a0db9e`, this packet's own first version
+`aed4d37`, STATE handoff `5e22a2a`, the discriminating wrench/atmosphere R9 test Joe's human
+review required `5964c63`, and its retained evidence `3be7e84`. No PR opened yet — this is a
+local-only packet; opening the PR is a separate, explicitly authorized step.
 Spec/plan/task: `docs/plans/pr5-nanobind-bindings.md` (approved by Joe, 2026-09-21, after one Codex
 plan critique and Joe's own second review round — see that file's own "Plan critique and
 decisions" section for the full record).
@@ -54,19 +56,32 @@ never a live `string_view`), and every borrow into `Simulation`-owned storage us
 `nb::rv_policy::reference_internal` at every hop. `Simulation::for_testing` and model-base
 trampolines are deliberately not bound (D2, PLAN.md's own settled decision).
 
-**Diff shape**: 20 files, +2148/-90 (excluding retained evidence log). Six new files: five Python
-test modules (`tests/python/test_{config,derivative,signal_registry,simulation,write_input}.py`)
-and one C++ test (`tests/unit/kernel/simulation_derivative_test.cpp`). No unexpected scope — every
-touched path maps directly to a row in the plan's own "Mapping and sequence" table.
+**Diff shape**: 20 files, +2148/-90 (excluding retained evidence logs), plus the human-review
+addition below (+77, one file, no new file). Six new files: five Python test modules
+(`tests/python/test_{config,derivative,signal_registry,simulation,write_input}.py`) and one C++
+test (`tests/unit/kernel/simulation_derivative_test.cpp`). No unexpected scope — every touched
+path maps directly to a row in the plan's own "Mapping and sequence" table.
+
+**Human-review addition** (Joe, 2026-09-21, `5964c63`): the original two `SimulationDerivative`
+C++ tests both used `tests/plugins/state_owner`'s own `dq/dt = k*q` as their only nonzero
+derivative term — the rigid-body block's own `v_b`/`omega_b` rows never carried a real wrench or
+atmosphere contribution through `evaluate_derivative_stage()`, only gravity. A third test adds
+`tests/plugins/nesc_aero` (sphere drag + rate damping reading `isa1976` atmosphere density) with a
+nonzero `v_b`/`omega_b`/`euler_nb` initial state, same-object form, and an explicit assertion that
+the result is discriminating: a second, otherwise-identical `Simulation` with no `nesc_aero` gives
+the real gravity-only `dv_b` via the same `derivative()` code path, and the test requires an
+actual difference rather than a hand-derived expected value.
 
 ## Evidence
 
 | Check / acceptance | Result / date / duration | Log or retained artifact / candidate |
 |---|---|---|
-| Full gate (`just check`): format, docs-check, hooks-test, ruff, debug/release/static-plugins/asan presets, python build, link-db, clang-tidy (core + `python/bindings/`), pyright, pytest | **`check: OK`**, 2026-09-21 | `docs/reviews/evidence/7755432-full-gate.log` (3577 lines), candidate `7755432` |
-| pytest | 77/77 passed (0.11s) | Same log, tail; new tests: `test_config.py` (4), `test_derivative.py` (14), `test_signal_registry.py` (5), `test_simulation.py` (10), `test_write_input.py` (3) — 36 new, 41 pre-existing, all passing |
-| C++ unit suite | 351/351 (349 pre-existing + 2 new `SimulationDerivative.*`) | Same log |
+| Full gate (`just check`), original candidate | **`check: OK`**, 2026-09-21 | `docs/reviews/evidence/7755432-full-gate.log` (3577 lines), candidate `7755432` |
+| Full gate (`just check`), after the human-review test addition: format, docs-check, hooks-test, ruff, debug/release/static-plugins/asan presets, python build, link-db, clang-tidy (core + `python/bindings/`), pyright, pytest | **`check: OK`**, 2026-09-21, first attempt clean | `docs/reviews/evidence/5964c63-full-gate.log` (3594 lines), candidate `5964c63` |
+| pytest | 77/77 passed (0.12s) | `5964c63-full-gate.log`, tail; new tests: `test_config.py` (4), `test_derivative.py` (14), `test_signal_registry.py` (5), `test_simulation.py` (10), `test_write_input.py` (3) — 36 new, 41 pre-existing, all passing |
+| C++ unit suite | 352/352 (349 pre-existing + 3 `SimulationDerivative.*`, the third added by the human-review round) | `5964c63-full-gate.log` |
 | R9 bit-identity (same-`Simulation`-object, N>13 `state_owner` fixture) | `SimulationDerivative.DerivativeThenARealFrameOnTheSameSimulationAgreeOnK1ForAStateOwningModel` — pass | `tests/unit/kernel/simulation_derivative_test.cpp` |
+| R9 bit-identity, discriminating wrench/atmosphere fixture (Joe's human-review addition) | `SimulationDerivative.DerivativeAgreesWithARealFrameAndTheWrenchAtmosphereContributionIsDiscriminating` — pass; `dv_b` genuinely differs from the no-aero gravity-only comparison run | Same file; Codex fix-verification confirmed the fixture is genuinely discriminating (below) |
 | R2a lossless round-trip (`Config.from_dict`) | Empirically verified against the real yaml-cpp 0.8.0 (`0.8.0+dfsg-6build1`) **before** writing the acceptance test — a standalone probe against every case Joe named (full-precision double, `-0.0`/`1e-300`/`1e300`, int beyond `2**53`, bool-before-int dispatch order, strings that look like other YAML types) all round-tripped exactly under yaml-cpp's *default* emitter, no precision/quoting override needed | `docs/plans/pr5-nanobind-bindings.md`'s "What Config from a Python dict needs" section (probe program + results table); `tests/python/test_config.py::test_from_dict_round_trips_scalars_exactly` |
 | `kCoreApiVersion` | Unchanged (verified via `git diff HEAD -- core/include/astra/core_api.hpp.in`, empty) | This packet, checked explicitly per Joe's own reminder not to assume |
 | Golden/tolerance files | None touched; no `ASTRA_TOUCH_GOLDENS` used this PR | `git diff --stat` above |
@@ -89,9 +104,16 @@ against the committed branch diff (base `origin/main` `96c9459`, head `194fb4e`)
   ownership/lifetime across the Python/C++ boundary, probe side-effect isolation (R5a/R5b), R9
   bit-identity, and no new allocation on `Vehicle::integrate()`'s own per-frame path. **Verdict:
   approve, no material findings** in any of the four areas.
+- **Fix-verification round** (thread `01a0c72f-65be-7b72-adcd-7b3cf2b2caa8`), scoped to Joe's
+  human-review test addition only (`adversarial-review --base 194fb4e` against head `5964c63`, not
+  a fresh general review, per Joe's own instruction): verified the `nesc_aero` fixture's
+  coefficients genuinely produce nonzero drag/damping (not a sign/coefficient cancellation), the
+  bit-identity comparison reads the real `combined_state()` buffer at the correct `v_b` indices,
+  and the two-`Simulation` comparison fixture is identical except for the omitted `nesc_aero`
+  entry. **Verdict: approve, no material findings.**
 
-Zero critical/major/minor findings from either pass; nothing rejected or deferred. Full record:
-`docs/reviews/pr5-nanobind-bindings-review.md`.
+Zero critical/major/minor findings from any of the three passes; nothing rejected or deferred.
+Full record: `docs/reviews/pr5-nanobind-bindings-review.md`.
 
 ## Joe's attention
 
@@ -126,9 +148,15 @@ bindings), a clean `git revert` of the three candidate commits.
 
 ## Decision record
 
-State: pending
-Human decision/date/reference: pending
-Approved candidate/scope: pending
+State: **approved by Joe against `5964c63`, base `96c9459`, 2026-09-21** — recorded here per Joe's
+own instruction, presented back to him in this same reply for his explicit confirmation before
+being treated as final (his first decision, on the prior candidate `7755432`, was "approve pending
+one test addition, not a design change"; that addition is `5964c63`, above, itself independently
+Codex-verified clean).
+Human decision/date/reference: Joe, 2026-09-21, this packet (conditional approval on `7755432`,
+condition satisfied by `5964c63` — pending his confirming reply)
+Approved candidate/scope: `5964c63` (base `96c9459`) — the full PR 5 nanobind-bindings diff plus
+the human-review-required discriminating wrench/atmosphere test
 Merge observed: not merged
 Release authorization: not requested
 
@@ -140,6 +168,6 @@ verified lossless before being finalized, not merely asserted.
 Accepted risks: the never-stepped-wind-configured-`Simulation` gap above (raises loudly; not
 silently wrong) — owner PR 6, trigger: if `astra.trim` needs to run under wind without an initial
 `step()`.
-Nonblocking follow-ups: none recorded by either review pass.
+Nonblocking follow-ups: none recorded by any review pass.
 Architectural decisions: none new; implements ADR-0021 R4 and ADR-0017's own PR 5 paragraph, both
 already accepted.
