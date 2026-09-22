@@ -1,6 +1,6 @@
 # Feature: M3 PR 7 — `astra.linearize`
 
-Status: approved (Revision 2)
+Status: approved (Revision 3)
 Owner: Joe
 Risk: Tier 2 — feature, no `core/kernel/`, `plugins/physical`, `aircraft/**/physical`,
 `aircraft/**/hardware`, or ICD change. The one `python/bindings/_core.cpp` addition (binding
@@ -16,7 +16,15 @@ by Joe, 2026-09-21**, three revisions: (D14) `LinearizeResult` exposes the actua
 (R6) is checked after each individual column during differencing, via a separately callable internal,
 not only once after `linearize()` returns; (D16) roll/spiral compare the signed `Re(lambda)`/`1/tau`
 directly, never `abs(tau)` — a sign disagreement (the spiral mode may be mildly unstable at cruise) is
-a failure, not a magnitude-only comparison. PLAN.md's own PR 7 line: "Plan critique: no" — S&L pins
+a failure, not a magnitude-only comparison. **Revision 3 approved by Joe, 2026-09-21**, after running
+R4 for real against `cruise.yaml` and finding three of five modes missed their bound (D18, below):
+not a widened tolerance and not a new physics extension, but a correction to D13's own closed-form
+*input* list. `aero_math.hpp`'s own header (lines 14-15) states its `cm_alpha_per_rad`/
+`croll_beta_per_rad`/`cn_beta_per_rad` are tabulated about AERORP and transferred to the CG via
+`moment_b = moment_native_b + r_aero_b.cross(force_b)` (`r_aero_b` itself a `cruise.yaml` coefficient,
+lines 26-28) — S&L Sec. 4.2's own dimensional derivatives are about the CG throughout, so the
+closed-form comparison needs the CG-referenced coefficients, not the raw tabulated ones D13's own
+list named. PLAN.md's own PR 7 line: "Plan critique: no" — S&L pins
 both the differencing method and the mode-approximation forms; no new core/plugin interface or
 unpinned numerical design is introduced here.
 Architecture/ADRs: ADR-0021 (state layout, `derivative()`, R4 named slices), ADR-0017 (write seam —
@@ -208,6 +216,90 @@ not the implementation module:**
   the numerical `Re(lambda)` directly (D16): a sign mismatch between the two is a failure regardless
   of how small the magnitude difference is, never masked by comparing `abs(tau)` instead.
 
+**CG-referenced dimensional derivatives (D18, Revision 3):** running R4 against the real
+`cruise.yaml` numbers (evidence below) found short period, phugoid, and spiral outside D13's own
+tolerance; short period and spiral were traced to a real, verified defect in D13's own coefficient
+list, not the differencing code (`test_the_trim_points_own_derivative_is_near_zero` (R3),
+`test_longitudinal_and_lateral_blocks_do_not_cross_couple` (R2), and a hand check of the numerical
+`dM/dw` against the derivation below to four significant figures all independently confirm
+`astra.linearize` itself is correct). `aircraft/notional_transport/physical/aero/aero_math.hpp`'s
+own header (lines 14-15) states plainly: its `Cl`/`Cm`/`Cn` coefficients are computed about AERORP
+(the source aircraft's own moment reference point) and transferred to the CG via
+`moment_b = moment_native_b + r_aero_b.cross(force_b)` (`cruise.yaml`'s own `r_aero_b_x_m`/
+`r_aero_b_z_m`, lines 26-28, `r_aero_b_y_m = 0`) -- a real, first-order effect for this aircraft's own
+substantial CG-to-AERORP offset. S&L Sec. 4.2's own dimensional derivatives (`M_alpha`, `L_beta`,
+`N_beta`, the ones eq. 4.2-11/4.2-30/4.2-33-36 actually use) are about the CG throughout (S&L's own
+Table 2.6-1, "the derivative symbols X/Y/Z... indicate which force component," all evaluated at the
+vehicle's own reference point, which S&L never separates from the CG). D13's own coefficient list
+named the raw, AERORP-referenced `cm_alpha_per_rad`/`croll_beta_per_rad`/`cn_beta_per_rad` directly
+-- a defect in that list, not a new physics extension: the fix re-derives the CG-referenced
+coefficients the equations actually need, from first principles, in the test, and feeds them into
+the *same, unchanged* eq. 4.2-11/4.2-12/4.2-30/4.2-31/4.2-33-36 -- no new equation, no change to any
+tolerance.
+
+*Sign conventions cited* (independently re-derived here, never calling `aero_math.hpp` or
+`astra.linearize`): body axes are FRD (ADR-0001); the moment-transfer theorem is the standard
+`moment_about_CG = moment_about_reference_point + r_(reference->CG-corrected, i.e. reference-relative-
+to-CG) x force`, matching `aero_math.hpp`'s own `r_aero_b.cross(force_b)` (`r_aero_b` is AERORP
+relative to CG, so this *adds* the transfer term when moving the reference from AERORP to CG, exactly
+as coded); the aero plugin's own force sign convention (`aero_math.hpp`'s `compute_wrench`, S&L eq.
+2.3-2's `C_{w/bf}` transform), collapsed at `beta = 0` (this PR's own linearization point for every
+`alpha`-only column, and the trim point itself): `Fx_b = -D cos(alpha) + L sin(alpha)`,
+`Fz_b = -D sin(alpha) - L cos(alpha)`, `Fy_b = -D sin(beta) + Y cos(beta)` with `Y = qbar S
+Cy_beta_per_rad beta` (`Fy_b(0) = 0`, matching R2's own decoupling result: no beta-dependence enters
+`Fx`/`Fz` at `beta = 0`, and no alpha-dependence enters `Fy` at `beta = 0` -- confirmed algebraically
+below, not merely assumed, which is *why* the longitudinal/lateral blocks stay decoupled under this
+correction too).
+
+*Pitch (affects `Cm_alpha` only -- `Cm_q` has no transfer term, since `p`/`q`/`r` never enter this
+aero model's force equations, confirmed directly in `aero_math.hpp`: only `alpha`/`beta`/the surface
+deflections feed `force_b`)*: with `CL = cl_0 + cl_alpha alpha` (elevator held at its trim value),
+`CD = cd_0 + cd_k CL^2`, `D = qbar S CD`, `L = qbar S CL`,
+
+```
+dFx/dalpha = D sin(alpha) - cos(alpha) dD/dalpha + L cos(alpha) + sin(alpha) dL/dalpha
+dFz/dalpha = -sin(alpha) dD/dalpha - D cos(alpha) - cos(alpha) dL/dalpha + L sin(alpha)
+Cm_alpha_cg = cm_alpha_per_rad + (r_aero_b_z_m * dFx/dalpha - r_aero_b_x_m * dFz/dalpha)
+              / (qbar * S * mean_chord_m)
+```
+
+*Roll and yaw (affects `Cl_beta`/`Cn_beta` only -- `Cl_p`/`Cl_r`/`Cn_r` likewise have no transfer
+term)*: `dFy/dbeta|_{beta=0} = -D + qbar S cy_beta_per_rad` (drag rotating into the y-axis as beta
+grows, plus the side-force derivative itself),
+
+```
+Cl_beta_cg = croll_beta_per_rad + (-r_aero_b_z_m * dFy/dbeta) / (qbar * S * wingspan_m)
+Cn_beta_cg =    cn_beta_per_rad + ( r_aero_b_x_m * dFy/dbeta) / (qbar * S * wingspan_m)
+```
+
+`Cl_beta_cg`/`Cn_beta_cg`/`Cm_alpha_cg` replace the raw coefficients as *inputs* to eq. 4.2-11/
+4.2-12/4.2-30/4.2-31/4.2-33-36 -- every equation and tolerance in D13 stands unchanged.
+
+*Before/after, measured this session against real `cruise.yaml` numbers at cruise (evidence, not a
+claim -- superseded by the actual `pytest` run once the test is updated to match):*
+
+| Mode | Numerical | Approx. (native coeffs, D13) | Approx. (CG-referenced, D18) | D13 bound | Verdict |
+|---|---|---|---|---|---|
+| Short period `omega_n` | 1.000 rad/s | 1.277 (21.7% off) | 0.998 (0.2% off) | 15% | **fixed** |
+| Short period `zeta` | 0.547 | 0.426 (0.121 abs off) | 0.545 (0.003 abs off) | 0.1 abs | **fixed** |
+| Phugoid `omega_n` | 0.0502 rad/s | 0.0603 (16.7% off) | unchanged -- eq. 4.2-17b has no `Cm_alpha` term at all | 15% | **still misses -- expected (Joe)** |
+| Dutch roll `omega_n`/`zeta` | 1.881/0.109 | 1.874/0.115 (already inside bound) | 1.828/0.118 (still inside bound) | 30%/0.15 | passes either way |
+| Roll `sigma` | -1.145 /s | -1.129 (1.4% off) | unchanged -- `Cl_p` has no transfer term | 30% | passes either way |
+| Spiral `sigma` | -0.01072 /s | -0.00332 (223% off) | -0.01269 (18.4% off, sign now agrees) | 30% | **fixed** |
+
+Phugoid stays outside its bound after the correction, exactly as expected (Joe's own instruction,
+confirmed by the derivation: eq. 4.2-17b, the level-flight Lanchester result this PR uses for
+`omega_n`, is `(g/V_T) sqrt(2)` -- airspeed and gravity only, no stability derivative of any kind, so
+no coefficient correction can move it). Recorded as `pytest.mark.xfail(strict=True, reason=...)`
+naming the measured miss and eq. 4.2-17b -- the gate stays green, an unexpected future pass fails
+loudly (a real change in the aircraft or the differencing would need to be re-examined, not silently
+absorbed), and the miss stays visible here, in STATE.md, in PLAN.md's PR 7 line, and in the
+human-review packet. No tolerance changed anywhere in this correction.
+
+**PLAN.md follow-up (PR 8):** PR 8's own phugoid cross-check must use this PR's numerical `A` (the
+actual linearized model), never S&L's eq. 4.2-17a/17b approximation -- this session's own result
+that the closed-form phugoid frequency misses by 16.7% even after the CG-referenced correction.
+
 **Failure behavior:** `linearize()` raises whatever `trim_straight_and_level` raises, unmodified
 (non-convergent trim, flat-Earth config); `write_input`'s own raises (unregistered name, non-finite
 value) propagate unchanged. No new exception type.
@@ -236,6 +328,10 @@ None blocking — D11/D12/D13 and the `input_names()` scope addition are already
 instruction; the one repository-level finding (the §4.1 citation not matching the actual book, §3.7/
 eq. 1.4-4/1.8-16/§4.2 being the real sources) is resolved above, not escalated, since it changes no
 tolerance, no scope, and no design — only which equation numbers the implementation's comments cite.
+
+| Question | Consequence | Owner | Answer/reference |
+|---|---|---|---|
+| D18: R4 missed on 3/5 modes against D13's raw AERORP-referenced coefficients — extend the closed form (deviates from D13's reviewed coefficient list) or disclose as-is? | Whether `pytest tests/python/test_linearize.py` can be literally green, and what the human-review packet reports. | Joe | **Resolved, 2026-09-21, reframed by Joe**: not an extension — a correction to D13's own coefficient list (S&L's dimensional derivatives are CG-referenced; `cm_alpha_per_rad`/`croll_beta_per_rad`/`cn_beta_per_rad` are AERORP-referenced per `aero_math.hpp`'s own header). Derive the CG-referenced coefficients from first principles in the test (never calling `aero_math.hpp`), apply to every affected derivative (longitudinal and lateral), keep every equation/tolerance unchanged, record before/after for all five modes. Phugoid is expected to still miss (eq. 4.2-17b has no stability-derivative term) — `xfail(strict=True)` naming the measured miss and equation, not a tolerance change. PLAN.md gets a one-line PR 8 follow-up: PR 8's own phugoid cross-check must use this PR's numerical `A`, not the §4.2 approximation. |
 
 ## Repository findings
 
@@ -289,7 +385,7 @@ tolerance, no scope, and no design — only which equation numbers the implement
 | `f(x, u)`, `_column` (D15) and central differencing (D12) | New: `python/astra/linearize.py` | `Simulation.derivative`/`write_input` (PR 5, stable); `Simulation.input_names` (this PR, above) | R1, R6 |
 | `linearize()` + `LinearizeResult` (D14: carries `simulation`), trim reuse | New: `python/astra/linearize.py` | `astra.trim.trim_straight_and_level` (PR 6, stable); `trim._load_still_air_config` (PR 6, same-package private reuse) | R3, R5 |
 | Mode extraction (numerical) | New: `python/astra/linearize.py` | `numpy.linalg.eigvals` | R4a–e (numerical half) |
-| Closed-form S&L §4.2 comparison | `tests/python/test_linearize.py` only, not the implementation module (D13: "computed in the test") | `cruise.yaml`'s own coefficients, re-typed in the test (same convention as `test_trim.py`'s own R3 cross-check — never reusing `aero_math.hpp`/`turbofan_math.hpp` or this PR's own `linearize.py`) | R4a–e (closed-form half) |
+| Closed-form S&L §4.2 comparison, CG-referenced (D18) | `tests/python/test_linearize.py` only, not the implementation module (D13: "computed in the test") | `cruise.yaml`'s own coefficients plus the D18 moment-transfer correction, re-typed/re-derived in the test (same convention as `test_trim.py`'s own R3 cross-check — never reusing `aero_math.hpp`/`turbofan_math.hpp` or this PR's own `linearize.py`) | R4a/c/d/e; R4b (phugoid) `xfail(strict=True)`, D18 |
 
 One Claude builder; no split (one module, one binding addition, one test file — no independent-path
 parallelism to gain).
@@ -315,7 +411,10 @@ model, beyond `Cm_alpha_dot`) must be re-derived against the real `cruise.yaml` 
 implementation time — this plan names the right equations but does not claim to have hand-verified
 every substitution the way PR 6's plan hand-verified its own R3 cross-check numbers; a mismatch here
 is a defect to report (per D13's own "a miss is a finding to report, not a tolerance to widen"), not
-a plan error to silently patch by loosening R4's bounds. (3) The Euler-angle-order permutation
+a plan error to silently patch by loosening R4's bounds. **Materialized as D18** (above): short
+period and spiral were a real defect in D13's own coefficient list (fixed by the CG-referenced
+derivation, not a tolerance change); phugoid is a genuine, expected miss (`xfail(strict=True)`, not
+loosened). (3) The Euler-angle-order permutation
 between this module's own `x` vector `(phi, theta, psi)` and `frames.hpp`'s argument order `(psi,
 theta, phi)` (flagged in Contract) is a one-line transpose but a real trap — worth its own explicit
 unit check inside R3/R2, not just trusted from this plan's own prose. (4) No golden/tolerance file is
@@ -335,7 +434,11 @@ already-reviewed C++ method with no ABI change, not a new interface design).
 
 ## Done when
 
-R1–R8 pass under `pytest tests/python/test_linearize.py`; the full gate (`just check`) is green; the
-`Simulation.input_names()` diff hunk is separately identifiable in the Codex review request (Joe's
-own scope instruction); Codex general review (`/review-cycle`) has run and any findings are resolved
-or explained; the human-review packet is prepared (`/human-review`) before Joe's merge decision.
+R1–R3, R4a/c/d/e, R5–R8 pass under `pytest tests/python/test_linearize.py`; R4b (phugoid) is
+`xfail(strict=True)`, D18's own disclosed and expected miss, not silently dropped or loosened — the
+gate stays green because that outcome is itself the expected, recorded result, not because the check
+was weakened. The full gate (`just check`) is green; the `Simulation.input_names()` diff hunk is
+separately identifiable in the Codex review request (Joe's own scope instruction); Codex general
+review (`/review-cycle`) has run and any findings are resolved or explained; the human-review packet
+is prepared (`/human-review`), disclosing D18 and the phugoid xfail explicitly, before Joe's merge
+decision.
