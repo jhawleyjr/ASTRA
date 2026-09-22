@@ -12,9 +12,11 @@ still-air config genuinely has no `physical.wind`.
 from __future__ import annotations
 
 import math
+from pathlib import Path
 
 import numpy as np
 import pytest
+import yaml
 
 from astra import _core, trim
 
@@ -154,6 +156,20 @@ def test_still_air_config_has_no_wind_configured() -> None:
     sim = _core.Simulation.from_config(config, _core.default_plugin_dir())
     state = np.array(sim.vehicles[0].state)
     trim._residual6(sim, state)  # raises on failure; no assertion needed
+
+
+def test_refuses_a_flat_earth_config(tmp_path: Path) -> None:
+    # p_n[-1] = altitude_m (trim.py) assumes a geodetic (round/wgs84_rotating) position
+    # representation; under earth/flat, p_n[2] is NED down, so the same assignment would place
+    # the aircraft at -altitude_m instead (ADR-0003). The map spelling ({plugin: ...}) exercises
+    # _earth_plugin_path's dict branch, not just the plain-scalar one every other test uses.
+    data = yaml.safe_load(Path(CRUISE_CONFIG).read_text(encoding="utf-8"))
+    data["physical"]["earth"] = {"plugin": "plugins/physical/earth/flat"}
+    flat_config = tmp_path / "cruise_flat_earth.yaml"
+    flat_config.write_text(yaml.safe_dump(data), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"physical\.earth"):
+        trim.trim_straight_and_level(flat_config, TRUE_AIRSPEED_MPS, ALTITUDE_M)
 
 
 def test_write_input_raises_on_a_stale_or_wrong_control_name() -> None:
