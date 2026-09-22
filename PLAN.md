@@ -696,7 +696,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         Depends on PR 3d. Binding ADRs: ADR-0001, ADR-0002, ADR-0017,
         ADR-0020. Tier 3. Plan critique: yes -- rebuilt plan against the new interface, not the old
         ADR-0018 `compute()` shape PR 2/3 pinned.
-  - [ ] PR 4a — implement ADR-0021: `DynamicsModel` interface + `RigidBody6DofDynamics` (byte-for-byte
+  - [x] PR 4a — implement ADR-0021: `DynamicsModel` interface + `RigidBody6DofDynamics` (byte-for-byte
         port of today's `Eom::operator()`); `Model`'s five new virtuals (`state_count`/
         `initial_state`/`integrate_state`/`bind_state`/`resolve_peers`, all defaulted); `Vehicle`'s
         two-phase init (discover/size/allocate/bind/publish, then resolve peers), combined state
@@ -713,7 +713,11 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         proving the stage buffer equals the combined state buffer outside any derivative call, both on
         a normal and a halted frame; a test proving duplicate published state names and missing
         required peers throw recoverable `ConfigError`s. Binding ADRs: ADR-0021. Tier 3. Plan
-        critique: done (`docs/plans/m3-framework-realignment.md`). Implementation plan: pending.
+        critique: done (`docs/plans/m3-framework-realignment.md`). Implementation plan: done
+        (`docs/plans/pr4a-dynamics-model.md`, Revision 3). **Implemented, validated (full gate
+        green, four presets; Codex Tier 3, three fresh-context passes, general + adversarial: R-001/
+        R-002/R-003 found and fixed, fix-verification pass confirmed "New findings: none"), approved
+        by Joe.** PR #42 merged as `96c9459`, 2026-09-21 (squash merge, Joe). Depends on PR 3/3d/4.
   - [ ] PR 5 — nanobind: `Simulation`, `Config` from dict, `SignalRegistry` read views, PR 2's write
         seam (`sim.write_input(name, value)`, D7), and `Simulation::derivative(state)` -- the same
         derivative functor `Vehicle::integrate` hands the integrator (fresh atmosphere at the given
