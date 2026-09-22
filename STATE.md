@@ -1,7 +1,8 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines; true at handoff)
 
 ## In flight
-**M3 PR 6** (`astra.trim`) is implemented and validated, not yet reviewed or handed to Joe.
+**M3 PR 6** (`astra.trim`) is implemented, validated, and Codex-reviewed (verdict approve); not yet
+handed to Joe for his own decision.
 Plan: `docs/plans/pr6-trim.md`, Revision 2, **approved by Joe, 2026-09-21** (D9: add `pyyaml`,
 pin actual current release at implementation time — done, `pyyaml==6.0.3`/`scipy==1.18.1`, both
 confirmed via `pip index versions` at pin time; D10: hardcode elevator `[-0.3, 0.3]` rad
@@ -21,25 +22,26 @@ bound the code never enforces (reworded); `p_n[-1] = altitude_m` silently assume
 model, wrong under `earth/flat` (now raises naming `physical.earth`, ADR-0003); control names are
 hardcoded against the "read from the registry" instruction (accepted as a deviation — no
 `InputRegistry::names()` binding exists yet — documented in `trim.py`, the plan's D10 row, and a
-new PLAN.md follow-up under PR 7's line). Worktree branch `worktree-m3-pr6-trim`, not yet pushed,
-no PR opened yet.
+new PLAN.md follow-up under PR 7's line).
 
 ## Last verified result
-Local full four-preset gate `check: OK` at head `641ff4a`, retained at
-`docs/reviews/evidence/b8c4506-full-gate.log` (captured against implementation head `b8c4506`,
-before the evidence-retention commit itself) — hooks 144/144, debug/release/static-plugins/asan all
-387/387, tidy clean, pyright 0 errors, pytest 84/84 (77 existing + 7 new). Real solved trim point at
-cruise: `elevator ≈ 0.0267 rad`, `throttle ≈ 0.4986`, `alpha ≈ 1.35°`, `max|residual| ≈ 8e-17` (R1,
-`< 1e-6`); untrimmed-guess residual `≈ 3.43 m/s²` (R2, `> 1e-2`); R3's `T cos(alpha)` vs. hand-D
-cross-check misses by `0.31%` (`< 5%`); R4 bitwise-identical across two runs.
+Codex review complete: general review found R-001 (minor — the quaternion regression test never
+called `_state_from_alpha`, so a helper regression would pass silently; confirmed by injecting one),
+fixed in `4b6f398` and independently reproduced/verified by Codex's adversarial pass (base `cc11c30`,
+head `4b6f398`, **verdict approve, no other findings**) across D8 residual slices, the
+collapsed-quaternion special case, the R3 `T cos(alpha) = D` identity, determinism/hidden-state,
+the `earth/flat` guard, and the accepted control-name-hardcoding deviation. Findings record:
+`docs/reviews/pr6-trim-review.md`. Local full four-preset gate `check: OK` rerun at the final
+candidate head `6104206` (after R-001's fix), retained at
+`docs/reviews/evidence/6104206-full-gate.log` — hooks 144/144, all four presets 387/387, tidy clean,
+pyright 0 errors, pytest 84/84. Real solved trim point at cruise: `elevator ≈ 0.0267 rad`,
+`throttle ≈ 0.4986`, `alpha ≈ 1.35°`, `max|residual| ≈ 8e-17` (R1, `< 1e-6`); untrimmed-guess
+residual `≈ 3.43 m/s²` (R2, `> 1e-2`); R3's cross-check misses by `0.31%` (`< 5%`); R4
+bitwise-identical across two runs.
 
 ## Next step
-Codex review (`/review-cycle`): general review, plus adversarial review focused on the trim math
-(D8 residual slice correctness, the collapsed-quaternion special case, the R3 wind-axis identity,
-determinism/no-hidden-state across repeated `derivative()`/`write_input()` calls) per workflow.md's
-"physics diffs also need adversarial review" — this PR is pure Python calling already-reviewed C++
-surface, so scope this proportionally, not as a full core-physics adversarial pass. Then
-`/human-review` before Joe's decision. No plan critique was required or done (PLAN.md's own line).
+`/human-review` to prepare Joe's packet, then his decision. No plan critique was required or done
+(PLAN.md's own line). Not yet pushed; no PR opened.
 
 ## Tried / failed
 Correction rounds: 0/2. Failed integrations: 0/2.
