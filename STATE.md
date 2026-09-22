@@ -40,10 +40,13 @@ residual `≈ 3.43 m/s²` (R2, `> 1e-2`); R3's cross-check misses by `0.31%` (`<
 bitwise-identical across two runs.
 
 ## Next step
-**Joe's decision** on the human-review packet (`docs/reviews/pr6-trim-human.md`, candidate `fd4dbd4`
-against base `cc11c30`): approve behavior and squash-merge, or changes-required. Nothing further for
-Claude until that decision. No plan critique was required or done (PLAN.md's own line). Not yet
-pushed; no PR opened.
+**Joe approved, 2026-09-21, in session**, conditional on one commit (a regression test for the
+`earth/flat` refusal guard — the packet's earlier "verified by hand" was not evidence under this
+file's own honesty rule); condition satisfied by `031dca8`, packet updated to name it at `1f46017`.
+Pushing the branch and opening the draft PR (marked ready) next, then stopping — Joe's own
+squash-merge follows once GitHub's `check` is green. No plan critique was required or done (PLAN.md's
+own line). Also flagged to Joe this session: `.claude/settings.json` pins `opusplan`, but this
+session actually ran on Sonnet 5 — a settings drift, not a review-document error.
 
 ## Tried / failed
 Correction rounds: 0/2. Failed integrations: 0/2.
