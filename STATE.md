@@ -1,40 +1,37 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines; true at handoff)
 
 ## In flight
-**M3 PR 5** (nanobind bindings: `Simulation`, `Config` including `from_dict`, `SignalRegistry`/
-`HealthMonitor`/`VirtualClock`/`Vehicle` read views, PR 2's write seam, `Simulation.derivative()`)
-is **approved by Joe and open as PR #43**, awaiting a green `check` before his own squash-merge.
-Plan: `docs/plans/pr5-nanobind-bindings.md` (approved by Joe, after one Codex plan critique and
-Joe's own second review round). Implementation candidate `5964c63` (docs/process commits through
-`8af5eb1`), branch `worktree-m3-pr5-nanobind` pushed, PR
-https://github.com/jhawleyjr/ASTRA/pull/43 open and marked ready (not draft). PR body set via
-`gh api ... -X PATCH -F body=@<file>` (2026-09-19 lesson: `gh pr edit --body-file` fails on this
-repo/`gh` version) and verified landed via `gh pr view --json body`.
+**M3 PR 6** (`astra.trim`: `trim_straight_and_level()`, `scipy.optimize.root` driving
+`Simulation.derivative(state)`'s residual to zero at cruise) is **approved by Joe and open as
+PR #44**, awaiting a green `check` on the current head before his own squash-merge. Plan:
+`docs/plans/pr6-trim.md` (Revision 2, approved 2026-09-21). Implementation candidate `031dca8`
+plus packet/STATE handoff commits through `f9e8238`; branch `worktree-m3-pr6-trim` pushed, PR
+https://github.com/jhawleyjr/ASTRA/pull/44 open and marked ready (not draft).
 
-Codex review (three passes, all clean): general (no actionable regressions), adversarial on Joe's
-own four-area focus — ownership/lifetime across the Python/C++ boundary, probe side-effect
-isolation (R5a/R5b), R9 bit-identity, no allocation on `Vehicle::integrate()`'s own per-frame path
-— (verdict approve, no material findings), and a fix-verification round scoped to Joe's own
-human-review test addition (verdict approve, no material findings). Findings record:
-`docs/reviews/pr5-nanobind-bindings-review.md`. Human-review packet, decision recorded:
-`docs/reviews/pr5-nanobind-bindings-human.md` — **Joe approved candidate `5964c63` against base
-`origin/main` at `96c9459`, 2026-09-21, in session** (conditional approval on the prior candidate
-`7755432`, condition satisfied by `5964c63`'s own discriminating wrench/atmosphere test, itself
-independently Codex-verified).
+Codex review (two passes, base `cc11c30`): general found R-001 (minor — a regression test never
+called the helper it claimed to test), fixed `4b6f398`; adversarial pass (D8 residual slices, the
+collapsed-quaternion special case, the R3 `T cos(alpha) = D` identity, determinism, the `earth/flat`
+guard, the accepted control-name-hardcoding deviation) independently confirmed the fix, found
+nothing else — **verdict approve**. Findings: `docs/reviews/pr6-trim-review.md`. Human-review
+decision: `docs/reviews/pr6-trim-human.md` — **Joe approved candidate `031dca8` against base
+`cc11c30`, 2026-09-21, in session**, conditional on a regression test for the `earth/flat` guard
+(satisfied by `031dca8` itself; the packet's earlier "verified by hand" wasn't evidence).
+
+Also flagged to Joe, unresolved: `.claude/settings.json` pins `opusplan`, this session ran on
+Sonnet 5 throughout — a launch/settings drift, his own call (not an ASTRA code issue).
 
 ## Last verified result
-Local full four-preset gate `check: OK` at head `3be7e84` (first attempt clean), retained at
-`docs/reviews/evidence/5964c63-full-gate.log` — format/docs/hooks/ruff clean, debug/release/
-static-plugins/asan all 352/352, tidy clean, pyright 0 errors, pytest 77/77. GitHub's own `check`
-(GATE=local) is **green** on PR #43's current head
-(https://github.com/jhawleyjr/ASTRA/actions/runs/35684304771, conclusion success, confirmed via
-`gh pr checks 43` and `gh run view`).
+Local full gate `check: OK` at head `6104206`, `docs/reviews/evidence/6104206-full-gate.log` —
+hooks 144/144, all four presets 387/387, pyright 0, pytest 84/84. The flat-earth regression test
+(`031dca8`) is Python-only, so the full gate wasn't rerun for it (Joe's own call);
+`pytest tests/python/` (85/85)/`ruff`/`pyright` rerun clean at that head instead. **GitHub's own
+`check` succeeded only against head `6f42fad`** (run 35691288789) — current tip `f9e8238` (STATE.md
+only) has no reported run yet; not claimed verified on the current head.
 
 ## Next step
-**Joe's squash-merge**, now that PR #43's `check` has finished green on the current head — nothing
-further for Claude unless that check fails or Joe requests changes. After merge: check off
-PLAN.md's PR 5 line with the merge SHA (deliberately **not done this session** — Joe's own
-instruction, same as PR 4a's own precedent: that happens next session, once the merge SHA exists).
+**Joe's squash-merge**, once PR #44's `check` is confirmed green on the actual current head —
+nothing further for Claude unless it fails or Joe requests changes. After merge: check off
+PLAN.md's PR 6 line with the merge SHA (not yet done).
 
 ## Tried / failed
 Correction rounds: 0/2. Failed integrations: 0/2.

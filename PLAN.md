@@ -522,6 +522,12 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       this one aircraft's own controls does not resolve the framework-wide gap: `icd/astra_icd.h`'s
       own comment should eventually state the physical sense directly instead of pointing at
       ADR-0001, which does not itself state it. Not started.
+- [ ] Elevator/throttle deflection *range* has no declared home either (M3 PR 6 planning,
+      `docs/plans/pr6-trim.md`, D10): the second control-surface property (after the
+      positive-deflection-sense gap above) with no config key or ICD field to read it from. PR 6's
+      own plausibility check hardcodes `elevator ∈ [-0.3, 0.3]` rad (737.xml) and `throttle ∈ [0, 1]`
+      (the ICD's documented convention, not a config value) directly in its test rather than adding
+      `aircraft/**/physical` config keys. Not started.
 - [ ] `cmake/AstraPlugin.cmake`'s `astra_finalize_plugins()` hardcodes which test executables get a
       plugin build-order dependency (`astra_unit_tests`, `astra_physics_tests`, and — since M3
       PR 1 — `astra_notional_transport_mass_test`, `astra_template_mass_test`), by explicit design
@@ -718,7 +724,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         green, four presets; Codex Tier 3, three fresh-context passes, general + adversarial: R-001/
         R-002/R-003 found and fixed, fix-verification pass confirmed "New findings: none"), approved
         by Joe.** PR #42 merged as `96c9459`, 2026-09-21 (squash merge, Joe). Depends on PR 3/3d/4.
-  - [ ] PR 5 — nanobind: `Simulation`, `Config` from dict, `SignalRegistry` read views, PR 2's write
+  - [x] PR 5 — nanobind: `Simulation`, `Config` from dict, `SignalRegistry` read views, PR 2's write
         seam (`sim.write_input(name, value)`, D7), and `Simulation::derivative(state)` -- the same
         derivative functor `Vehicle::integrate` hands the integrator (fresh atmosphere at the given
         state, latched wind), not a second implementation. `Simulation::for_testing`'s M2 PR 2 deferral
@@ -731,12 +737,18 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         hardcodes `kRk4`; an Euler-step comparison isn't reachable without new config surface, so this
         replaces that alternative). Binding ADRs: ADR-0021 (R4). Tier 3. Plan critique: **yes**
         (ownership/lifetime across the Python/C++ boundary). D2 settled: minimal scope, no trampolines
-        in M3.
+        in M3. **Implemented, validated (full gate green, four presets, retained at
+        `docs/reviews/evidence/5964c63-full-gate.log`; Codex three fresh-context passes -- general (no
+        actionable regressions), adversarial on Joe's own four-area focus (ownership/lifetime across
+        the Python/C++ boundary, probe side-effect isolation R5a/R5b, R9 bit-identity, no allocation on
+        `Vehicle::integrate()`'s own per-frame path), and a fix-verification round on Joe's own
+        human-review test addition -- all verdict approve, no material findings), approved by Joe.**
+        PR #43 merged as `cc11c30`, 2026-09-21 (squash merge, Joe).
   - [ ] PR 6 — `astra.trim`: `scipy.optimize.root` writing PR 5's inputs, driving `derivative(state)`
         to zero at a flight condition. Residual norm/units (D8, Joe's pick, at this PR's planning
         time) -- S&L §3.6 uses a weighted sum-of-squares of state derivatives; §16 gives no norm, and
         the state mixes m, m/s, quaternion components, rad/s, so raw SSE isn't unit-consistent.
-        Depends on PR 5. Accept: `pytest python/tests/test_trim.py` -- residual under D8's definition
+        Depends on PR 5. Accept: `pytest tests/python/test_trim.py` -- residual under D8's definition
         < 1e-6 at cruise. Binding ADRs: none new. Tier 2. Plan critique: no.
   - [ ] PR 7 — `astra.linearize`: central-difference A/B about trim; short period/phugoid/Dutch
         roll/roll/spiral checked as a sanity comparison against S&L §4.2's classical closed-form
@@ -744,10 +756,14 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         737.xml` is a JSBSim example aircraft with Aeromatic/Roskam-estimated coefficients, not a
         validated real 737, so no independently validated source exists to check it against --
         S&L §4.2's approximations are a labeled sanity check, not an oracle). Depends on PR 6.
-        Accept: `pytest python/tests/test_linearize.py` within a loose, per-mode tolerance labeled
+        Accept: `pytest tests/python/test_linearize.py` within a loose, per-mode tolerance labeled
         as approximate (tighter for short period/phugoid, where S&L's approximations are usually
         good; wider for the lateral three, where they're known to be poorer). Binding ADRs: none
-        new. Tier 2/3. Plan critique: no.
+        new. Tier 2/3. Plan critique: no. **Follow-up from PR 6** (`docs/plans/pr6-trim.md`, D10):
+        PR 6 hardcoded its own control-input names (`"controls.elevator"`/`"controls.throttle"`)
+        rather than reading them from the registry as originally instructed, because the Python
+        binding exposes no `InputRegistry::names()` enumeration (it exists in C++, PR 2). Bind it
+        so PR 7 can discover control names instead of repeating the same hardcoding.
   - [ ] PR 8 — Cruise config(s) (D6's `vehicle.models` schema) + 300 s open-loop run frozen as a
         regression trajectory (O5 -- not an oracle), generator-under-guard pattern from
         `tests/golden/nesc/`. Adds the actual independent check §16 (as corrected by PR 0) requires: a
