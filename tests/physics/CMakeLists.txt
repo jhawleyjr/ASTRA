@@ -13,10 +13,18 @@
 # all ten NASA/TM-2015-218675 check cases against tests/golden/nesc/'s generated bands. Its own YAML
 # configs live under nesc/ (ASTRA_TEST_NESC_CASE_DIR below), not tests/configs/ -- the task's own
 # instruction, not the tests/configs/ convention the rest of this target still uses.
+#
+# dynamics/{rigid_body_r1_golden_test.cpp,cruise_end_to_end_r1_golden_test.cpp} (ADR-0021, PLAN.md
+# M3 PR 4a): R1/R1-Sim against tests/golden/dynamics/**'s frozen goldens (rigid_body_6dof_r1_golden.hpp
+# used directly as capture_r1_golden.cpp's own witness value producer already does;
+# ASTRA_TEST_GOLDEN_DIR below names the frozen cruise_end_to_end_r1_fixture.yaml, never the live
+# aircraft/notional_transport/configs/cruise.yaml).
 add_executable(astra_physics_tests
   ../support/alloc_counter.cpp
   ballistic_test.cpp
   dryden_psd_test.cpp
+  dynamics/cruise_end_to_end_r1_golden_test.cpp
+  dynamics/rigid_body_r1_golden_test.cpp
   nesc/nesc_cases_test.cpp
   no_alloc_test.cpp
   precession_test.cpp
@@ -27,6 +35,7 @@ target_compile_definitions(astra_physics_tests PRIVATE
   "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""
   "ASTRA_TEST_CONFIG_DIR=\"${ASTRA_SOURCE_DIR}/tests/configs\""
   "ASTRA_TEST_NESC_CASE_DIR=\"${ASTRA_SOURCE_DIR}/tests/physics/nesc\""
+  "ASTRA_TEST_GOLDEN_DIR=\"${ASTRA_SOURCE_DIR}/tests/golden\""
   "ASTRA_AIRCRAFT_DIR=\"${ASTRA_SOURCE_DIR}/aircraft\"")
 # nesc/nesc_cases_test.cpp includes tests/golden/nesc/*.hpp (human-owned) as "golden/nesc/*.hpp", the
 # astra_frames_test pattern.

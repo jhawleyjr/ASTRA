@@ -7,7 +7,9 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
 #include <limits>
+#include <span>
 #include <string>
 #include <string_view>
 
@@ -103,7 +105,8 @@ TEST(HealthMonitor, NonFiniteStateSegmentHaltsNamingTheFirstBadOne) {
   {
     StateVector y = valid_state();
     y(astra::state::kPosition) = kNan;
-    const HaltReason halt = monitor.check_state(y, kNames, ctx, 0);
+    const HaltReason halt = monitor.check_state(
+        std::span<const double>(y.data(), static_cast<std::size_t>(y.size())), kNames, {}, ctx, 0);
     ASSERT_TRUE(halt);
     EXPECT_EQ(halt.check, HealthCheck::kNonFiniteState);
     EXPECT_EQ(halt.source, kNames.p_n);
@@ -111,14 +114,16 @@ TEST(HealthMonitor, NonFiniteStateSegmentHaltsNamingTheFirstBadOne) {
   {
     StateVector y = valid_state();
     y(astra::state::kVelocity) = kInf;
-    const HaltReason halt = monitor.check_state(y, kNames, ctx, 0);
+    const HaltReason halt = monitor.check_state(
+        std::span<const double>(y.data(), static_cast<std::size_t>(y.size())), kNames, {}, ctx, 0);
     ASSERT_TRUE(halt);
     EXPECT_EQ(halt.source, kNames.v_b);
   }
   {
     StateVector y = valid_state();
     y(astra::state::kQuaternion) = kNan;
-    const HaltReason halt = monitor.check_state(y, kNames, ctx, 0);
+    const HaltReason halt = monitor.check_state(
+        std::span<const double>(y.data(), static_cast<std::size_t>(y.size())), kNames, {}, ctx, 0);
     ASSERT_TRUE(halt);
     EXPECT_EQ(halt.check, HealthCheck::kNonFiniteState);
     EXPECT_EQ(halt.source, kNames.q_nb);
@@ -126,10 +131,40 @@ TEST(HealthMonitor, NonFiniteStateSegmentHaltsNamingTheFirstBadOne) {
   {
     StateVector y = valid_state();
     y(astra::state::kAngularRate) = kInf;
-    const HaltReason halt = monitor.check_state(y, kNames, ctx, 0);
+    const HaltReason halt = monitor.check_state(
+        std::span<const double>(y.data(), static_cast<std::size_t>(y.size())), kNames, {}, ctx, 0);
     ASSERT_TRUE(halt);
     EXPECT_EQ(halt.source, kNames.omega_b);
   }
+}
+
+// ADR-0021: a state-owning model's own slice, beyond the rigid-body block, gets a generic
+// finiteness check -- no quaternion-norm-style check (only the rigid body's own attitude has that
+// meaning) -- naming that model (not a per-scalar name, matching check_wrench's own per-plugin
+// naming), not the rigid-body StateNames at all.
+TEST(HealthMonitor, NonFiniteStateOwnerSliceHaltsNamingTheOwningModel) {
+  SignalRegistry registry;
+  HealthMonitor monitor = make_monitor(registry);
+  const StepContext ctx{.t = 0.0, .dt = 0.001, .frame = 3};
+
+  std::array<double, 15> y{};
+  const auto rigid_body = valid_state();
+  for (int i = 0; i < astra::kStateSize; ++i) {
+    y[static_cast<std::size_t>(i)] = rigid_body(i);
+  }
+  y[13] = 0.0;   // another model's own, well-behaved state slot
+  y[14] = kNan;  // the state-owning model under test's own slot
+
+  constexpr astra::NamedStateSlice kOtherSlice{"v0.other_owner.state.0", 13, 1};
+  constexpr astra::NamedStateSlice kBadSlice{"v0.state_owner.state.0", 14, 1};
+  const std::array<astra::NamedStateSlice, 2> extra_slices{kOtherSlice, kBadSlice};
+
+  const HaltReason halt =
+      monitor.check_state(std::span<const double>(y.data(), y.size()), kNames,
+                          std::span<const astra::NamedStateSlice>(extra_slices), ctx, 0);
+  ASSERT_TRUE(halt);
+  EXPECT_EQ(halt.check, HealthCheck::kNonFiniteState);
+  EXPECT_EQ(halt.source, "v0.state_owner.state.0");
 }
 
 TEST(HealthMonitor, QuaternionNormDriftAboveOneEMinusSixHaltsNamingQNb) {
@@ -139,11 +174,40 @@ TEST(HealthMonitor, QuaternionNormDriftAboveOneEMinusSixHaltsNamingQNb) {
   y(astra::state::kQuaternion) = 1.0 + 2e-6;
 
   const HaltReason halt =
-      monitor.check_state(y, kNames, StepContext{.t = 0.0, .dt = 0.001, .frame = 7}, 0);
+      monitor.check_state(std::span<const double>(y.data(), static_cast<std::size_t>(y.size())),
+                          kNames, {}, StepContext{.t = 0.0, .dt = 0.001, .frame = 7}, 0);
   ASSERT_TRUE(halt);
   EXPECT_EQ(halt.check, HealthCheck::kQuaternionNorm);
   EXPECT_EQ(halt.source, kNames.q_nb);
   EXPECT_EQ(halt.frame, 7U);
+}
+
+// Codex general review (M3 PR 4a): quaternion drift above tolerance under a non-halting
+// quaternion_action_ must not short-circuit past the extra_slices check below it -- a state-owning
+// model's own NaN must still halt under nan: halt, even when this frame's quaternion drift also
+// exceeds tolerance under quaternion: warn.
+TEST(HealthMonitor, QuaternionWarnDoesNotSuppressAStateOwnerNanHaltUnderNanHalt) {
+  SignalRegistry registry;
+  HealthMonitor monitor = make_monitor(registry, "quaternion: warn");
+  const StepContext ctx{.t = 0.0, .dt = 0.001, .frame = 9};
+
+  std::array<double, 14> y{};
+  StateVector rigid_body = valid_state();
+  rigid_body(astra::state::kQuaternion) = 1.0 + 2e-6;  // drifted past tolerance
+  for (int i = 0; i < astra::kStateSize; ++i) {
+    y[static_cast<std::size_t>(i)] = rigid_body(i);
+  }
+  y[13] = kNan;  // the state-owning model's own slot
+
+  constexpr astra::NamedStateSlice kBadSlice{"v0.state_owner.state.0", 13, 1};
+  const std::array<astra::NamedStateSlice, 1> extra_slices{kBadSlice};
+
+  const HaltReason halt =
+      monitor.check_state(std::span<const double>(y.data(), y.size()), kNames,
+                          std::span<const astra::NamedStateSlice>(extra_slices), ctx, 0);
+  ASSERT_TRUE(halt);
+  EXPECT_EQ(halt.check, HealthCheck::kNonFiniteState);
+  EXPECT_EQ(halt.source, "v0.state_owner.state.0");
 }
 
 TEST(HealthMonitor, QuaternionNormDriftBelowOneEMinusSixDoesNotHalt) {
@@ -152,7 +216,9 @@ TEST(HealthMonitor, QuaternionNormDriftBelowOneEMinusSixDoesNotHalt) {
   StateVector y = valid_state();
   y(astra::state::kQuaternion) = 1.0 + 5e-7;
 
-  EXPECT_FALSE(monitor.check_state(y, kNames, StepContext{.t = 0.0, .dt = 0.001, .frame = 7}, 0));
+  EXPECT_FALSE(
+      monitor.check_state(std::span<const double>(y.data(), static_cast<std::size_t>(y.size())),
+                          kNames, {}, StepContext{.t = 0.0, .dt = 0.001, .frame = 7}, 0));
 }
 
 // Codex plan-review finding: a halting detection must still increment its registered counter, not
@@ -466,7 +532,8 @@ TEST(HealthMonitor, SourceNamesComeFromTheCallerNotAV0Literal) {
   y(astra::state::kQuaternion) = 1.0 + 2e-6;
 
   const HaltReason halt =
-      monitor.check_state(y, kOtherNames, StepContext{.t = 0.0, .dt = 0.001, .frame = 0}, 3);
+      monitor.check_state(std::span<const double>(y.data(), static_cast<std::size_t>(y.size())),
+                          kOtherNames, {}, StepContext{.t = 0.0, .dt = 0.001, .frame = 0}, 3);
   ASSERT_TRUE(halt);
   EXPECT_EQ(halt.source, "orbiter.state.q_nb");
   EXPECT_EQ(halt.vehicle_index, 3U);

@@ -54,7 +54,7 @@ TEST(SimulationHalt, QuaternionNormOneOnePointOneHaltsNamingVehicleStateQNb) {
   const Config config =
       Config::from_file(std::string{ASTRA_TEST_CONFIG_DIR} + "/physics_ballistic_level.yaml");
   Simulation sim = load(config);
-  astra::StateVector& state = sim.vehicles().front().state();
+  auto state = sim.vehicles().front().state();
   state.segment<astra::state::kQuaternionSize>(astra::state::kQuaternion) *= 1.1;
   ASSERT_NEAR(state.segment<astra::state::kQuaternionSize>(astra::state::kQuaternion).norm(), 1.1,
               1e-12);
@@ -259,7 +259,7 @@ physical:
 )",
                                             "polar-approach-fixture");
   Simulation sim = load(config);
-  astra::StateVector& state = sim.vehicles().front().state();
+  auto state = sim.vehicles().front().state();
   state(astra::state::kPosition) = astra::geodesy::kMaxLatitude - 1e-5;  // lat, just inside
   state(astra::state::kVelocity) = 100.0;  // v_north (body x, identity attitude)
 
@@ -392,7 +392,7 @@ physical:
 )",
                                             "antimeridian-fixture");
   Simulation sim = load(config);
-  astra::StateVector& state = sim.vehicles().front().state();
+  auto state = sim.vehicles().front().state();
   state(astra::state::kPosition + 1) = std::numbers::pi - 0.01;  // lon, just under pi
   state(astra::state::kVelocity + 1) = 500000.0;                 // v_east (body y)
 
@@ -423,7 +423,7 @@ physical:
 )",
                                             "polar-approach-domain-off-fixture");
   Simulation sim = load(config);
-  astra::StateVector& state = sim.vehicles().front().state();
+  auto state = sim.vehicles().front().state();
   state(astra::state::kPosition) = astra::geodesy::kMaxLatitude - 1e-5;
   state(astra::state::kVelocity) = 100.0;
 
@@ -451,7 +451,7 @@ physical:
 )",
                                             "polar-approach-domain-warn-fixture");
   Simulation sim = load(config);
-  astra::StateVector& state = sim.vehicles().front().state();
+  auto state = sim.vehicles().front().state();
   state(astra::state::kPosition) = astra::geodesy::kMaxLatitude - 1e-5;
   state(astra::state::kVelocity) = 100.0;
 
@@ -484,7 +484,7 @@ physical:
 )",
                                             "frame-zero-lookahead-fixture");
   Simulation sim = load(config);
-  astra::StateVector& state = sim.vehicles().front().state();
+  auto state = sim.vehicles().front().state();
   // 1e-9 rad inside the margin: in_domain(p_n) is true, but one frame's worth of v_north (a
   // ~1.57e-8 rad lat step) already carries the lookahead past it.
   state(astra::state::kPosition) = astra::geodesy::kMaxLatitude - 1e-9;

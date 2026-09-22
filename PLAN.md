@@ -672,7 +672,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         Binding ADRs: ADR-0019, ADR-0020. Tier 3. Plan critique: done
         (`docs/plans/pr3d-adr0020-implementation.md`, Codex plan critique folded in, approved by Joe
         including Q1-Q4).
-  - [ ] PR 4 — `aircraft/notional_transport/physical/aero` (linear-coefficient aero) and
+  - [x] PR 4 — `aircraft/notional_transport/physical/aero` (linear-coefficient aero) and
         `hardware/propulsion/turbofan` (thrust lapse), O2/O3's numbers transcribed from
         `docs/refs/aircrafts/737.xml`'s `<aerodynamics>`/`<propulsion>` blocks (same source as O1's
         mass properties, PR 1 -- transcription, not an independently proposed set of coefficients);
@@ -690,7 +690,10 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         linear-coefficient aero's stability derivatives are exactly the S&L §2.3 Eq. (2.3-9a)
         nondimensional-rate form (scaled by `1/(2V_T)`) that hazard names, and a naive port would
         carry a real division by zero at that state, unlike the dimensional force equations built
-        from the same coefficients. Depends on PR 3d. Binding ADRs: ADR-0001, ADR-0002, ADR-0017,
+        from the same coefficients. **Implemented, validated (full gate green, four presets), two
+        Codex fix-verification rounds closed (static-plugins ODR namespace collision, `docs/lessons.md`
+        entry), approved by Joe.** PR #41 merged as `26ad594`, 2026-09-20 (squash merge, Joe).
+        Depends on PR 3d. Binding ADRs: ADR-0001, ADR-0002, ADR-0017,
         ADR-0020. Tier 3. Plan critique: yes -- rebuilt plan against the new interface, not the old
         ADR-0018 `compute()` shape PR 2/3 pinned.
   - [ ] PR 4a — implement ADR-0021: `DynamicsModel` interface + `RigidBody6DofDynamics` (byte-for-byte

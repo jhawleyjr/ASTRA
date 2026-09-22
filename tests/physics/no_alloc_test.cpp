@@ -163,4 +163,26 @@ TEST(NoAlloc, ZeroHeapAllocationsOverOneThousandFramesWithTheNotionalTransportCr
                               "plugins configured (docs/plans/pr4-notional-aero-turbofan.md)";
 }
 
+// ADR-0021, R2: a state-owning model (tests/plugins/state_owner) must not allocate either --
+// combined_/stage_/pre_step_scratch_ (StateBuffer, Vehicle) and the Integrator's own k1..k4/trial
+// scratch are all sized exactly once at init (running_offset, known once every model's own
+// state_count() has been read), never resized inside step()/integrate().
+TEST(NoAlloc, ZeroHeapAllocationsOverOneThousandFramesWithAStateOwningModel) {
+  const astra::Config config =
+      astra::Config::from_file(std::string{ASTRA_TEST_CONFIG_DIR} + "/no_alloc_state_owner.yaml");
+  astra::Simulation sim = astra::Simulation::from_config(config, ASTRA_TEST_PLUGIN_DIR);
+  ASSERT_EQ(sim.frames(), 1000U);
+
+  const std::size_t before = astra_test::allocation_count();
+  const astra::HaltReason halt = sim.run();
+  const std::size_t after = astra_test::allocation_count();
+
+  EXPECT_FALSE(halt) << "halted on check " << static_cast<int>(halt.check) << " at frame "
+                     << halt.frame;
+  EXPECT_EQ(sim.clock().frame(), 1000U) << "the run must complete, not merely allocate nothing "
+                                           "while halting early";
+  EXPECT_EQ(after, before)
+      << "zero allocations over 1000 frames with a state-owning model configured (ADR-0021, R2)";
+}
+
 }  // namespace

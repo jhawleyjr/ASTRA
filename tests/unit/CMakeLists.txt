@@ -16,8 +16,10 @@ add_executable(astra_unit_tests
   kernel/simulation_input_seam_test.cpp
   kernel/simulation_physical_config_test.cpp
   kernel/simulation_test.cpp
+  kernel/state_buffer_test.cpp
   kernel/state_test.cpp
   kernel/vehicle_environment_test.cpp
+  kernel/vehicle_state_coupling_test.cpp
   kernel/vehicle_state_test.cpp
   plugin/load_all_test.cpp
   plugin/loader_test.cpp

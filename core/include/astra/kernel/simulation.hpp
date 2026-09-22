@@ -16,7 +16,6 @@
 
 #include "astra/config/config.hpp"
 #include "astra/kernel/health_monitor.hpp"
-#include "astra/kernel/integrator.hpp"
 #include "astra/kernel/scheduler.hpp"
 #include "astra/kernel/vehicle.hpp"
 #include "astra/kernel/virtual_clock.hpp"
@@ -150,7 +149,8 @@ class Simulation {
   SignalRegistry registry_;
   std::vector<Vehicle> vehicles_;
   std::uint64_t frames_ = 0;
-  Integrator integrator_;
+  // ADR-0021: no longer a Simulation-wide shared Integrator -- each Vehicle now owns one, sized to
+  // its own combined state buffer (see Vehicle::init()'s own comment).
   Scheduler environment_scheduler_;
   std::vector<LoadedPlugin> environment_plugins_;
   // Non-owning: the model lives in environment_plugins_ above (set alongside physics whenever

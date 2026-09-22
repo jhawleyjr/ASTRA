@@ -37,6 +37,7 @@ add_library(astra_core SHARED
   src/errors.cpp
   src/interfaces/aero_model.cpp
   src/interfaces/atmosphere_model.cpp
+  src/interfaces/dynamics_model.cpp
   src/interfaces/earth_model.cpp
   src/interfaces/gravity_model.cpp
   src/interfaces/mass_properties_model.cpp
@@ -44,8 +45,8 @@ add_library(astra_core SHARED
   src/interfaces/propulsion_model.cpp
   src/interfaces/wind_model.cpp
   src/interfaces/wrench_source.cpp
-  src/kernel/eom.cpp
   src/kernel/health_monitor.cpp
+  src/kernel/rigid_body_6dof_dynamics.cpp
   src/kernel/simulation.cpp
   src/kernel/vehicle.cpp
   src/plugin/loader.cpp

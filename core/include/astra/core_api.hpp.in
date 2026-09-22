@@ -37,7 +37,12 @@ namespace astra {
 // sealed against a further override). No out-of-tree plugin exists at version 6 (compute() only
 // ever shipped inside this tree), so this is a settling bump, not a compatibility break for
 // anyone, the same reasoning version 6's own bump used.
-inline constexpr std::uint32_t kCoreApiVersion = 7;
+// 8 (M3 PR 4a, ADR-0021): Model gained five new virtuals (state_count, initial_state,
+// integrate_state, bind_state, resolve_peers), changing Model's own vtable layout -- an out-of-tree
+// plugin built against version 7 must be rejected, not dispatched through a slot it does not have
+// (same reasoning as every prior interface-growing bump above). All five are defaulted, so no
+// plugin's own behavior changes; only the vtable shape does.
+inline constexpr std::uint32_t kCoreApiVersion = 8;
 
 // The toolchain and configuration this tree was configured with. A plugin built by a different configure
 // carries a different string and is rejected at load; it can only come from a stale build directory.

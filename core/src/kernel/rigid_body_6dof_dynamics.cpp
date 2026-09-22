@@ -1,23 +1,27 @@
-#include "astra/kernel/eom.hpp"
+#include "astra/kernel/rigid_body_6dof_dynamics.hpp"
 
 #include "astra/kernel/vehicle_state.hpp"
 #include "astra/util/frames.hpp"
 
 namespace astra {
 
-void Eom::begin_frame() noexcept {
+void RigidBody6DofDynamics::begin_frame() noexcept {
   mass_props_ = mass_model_.get();
   inertia_inverse_ = mass_props_.inertia_b.inverse();
+}
+
+void RigidBody6DofDynamics::initial_state(double* q) const noexcept {
+  Eigen::Map<StateVector>(q).setZero();
 }
 
 // Stevens & Lewis body-axis rigid-body equations, general form (docs/architecture.md §6, ADR-0003):
 // omega_b is the body rate relative to inertial (state's own definition), so the attitude
 // kinematics subtract the Earth and transport rates to get the rate relative to n that q_nb
-// measures, while the gyroscopic term in the angular-rate equation uses omega_b directly. Every
-// Earth term below is identically zero for flat Earth (this PR's only EarthModel); M2's round and
-// rotating models give them real values with no change here.
-StateVector Eom::operator()(double /*t*/, const StateVector& y) const noexcept {
-  const VehicleState vs{y};
+// measures, while the gyroscopic term in the angular-rate equation uses omega_b directly. Byte-
+// for-byte port of Eom::operator() (R1's own frozen golden pins this): the same arithmetic, over a
+// VehicleState constructed on a raw pointer and written into dq instead of returned by value.
+void RigidBody6DofDynamics::derivative(double /*t*/, const double* q, double* dq) const noexcept {
+  const VehicleState vs{q};
   const frames::Quaternion q_nb = vs.q_nb();
   const Eigen::Matrix3d c_nb = frames::dcm_from_quaternion(q_nb);
   const Eigen::Vector3d v_b = vs.v_b();
@@ -47,12 +51,19 @@ StateVector Eom::operator()(double /*t*/, const StateVector& y) const noexcept {
       inertia_inverse_ *
       (applied_wrench_.moment_b - omega_b.cross(mass_props_.inertia_b * omega_b));
 
-  StateVector ydot;
+  Eigen::Map<StateVector> ydot(dq);
   ydot.segment<state::kPositionSize>(state::kPosition) = p_n_dot;
   ydot.segment<state::kVelocitySize>(state::kVelocity) = v_b_dot;
   ydot.segment<state::kQuaternionSize>(state::kQuaternion) = q_nb_dot;
   ydot.segment<state::kAngularRateSize>(state::kAngularRate) = omega_b_dot;
-  return ydot;
+}
+
+// ADR-0001: renormalized after every integrator step. Returns false (q_nb left unmodified) on a
+// zero or non-finite quaternion; see frames::normalize_quaternion.
+void RigidBody6DofDynamics::post_step(double* q) const noexcept {
+  Eigen::Map<StateVector> y(q);
+  static_cast<void>(
+      frames::normalize_quaternion(y.segment<state::kQuaternionSize>(state::kQuaternion)));
 }
 
 }  // namespace astra
