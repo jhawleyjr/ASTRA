@@ -12,7 +12,7 @@ except the stated perturbation.
 
 Phugoid reference (Joe's Q2 decision): PR 7's numerical A -- its longitudinal [u, w, q, theta]
 block, unchanged -- plus the altitude state h. PR 7's A holds position fixed (D11), so it has no
-d/dh, and against this run its phugoid period is 13% long; S&L Example 3.8-5 (Sec. 3.8, pp.
+d/dh, and against this run its phugoid period is 15% long; S&L Example 3.8-5 (Sec. 3.8, pp.
 212-213) describes exactly this: with the altitude state in A, the atmosphere model adds small
 coupling terms and the nonlinear response "agrees closely with the linear model with altitude
 included." The added column is a central difference in p_n[2] through linearize._evaluate itself,

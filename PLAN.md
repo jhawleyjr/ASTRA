@@ -535,8 +535,8 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
 - [ ] `astra.linearize`'s 9-state `A` (PR 7, D11) omits altitude: position is held fixed, so `A` has
       no d/dh and no density/thrust-lapse coupling (M3 PR 8 finding, `docs/plans/
       pr8-cruise-regression.md` finding 4). Against a nonlinear open-loop run from the trimmed
-      cruise, `modes(A).phugoid`'s damped period is 125.3 s against a measured 108.6 s (13% long)
-      and its zeta 0.052 against 0.027; `A` plus one altitude column and the h_dot row matches
+      cruise, `modes(A).phugoid`'s damped period is 125.3 s against a measured 108.6 s (15% long;
+      the measured period is 13% short of it) and its zeta 0.052 against 0.027; `A` plus one altitude column and the h_dot row matches
       (108.5 s, 0.027), as S&L Example 3.8-5 describes. PR 8 builds that 5x5 in its own test only.
       An opt-in altitude state in `astra.linearize` itself would be a D11 revision -- Joe's call,
       not scheduled. Not started.

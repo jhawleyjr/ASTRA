@@ -190,7 +190,6 @@ def armed_clone(tmp_path: Path) -> tuple[Path, dict[str, str]]:
     shutil.copy2(REPO_ROOT / SCRIPT_REL, clone / SCRIPT_REL)
     if _git(clone, "status", "--porcelain"):
         _commit_all(clone, "working-tree capture script")
-    assert not (clone / GOLDEN_REL).exists()
 
     stub_bin = tmp_path / "bin"
     stub_bin.mkdir()
@@ -200,8 +199,24 @@ def armed_clone(tmp_path: Path) -> tuple[Path, dict[str, str]]:
     return clone, env
 
 
-def _assert_no_golden_and_no_commit(clone: Path, head_before: str) -> None:
-    assert not (clone / GOLDEN_REL).exists()
+def _golden_snapshot(clone: Path) -> dict[str, bytes] | None:
+    """Every file under the golden directory, by relative path, or None if the directory does not
+    exist. Before capture it does not; after capture (commit B) it holds the committed header and
+    manifest (Codex R-002) -- either way a refusal must leave it exactly as it was."""
+    golden = clone / GOLDEN_REL
+    if not golden.exists():
+        return None
+    return {
+        str(path.relative_to(golden)): path.read_bytes()
+        for path in sorted(golden.rglob("*"))
+        if path.is_file()
+    }
+
+
+def _assert_goldens_untouched_and_no_commit(
+    clone: Path, head_before: str, goldens_before: dict[str, bytes] | None
+) -> None:
+    assert _golden_snapshot(clone) == goldens_before
     assert _git(clone, "rev-parse", "HEAD") == head_before
     assert _git(clone, "status", "--porcelain") == ""
 
@@ -209,10 +224,11 @@ def _assert_no_golden_and_no_commit(clone: Path, head_before: str) -> None:
 def test_refuses_to_write_when_the_run_halts(armed_clone: tuple[Path, dict[str, str]]) -> None:
     clone, env = armed_clone
     head = _git(clone, "rev-parse", "HEAD")
+    goldens = _golden_snapshot(clone)
     result = _run(clone, {**env, "STUB_HARNESS_MODE": "halt"})
     assert result.returncode != 0
     assert "harness exited 2" in result.stderr
-    _assert_no_golden_and_no_commit(clone, head)
+    _assert_goldens_untouched_and_no_commit(clone, head, goldens)
 
 
 def test_refuses_to_write_on_a_cross_preset_mismatch(
@@ -220,8 +236,30 @@ def test_refuses_to_write_on_a_cross_preset_mismatch(
 ) -> None:
     clone, env = armed_clone
     head = _git(clone, "rev-parse", "HEAD")
+    goldens = _golden_snapshot(clone)
     result = _run(clone, {**env, "STUB_HARNESS_MODE": "mismatch"})
     assert result.returncode != 0
     assert "DISAGREEMENT between debug and release" in result.stderr
     assert "cross-preset disagreement" in result.stderr
-    _assert_no_golden_and_no_commit(clone, head)
+    _assert_goldens_untouched_and_no_commit(clone, head, goldens)
+
+
+def test_refusals_leave_an_already_committed_golden_untouched(
+    armed_clone: tuple[Path, dict[str, str]],
+) -> None:
+    # R-002: after capture, the golden directory is committed; the fixture must still work and a
+    # refusal must leave those files byte-identical. Simulated here by committing stand-in files.
+    clone, env = armed_clone
+    golden = clone / GOLDEN_REL
+    golden.mkdir(parents=True, exist_ok=True)
+    (golden / "cruise_regression_golden.hpp").write_text("// stand-in\n", encoding="utf-8")
+    (golden / "cruise_regression_manifest.md").write_text("stand-in\n", encoding="utf-8")
+    _commit_all(clone, "stand-in golden")
+    head = _git(clone, "rev-parse", "HEAD")
+    goldens = _golden_snapshot(clone)
+    assert goldens is not None
+    for mode, message in (("halt", "harness exited 2"), ("mismatch", "cross-preset disagreement")):
+        result = _run(clone, {**env, "STUB_HARNESS_MODE": mode})
+        assert result.returncode != 0
+        assert message in result.stderr
+        _assert_goldens_untouched_and_no_commit(clone, head, goldens)
