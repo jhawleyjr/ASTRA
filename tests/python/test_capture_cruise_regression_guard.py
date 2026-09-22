@@ -157,6 +157,10 @@ _STUB_CMAKE = """#!/usr/bin/env bash
 # Stub cmake for test_capture_cruise_regression_guard.py: builds nothing. For
 # `--build build/<preset> --target capture_cruise_regression ...` it writes a stub harness whose
 # `trajectory` behavior is chosen by STUB_HARNESS_MODE (halt: exit 2; mismatch: preset-dependent).
+# Every invocation's arguments are appended, one line each, to STUB_CMAKE_LOG when it is set.
+if [[ -n "${STUB_CMAKE_LOG:-}" ]]; then
+  echo "$*" >>"$STUB_CMAKE_LOG"
+fi
 if [[ "${1:-}" == "--build" && "${3:-}" == "--target" ]]; then
   preset="$(basename "$2")"
   mkdir -p "$2/tests/capture"
@@ -286,3 +290,33 @@ def test_armed_refuses_when_a_golden_already_exists(
     assert "a golden already exists" in result.stderr
     assert not (clone / "build").exists()
     _assert_goldens_untouched_and_no_commit(clone, head, goldens)
+
+
+def test_authorized_recapture_builds_only_the_harness_target(
+    armed_clone: tuple[Path, dict[str, str]], tmp_path: Path
+) -> None:
+    # R-003 (Joe-authorized fix): the re-capture path J-2 documents -- golden removed in a commit,
+    # session armed -- must reach step 4 and request ONLY the harness target, because a full build
+    # would compile the regression test, which includes the (now removed) golden header. Observed
+    # through the stub cmake's own invocation log on the real script path, not by reading the
+    # script's text; the stub mismatch mode then stops the run at step 5, before any write.
+    clone, env = armed_clone
+    _remove_golden(clone)
+    head = _git(clone, "rev-parse", "HEAD")
+    log = tmp_path / "cmake-invocations.log"
+    result = _run(clone, {**env, "STUB_HARNESS_MODE": "mismatch", "STUB_CMAKE_LOG": str(log)})
+
+    assert "armed (ASTRA_TOUCH_GOLDENS=1)" in result.stdout
+    assert "no existing golden." in result.stdout  # J-2 did not fire
+    assert "a golden already exists" not in result.stderr
+    invocations = log.read_text(encoding="utf-8").splitlines()
+    configures = [line for line in invocations if line.startswith("--preset ")]
+    builds = [line.split() for line in invocations if line.startswith("--build ")]
+    presets = ["debug", "release", "asan", "static-plugins"]
+    assert configures == [f"--preset {p}" for p in presets]
+    assert [b[1] for b in builds] == [f"build/{p}" for p in presets]  # one build per preset
+    for build in builds:
+        assert build[2:4] == ["--target", "capture_cruise_regression"], build
+        assert build.count("--target") == 1, build
+    assert "cross-preset disagreement" in result.stderr  # reached step 5 on the stub's output
+    _assert_goldens_untouched_and_no_commit(clone, head, None)

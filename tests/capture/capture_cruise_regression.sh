@@ -16,7 +16,8 @@
 #   2. Refuses unless the whole tree is clean (the harness, its CMake and the trimmed cruise.yaml
 #      are committed before capture, so the capture SHA names exactly what ran).
 #   3. Refuses unless the baseline revision is an ancestor of HEAD.
-#   4. Builds and runs the harness under all four presets (debug, release, asan, static-plugins).
+#   4. Builds only the harness target (with every plugin it depends on) and runs it under all four
+#      presets (debug, release, asan, static-plugins).
 #   5. Refuses on any halt (a halt is a finding, D20) or any byte difference between presets.
 #   6. Writes the golden header and manifest, clang-formats the header, and commits both.
 set -euo pipefail
@@ -102,9 +103,15 @@ capture_under_all_presets() {
   local jobs preset
   jobs="$(nproc)"
   for preset in "${PRESETS[@]}"; do
-    log "=== preset ${preset}: configure and full build (every plugin) ==="
+    log "=== preset ${preset}: configure and build capture_cruise_regression (every plugin) ==="
     cmake --preset "${preset}"
-    cmake --build "build/${preset}" --parallel "${jobs}"
+    # Only the harness target, never a full build (R-003): a full build also compiles the
+    # regression test, which includes the golden header, so after Joe removes the golden to
+    # authorize a re-capture (step 1b) it would fail before the harness could regenerate it. This
+    # target still carries the full plugin dependency through astra_finalize_plugins()
+    # (cmake/AstraPlugin.cmake) under both plugin modes: with dynamic plugins, its explicit
+    # add_dependencies list names capture_cruise_regression; with ASTRA_STATIC_PLUGINS, every
+    # plugin links into astra_core, which the harness links.
     cmake --build "build/${preset}" --target capture_cruise_regression --parallel "${jobs}"
 
     local harness="build/${preset}/tests/capture/capture_cruise_regression"

@@ -103,7 +103,7 @@ round). Full gate at `bffc751`: `check: OK` (`docs/reviews/evidence/bffc751-full
 ## Finding R-003
 
 Severity: minor (Codex: P2)
-Status: needs-human
+Status: fixed-unverified
 Location: `tests/unit/kernel/notional_transport_cruise_regression_test.cpp:13` at `bffc751`, with
 `tests/capture/capture_cruise_regression.sh:107` (`capture_under_all_presets`)
 Requirement/ADR: J-2's documented re-capture path: Joe removes the existing golden in a commit he
@@ -115,21 +115,38 @@ the harness can regenerate the golden. So the documented re-capture path can't b
 The current candidate is unaffected (the golden exists, the gate is green), and the failure mode
 is safe: the script stops and writes nothing.
 Requested outcome: keep an authorized re-capture buildable without the golden header.
-Builder response: not fixed, because correction rounds are exhausted (2/2) and this finding goes
-to Joe. Recommended fix: delete step 4's full-build line (`:107`) and build only
+Human authorization: Joe, 2026-09-22, in session: "R-003: fix it. Authorized by me, 2026-09-22,
+outside the correction budget (rounds stay 2/2)." He specified: build only the harness target;
+state in the script comment that it carries the full plugin dependency via
+`astra_finalize_plugins()` under both plugin modes; and have the guard test exercise the real
+path, not the script's text.
+Builder response (as fixed): step 4 no longer runs a full `cmake --build build/<preset>`; it builds
+only `--target capture_cruise_regression`, and the script comment carries the dependency statement.
+New `test_authorized_recapture_builds_only_the_harness_target` runs the real script in the
+shared clone with the golden removed in a commit, armed. The stub `cmake` logs its invocations. The
+test asserts: J-2 does not fire ("no existing golden."); step 4 is reached with exactly one
+`--preset` configure and one `--build build/<p> --target capture_cruise_regression` per preset, in
+order, and no other build; step 5 is reached; and nothing is written or committed. Mutation check:
+with the full-build line restored, exactly this test fails (10 pass). Dependency claim verified
+empirically: in fresh binary directories under release (dynamic plugins) and static-plugins,
+building only this target yields a harness that runs the full cruise config, whose output hashes
+identically to the frozen golden (`6120a053…`); the golden-including regression test is not built.
+Original recommendation, before Joe's authorization: delete step 4's full-build line (`:107`) and build only
 `--target capture_cruise_regression`. That target already pulls in every plugin: under the dynamic
 presets through `astra_finalize_plugins()`'s `add_dependencies` (this PR added
 `capture_cruise_regression` to that list), and under static-plugins because the plugins link into
 `astra_core`, which the harness links. It would be a one-line script change plus a guard-test
 check. Alternative: make the test's golden include conditional in CMake, which is more machinery
 for a rarely used path.
-Verification: pending Joe's decision.
-History: B/C review — open → needs-human.
-Human exception if needed: pending (Joe).
+Verification: pending Codex fix verification of the R-003 delta.
+History: B/C review — open → needs-human → fixed-unverified (Joe-authorized fix, outside the
+correction budget; rounds stay 2/2).
+Human exception if needed: Joe authorized the fix outside the correction budget (above).
 
 ## Completion
 
-Open findings: R-003 (needs-human, minor, re-capture path only). Pre-capture findings: none open. R-001 and R-002 verified, and the final verification pass at `ed10734`
+Open findings: R-003 fixed under Joe's authorization, pending fix verification. Pre-capture
+findings: none open. Correction rounds: 2/2 (R-003's fix is Joe-authorized, outside the budget). R-001 and R-002 verified, and the final verification pass at `ed10734`
 re-confirmed R-001. New findings from that pass's fix-delta inspection: none ("No material
 findings", verdict approve). Correction rounds used: 2/2, so any further finding goes to Joe.
 
