@@ -313,7 +313,7 @@ directly per Joe's own acceptance list, the same convention as PR 5's R5a/R5b an
 
 | ID | Observable requirement | Executable check and independent expected result/source |
 |---|---|---|
-| R1 | Halving every differencing step changes `A`/`B` by < 1e-3 relative (Frobenius) | `pytest tests/python/test_linearize.py::test_halving_every_step_changes_a_and_b_by_less_than_the_bound` — compute `A`/`B` at D12's steps and again at half those steps; assert `norm(A2-A1, 'fro')/norm(A1, 'fro') < 1e-3` and the same for `B`; record the measured ratios in this plan's own evidence note once run for real (not yet — implementation-time). |
+| R1 | Halving every differencing step changes `A`/`B` by < 1e-3 relative (Frobenius) | `pytest tests/python/test_linearize.py::test_halving_every_step_changes_a_and_b_by_less_than_the_bound` — compute `A`/`B` at D12's steps and again at half those steps; assert `norm(A2-A1, 'fro')/norm(A1, 'fro') < 1e-3` and the same for `B`. **Measured, `009715a`**: `A` changed `5.29e-9` relative, `B` changed `4.42e-13` relative — both far inside the bound. |
 | R2 | Block structure: cross-coupling < 1e-3 relative to its own block's norm | `pytest tests/python/test_linearize.py::test_longitudinal_and_lateral_blocks_do_not_cross_couple` — `A[np.ix_(long_idx, lat_idx)]` and `A[np.ix_(lat_idx, long_idx)]` each `< 1e-3 * norm(A[np.ix_(long_idx, long_idx)])` (respectively the lateral block's own norm). |
 | R3 | Trim point's own derivative `< 1e-6` before differencing | `pytest tests/python/test_linearize.py::test_the_trim_points_own_derivative_is_near_zero` — `f(x0, u0)`, `np.max(np.abs(...)) < 1e-6`; this exercises the *linearization's own* state/quaternion reconstruction (eq. 1.8-16 port) and the eq. 1.4-4 kinematic rows, not merely `TrimResult.residual` again. |
 | R4a–e | One test per mode against S&L §4.2 | `pytest tests/python/test_linearize.py::test_short_period_matches_the_approximation` (15% `omega_n`, 0.1 abs `zeta`), `::test_phugoid_matches_the_approximation` (15% / 0.1 abs), `::test_dutch_roll_matches_the_approximation` (30% / 0.15), `::test_roll_matches_the_approximation` (30% relative on the signed `Re(lambda)`/`1/tau`, sign asserted equal first), `::test_spiral_matches_the_approximation` (same, signed — the spiral may be mildly unstable at cruise; D16) — five separate tests, per Joe's own instruction, so a lateral miss doesn't hide the longitudinal result. |
@@ -442,3 +442,8 @@ separately identifiable in the Codex review request (Joe's own scope instruction
 review (`/review-cycle`) has run and any findings are resolved or explained; the human-review packet
 is prepared (`/human-review`), disclosing D18 and the phugoid xfail explicitly, before Joe's merge
 decision.
+
+**Implemented and validated, 2026-09-21**: candidate `009715a` (binding + module + tests), evidence
+retained at `docs/reviews/evidence/009715a-full-gate.log` — full gate green (four presets 387/387,
+hooks 144/144, pyright 0, `pytest tests/python/` 97 passed + 1 expected `xfail`). Codex review not
+yet run.
