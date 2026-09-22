@@ -13,6 +13,14 @@ Never steps the Simulation: this is a static algebraic solve, and `Simulation.de
 bit-identical to the real integrator's own k1 (PR 5's R9). Still air only -- wind is dropped from
 the config entirely (see `_load_still_air_config`), since `derivative()` raises on a
 wind-configured, never-stepped Simulation by design (PR 5's R7a).
+
+Control names ("controls.elevator", "controls.throttle") are hardcoded below, not read from the
+registry -- a deviation from Joe's original instruction, accepted for PR 6 (docs/plans/pr6-trim.md,
+D10) because the Python binding exposes no input-name enumeration (`InputRegistry::names()` exists
+in C++, PR 2, but isn't bound yet). `write_input`'s own raise-on-unregistered-name is a runtime
+guard against a wrong or stale name, not a substitute for actually reading one. PLAN.md's PR 7 line
+carries the follow-up: bind `InputRegistry::names()` so trim/linearize can discover control names
+instead of hardcoding them.
 """
 
 from __future__ import annotations
@@ -31,8 +39,10 @@ from astra import _core
 @dataclass(frozen=True)
 class TrimResult:
     """The solved trim point: `state` is the length-STATE_SIZE rigid-body state; `residual` is the
-    6-vector [v_dot_b, omega_dot_b] at that state (D8) -- always < the caller's own acceptance bound
-    on return, since a non-converging solve raises instead (see `trim_straight_and_level`)."""
+    6-vector [v_dot_b, omega_dot_b] (D8), recomputed fresh at this `state` after the solve. This
+    class does not itself enforce any bound on `residual` -- `trim_straight_and_level` only raises
+    when scipy reports `success=False`; a caller relying on a specific bound (e.g. D8's 1e-6) must
+    assert it against `residual` itself, not assume it from a successful return."""
 
     state: np.ndarray
     elevator_rad: float
@@ -42,12 +52,29 @@ class TrimResult:
     scipy_result: scipy.optimize.OptimizeResult
 
 
+def _read_yaml_dict(config_path: str | os.PathLike[str]) -> dict[str, Any]:
+    with open(config_path, encoding="utf-8") as f:
+        return cast(dict[str, Any], yaml.safe_load(f))
+
+
+def _earth_plugin_path(data: dict[str, Any]) -> str | None:
+    """Reads `physical.earth`, accepting both docs/architecture.md §13 spellings (a plain plugin
+    path, or a map with its own config next to "plugin") -- mirrors
+    `simulation.cpp::resolve_model_spec`'s own contract, not re-derived independently."""
+    physical = data.get("physical")
+    if not isinstance(physical, dict):
+        return None
+    earth = cast(dict[str, Any], physical).get("earth")
+    if isinstance(earth, dict):
+        return cast("str | None", cast(dict[str, Any], earth).get("plugin"))
+    return cast("str | None", earth)
+
+
 def _load_still_air_config(config_path: str | os.PathLike[str]) -> _core.Config:
     """Loads `config_path` as YAML and drops `physical.wind` if present -- still air only (PR 6's
     own scope; see the module docstring). Every other key is passed through unchanged, so the
     config file itself stays the single source of truth for models/coefficients/initial state."""
-    with open(config_path, encoding="utf-8") as f:
-        data = cast(dict[str, Any], yaml.safe_load(f))
+    data = _read_yaml_dict(config_path)
     physical = data.get("physical")
     if isinstance(physical, dict):
         cast(dict[str, Any], physical).pop("wind", None)
@@ -106,6 +133,18 @@ def trim_straight_and_level(
     bound for this aircraft, so a caller relying on this function's own D8-style bound should pass
     a `xtol` tight enough to clear it, not assume the default suffices).
     """
+    earth_plugin = _earth_plugin_path(_read_yaml_dict(config_path))
+    if earth_plugin == "plugins/physical/earth/flat":
+        # ADR-0003: the Earth model owns the position representation. p_n[-1] below assumes
+        # geodetic altitude (round/wgs84_rotating's own [lat, lon, altitude] layout); under
+        # earth/flat, p_n[2] is NED down, so the same assignment would place the aircraft at
+        # -altitude_m instead. Refuse rather than trim from a silently wrong setup.
+        raise ValueError(
+            f"trim_straight_and_level: 'physical.earth' is {earth_plugin!r}, but altitude_m is "
+            "only meaningful as p_n's last component under a geodetic (round/wgs84_rotating) "
+            "Earth model -- pass a config using one of those instead"
+        )
+
     config = _load_still_air_config(config_path)
     sim = _core.Simulation.from_config(config, _core.default_plugin_dir())
     p_n = np.array(sim.vehicles[0].state[_core.POSITION : _core.POSITION + _core.POSITION_SIZE])

@@ -759,7 +759,11 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         Accept: `pytest tests/python/test_linearize.py` within a loose, per-mode tolerance labeled
         as approximate (tighter for short period/phugoid, where S&L's approximations are usually
         good; wider for the lateral three, where they're known to be poorer). Binding ADRs: none
-        new. Tier 2/3. Plan critique: no.
+        new. Tier 2/3. Plan critique: no. **Follow-up from PR 6** (`docs/plans/pr6-trim.md`, D10):
+        PR 6 hardcoded its own control-input names (`"controls.elevator"`/`"controls.throttle"`)
+        rather than reading them from the registry as originally instructed, because the Python
+        binding exposes no `InputRegistry::names()` enumeration (it exists in C++, PR 2). Bind it
+        so PR 7 can discover control names instead of repeating the same hardcoding.
   - [ ] PR 8 — Cruise config(s) (D6's `vehicle.models` schema) + 300 s open-loop run frozen as a
         regression trajectory (O5 -- not an oracle), generator-under-guard pattern from
         `tests/golden/nesc/`. Adds the actual independent check §16 (as corrected by PR 0) requires: a

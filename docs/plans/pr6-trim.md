@@ -99,11 +99,14 @@ this planning session's own snapshot (`6.0.3`, checked 2026-09-21) — record in
 commit what was pinned and why. Same treatment for `scipy` (this plan's own snapshot: `1.18.1`).
 
 **Control ranges — D10, approved as recommended:** Joe's instruction says "read them from the registry" for
-control *names* (satisfied: `write_input` raises on an unregistered name, so the literal strings
-`"controls.elevator"`/`"controls.throttle"` this PR calls, read directly from `aero.cpp`'s and
-`turbofan.cpp`'s own `bind_inputs()` — `aircraft/notional_transport/physical/aero/aero.cpp:76-79`,
-`aircraft/notional_transport/hardware/propulsion/turbofan/turbofan.cpp:65` — are checked at runtime
-by that existing contract, not hand-verified once and trusted forever) and "read [ranges] from the
+control *names* — **not actually satisfied, corrected per Joe's implementation review**:
+`write_input`'s existing raise-on-an-unregistered-name behavior is a runtime *guard* against a wrong
+or stale literal string, not a *read* of the registry's own names. `trim.py` hardcodes the literal
+strings `"controls.elevator"`/`"controls.throttle"`, read once from `aero.cpp`'s/`turbofan.cpp`'s
+own `bind_inputs()` source at planning time, not discovered at runtime. Accepted as a deviation for
+this PR (the Python binding exposes no `InputRegistry::names()` enumeration — it exists in C++, PR
+2, but isn't bound); PLAN.md's PR 7 line carries the follow-up to bind it so trim/linearize can
+discover control names instead of hardcoding them. This deviation is orthogonal to "read [ranges] from the
 plugin configs" for the elevator/throttle *bounds* — but neither bound is actually declared
 anywhere the plugins or `cruise.yaml` can be read from. Checked directly: `turbofan.cpp`'s own
 comment states throttle is deliberately *not* range-checked by the plugin ("Not range-checked
@@ -160,7 +163,7 @@ direct assertion (`_load_still_air_config(...)` output has no wind key reachable
 | Question | Consequence | Owner | Answer/reference |
 |---|---|---|---|
 | D9: add `pyyaml` to the dev group to build the still-air config from `cruise.yaml`? | Blocks how `astra/trim.py` loads/mutates the config; the only dependency-free alternative is regex text-surgery on a shared config file (rejected). | Joe | **Approved, 2026-09-21.** Pin the actual current release at implementation time (`pip index versions pyyaml`), not this plan's snapshot (`6.0.3`); record what was pinned and why. |
-| D10: hardcode elevator `[-0.3, 0.3]` rad (737.xml:201-206) / throttle `[0, 1]` (icd/astra_icd.h:46) in the test, rather than adding config keys to the aero/turbofan plugins? | Keeps this PR Tier 2 (no `aircraft/**/physical`/`hardware` edit). | Joe | **Approved as recommended, 2026-09-21.** Add a one-line PLAN.md follow-up noting this as the second undeclared control-surface property (not this PR's scope). |
+| D10: hardcode elevator `[-0.3, 0.3]` rad (737.xml:201-206) / throttle `[0, 1]` (icd/astra_icd.h:46) in the test, rather than adding config keys to the aero/turbofan plugins? | Keeps this PR Tier 2 (no `aircraft/**/physical`/`hardware` edit). | Joe | **Approved as recommended, 2026-09-21.** Add a one-line PLAN.md follow-up noting this as the second undeclared control-surface property (not this PR's scope). **Also, per Joe's implementation review**: control *names* are hardcoded too, not read from the registry as originally instructed (`write_input`'s raise is a guard, not a read) — accepted for PR 6 since the binding exposes no `InputRegistry::names()`; PLAN.md's PR 7 line gets the follow-up to bind it. |
 
 Both were open only until Joe's review above; nothing in R1–R4's own numbers depended on either
 answer except the still-air config loader (D9) and the R3 range bounds/cross-check (D10), both now
