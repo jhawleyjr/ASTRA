@@ -765,7 +765,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         guard (satisfied by `031dca8` itself). Findings: `docs/reviews/pr6-trim-review.md`;
         human-review packet: `docs/reviews/pr6-trim-human.md`. PR #44 merged as `53064e0`,
         2026-09-21 (squash merge, Joe).
-  - [ ] PR 7 — `astra.linearize`: central-difference A/B about trim; short period/phugoid/Dutch
+  - [x] PR 7 — `astra.linearize`: central-difference A/B about trim; short period/phugoid/Dutch
         roll/roll/spiral checked as a sanity comparison against S&L §4.2's classical closed-form
         mode approximations, not an independent O4 source (supersedes O4: `docs/refs/aircrafts/
         737.xml` is a JSBSim example aircraft with Aeromatic/Roskam-estimated coefficients, not a
@@ -793,8 +793,8 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         text actually specifies) closes phugoid to 0.9%. `xfail` removed; all five modes pass
         unmarked. **Approved by Joe, 2026-09-22, in session** (candidate `fec3d67`, base `53064e0`);
         pushed and opened as PR #45, ready (not draft), GitHub's own `check` green at pushed head
-        `b1d0fdc`. Human-review packet: `docs/reviews/pr7-linearize-human.md`. Awaiting Joe's own
-        squash-merge.
+        `b1d0fdc`. Human-review packet: `docs/reviews/pr7-linearize-human.md`. PR #45 merged as
+        `553700f`, 2026-09-22 (squash merge, Joe).
   - [ ] PR 8 — Cruise config(s) (D6's `vehicle.models` schema) + 300 s open-loop run frozen as a
         regression trajectory (O5 -- not an oracle), generator-under-guard pattern from
         `tests/golden/nesc/`. Adds the actual independent check §16 (as corrected by PR 0) requires: a
