@@ -1,15 +1,18 @@
 # Review: M3 PR 7 — `astra.linearize`
 
-Spec/plan: `docs/plans/pr7-linearize.md` (Revision 3, D11–D18)
+Spec/plan: `docs/plans/pr7-linearize.md` (Revision 4, D11–D18)
 Builder: Claude (Sonnet 5)
-Reviewer: Codex (installed companion 1.0.6; fresh context; general + adversarial)
+Reviewer: Codex (installed companion 1.0.6; fresh context; general + adversarial) for R-001/R-002;
+Joe (packet review) for R-003, Codex fix-verification for R-003's own fix
 Scope: base `53064e0` (PR 6 merge), head `a155c9f` at review time (candidate `009715a` plus
 evidence/plan-note commits); `python/bindings/_core.cpp`, `python/astra/linearize.py`,
 `tests/python/test_linearize.py`
 Validation: full gate green at `009715a` (`docs/reviews/evidence/009715a-full-gate.log` — four
 presets 387/387, hooks 144/144, pyright 0, pytest 97 passed + 1 expected `xfail`); fix batch
-re-validated at `0fa5e85` (full gate green, pytest 98 passed + 1 expected `xfail`, log below)
-Round: initial
+re-validated at `0fa5e85` (full gate green, pytest 98 passed + 1 expected `xfail`); R-003's own fix
+batch re-validated at `fec3d67` (full gate green, `docs/reviews/evidence/fec3d67-full-gate.log` —
+four presets 387/387, hooks 144/144, pyright 0, pytest 99 passed, 0 `xfail`)
+Round: correction round 2/2 (R-001/R-002 were round 1; R-003 is round 2)
 
 ## Finding R-001
 
@@ -76,6 +79,43 @@ frequency-only test retains strict=True and restricts expected failures to Asser
 History: round 1 (adversarial review), found; round 1 (this same session), fixed; round 1
 fix-verification, confirmed fixed.
 
+## Finding R-003
+
+Severity: major
+Status: fixed-unverified
+Location: `tests/python/test_linearize.py::_phugoid_approximation` (pre-fix, base `53064e0`..head
+`8c974cd`)
+Requirement/ADR: D13/D18 (`docs/plans/pr7-linearize.md`) — R4b's phugoid `omega_n` bound (15%
+relative) is a real acceptance requirement; an accepted `xfail` is not a substitute for meeting it
+when the miss is actually fixable
+Failure: after D18 Revision 3's CG-referenced-coefficient fix, phugoid `omega_n` still missed its
+bound (16.7%) and was accepted as an expected `xfail(strict=True)` on the reasoning that S&L eq.
+4.2-17b (`omega_n = (g/V_T)*sqrt(2)`, the Lanchester level-flight result) carries no stability
+derivative for the coefficient correction to move. Joe's own packet review found this reasoning
+incomplete: eq. 4.2-17b is itself a further simplification of eq. 4.2-16, valid only under S&L's
+own stated dominance condition on 4.2-16's denominator (the mass-ratio term
+`(4m/(rho*S*c))*Cm_alpha` must dominate `Cm_q*CL_alpha`). The raw AERORP-tabulated `Cm_alpha`
+(`-0.6`) satisfies that condition comfortably; the smaller CG-referenced `Cm_alpha` (`-0.315`) does
+not — the neglected term is ~40% of the retained one — so 4.2-17b was the wrong fallback formula
+once the coefficient's own magnitude changed via D18 Revision 3, not an inherent limit on what a
+closed-form phugoid check can reach for this aircraft.
+Requested outcome: use eq. 4.2-16 itself (S&L's own text: "the equation that will be used to
+calculate the phugoid frequency"), with `CL_V = Cm_V = 0` (exact for this model — no Mach/airspeed
+dependence in `cd_0`/`cd_k` or the turbofan thrust law, `turbofan_math.hpp:6-8`) and the trim lift
+coefficient `CL_e`; remove the `xfail` and require the test to pass unmarked, or report the actual
+numbers if it still doesn't land inside bound — never reintroduce the `xfail` to force a pass.
+Builder response: fixed, `fec3d67`. `_phugoid_approximation` now implements eq. 4.2-16 with the
+named substitutions; `test_phugoid_omega_n_matches_the_approximation`'s `xfail` marker removed.
+Verified independently before implementing (Joe's own numbers, ~0.0507 rad/s vs numerical ~0.0502,
+~1%, computed from the test's own constants): this session's own run of the corrected formula gives
+`0.050652` rad/s against the numerical `0.050201` rad/s, `0.89%` relative — inside the 15% bound
+with wide margin. Full gate re-run green (`fec3d67`,
+`docs/reviews/evidence/fec3d67-full-gate.log`): four presets 387/387, pyright 0, pytest 99 passed,
+0 `xfail`.
+Verification: pending Codex fix-verification pass (dispatched below).
+History: round 2 (Joe's packet review), found; round 2 (this same session), fixed; Codex
+fix-verification pending.
+
 ## Completion
 
 Two findings (R-001 major, R-002 medium), both fixed this session (`0fa5e85`) and both confirmed
@@ -85,6 +125,11 @@ No other findings from either original pass: the general review's own six focus 
 R-001, and the adversarial review's own five focus areas beyond R-002 (Euler-angle permutation,
 D16 sign discipline, D18's independent re-derivation, `LinearizeResult.simulation` ownership/
 lifetime) came back clean — "No substantive defect found in the other five focus areas"
-(adversarial), no further findings listed (general). Full gate re-run green after the fix batch
-(`0fa5e85`): four presets 387/387, pyright 0, `pytest tests/python/` 98 passed + 1 expected
-`xfail`. Zero open/critical/major findings remain.
+(adversarial), no further findings listed (general).
+
+**R-003** (Joe's own packet review, round 2) is fixed (`fec3d67`) and pending Codex
+fix-verification — this is correction round 2/2, the bounded loop's final round; a further finding
+after this round's verification would need to go to Joe as a blocked handoff, not a third
+autonomous correction round. Full gate re-run green after R-003's own fix (`fec3d67`,
+`docs/reviews/evidence/fec3d67-full-gate.log`): four presets 387/387, pyright 0,
+`pytest tests/python/` 99 passed, 0 `xfail`.
