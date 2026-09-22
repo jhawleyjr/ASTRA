@@ -1,14 +1,14 @@
 # Human review packet: M3 PR 7 — astra.linearize
 
 PR / candidate base and head: base `origin/main` at `53064e0` (M3 PR 6, merged, #44) — confirmed
-current tip via `git fetch`, unchanged since this worktree started; head `02c13e5` (worktree
+current tip via `git fetch`, unchanged since this worktree started; head `52f80f8` (worktree
 `worktree-m3-pr7-linearize`). Working tree clean at packet time.
-Spec/plan/task: `docs/plans/pr7-linearize.md` (Revision 3, **approved by Joe, 2026-09-21**)
+Spec/plan/task: `docs/plans/pr7-linearize.md` (Revision 4, **approved by Joe, 2026-09-22**)
 Risk: Tier 2 — feature, no `core/kernel/`, `plugins/physical`, `aircraft/**/physical`,
 `aircraft/**/hardware`, or ICD change. One `python/bindings/_core.cpp` addition
 (`Simulation.input_names()`) is a pure-copy read over an already-existing C++ method, no
 `kCoreApiVersion` bump.
-Decision requested: approve behavior and squash-merge candidate `02c13e5` against base `53064e0`.
+Decision requested: approve behavior and squash-merge candidate `52f80f8` against base `53064e0`.
 
 ## What changes and why
 
@@ -21,19 +21,21 @@ Includes PR 6's own follow-up: `Simulation.input_names()`, binding `InputRegistr
 control names are read from the registry rather than hardcoded (`astra.trim` itself is
 unmodified — a separate PLAN.md follow-up tracks that retrofit).
 
-Diff (`origin/main` `53064e0` → `02c13e5`, 8 files, +5999/−29 — the retained full-gate log accounts
-for ~4532 of the insertions):
+Diff (`origin/main` `53064e0` → `52f80f8`, 11 files, +9892/−29 — the two retained full-gate logs
+account for ~8117 of the insertions):
 - `python/bindings/_core.cpp` (+23/−1): one new free function (`simulation_input_names`) plus one
   `.def("input_names", ...)` line, mirroring `simulation_derivative`'s own shape — no header/core
   change.
 - `python/astra/linearize.py` (new, 415 lines): `LinearizeResult`/`OscillatoryMode`/`RealMode`/
   `Modes` dataclasses, `linearize()`, `modes()`, `longitudinal_block()`/`lateral_block()`,
   `state_step()`/`control_step()`, and private helpers (`_quaternion_from_euler`, `_euler_rate`,
-  `_state_from_x`, `_evaluate`, `_column`, mode-classification internals).
+  `_state_from_x`, `_evaluate`, `_column`, mode-classification internals). Unchanged by R-003
+  (test/docs-only fix).
 - `tests/python/test_linearize.py` (new, 14 tests): R1–R7 named in the plan (R4 split into 5 mode
   tests, one of which — phugoid — is itself split into two, zeta and omega_n, D18/R-002 below),
   plus 3 supporting checks (quaternion-port cross-check, wings-level kinematic identity,
-  `input_names()` registration order). All 14 pass unmarked; no `xfail` remains (D18 Revision 4).
+  `input_names()` registration order). All 14 pass unmarked; no `xfail` remains (D18 Revision 4/
+  R-003).
 - `PLAN.md`: PR 6 checked off with its merge SHA `53064e0`; one new follow-up (`astra.trim`'s own
   control names not retrofitted to `input_names()`); PR 8's own line gets a follow-up (its phugoid
   cross-check should use this PR's numerical `A`, because that's the model being validated, not
@@ -63,7 +65,8 @@ No `core/`, `plugins/`, or `aircraft/**` file is touched.
 | R7: `input_names()` returns the four registered names, in order | Pass — `["controls.elevator", "controls.aileron", "controls.rudder", "controls.throttle"]` | `pytest tests/python/test_linearize.py::test_input_names_returns_the_four_registered_control_names` |
 | `pytest tests/python/` (full suite, at head `02c13e5`) | 98 passed, 1 expected `xfail` in 0.36s | Rerun this session |
 | `ruff check .` / `ruff format --check .` / `pyright` (repo-wide, at head `02c13e5`) | Clean | Rerun this session |
-| Full four-preset gate (`just check`) | `check: OK` — hooks 144/144, debug/release/static-plugins/asan all 387/387, tidy clean, pyright 0 errors, pytest 97 passed + 1 expected `xfail` | `docs/reviews/evidence/009715a-full-gate.log` (candidate before the Codex fix batch; re-run after the fix batch, `0fa5e85`, confirmed the same shape at 98 passed + 1 xfail — not separately retained, short enough to state inline) |
+| Full four-preset gate (`just check`), final candidate | `check: OK` — hooks 144/144, debug/release/static-plugins/asan all 387/387, tidy clean, pyright 0 errors, pytest 99 passed, 0 `xfail` | `docs/reviews/evidence/fec3d67-full-gate.log` (post-R-003 fix; the packet's own head `52f80f8` adds only doc/plan bookkeeping after this commit, no code/test change) |
+| Full four-preset gate, earlier candidate (superseded) | `check: OK` — 97 passed + 1 expected `xfail` (pre-R-001/R-002 fix); `0fa5e85`'s own re-run (98 passed + 1 expected `xfail`, pre-R-003) confirmed the same shape but wasn't separately retained | `docs/reviews/evidence/009715a-full-gate.log` (retained for the record only) |
 
 No golden/tolerance file is touched (`tests/golden/**` and `docs/decisions/**` untouched); the
 oracle guard did not need to be lifted. GitHub's own `check` has not run — this PR is not pushed.
@@ -92,10 +95,17 @@ Findings record: `docs/reviews/pr7-linearize-review.md`.
   "controls.rudder"]`, residual now 8.33e-17). R-002 — split into an unmarked
   `test_phugoid_zeta_matches_the_approximation` (always runs, passes) and a narrowly-`xfail`'d
   `test_phugoid_omega_n_matches_the_approximation` (`strict=True, raises=AssertionError`).
-- **Fix-verification** (fresh context, same base, head `3210dd1`): **verdict approve** — "R-001:
-  fix holds... R-002: fix holds... New findings: none."
+- **Fix-verification, round 1** (fresh context, same base, head `3210dd1`): **verdict approve** —
+  "R-001: fix holds... R-002: fix holds... New findings: none."
+- **R-003** (Joe's own packet review, not Codex's — see Joe's attention below): the phugoid
+  `xfail` from R-002 was itself covering a real, fixable formula defect. Fixed in `fec3d67`.
+- **Fix-verification, round 2/2** (fresh context, base `53064e0`, head `492b990`): **verdict
+  approve** — "S&L third edition, p. 262, eq. 4.2-16 reduces with CL_V = Cm_V = 0 to omega_n^2 =
+  (2g/c)(2CL_e Cm_alpha)/(Cm_q CL_alpha + 4m Cm_alpha/(rho S c)), matching the implementation's
+  signs and factors... New findings: none." The correction-round budget (2/2) is fully consumed.
 
-Remaining critical/major/minor: **zero**. No rejected or accepted-risk findings from either pass.
+Remaining critical/major/minor: **zero** across all three findings. No rejected or accepted-risk
+findings from any pass.
 
 ## Joe's attention
 
