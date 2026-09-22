@@ -82,7 +82,7 @@ fix-verification, confirmed fixed.
 ## Finding R-003
 
 Severity: major
-Status: fixed-unverified
+Status: verified
 Location: `tests/python/test_linearize.py::_phugoid_approximation` (pre-fix, base `53064e0`..head
 `8c974cd`)
 Requirement/ADR: D13/D18 (`docs/plans/pr7-linearize.md`) — R4b's phugoid `omega_n` bound (15%
@@ -112,9 +112,13 @@ Verified independently before implementing (Joe's own numbers, ~0.0507 rad/s vs 
 with wide margin. Full gate re-run green (`fec3d67`,
 `docs/reviews/evidence/fec3d67-full-gate.log`): four presets 387/387, pyright 0, pytest 99 passed,
 0 `xfail`.
-Verification: pending Codex fix-verification pass (dispatched below).
-History: round 2 (Joe's packet review), found; round 2 (this same session), fixed; Codex
-fix-verification pending.
+Verification: Codex (fresh context, `adversarial-review --base 53064e0`, base..head
+`53064e0`..`492b990`), verdict **approve**: "S&L third edition, p. 262, eq. 4.2-16 reduces with
+CL_V = Cm_V = 0 to omega_n^2 = (2g/c)(2CL_e Cm_alpha)/(Cm_q CL_alpha + 4m Cm_alpha/(rho S c)),
+matching the implementation's signs and factors. Both callers supply the trim lift estimate and
+CG-referenced Cm_alpha; the frequency test's xfail is removed and its 15% tolerance unchanged."
+History: round 2 (Joe's packet review), found; round 2 (this same session), fixed; round 2
+fix-verification, confirmed fixed.
 
 ## Completion
 
@@ -127,9 +131,9 @@ D16 sign discipline, D18's independent re-derivation, `LinearizeResult.simulatio
 lifetime) came back clean — "No substantive defect found in the other five focus areas"
 (adversarial), no further findings listed (general).
 
-**R-003** (Joe's own packet review, round 2) is fixed (`fec3d67`) and pending Codex
-fix-verification — this is correction round 2/2, the bounded loop's final round; a further finding
-after this round's verification would need to go to Joe as a blocked handoff, not a third
-autonomous correction round. Full gate re-run green after R-003's own fix (`fec3d67`,
-`docs/reviews/evidence/fec3d67-full-gate.log`): four presets 387/387, pyright 0,
-`pytest tests/python/` 99 passed, 0 `xfail`.
+**R-003** (Joe's own packet review, round 2) is fixed (`fec3d67`) and confirmed by Codex's own
+fix-verification pass (fresh context, base `53064e0`..head `492b990`, verdict **approve**, "New
+findings: none") — correction round 2/2, the bounded loop's final round consumed. Full gate re-run
+green after R-003's own fix (`fec3d67`, `docs/reviews/evidence/fec3d67-full-gate.log`): four
+presets 387/387, pyright 0, `pytest tests/python/` 99 passed, 0 `xfail`. Zero open/critical/major
+findings remain across all three findings.
