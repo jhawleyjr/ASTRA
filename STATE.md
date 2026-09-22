@@ -1,52 +1,40 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines; true at handoff)
 
 ## In flight
-**M3 PR 6** (`astra.trim`) is implemented, validated, and Codex-reviewed (verdict approve); not yet
-handed to Joe for his own decision.
-Plan: `docs/plans/pr6-trim.md`, Revision 2, **approved by Joe, 2026-09-21** (D9: add `pyyaml`,
-pin actual current release at implementation time — done, `pyyaml==6.0.3`/`scipy==1.18.1`, both
-confirmed via `pip index versions` at pin time; D10: hardcode elevator `[-0.3, 0.3]` rad
-(`docs/refs/aircrafts/737.xml:201-206`) / throttle `[0, 1]` (`icd/astra_icd.h:46`) in the test, no
-plugin config keys — done; R3's thrust cross-check corrected from the plan's own first-draft
-`T = D + m g sin(alpha)` to the classical wind-axis identity `T cos(alpha) = D`, Joe's own fix).
-PLAN.md also got a one-line follow-up (D10) noting the undeclared elevator/throttle range as the
-second control-surface property with no ICD/config home.
+**M3 PR 6** (`astra.trim`: `trim_straight_and_level()`, `scipy.optimize.root` driving
+`Simulation.derivative(state)`'s residual to zero at cruise) is **approved by Joe and open as
+PR #44**, awaiting a green `check` before his own squash-merge. Plan: `docs/plans/pr6-trim.md`
+(Revision 2, approved 2026-09-21, D9/D10 resolved). Implementation candidate `031dca8` (docs/process
+commits through `6f42fad`), branch `worktree-m3-pr6-trim` pushed, PR
+https://github.com/jhawleyjr/ASTRA/pull/44 open and marked ready (not draft).
 
-Implementation: `python/astra/trim.py` (`trim_straight_and_level`/`TrimResult`), `tests/python/
-test_trim.py` (7 tests: R1–R4 plus 3 supporting checks), `pyproject.toml` (`scipy`, `pyyaml` pinned).
-scipy/pyyaml ship no type stubs; that boundary is routed through explicit `cast()`s and two narrow
-`pyright: ignore[reportUnknownMemberType]` comments rather than loosening `python/astra`'s strict
-pyright scope (`pyrightconfig.json`'s own `"strict": ["python/astra"]`). Joe's implementation
-review (`46c9a95`) found and fixed three things: `TrimResult`'s docstring overclaimed a residual
-bound the code never enforces (reworded); `p_n[-1] = altitude_m` silently assumed a geodetic Earth
-model, wrong under `earth/flat` (now raises naming `physical.earth`, ADR-0003); control names are
-hardcoded against the "read from the registry" instruction (accepted as a deviation — no
-`InputRegistry::names()` binding exists yet — documented in `trim.py`, the plan's D10 row, and a
-new PLAN.md follow-up under PR 7's line).
+Codex review (two passes, base `cc11c30`): general found R-001 (minor — a regression test never
+called the helper it claimed to test, confirmed by injecting a real regression), fixed in `4b6f398`;
+adversarial pass (focus: D8 residual slices, the collapsed-quaternion special case, the R3
+`T cos(alpha) = D` identity, determinism/hidden-state, the `earth/flat` guard, the accepted
+control-name-hardcoding deviation) independently reproduced R-001's fix and found nothing else —
+**verdict approve**. Findings record: `docs/reviews/pr6-trim-review.md`. Human-review packet,
+decision recorded: `docs/reviews/pr6-trim-human.md` — **Joe approved candidate `031dca8` against
+base `origin/main` at `cc11c30`, 2026-09-21, in session**, conditional on one commit (a regression
+test for the `earth/flat` guard — the packet's earlier "verified by hand" wasn't evidence under this
+file's own honesty rule), condition satisfied by `031dca8` itself.
+
+Also flagged to Joe this session: `.claude/settings.json` pins `opusplan`, but this session actually
+ran on Sonnet 5 — a settings drift, not a review-document error (his own call whether to act on it).
 
 ## Last verified result
-Codex review complete: general review found R-001 (minor — the quaternion regression test never
-called `_state_from_alpha`, so a helper regression would pass silently; confirmed by injecting one),
-fixed in `4b6f398` and independently reproduced/verified by Codex's adversarial pass (base `cc11c30`,
-head `4b6f398`, **verdict approve, no other findings**) across D8 residual slices, the
-collapsed-quaternion special case, the R3 `T cos(alpha) = D` identity, determinism/hidden-state,
-the `earth/flat` guard, and the accepted control-name-hardcoding deviation. Findings record:
-`docs/reviews/pr6-trim-review.md`. Local full four-preset gate `check: OK` rerun at the final
-candidate head `6104206` (after R-001's fix), retained at
-`docs/reviews/evidence/6104206-full-gate.log` — hooks 144/144, all four presets 387/387, tidy clean,
-pyright 0 errors, pytest 84/84. Real solved trim point at cruise: `elevator ≈ 0.0267 rad`,
-`throttle ≈ 0.4986`, `alpha ≈ 1.35°`, `max|residual| ≈ 8e-17` (R1, `< 1e-6`); untrimmed-guess
-residual `≈ 3.43 m/s²` (R2, `> 1e-2`); R3's cross-check misses by `0.31%` (`< 5%`); R4
-bitwise-identical across two runs.
+Local full four-preset gate `check: OK` at head `6104206` (the review-final candidate before the
+flat-earth regression test), retained at `docs/reviews/evidence/6104206-full-gate.log` — hooks
+144/144, debug/release/static-plugins/asan all 387/387, tidy clean, pyright 0 errors, pytest 84/84.
+The flat-earth regression test (`031dca8`) is Python-only on an otherwise-untouched C++ tree, so the
+full gate was intentionally not rerun for it (Joe's own instruction); `pytest tests/python/`
+(85/85), `ruff`, `pyright` rerun clean at that head instead. GitHub's own `check` has not yet run
+(PR #44 just opened).
 
 ## Next step
-**Joe approved, 2026-09-21, in session**, conditional on one commit (a regression test for the
-`earth/flat` refusal guard — the packet's earlier "verified by hand" was not evidence under this
-file's own honesty rule); condition satisfied by `031dca8`, packet updated to name it at `1f46017`.
-Pushing the branch and opening the draft PR (marked ready) next, then stopping — Joe's own
-squash-merge follows once GitHub's `check` is green. No plan critique was required or done (PLAN.md's
-own line). Also flagged to Joe this session: `.claude/settings.json` pins `opusplan`, but this
-session actually ran on Sonnet 5 — a settings drift, not a review-document error.
+**Joe's squash-merge**, once PR #44's `check` finishes green on the current head — nothing further
+for Claude unless that check fails or Joe requests changes. After merge: check off PLAN.md's PR 6
+line with the merge SHA (not yet done — merge hasn't happened).
 
 ## Tried / failed
 Correction rounds: 0/2. Failed integrations: 0/2.
