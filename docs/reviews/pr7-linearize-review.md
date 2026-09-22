@@ -42,14 +42,16 @@ that order, and the trim-point residual is `8.33e-17` (previously reproduced at 
 the fix) — this ad hoc reordered-config check is not itself part of the committed test suite
 (cruise.yaml's own real order is what `test_input_names_returns_the_four_registered_control_
 names`, R7, already pins), recorded here as the fix's own verification evidence.
-Verification: pending Codex fix-verification pass (dispatched below).
-History: round 1 (initial review), found; round 1 (this same session), fixed and self-verified;
-Codex fix-verification pending.
+Verification: Codex (fresh context, `adversarial-review --base 53064e0`, base..head
+`53064e0`..`3210dd1`), verdict **approve**: "trim values and B-column steps follow registered
+names; unsupported control sets are rejected, and the registry guarantees uniqueness."
+History: round 1 (initial review), found; round 1 (this same session), fixed; round 1
+fix-verification, confirmed fixed.
 
 ## Finding R-002
 
 Severity: medium
-Status: fixed-unverified
+Status: verified
 Location: `tests/python/test_linearize.py:307-333` (pre-fix
 `test_phugoid_matches_the_approximation`, base `53064e0`..`a155c9f`)
 Requirement/ADR: D13/D18 (`docs/plans/pr7-linearize.md`) — the phugoid damping bound (0.1 absolute)
@@ -68,18 +70,21 @@ Builder response: fixed, `0fa5e85`. Split into `test_phugoid_zeta_matches_the_ap
 absolute, inside the `0.1` bound) and `test_phugoid_omega_n_matches_the_approximation`
 (`xfail(strict=True, raises=AssertionError)`, scoped to the one known-miss assertion — any
 non-`AssertionError` failure, or an unexpected pass, now surfaces instead of being absorbed).
-Verification: pending Codex fix-verification pass (dispatched below).
-History: round 1 (adversarial review), found; round 1 (this same session), fixed; Codex
-fix-verification pending.
+Verification: Codex (fresh context, `adversarial-review --base 53064e0`, base..head
+`53064e0`..`3210dd1`), verdict **approve**: "damping is checked independently without xfail; the
+frequency-only test retains strict=True and restricts expected failures to AssertionError."
+History: round 1 (adversarial review), found; round 1 (this same session), fixed; round 1
+fix-verification, confirmed fixed.
 
 ## Completion
 
-Two findings (R-001 major, R-002 medium), both fixed this session, both pending Codex
-fix-verification (dispatched next, per `docs/agents/review-dispatch.md`'s bounded loop — correction
-round 1/2). No other findings from either pass: the general review's own six focus areas beyond
+Two findings (R-001 major, R-002 medium), both fixed this session (`0fa5e85`) and both confirmed
+fixed by Codex's own fix-verification pass (fresh context, base `53064e0`..head `3210dd1`,
+verdict **approve**, "New findings: none" — one correction round, 1/2 of the bounded budget).
+No other findings from either original pass: the general review's own six focus areas beyond
 R-001, and the adversarial review's own five focus areas beyond R-002 (Euler-angle permutation,
 D16 sign discipline, D18's independent re-derivation, `LinearizeResult.simulation` ownership/
 lifetime) came back clean — "No substantive defect found in the other five focus areas"
 (adversarial), no further findings listed (general). Full gate re-run green after the fix batch
 (`0fa5e85`): four presets 387/387, pyright 0, `pytest tests/python/` 98 passed + 1 expected
-`xfail`.
+`xfail`. Zero open/critical/major findings remain.

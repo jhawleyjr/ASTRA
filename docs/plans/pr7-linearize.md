@@ -445,5 +445,17 @@ decision.
 
 **Implemented and validated, 2026-09-21**: candidate `009715a` (binding + module + tests), evidence
 retained at `docs/reviews/evidence/009715a-full-gate.log` — full gate green (four presets 387/387,
-hooks 144/144, pyright 0, `pytest tests/python/` 97 passed + 1 expected `xfail`). Codex review not
-yet run.
+hooks 144/144, pyright 0, `pytest tests/python/` 97 passed + 1 expected `xfail`).
+
+**Codex review, base `53064e0`, general + adversarial (fresh context each)**: two findings —
+R-001 (major, general): `u0`/`B`'s control columns assumed a fixed position order matching D11's
+`[elevator, aileron, rudder, throttle]` listing instead of `Simulation.input_names()`'s own actual
+registration order, silently misaligning values to names if a config ever lists the turbofans
+before the aero model (reproduced: linearization residual `~1.33` against a healthy `<1e-16`).
+R-002 (medium, adversarial): the phugoid `xfail(strict=True)` covered both assertions with no
+`raises=` restriction, so the damping assertion never ran and an unrelated exception would have
+read as the known, expected miss. Both fixed, `0fa5e85`; findings recorded at
+`docs/reviews/pr7-linearize-review.md`. Codex fix-verification (fresh context, same base, head
+`3210dd1`): **verdict approve**, both findings confirmed fixed, "New findings: none." Full gate
+re-run green after the fix batch (four presets 387/387, pyright 0, `pytest tests/python/` 98
+passed + 1 expected `xfail`). Zero open findings; correction rounds 1/2.
