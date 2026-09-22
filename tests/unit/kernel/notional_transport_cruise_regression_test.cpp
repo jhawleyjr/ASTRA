@@ -10,10 +10,31 @@
 
 #include "astra/kernel/health_monitor.hpp"
 #include "cruise_regression_run.hpp"
+#include "golden/notional_transport/cruise_regression_golden.hpp"
 
 namespace {
 
 namespace cr = astra::test::cruise_regression;
+namespace golden = astra::test::cruise_regression_golden;
+
+// D20 acceptance: the run, sample by sample and component by component, equals the trajectory
+// tests/capture/capture_cruise_regression.sh froze (four presets byte-identical at capture; see
+// tests/golden/notional_transport/cruise_regression_manifest.md). Bit patterns, not tolerances.
+TEST(NotionalTransportCruiseRegression, MatchesTheFrozenTrajectoryBitwise) {
+  ASSERT_EQ(golden::kCruiseRegressionSamples, cr::kSamples);
+  ASSERT_EQ(golden::kCruiseRegressionFramesPerSample, cr::kFramesPerSample);
+
+  const cr::RunResult run = cr::run_cruise_regression(ASTRA_AIRCRAFT_DIR, ASTRA_TEST_PLUGIN_DIR);
+  ASSERT_EQ(run.halt_check, astra::HealthCheck::kNone) << "halted at frame " << run.halt_frame;
+  ASSERT_EQ(run.samples_taken, cr::kSamples);
+
+  for (std::size_t k = 0; k < cr::kSamples; ++k) {
+    for (std::size_t i = 0; i < run.trajectory[k].size(); ++i) {
+      EXPECT_EQ(run.trajectory[k][i], golden::kCruiseRegressionTrajectory[k][i])
+          << "sample " << k << " (t = " << k << " s), component " << i;
+    }
+  }
+}
 
 TEST(NotionalTransportCruiseRegression, TwoRunsFromTheSameConfigAreBitwiseIdentical) {
   const cr::RunResult first = cr::run_cruise_regression(ASTRA_AIRCRAFT_DIR, ASTRA_TEST_PLUGIN_DIR);

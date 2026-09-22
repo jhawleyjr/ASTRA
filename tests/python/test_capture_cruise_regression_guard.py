@@ -11,9 +11,11 @@ unarmed cases as unarmed.
 
 - Arming and tree/baseline refusals run in a bare `git init` tree with no CMakePresets.json, so even
   a guard regression could not start a real capture.
-- Halt and cross-preset-mismatch refusals need the baseline in history, so they run in a
-  `git clone --shared` of this repository with `cmake` replaced on PATH by a stub that builds
-  nothing and writes a stub harness; the real script then drives the stub through steps 4-5.
+- Halt, cross-preset-mismatch and existing-golden (J-2) refusals need the baseline in history, so
+  they run in a `git clone --shared` of this repository with `cmake` replaced on PATH by a stub
+  that builds nothing and writes a stub harness; the real script then drives the stub through
+  steps 4-5. HEAD carries the captured golden since commit B, so the halt/mismatch cases commit
+  its removal in the clone first -- the only way past step 1b.
 """
 
 from __future__ import annotations
@@ -221,45 +223,66 @@ def _assert_goldens_untouched_and_no_commit(
     assert _git(clone, "status", "--porcelain") == ""
 
 
+def _remove_golden(clone: Path) -> None:
+    """Commit the golden's removal in the clone, so the script gets past step 1b (J-2) and reaches
+    the refusal under test. Since commit B, HEAD carries the captured golden."""
+    if (clone / GOLDEN_REL).exists():
+        _git(clone, "rm", "-rq", str(GOLDEN_REL))
+        _commit_all(clone, "remove golden for a steps 4-5 refusal test")
+
+
 def test_refuses_to_write_when_the_run_halts(armed_clone: tuple[Path, dict[str, str]]) -> None:
     clone, env = armed_clone
+    _remove_golden(clone)
     head = _git(clone, "rev-parse", "HEAD")
-    goldens = _golden_snapshot(clone)
     result = _run(clone, {**env, "STUB_HARNESS_MODE": "halt"})
     assert result.returncode != 0
     assert "harness exited 2" in result.stderr
-    _assert_goldens_untouched_and_no_commit(clone, head, goldens)
+    _assert_goldens_untouched_and_no_commit(clone, head, None)
 
 
 def test_refuses_to_write_on_a_cross_preset_mismatch(
     armed_clone: tuple[Path, dict[str, str]],
 ) -> None:
     clone, env = armed_clone
+    _remove_golden(clone)
     head = _git(clone, "rev-parse", "HEAD")
-    goldens = _golden_snapshot(clone)
     result = _run(clone, {**env, "STUB_HARNESS_MODE": "mismatch"})
     assert result.returncode != 0
     assert "DISAGREEMENT between debug and release" in result.stderr
     assert "cross-preset disagreement" in result.stderr
-    _assert_goldens_untouched_and_no_commit(clone, head, goldens)
+    _assert_goldens_untouched_and_no_commit(clone, head, None)
 
 
-def test_refusals_leave_an_already_committed_golden_untouched(
-    armed_clone: tuple[Path, dict[str, str]],
+@pytest.mark.parametrize(
+    "present",
+    [
+        ("cruise_regression_golden.hpp", "cruise_regression_manifest.md"),
+        ("cruise_regression_golden.hpp",),
+        ("cruise_regression_manifest.md",),
+    ],
+    ids=["header-and-manifest", "header-only", "manifest-only"],
+)
+def test_armed_refuses_when_a_golden_already_exists(
+    armed_clone: tuple[Path, dict[str, str]], present: tuple[str, ...]
 ) -> None:
-    # R-002: after capture, the golden directory is committed; the fixture must still work and a
-    # refusal must leave those files byte-identical. Simulated here by committing stand-in files.
+    # J-2 (Joe): arming never authorizes a re-capture. With the clone armed, clean and holding the
+    # baseline -- everything else the script checks satisfied -- an existing golden header or
+    # manifest alone must stop it before any build (the stub cmake never runs, so no build/), and
+    # leave the existing files byte-identical. Also covers R-002: the fixture itself works at a HEAD
+    # that already carries a committed golden.
     clone, env = armed_clone
+    _remove_golden(clone)
     golden = clone / GOLDEN_REL
-    golden.mkdir(parents=True, exist_ok=True)
-    (golden / "cruise_regression_golden.hpp").write_text("// stand-in\n", encoding="utf-8")
-    (golden / "cruise_regression_manifest.md").write_text("stand-in\n", encoding="utf-8")
-    _commit_all(clone, "stand-in golden")
+    golden.mkdir(parents=True)
+    for name in present:
+        (golden / name).write_text(f"// existing {name}\n", encoding="utf-8")
+    _commit_all(clone, "existing golden")
     head = _git(clone, "rev-parse", "HEAD")
     goldens = _golden_snapshot(clone)
-    assert goldens is not None
-    for mode, message in (("halt", "harness exited 2"), ("mismatch", "cross-preset disagreement")):
-        result = _run(clone, {**env, "STUB_HARNESS_MODE": mode})
-        assert result.returncode != 0
-        assert message in result.stderr
-        _assert_goldens_untouched_and_no_commit(clone, head, goldens)
+    result = _run(clone, {**env, "STUB_HARNESS_MODE": "mismatch"})
+    assert result.returncode != 0
+    assert "armed (ASTRA_TOUCH_GOLDENS=1)" in result.stdout
+    assert "a golden already exists" in result.stderr
+    assert not (clone / "build").exists()
+    _assert_goldens_untouched_and_no_commit(clone, head, goldens)

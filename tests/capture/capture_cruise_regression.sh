@@ -9,6 +9,10 @@
 # In order, stopping at the first failure with nothing written under tests/golden/**:
 #   1. Refuses unless armed: ASTRA_TOUCH_GOLDENS=1, or the gitignored marker .claude/touch-goldens in
 #      this tree or in the main checkout -- the same test guard-oracle.sh applies.
+#   1b. Refuses if the golden header or manifest already exists (Joe's J-2): arming alone never
+#      authorizes a re-capture. Re-capturing needs Joe's fresh, explicit authorization, given by
+#      removing the existing golden in a commit he authorizes; there is deliberately no override
+#      flag, because arming plus a flag would just be a second arming.
 #   2. Refuses unless the whole tree is clean (the harness, its CMake and the trimmed cruise.yaml
 #      are committed before capture, so the capture SHA names exactly what ran).
 #   3. Refuses unless the baseline revision is an ancestor of HEAD.
@@ -60,6 +64,16 @@ check_armed() {
   die "unarmed: tests/golden/** is human-owned. Joe arms a capture by touching" \
       ".claude/touch-goldens (this tree or the main checkout) or launching with" \
       "ASTRA_TOUCH_GOLDENS=1. Nothing was built or written."
+}
+
+# --- Step 1b: no golden yet. A re-capture is Joe's explicit decision, not a side effect of arming. ---
+check_no_existing_golden() {
+  if [[ -e "${GOLDEN}" || -e "${MANIFEST}" ]]; then
+    die "a golden already exists (${GOLDEN} / ${MANIFEST}). Arming does not authorize a" \
+        "re-capture: that needs Joe's fresh, explicit authorization -- he removes the existing" \
+        "golden in a commit he authorizes, then re-runs this script. Nothing was built or written."
+  fi
+  log "no existing golden."
 }
 
 # --- Step 2: the whole tree clean. ---
@@ -201,6 +215,7 @@ ${MANIFEST} for the full record."
 
 main() {
   check_armed
+  check_no_existing_golden
   check_clean_tree
   check_baseline
   readonly CAPTURE_REVISION="$(git rev-parse HEAD)"

@@ -34,6 +34,16 @@ closed: Dryden at t = 0, drift versus the period measurement, and 47 m versus 70
   `linearize._evaluate` directly (precedent: `test_trim.py`'s `trim._residual6`). (5) The packet
   carries finding 6's table, not a single percentage.
 
+- **Pre-capture approval and commit C findings (2026-09-22).** Joe approved candidate `ed10734`
+  (base `553700f`), armed the capture, and added two findings to commit C's cycle, not counted as
+  a correction round. J-1: the damping test's second peak window runs from the second
+  positive-going crossing to the end of the record, not to a third crossing, which lands at
+  292.59 s of the 300 s record. The measured ζ is unchanged, 0.027111, with the peak at 215 s either
+  way. J-2: the capture script refuses (step 1b, before any build) when the golden header or
+  manifest already exists. Arming never authorizes a re-capture; Joe authorizes one by removing the
+  existing golden in a commit he approves. There is deliberately no override flag. Commit B:
+  `3d0d3a6`, captured at `4ce6a9f`, four presets byte-identical, no halt.
+
 ## Repository findings
 
 Numbers come from exploratory runs this session (`just python` Release at `553700f`, scratch scripts,

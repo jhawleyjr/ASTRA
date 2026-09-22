@@ -24,7 +24,8 @@ Measurement. u is sampled at 1 Hz; the first 20 s are dropped (the short period,
 omega_n 1.0 rad/s, has decayed by e^-11 by then). Period: the interval between the first two
 positive-going zero crossings of u - u_trim, each linearly interpolated between samples. u_trim is
 the trimmed config's own v_b[0] -- the 5x5 model's own equilibrium. Damping: logarithmic decrement
-of the first two peaks (the largest sample between successive positive-going crossings). No
+of the first two peaks (the largest sample between the first two positive-going crossings, then
+from the second crossing to the end of the record -- Joe's J-1). No
 reference in docs/refs/ defines the log decrement, so it is derived here from the second-order
 standard form S&L Sec. 4.2 uses for the phugoid (eqs. 4.2-13 to 4.2-15, "The Phugoid
 Approximation", pp. 261-263): x(t) = A exp(-zeta omega_n t) cos(omega_d t + phi), omega_d =
@@ -39,7 +40,6 @@ reasonable reference choice). A miss is a finding, never a tolerance to widen.
 
 from __future__ import annotations
 
-import itertools
 import math
 from dataclasses import dataclass
 from pathlib import Path
@@ -145,12 +145,16 @@ def _measured_period_s(r: _Response) -> float:
 
 
 def _measured_damping_ratio(r: _Response) -> float:
+    # First peak: between the first two positive-going crossings. Second peak: from the second
+    # crossing to the end of the record (Joe's J-1) -- not up to a third crossing, which lands at
+    # 292.6 s of this 300 s record, close enough that a small phase shift would push it out and
+    # fail the test spuriously. Any later peak inside that window belongs to a damped cycle and is
+    # smaller, so the window's maximum is still the second peak (215 s, the same sample either way).
     crossings = _positive_going_crossings(r)
-    assert len(crossings) >= 3, f"need three positive-going crossings, got {crossings}"
-    peaks = [
-        float(np.max(r.u_minus_trim_mps[(r.t_s >= lo) & (r.t_s < hi)]))
-        for lo, hi in itertools.pairwise(crossings[:3])
-    ]
+    assert len(crossings) >= 2, f"need two positive-going crossings, got {crossings}"
+    first = r.u_minus_trim_mps[(r.t_s >= crossings[0]) & (r.t_s < crossings[1])]
+    second = r.u_minus_trim_mps[r.t_s >= crossings[1]]
+    peaks = [float(np.max(first)), float(np.max(second))]
     delta = math.log(peaks[0] / peaks[1])
     return delta / math.sqrt(4.0 * math.pi**2 + delta**2)
 
