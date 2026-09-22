@@ -59,7 +59,7 @@ Human exception if needed: none.
 ## Finding R-002
 
 Severity: minor (Codex: medium)
-Status: fixed-unverified
+Status: verified
 Location: `tests/python/test_capture_cruise_regression_guard.py:189-193` at `ad04b9e`
 (`armed_clone` fixture)
 Requirement/ADR: plan "Mapping and sequence" (commit B captures and commits the golden; the full
@@ -76,11 +76,21 @@ unchanged, together with HEAD and a clean status. The new
 `test_refusals_leave_an_already_committed_golden_untouched` commits stand-in golden files in the
 clone, then runs both the halt and mismatch refusals and asserts that the files are byte-identical,
 HEAD is unchanged and the tree is clean.
-Verification: pending Codex fix verification.
-History: round 2 — open → fixed-unverified.
+Verification: Codex adversarial fix verification, base `553700f` head `ed10734`, exit 0, verdict
+approve: "R-002: fix holds; removing the absence assertion permits committed goldens, while
+snapshots detect persistent file additions, deletions, and byte changes, HEAD checks detect
+commits, and status checks detect staged/uncommitted changes." Reviewer caveat: these are
+final-state checks, not proof against a transient write that is later restored. Full gate at
+`ed10734`: `check: OK` (`docs/reviews/evidence/ed10734-full-gate.log`).
+History: round 2 — open → fixed-unverified (`ed10734`) → verified.
 Human exception if needed: none.
 
 ## Completion
 
-Critical/major open: 0. R-001 verified; R-002 fixed, pending verification. Correction rounds 2/2:
-a further finding goes to Joe, not a third round.
+Open findings: none. R-001 and R-002 verified, and the final verification pass at `ed10734`
+re-confirmed R-001. New findings from that pass's fix-delta inspection: none ("No material
+findings", verdict approve). Correction rounds used: 2/2, so any further finding goes to Joe.
+
+Not reviewed yet: the golden capture (commit B) and the golden-comparing test (commit C). Neither
+exists until Joe arms the capture, and both need renewed review and validation. The reviewer's
+recommendation is not Joe's approval.
