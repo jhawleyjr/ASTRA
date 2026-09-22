@@ -1,6 +1,6 @@
 # Feature: M3 PR 6 — `astra.trim`
 
-Status: draft
+Status: approved (Revision 2)
 Owner: Joe
 Risk: Tier 2 — feature + one new dev dependency, no `core/`, `plugins/physical`, `aircraft/**/physical`,
 `aircraft/**/hardware`, or ICD change (workflow.md's Tier 3 row does not apply; this is pure
@@ -60,7 +60,15 @@ dominate silently — max-abs makes the binding term visible instead).
 `omega_b = 0`, `aileron = rudder = 0`, still air. `gamma = 0` (straight-and-level) makes
 `theta = alpha`, so the nominal 4-unknown/6-residual problem collapses to the square 3-unknown
 (`elevator`, `throttle`, `alpha`) / 3-residual (`v̇_x`, `v̇_z`, `q̇`) problem `scipy.optimize.root`
-actually solves; `v̇_y`, `ṗ`, `ṙ` are asserted small by symmetry at the solution, not solved for.
+actually solves; `v̇_y`, `ṗ`, `ṙ` are asserted small by symmetry at the solution, not solved for --
+heading north (`psi = 0`) at latitude 0 puts `wgs84_rotating`'s Earth-rate vector parallel to the
+velocity vector, so the Coriolis term vanishes for the lateral axis; `ixz` is this aircraft's only
+off-diagonal inertia term (`ixy = iyz = 0`, `cruise.yaml`), coupling only x/z, so a pure `M_y`
+pitching moment (no `M_x`/`M_z`, guaranteed by `beta = aileron = rudder = 0`) gives `q̇ != 0` but
+`ṗ = ṙ = 0` through the rigid-body inertia coupling itself, not approximately. A reviewer should
+read a loud failure of this specific assertion as evidence one of those preconditions (heading,
+latitude, zero side-force/moment, or the inertia tensor's own off-diagonal terms) isn't actually
+holding at runtime — not as a tolerance to loosen.
 State is built from `alpha`: `v_b = [V cos α, 0, V sin α]` (body axes, `beta = 0`); `q_nb` from
 `euler_nb = [0, α, 0]` — collapses `frames.hpp::quaternion_from_euler`'s general Stevens & Lewis
 eq. 1.8-16 formula to `q_nb = [cos(α/2), 0, sin(α/2), 0]` when `psi = phi = 0` (verified directly
@@ -68,7 +76,7 @@ against the real formula in R3 below, not re-derived from scratch). `p_n` is hel
 own `initial.state.p_n` (`[0, 0, 10000]`, `wgs84_rotating` lat/lon/altitude) — position is fixed,
 not solved.
 
-**Still air construction — open decision, D9:** `cruise.yaml` itself configures
+**Still air construction — D9, approved:** `cruise.yaml` itself configures
 `physical.wind: plugins/physical/wind/dryden` (a real, load-bearing part of the cruise config, not
 an oversight). `Simulation.derivative()` raises on a wind-configured, never-stepped `Simulation`
 (PR 5's R7a, `test_derivative_raises_on_a_never_stepped_simulation_with_wind_configured` — this is
@@ -78,21 +86,19 @@ unmodified — the `physical.wind` key must be absent, not merely quiesced. `Con
 Python-exposed way to enumerate a map's keys or build a modified copy (`core/include/astra/config/
 config.hpp`: `at`/`has`/`size`/`is_map`/`is_sequence`/`is_scalar`/typed scalar getters only, no
 key-listing or merge API) — round-tripping an arbitrary `Config` tree into a Python dict without one
-is not possible without guessing each scalar's original YAML type. **Recommendation**: add
-`pyyaml` to the `dev` dependency group (pin `pyyaml==6.0.3`, the current release, same convention as
-`scipy`) — `pyproject.toml`'s own dev-group comment already names it as an anticipated future
-addition ("scipy, h5py, pandas, pyarrow, pyyaml ... join when a milestone uses them"); PR 6 is that
-milestone. `astra/trim.py` reads `cruise.yaml` with `yaml.safe_load`, deletes the `physical.wind`
-key if present, and passes the rest to `Config.from_dict` — `cruise.yaml` stays the single source of
-truth for every other model/coefficient/initial-condition number; only the wind entry is dropped, in
-Python, not by hand-editing a second copy of the file. **This is a new dependency and needs Joe's
-explicit sign-off** (AGENTS.md: new dependencies are Joe's call) — flagged here rather than added
-silently; independent planning below assumes this default. The only concrete alternative found
-(regex-stripping the `wind:` line out of the raw YAML text) avoids the dependency but is a textual
-hack on a shared config file with no structural guarantee it stays correct if that file's wind entry
-is ever reformatted — worse on every axis except dependency count, not recommended.
+is not possible without guessing each scalar's original YAML type. **Decided**: add `pyyaml` to the
+`dev` dependency group — `pyproject.toml`'s own dev-group comment already names it as an
+anticipated future addition ("scipy, h5py, pandas, pyarrow, pyyaml ... join when a milestone uses
+them"); PR 6 is that milestone. `astra/trim.py` reads `cruise.yaml` with `yaml.safe_load`, deletes
+the `physical.wind` key if present, and passes the rest to `Config.from_dict` — `cruise.yaml` stays
+the single source of truth for every other model/coefficient/initial-condition number; only the
+wind entry is dropped, in Python, not by hand-editing a second copy of the file. **Pin version at
+implementation time, not from this plan**: confirm the actual current release (`pip index versions
+pyyaml`, or the resolver's own pick) when `pyproject.toml` is actually edited, rather than trusting
+this planning session's own snapshot (`6.0.3`, checked 2026-09-21) — record in the implementation
+commit what was pinned and why. Same treatment for `scipy` (this plan's own snapshot: `1.18.1`).
 
-**Control ranges — open decision, D10:** Joe's instruction says "read them from the registry" for
+**Control ranges — D10, approved as recommended:** Joe's instruction says "read them from the registry" for
 control *names* (satisfied: `write_input` raises on an unregistered name, so the literal strings
 `"controls.elevator"`/`"controls.throttle"` this PR calls, read directly from `aero.cpp`'s and
 `turbofan.cpp`'s own `bind_inputs()` — `aircraft/notional_transport/physical/aero/aero.cpp:76-79`,
@@ -107,16 +113,15 @@ convention, not a config value. Elevator has no declared numeric range anywhere 
 at all — `icd/astra_icd.h:45` documents sign convention only (PLAN.md's own open item), and neither
 `aero.cpp` nor `cruise.yaml` carries an `elevator_min`/`max` key. The one real numeric source is
 `docs/refs/aircrafts/737.xml` (main checkout) itself, whose `<flight_control>` block's "Elevator
-Control" `aerosurface_scale` clamps `fcs/elevator-pos-rad` to `[-0.3, 0.3]` rad — the same
-transcription source PR 1/PR 4's own coefficients already cite. **Recommendation**: do not add new
-`elevator_min`/`max` config keys to the aero plugin (that would be an `aircraft/**/physical` change,
-Tier 3, out of proportion to a plausibility-bound check, and not something the plugin's own math
-needs to function) — instead hardcode `elevator ∈ [-0.3, 0.3]` rad and `throttle ∈ [0, 1]`
-in `tests/python/test_trim.py` itself, cited directly to `docs/refs/aircrafts/737.xml`'s own
-`aerosurface_scale` and `icd/astra_icd.h:46` respectively, not silently invented. This is a
-deviation from "read... from the plugin configs" as literally stated, not a silent reinterpretation
-— **flagged for Joe's decision**: accept the deviation (bounds cited to source, hardcoded in the
-test) or authorize adding the config keys (which would need its own, separate Tier 3 sub-review).
+Control" `aerosurface_scale` (lines 201–206) clamps `fcs/elevator-pos-rad` to `[-0.3, 0.3]` rad —
+the same transcription source PR 1/PR 4's own coefficients already cite. **Decided**: no new
+`elevator_min`/`max` config keys on the aero plugin (that would be an `aircraft/**/physical` change,
+Tier 3, out of proportion to a plausibility-bound check) — hardcode `elevator ∈ [-0.3, 0.3]` rad
+(cite `docs/refs/aircrafts/737.xml:201-206`) and `throttle ∈ [0, 1]` (cite `icd/astra_icd.h:46`) in
+`tests/python/test_trim.py` itself, not silently invented, and not sourced from a plugin config key
+that doesn't exist. **PLAN.md follow-up** (one line, not this PR's scope): this is the second
+control-surface property — after the positive-deflection-sense gap already on PLAN.md — with no
+declared home in the ICD or any plugin config; added to PLAN.md's unchecked-items list alongside it.
 
 **Failure behavior:** if `scipy.optimize.root` reports `success=False`, `trim_straight_and_level`
 raises `RuntimeError` naming the scipy message and the last residual — never returns a
@@ -137,7 +142,7 @@ the way PR 5's own R5a/R5b probe-isolation tests do.
 |---|---|---|
 | R1 | Residual < 1e-6 at cruise | `pytest tests/python/test_trim.py::test_trim_converges_at_cruise` — `trim_straight_and_level(cruise.yaml, 230.0, 10000.0)`, assert `np.max(np.abs(result.residual)) < 1e-6`. |
 | R2 | Residual is discriminating | `pytest tests/python/test_trim.py::test_untrimmed_guess_fails_by_a_wide_margin` — same still-air config, `derivative()` evaluated once at `cruise.yaml`'s own untrimmed `initial.state`/`initial_controls` (alpha=0, elevator=0, throttle=0.5), assert `np.max(np.abs(residual)) > 1e-2`. Hand-estimate (cited in the test): at alpha=0, `CL = cl_0 = 0.20` against a required `CL ≈ 0.31` for level flight at this q̄/S/weight — a lift deficit of order 10⁵ N, order 1 m/s² of `v̇_z` — four-plus orders of magnitude above the 1e-6 bound and above the 1e-2 threshold. |
-| R3 | Physically plausible solution | `pytest tests/python/test_trim.py::test_solution_is_physically_plausible` — `0 <= alpha_deg <= 10`; `-0.3 <= elevator_rad <= 0.3` (D10, 737.xml source); `0.0 <= throttle <= 1.0` (D10, ICD source); combined `WrenchSource` body-x force at trim equals `+m g sin(alpha)` to within `m * 1e-6` (m/s² residual bound already guarantees this algebraically — derived directly from `rigid_body_6dof_dynamics.cpp`'s `v̇_x = F_x/m + g_b_x` and `frames.hpp`'s `dcm_from_euler`/`rotate_n_to_b`, not S&L's flight-path-frame form, since gravity enters this EOM through the real rotation, not a hand-typed small-angle term); **and**, as a genuinely independent cross-check, a hand-computed thrust estimate (`CL = W/(q̄S)`, `CD = cd_0 + cd_k·CL²`, `D = CD·q̄·S`, `T_expected = D + m g sin(alpha)`, all typed directly from `cruise.yaml`'s own transcribed coefficients, not reusing any C++ code) matches `throttle · thrust_ref_n · (ρ/ρ_ref)` within 10% — a generous bound given the small-angle/`L≈W` approximation in the hand estimate; worked numbers (this session): `q̄ ≈ 10,935 Pa`, `CL ≈ 0.310`, `CD ≈ 0.0251`, `D ≈ 29,900 N`, weight-projection term `≈ 9,340 N` at `alpha ≈ 1.45°`, `T_expected ≈ 29,900 N` (thrust and drag alone are close here because `cruise.yaml`'s own comment says `thrust_ref_n` was *sized* to this equilibrium at throttle=0.5 — not a coincidence, and not to be treated as proof the weight term is negligible in general). |
+| R3 | Physically plausible solution | `pytest tests/python/test_trim.py::test_solution_is_physically_plausible` — `0 <= alpha_deg <= 10`; `-0.3 <= elevator_rad <= 0.3` (D10, `docs/refs/aircrafts/737.xml:201-206`); `0.0 <= throttle <= 1.0` (D10, `icd/astra_icd.h:46`); combined `WrenchSource` body-x force at trim equals `+m g sin(alpha)` (the exact EOM identity — `rigid_body_6dof_dynamics.cpp`'s `v̇_x = F_x/m + g_b_x`, `g_b` from `frames.hpp`'s real `dcm_from_euler`/`rotate_n_to_b`, not a small-angle approximation) to within `m * 1e-6` — **stated as the EOM identity for a reviewer's benefit, but not independent**: R1's own residual bound already guarantees it algebraically, so this is documentation, not a second check. **The genuinely independent cross-check** is the classical wind-axis relation `T cos(alpha) = D` (exact at `gamma = 0`, `omega_b = 0`, `beta = 0` — combining the body-x *and* body-z EOM equations, not just x alone; a first draft of this plan used `T = D + m g sin(alpha)`, which double-counts the weight term already absorbed into `D`'s own equilibrium via the z-equation and was wrong by ~31% against the worked numbers below — corrected per Joe's review): hand-compute `CL = W cos(alpha)/(q̄S)`, `CD = cd_0 + cd_k·CL²`, `D = CD·q̄·S`, all typed directly from `cruise.yaml`'s own transcribed coefficients, never reusing `aero_math.hpp`/`turbofan_math.hpp` code; assert `abs(throttle · thrust_ref_n · (ρ/ρ_ref) · cos(alpha) - D) / D < 0.05`. Worked numbers (this session, ISA-1976 estimate at 10,000 m — confirm against the real `isa1976` plugin at implementation time, not copied from here): `ρ ≈ 0.4127 kg/m³`, `q̄ ≈ 10,916 Pa`, `CL ≈ 0.3108`, `CD ≈ 0.02515`, `D ≈ 29,868 N`, `alpha ≈ 1.46°`, `T = D/cos(alpha) ≈ 29,878 N` — matching `cruise.yaml`'s own `thrust_ref_n = 29,878.12` N almost exactly (that file's own comment: `thrust_ref_n` was *sized* to this exact equilibrium at throttle 0.5), i.e. thrust and drag agree to a few hundredths of a percent here, comfortably inside the 5% bound; the bound stays at 5% (not tightened to match this specific coincidence) because it is meant to catch a wrong-sign or mis-transcribed coefficient, not to certify this one config to hand-calculation precision. |
 | R4 | Determinism | `pytest tests/python/test_trim.py::test_two_runs_from_the_same_guess_are_bitwise_identical` — two independent `trim_straight_and_level` calls, same config/guess; `np.array_equal(result_a.state, result_b.state)` and `result_a.elevator_rad == result_b.elevator_rad and result_a.throttle == result_b.throttle` (exact `==`, not `np.isclose` — same bitwise-identity convention as PR 2/PR 5's own determinism tests). |
 
 Two supporting (not separately named by Joe, but needed to make R1–R4 trustworthy) checks belong in
@@ -154,12 +159,12 @@ direct assertion (`_load_still_air_config(...)` output has no wind key reachable
 
 | Question | Consequence | Owner | Answer/reference |
 |---|---|---|---|
-| D9: add `pyyaml==6.0.3` to the dev group to build the still-air config from `cruise.yaml`? | Blocks how `astra/trim.py` loads/mutates the config; the only dependency-free alternative is regex text-surgery on a shared config file (not recommended). | Joe | Pending — recommend yes. |
-| D10: hardcode elevator `[-0.3, 0.3]` rad (737.xml) / throttle `[0, 1]` (ICD) in the test, rather than adding config keys to the aero/turbofan plugins? | Keeps this PR Tier 2 (no `aircraft/**/physical`/`hardware` edit). Adding real config-declared ranges would be a small but real Tier 3 sub-change, needing its own review depth. | Joe | Pending — recommend yes (hardcode, cited to source). |
+| D9: add `pyyaml` to the dev group to build the still-air config from `cruise.yaml`? | Blocks how `astra/trim.py` loads/mutates the config; the only dependency-free alternative is regex text-surgery on a shared config file (rejected). | Joe | **Approved, 2026-09-21.** Pin the actual current release at implementation time (`pip index versions pyyaml`), not this plan's snapshot (`6.0.3`); record what was pinned and why. |
+| D10: hardcode elevator `[-0.3, 0.3]` rad (737.xml:201-206) / throttle `[0, 1]` (icd/astra_icd.h:46) in the test, rather than adding config keys to the aero/turbofan plugins? | Keeps this PR Tier 2 (no `aircraft/**/physical`/`hardware` edit). | Joe | **Approved as recommended, 2026-09-21.** Add a one-line PLAN.md follow-up noting this as the second undeclared control-surface property (not this PR's scope). |
 
-Both are independent of each other and of R1–R4's own numbers; implementation can start on
-everything except the still-air config loader (D9) and the R3 range bounds (D10) while these are
-open, per workflow.md's guidance that a required decision blocks only the dependent work.
+Both were open only until Joe's review above; nothing in R1–R4's own numbers depended on either
+answer except the still-air config loader (D9) and the R3 range bounds/cross-check (D10), both now
+unblocked.
 
 ---
 
@@ -168,8 +173,9 @@ open, per workflow.md's guidance that a required decision blocks only the depend
 Spec/brief: this file (combined, per plan-feature step 3's "a small change can keep spec and plan
 together in a short brief").
 Risk: Tier 2 (see above).
-Status: draft
-Plan approval: pending Joe's read of this document, D9, and D10.
+Status: approved (Revision 2)
+Plan approval: **Joe approved Revision 2, 2026-09-21** (D9/D10 above, plus R3's thrust-cross-check
+fix, the symmetry rationale, and the convergence-tolerance note below).
 
 ## Repository findings
 
@@ -195,11 +201,16 @@ Plan approval: pending Joe's read of this document, D9, and D10.
   binding rather than trusting the by-hand algebra alone.
 - `rigid_body_6dof_dynamics.cpp:39-44` rotates gravity into body axes via the real `q_nb`
   (`frames::rotate_n_to_b`), not a small-angle formula — confirms `v̇_x = 0 ⟹ F_x = m g sin(alpha)`
-  exactly (to the residual's own 1e-6 tolerance) at this PR's `phi = 0` scenario, used directly in
-  R3's plausibility check.
+  exactly (to the residual's own 1e-6 tolerance) at this PR's `phi = 0` scenario. Combined with the
+  `v̇_z = 0` equation (`F_z = -m g cos(alpha)`) and `aero_math.hpp:117-124`'s own `force_w -> force_b`
+  rotation (`force_b_x = -D cos(alpha) + L sin(alpha)`, `force_b_z = -D sin(alpha) - L cos(alpha)`),
+  the two combine algebraically to the classical wind-axis identity `T cos(alpha) = D` — this is
+  R3's genuinely independent cross-check; the `F_x = m g sin(alpha)` identity alone is not
+  independent of R1's own residual bound and is documented as such, not used as a second check.
 - No `elevator_min`/`max` or `throttle_min`/`max` config key exists anywhere (D10) — checked
   directly in `aero.cpp`, `turbofan.cpp`, and `cruise.yaml`, not assumed from the settled-decision
-  text.
+  text; PLAN.md gets a one-line follow-up noting this alongside the existing positive-deflection-
+  sense gap.
 - `Config` (`core/include/astra/config/config.hpp`) has no key-enumeration or dict-export API —
   checked directly; this is why D9 exists at all.
 - `pyproject.toml`'s `dev` group presently has no analysis libraries; its own comment anticipates
@@ -219,7 +230,7 @@ Plan approval: pending Joe's read of this document, D9, and D10.
 | Untrimmed-guess fixture | Reuses `cruise.yaml`'s own `initial.state`/`initial_controls` | none new | R2 |
 | Plausibility bounds (D10) | `tests/python/test_trim.py` constants, cited to `docs/refs/aircrafts/737.xml` and `icd/astra_icd.h` | none new (no plugin/config change) | R3 |
 | Determinism | `tests/python/test_trim.py` | none new | R4 |
-| Dependency pin | `pyproject.toml` `dev` group: `scipy==1.18.1` (approved), `pyyaml==6.0.3` (D9, pending) | Joe's approval | `just venv` installs cleanly; `uv lock`/equivalent updated |
+| Dependency pin | `pyproject.toml` `dev` group: `scipy`, `pyyaml` (D9, approved) — both pinned to the actual current release confirmed at implementation time, not this plan's snapshot | Joe's approval (given) | `just venv` installs cleanly; pinned versions and the reason recorded in the implementation commit |
 
 One Claude builder; no split (the whole surface is one small module plus one test file, no
 independent-path parallelism to gain).
@@ -233,17 +244,23 @@ portions are what actually exercise this PR; the C++ presets/tidy portions shoul
 no-ops). `pytest tests/python/test_trim.py -v` is the PR's own acceptance command; the full
 `pytest` run (`tests/python/`) must stay green alongside it — no existing test should be touched.
 
-Risks: (1) D9/D10 are open — implementation of the config loader and the R3 bounds waits on Joe's
-answer; everything else (residual extraction, state construction, the solver call, R1/R2/R4) can be
-built and tested independently in the meantime. (2) `scipy.optimize.root`'s `hybr` may not converge
-from `cruise.yaml`'s own untrimmed guess within default tolerances — mitigated by `xtol`
-tightening (tried in order: default, `1e-10`, `1e-12`) until R1's `1e-6` bound holds with margin;
-recorded honestly if a tighter-than-default tolerance is needed. (3) This session's own hand-worked
-numbers (R2's `1e-2` margin, R3's `10%` cross-check) are estimates, not yet run against the real
-implementation — flagged per STATE.md's own honesty rule ("a trace matched" is not "verified");
-the actual implementation session must re-derive or confirm these against the real solve before
-treating them as final, not merely copy them from this plan. (4) No golden/tolerance file is
-touched — the oracle-guard hook does not apply to this PR.
+Risks: (1) D9/D10 are resolved (above); nothing left blocked. (2) `scipy.optimize.root`'s `hybr`
+(MINPACK `hybrd`) should be *expected*, not merely risked, to need tighter-than-default tolerances:
+`∂v̇_z/∂alpha ≈ q̄ S cl_alpha / m ≈ 1,187,468 · 4.34783 / 37,648 ≈ 137 m/s² per rad` (worked this
+session from `cruise.yaml`'s own numbers), and `hybr`'s default `xtol` (MINPACK's `1.49012e-08`)
+bounds the solution vector's own step size, not the residual directly — a step of that size in
+`alpha` alone projects to a residual of order `137 * 1.5e-8 ≈ 2e-6`, landing right at R1's `1e-6`
+line, not comfortably under it. Implementation must tighten `xtol` (tried in order: default,
+`1e-10`, `1e-12`) until R1's bound holds with real margin, and must assert on the actual computed
+`max(abs(residual))` after the solve every time — never on `sol.success` alone, which reports
+`xtol`-convergence, not the physical residual bound this PR actually promises. (3) This session's
+own hand-worked numbers (R2's `1e-2` margin, R3's `5%` cross-check and its worked `ρ`/`q̄`/`CL`/`CD`/
+`D`/`T` values) are estimates, not yet run against the real implementation — flagged per STATE.md's
+own honesty rule ("a trace matched" is not "verified"); the implementation session must re-derive
+or confirm these against the real solve before treating them as final, not merely copy them from
+this plan (this is also why R3's `5%` bound must not be widened if the real solve doesn't match
+this session's own arithmetic — a mismatch there is a defect to find, not a tolerance to relax).
+(4) No golden/tolerance file is touched — the oracle-guard hook does not apply to this PR.
 
 No compatibility/migration/rollback concerns (new module, no existing caller). No documentation
 change beyond this plan and the PLAN.md/STATE.md bookkeeping already committed this session.
@@ -257,8 +274,8 @@ Joe directly, not the "expensive, unpinned design" class workflow.md's critique 
 ## Done when
 
 R1–R4 pass under `pytest tests/python/test_trim.py`; the full gate (`just check`) is green;
-`scipy`/`pyyaml` (if D9 approved) are pinned in `pyproject.toml`; Codex general review (`/review-
-cycle`) has run and any findings are resolved or explained (Tier 2's own row: "independent review,
-human packet" applies even with no plan critique); the human-review packet is prepared
-(`/human-review`) before Joe's merge decision. D9 and D10 are answered before implementation of the
-config loader and the R3 bounds specifically (not before starting the rest of the module).
+`scipy`/`pyyaml` are pinned in `pyproject.toml` at their actual current-release versions confirmed
+at implementation time (D9); the PLAN.md follow-up item (D10) is added; Codex general review
+(`/review-cycle`) has run and any findings are resolved or explained (Tier 2's own row: "independent
+review, human packet" applies even with no plan critique); the human-review packet is prepared
+(`/human-review`) before Joe's merge decision.

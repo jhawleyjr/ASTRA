@@ -522,6 +522,12 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       this one aircraft's own controls does not resolve the framework-wide gap: `icd/astra_icd.h`'s
       own comment should eventually state the physical sense directly instead of pointing at
       ADR-0001, which does not itself state it. Not started.
+- [ ] Elevator/throttle deflection *range* has no declared home either (M3 PR 6 planning,
+      `docs/plans/pr6-trim.md`, D10): the second control-surface property (after the
+      positive-deflection-sense gap above) with no config key or ICD field to read it from. PR 6's
+      own plausibility check hardcodes `elevator ∈ [-0.3, 0.3]` rad (737.xml) and `throttle ∈ [0, 1]`
+      (the ICD's documented convention, not a config value) directly in its test rather than adding
+      `aircraft/**/physical` config keys. Not started.
 - [ ] `cmake/AstraPlugin.cmake`'s `astra_finalize_plugins()` hardcodes which test executables get a
       plugin build-order dependency (`astra_unit_tests`, `astra_physics_tests`, and — since M3
       PR 1 — `astra_notional_transport_mass_test`, `astra_template_mass_test`), by explicit design
