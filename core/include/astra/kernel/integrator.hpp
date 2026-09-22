@@ -21,6 +21,7 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <vector>
 
 #include "astra/errors.hpp"
@@ -78,6 +79,14 @@ class Integrator {
   [[nodiscard]] IntegratorKind kind() const noexcept { return kind_; }
   [[nodiscard]] double dt() const noexcept { return dt_; }
   [[nodiscard]] std::size_t state_count() const noexcept { return state_count_; }
+
+  // Test-only introspection (M3 PR 5, docs/plans/pr5-nanobind-bindings.md R9): the k1 scratch
+  // buffer's own current contents, read after a real step() call, for a test proving
+  // Simulation::derivative()'s probe evaluation is bitwise identical to the real per-frame k1
+  // sub-stage for the same starting state. Public on the shipped Integrator class, not gated
+  // behind a test-only build -- the guard is the name and this comment, the same posture
+  // Vehicle::stage_state_for_testing() already takes.
+  [[nodiscard]] std::span<const double> k1_for_testing() const noexcept { return k1_; }
 
   // Advances y (state_count() doubles, in place) by exactly one major frame. t is the frame's start
   // time, frame * dt (ADR-0010: the integer frame counter is the source of truth; t is derived by

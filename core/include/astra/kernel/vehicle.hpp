@@ -147,8 +147,15 @@ class Vehicle {
 
   // This frame's environment sample (docs/architecture.md §5), latched by Simulation::step before
   // step()/integrate() run (environment_sample.hpp). Defaults to still air / all-NaN atmosphere,
-  // matching a Simulation with no physical.wind/physical.atmosphere configured.
-  void set_environment(const EnvironmentSample& sample) noexcept { environment_ = sample; }
+  // matching a Simulation with no physical.wind/physical.atmosphere configured. Also marks
+  // environment_latched_ true, unconditionally, every call (M3 PR 5, docs/plans/
+  // pr5-nanobind-bindings.md, Design decision 2) -- cleared by nothing, including reset(): once a
+  // real frame has latched a real sample, derivative() may trust environment_'s wind_n permanently
+  // for this Vehicle's lifetime, regardless of how many further frames run or don't.
+  void set_environment(const EnvironmentSample& sample) noexcept {
+    environment_ = sample;
+    environment_latched_ = true;
+  }
   [[nodiscard]] const EnvironmentSample& environment() const noexcept { return environment_; }
 
   // Runs this frame's wrench accumulation, dynamics derivative, integrator step, and post-step
@@ -236,27 +243,76 @@ class Vehicle {
   [[nodiscard]] InputRegistry& inputs() noexcept { return inputs_; }
   [[nodiscard]] const InputRegistry& inputs() const noexcept { return inputs_; }
 
-  // Test-only introspection (ADR-0021): the combined and stage buffers' own current contents, for
-  // tests/unit/kernel/vehicle_state_coupling_test.cpp's stage-buffer-invariant checks (outside any
-  // derivative call, the stage buffer equals the combined buffer -- not otherwise observable from
-  // outside Vehicle, since neither buffer is exposed beyond the rigid-body block state() already
-  // provides). Public on the shipped Vehicle class, not gated behind a test-only build -- the same
-  // posture Simulation::vehicles()'s own non-const overload already takes for a comparable
-  // test-serving accessor: the guard is the name and this comment, not the compiler. The
-  // has_value() checks below are redundant for correctness (same reasoning as sync_stage_buffer's
-  // own) but keep clang-tidy's bugprone-unchecked-optional-access satisfied.
-  [[nodiscard]] std::span<const double> combined_state_for_testing() const noexcept {
+  // The full combined state buffer -- the rigid-body block plus every state-owning model's own
+  // slice, in the order state_owner_slices() below names (M3 PR 5, ADR-0021 R4;
+  // docs/plans/pr5-nanobind-bindings.md, Design decision 5). Renamed/promoted from this method's
+  // own prior test-only name (combined_state_for_testing()) rather than adding a second accessor
+  // returning the same span: this is the real production accessor derivative()'s own input-length
+  // validation and the Python `vehicle.state` binding both use, not merely a test seam. A live view
+  // -- it aliases combined_'s own storage directly, so its contents change under integrate() (and
+  // therefore under Simulation::step()/run()) exactly the way Vehicle::state()'s rigid-body-only
+  // view already does; a caller that wants a stable snapshot must copy it. Unlike stage_'s own
+  // still-test-only accessor below, production code has a real reason to read this one. The
+  // has_value() check is redundant for correctness (never called before init() by any real caller)
+  // but keeps clang-tidy's bugprone-unchecked-optional-access satisfied, the same precedent
+  // sync_stage_buffer's own comment documents.
+  [[nodiscard]] std::span<const double> combined_state() const noexcept {
     if (!combined_.has_value()) {
       return {};
     }
     return {combined_->data(), combined_->size()};
   }
+  // Test-only introspection (ADR-0021): the stage buffer's own current contents, for
+  // tests/unit/kernel/vehicle_state_coupling_test.cpp's stage-buffer-invariant checks (outside any
+  // derivative call, the stage buffer equals the combined buffer). Public on the shipped Vehicle
+  // class, not gated behind a test-only build -- the same posture Simulation::vehicles()'s own
+  // non-const overload already takes for a comparable test-serving accessor: the guard is the name
+  // and this comment, not the compiler.
   [[nodiscard]] std::span<const double> stage_state_for_testing() const noexcept {
     if (!stage_.has_value()) {
       return {};
     }
     return {stage_->data(), stage_->size()};
   }
+  // M3 PR 5 (ADR-0021 R4): every state-owning model's own slice of the combined buffer beyond the
+  // rigid-body block (which is always offset 0, count kStateSize -- already bound in Python as
+  // POSITION/VELOCITY/QUATERNION/ANGULAR_RATE), in combined-buffer order. The authoritative layout
+  // metadata derivative()'s named-slice contract needs -- built once at init from state_owners_,
+  // never derived by parsing SignalRegistry names (docs/plans/pr5-nanobind-bindings.md, Design
+  // decision 5).
+  [[nodiscard]] std::span<const NamedStateSlice> state_owner_slices() const noexcept {
+    return state_owner_health_slices_;
+  }
+  // Test-only introspection (M3 PR 5, R9): the real Integrator's own k1 scratch, for a test proving
+  // derivative()'s probe result is bitwise identical to a real frame's own k1 sub-stage. The
+  // has_value() check keeps clang-tidy's bugprone-unchecked-optional-access satisfied.
+  [[nodiscard]] std::span<const double> k1_for_testing() const noexcept {
+    if (!integrator_.has_value()) {
+      return {};
+    }
+    return integrator_->k1_for_testing();
+  }
+
+  // M3 PR 5 (ADR-0021 R4, docs/plans/pr5-nanobind-bindings.md): evaluates this vehicle's own
+  // derivative at an arbitrary state, without advancing the frame -- the exact arithmetic
+  // integrate()'s own k1 RK4 sub-stage evaluates (evaluate_derivative_stage() below, shared by
+  // both call sites, not a second implementation). y must be exactly combined_state().size()
+  // doubles; dq is the caller-owned output buffer of the same size, written in full on success.
+  // health is the real HealthMonitor (Simulation's own *health_) purely as the policy source for
+  // this Vehicle's own lazily copy-constructed, counter-isolated probe_health_ (constructed once,
+  // on first call, reused thereafter -- copying carries the real action/policy settings forward
+  // without copying or touching the real monitor's own counters/signals, since HealthMonitor holds
+  // no SignalRegistry reference to alias). Throws astra::Error (not a HaltReason -- this is not a
+  // per-frame path) when: no physics is configured; a WindModel is configured but
+  // environment_latched_ is still false (never latched by a real frame); or the probe evaluation's
+  // own domain/environment checks fault. Restores the stage buffer to match the accepted combined
+  // state before returning on every path, including a raised fault, so a probe never leaves
+  // anything behind that would change the very next real frame's own k1. combined_ itself is never
+  // read or written by this call -- y is the caller's own buffer, never combined_->data() -- so
+  // there is nothing to roll back on that side. Not on the per-frame path: may allocate (the lazy
+  // probe_health_ construction; std::string in a thrown Error), may throw.
+  void derivative(const StepContext& ctx, std::span<const double> y, std::span<double> dq,
+                  const HealthMonitor& health);
 
  private:
   // A vehicle.models entry that resolved to a WrenchSource, kept alongside the plugin path its
@@ -325,6 +381,23 @@ class Vehicle {
   [[nodiscard]] Wrench accumulate_wrench(const VehicleState& vs_stage,
                                          const EnvironmentSample& stage_env, const StepContext& ctx,
                                          HealthMonitor& health, HaltReason& wrench_fault) noexcept;
+
+  // M3 PR 5 (docs/plans/pr5-nanobind-bindings.md, Design decisions 1/1b/1e/2/6): the exact
+  // per-stage derivative body -- environment copy, fresh-atmosphere sampling, sub-stage-exact
+  // stage_ sync, wrench accumulation, rigid-body and state-owner derivatives -- shared verbatim by
+  // integrate()'s own per-frame lambda and the new derivative() probe entry point below, so neither
+  // is a second implementation of the other. health is whichever HealthMonitor the caller passes
+  // (the real one from integrate(); a probe-only, policy-matching, counter-isolated one from
+  // derivative()) -- every check this method runs reports through exactly that instance, so a
+  // probe's counters/signals never touch the real ones. wrench_destination receives this
+  // evaluation's accumulated wrench when non-null (integrate()'s own stage 0 only, via
+  // published_wrench_.get(); derivative()'s own probe scratch, always); nullptr means "publish
+  // nowhere" (every other real per-frame stage). Per-frame path (health the real monitor,
+  // wrench_destination published_wrench_.get() or nullptr): no allocation, no exceptions --
+  // enforced by every caller's own context, not by this method's signature alone.
+  void evaluate_derivative_stage(double t, const double* y, double* dy, const StepContext& ctx,
+                                 HealthMonitor& health, HaltReason& wrench_fault,
+                                 Wrench* wrench_destination) noexcept;
 
   // ADR-0021: the four init()-time helpers below exist for the identical
   // readability-function-cognitive-complexity reason check_domain/prepare_stage_environment/
@@ -428,6 +501,18 @@ class Vehicle {
   // default is a legitimate absence (never checked) or a real, checkable value. atmosphere's own
   // equivalent needs no new member: atmosphere_ != nullptr already says the same thing for free.
   bool wind_configured_ = false;
+  // M3 PR 5 (docs/plans/pr5-nanobind-bindings.md, Design decision 2): set true, unconditionally,
+  // by every set_environment() call -- i.e. by every real frame's own environment stage -- and
+  // cleared by nothing. derivative() raises when wind_configured_ is true but this is still false:
+  // no real frame has ever latched a real wind sample for this Vehicle to trust.
+  bool environment_latched_ = false;
+  // M3 PR 5 (Design decision 1/1b): this Vehicle's own probe-only HealthMonitor, lazily
+  // copy-constructed from the real one on derivative()'s first call and reused thereafter -- same
+  // action policy as the real monitor (required: prepare_stage_environment's own domain_enabled()
+  // check can take a different branch under a different policy, which would break bit-identity,
+  // not just leak side signals), isolated counters (this copy's counters diverge from the real
+  // one's from the moment of copy onward; the real one's stay untouched by any probe call).
+  std::optional<HealthMonitor> probe_health_;
 };
 
 }  // namespace astra
