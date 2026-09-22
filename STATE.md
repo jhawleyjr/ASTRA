@@ -40,8 +40,10 @@ residual `≈ 3.43 m/s²` (R2, `> 1e-2`); R3's cross-check misses by `0.31%` (`<
 bitwise-identical across two runs.
 
 ## Next step
-`/human-review` to prepare Joe's packet, then his decision. No plan critique was required or done
-(PLAN.md's own line). Not yet pushed; no PR opened.
+**Joe's decision** on the human-review packet (`docs/reviews/pr6-trim-human.md`, candidate `fd4dbd4`
+against base `cc11c30`): approve behavior and squash-merge, or changes-required. Nothing further for
+Claude until that decision. No plan critique was required or done (PLAN.md's own line). Not yet
+pushed; no PR opened.
 
 ## Tried / failed
 Correction rounds: 0/2. Failed integrations: 0/2.
