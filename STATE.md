@@ -1,27 +1,40 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines; true at handoff)
 
 ## In flight
-**M3 PR 7** (`astra.linearize`: central-difference A/B about PR 6's cruise trim, Euler-angle state
-per S&L §4.1, classical-mode sanity check against S&L §4.2) starting in worktree
-`m3-pr7-linearize`, branch `worktree-m3-pr7-linearize`. Includes PR 6's own follow-up: bind
-`InputRegistry::names()` in `python/bindings/_core.cpp`; `astra.linearize` reads control names
-through it, not literals (kept separately identifiable in the plan and the Codex review request).
-`astra.trim` itself is not retrofitted to `names()` — one-line PLAN.md follow-up added instead.
-No code written yet; no plan written yet. Next action is `/plan-feature`.
+**M3 PR 7** (`astra.linearize`: central-difference `A`/`B` about `astra.trim`'s cruise trim, five
+classical modes checked against S&L §4.2) is **implemented, validated, and Codex-reviewed —
+human-review packet prepared, awaiting Joe's decision**. Plan: `docs/plans/pr7-linearize.md`
+(Revision 3, approved 2026-09-21). Candidate `8c974cd`; branch `worktree-m3-pr7-linearize`, **not
+pushed, no PR opened**. Base `origin/main` at `53064e0` (confirmed current tip at packet time).
+Includes PR 6's own follow-up (`Simulation.input_names()` bound, no `kCoreApiVersion` bump);
+`astra.trim` itself unmodified (PLAN.md follow-up tracks that retrofit).
+
+**D18 (mid-session revision)**: R4 first missed on 3/5 modes against real numbers — root cause
+verified as a coefficient-reference mismatch (`aero_math.hpp` transfers Cm_alpha/Cl_beta/Cn_beta
+AERORP→CG; S&L's derivatives are CG-referenced), fixed by re-deriving CG-referenced coefficients
+in the test, not by loosening tolerances. Phugoid `omega_n` stays a real, expected miss
+(`xfail(strict=True, raises=AssertionError)`; its damping half passes separately). PLAN.md's PR 8
+line gets a follow-up: use PR 7's numerical `A` for its own phugoid cross-check, not S&L's formula.
+
+Codex review (general + adversarial, base `53064e0`): R-001 (major, control values/steps assumed a
+fixed position order instead of `Simulation.input_names()`'s own runtime order) and R-002 (medium,
+phugoid `xfail` swallowed the damping assertion and any unrelated exception) — both fixed
+(`0fa5e85`), fix-verification **approve**, "New findings: none". Findings:
+`docs/reviews/pr7-linearize-review.md`. Packet: `docs/reviews/pr7-linearize-human.md`.
 
 ## Last verified result
-Nothing run this session yet. Carried from the prior session: PR 6 (`astra.trim`) merged as
-`53064e0` (#44, squash, Joe, 2026-09-21) — PLAN.md checked off this session. Last full gate
-`check: OK` at head `6104206`, `docs/reviews/evidence/6104206-full-gate.log` (hooks 144/144, all
-four presets 387/387, pyright 0, pytest 84/84) — from PR 6's own session, not re-run here.
+Full gate `check: OK` at `009715a` (pre-fix), `docs/reviews/evidence/009715a-full-gate.log` — hooks
+144/144, four presets 387/387, pyright 0, pytest 97 passed + 1 expected `xfail`. Re-run after the
+fix batch (`0fa5e85`) this session: same shape, 98 passed + 1 expected `xfail`, not separately
+retained as a log.
 
 ## Next step
-Run `/plan-feature` for `astra.linearize` (D11/D12/D13 pinned by Joe's task prompt; no Codex plan
-critique — PLAN.md says no and S&L §4.1 pins the linearization form) and show Joe the plan before
-any code.
+**Joe's review and decision.** Nothing further for Claude unless he requests changes or asks to
+push/open a PR. After approval: push, open draft PR for GitHub's own `check`. After merge: check
+off PLAN.md's PR 7 line with the merge SHA.
 
 ## Tried / failed
-Correction rounds: 0/2. Failed integrations: 0/2.
+Correction rounds: 1/2 (the Codex review fix batch above). Failed integrations: 0/2.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.
