@@ -395,6 +395,57 @@ Wrench Vehicle::accumulate_wrench(const VehicleState& vs_stage, const Environmen
   return total;
 }
 
+// M3 PR 5 (docs/plans/pr5-nanobind-bindings.md, Design decisions 1/1b/1e/2/6): see this method's
+// own declaration comment (vehicle.hpp) for the full contract. This is integrate()'s own former
+// inline lambda body, factored out unchanged so derivative() below can call the identical
+// arithmetic -- not a second implementation of either. Only ever called from integrate() (already
+// behind its own rigid_body_/stage_ has_value() guard) or derivative() (same guard, its own top);
+// the check below is redundant for correctness but keeps clang-tidy's
+// bugprone-unchecked-optional-access satisfied, the same precedent check_domain's own comment
+// documents for rigid_body_.
+void Vehicle::evaluate_derivative_stage(double t, const double* y, double* dy,
+                                        const StepContext& ctx, HealthMonitor& health,
+                                        HaltReason& wrench_fault,
+                                        Wrench* wrench_destination) noexcept {
+  if (!stage_.has_value() || !rigid_body_.has_value()) {
+    return;
+  }
+  const VehicleState vs_stage{y};
+  EnvironmentSample stage_env = environment_;  // copies the frame-latched wind_n verbatim -- wind
+                                               // stays frame-latched (Dryden's begin_frame/RNG
+                                               // draw timing is unaffected by this ADR)
+
+  const bool skip_wrench_stage =
+      prepare_stage_environment(vs_stage, stage_env, ctx, health, wrench_fault);
+
+  // ADR-0021: this stage's own trial state, copied into the stage buffer before any
+  // wrench_b()/integrate_state() call this stage runs -- bind_state()/SignalRegistry reads of a
+  // state-owning model's own value are sub-stage-exact.
+  std::copy_n(y, stage_->size(), stage_->data());
+
+  // A stage skipped by either check above never calls a single configured WrenchSource -- total
+  // stays Wrench{}'s own zero default, an explicit, disclosed choice under a non-halting action
+  // (report_non_finite_environment's own header comment documents this), not the last-known-good
+  // value.
+  const Wrench total = skip_wrench_stage
+                           ? Wrench{}
+                           : accumulate_wrench(vs_stage, stage_env, ctx, health, wrench_fault);
+  if (wrench_destination != nullptr) {
+    // integrate()'s own stage 0 (k1, frame-start state) only, via published_wrench_.get() --
+    // publishing a later stage would be one frame ahead of what any pre-step-sampled consumer
+    // (tests/physics/nesc/nesc_cases_test.cpp) expects (PR 3c plan critique, Finding 2).
+    // derivative()'s own probe path always passes its own scratch destination here, since a probe
+    // is always logically "stage 0" and must never write through published_wrench_ itself (M3
+    // PR 5 Design decision 1).
+    *wrench_destination = total;
+  }
+  rigid_body_->set_applied_wrench(total);
+  rigid_body_->derivative(t, y, dy);
+  for (const StateOwnerEntry& owner : state_owners_) {
+    owner.model->integrate_state(t, vs_stage, stage_env, dy + owner.offset);
+  }
+}
+
 HaltReason Vehicle::integrate(const StepContext& ctx, HealthMonitor& health) noexcept {
   // ADR-0021: init() always emplaces combined_/stage_/pre_step_scratch_/integrator_ together with
   // rigid_body_ (never independently), so this is one no-physics early return, not five -- the
@@ -425,43 +476,12 @@ HaltReason Vehicle::integrate(const StepContext& ctx, HealthMonitor& health) noe
   // PLAN.md M2 PR 3c (docs/plans/pr3c-substage-wrench.md): wrench_b()/integrate_state() and the
   // atmosphere sample the former reads are evaluated fresh at each of the four RK4 sub-stages
   // Integrator::step calls, using that stage's own trial state y -- not once at frame-start as
-  // before. This functor wraps rigid_body_ and every state_owners_ entry, calling
-  // rigid_body_->set_applied_wrench() again immediately before each of the four derivative() calls.
+  // before. M3 PR 5: the functor now only tracks the stage counter and forwards to
+  // evaluate_derivative_stage(), the shared body derivative() below also calls.
   const auto derivative = [&](double t, const double* y, double* dy) noexcept {
-    const VehicleState vs_stage{y};
-    EnvironmentSample stage_env = environment_;  // copies the frame-latched wind_n verbatim -- wind
-                                                 // stays frame-latched (Dryden's begin_frame/RNG
-                                                 // draw timing is unaffected by this ADR)
-
-    const bool skip_wrench_stage =
-        prepare_stage_environment(vs_stage, stage_env, ctx, health, wrench_fault);
-
-    // ADR-0021: this stage's own trial state, copied into the stage buffer before any
-    // wrench_b()/integrate_state() call this stage runs -- bind_state()/SignalRegistry reads of a
-    // state-owning model's own value are sub-stage-exact.
-    std::copy_n(y, stage_->size(), stage_->data());
-
-    // A stage skipped by either check above never calls a single configured WrenchSource -- total
-    // stays Wrench{}'s own zero default, an explicit, disclosed choice under a non-halting action
-    // (report_non_finite_environment's own header comment documents this), not the last-known-good
-    // value.
-    const Wrench total = skip_wrench_stage
-                             ? Wrench{}
-                             : accumulate_wrench(vs_stage, stage_env, ctx, health, wrench_fault);
-    if (stage == 0) {
-      // The vehicle's published applied-wrench signal is the frame-start (k1) total only, never
-      // k2..k4's -- publishing a later stage would be one frame ahead of what any pre-step-sampled
-      // consumer (tests/physics/nesc/nesc_cases_test.cpp) expects (PR 3c plan critique, Finding 2).
-      // No WrenchSource signature change: wrench_b() takes no t, so this is tracked by this plain
-      // stage counter, not by inspecting t.
-      *published_wrench_ = total;
-    }
+    evaluate_derivative_stage(t, y, dy, ctx, health, wrench_fault,
+                              stage == 0 ? published_wrench_.get() : nullptr);
     ++stage;
-    rigid_body_->set_applied_wrench(total);
-    rigid_body_->derivative(t, y, dy);
-    for (const StateOwnerEntry& owner : state_owners_) {
-      owner.model->integrate_state(t, vs_stage, stage_env, dy + owner.offset);
-    }
   };
 
   rigid_body_->begin_frame();  // unchanged: still once per frame (mass/inertia are constant in v1
@@ -502,6 +522,59 @@ HaltReason Vehicle::integrate(const StepContext& ctx, HealthMonitor& health) noe
   // frame too.
   stage_->copy_from(*combined_);
   return state_halt ? state_halt : domain_halt;
+}
+
+// M3 PR 5 (docs/plans/pr5-nanobind-bindings.md): see this method's own declaration comment
+// (vehicle.hpp) for the full contract. Not on the per-frame path: may allocate, may throw.
+void Vehicle::derivative(const StepContext& ctx, std::span<const double> y, std::span<double> dq,
+                         const HealthMonitor& health) {
+  if (!rigid_body_.has_value() || !combined_.has_value() || !stage_.has_value()) {
+    throw Error("Vehicle::derivative: no physics configured for vehicle '" + name_ + "'");
+  }
+  if (wind_configured_ && !environment_latched_) {
+    throw Error("Vehicle::derivative: " + wind_plugin_path_ +
+                " is configured but no environment sample has ever been latched for vehicle '" +
+                name_ +
+                "' -- call Simulation::step()/run() at least once before evaluating the "
+                "derivative of a wind-configured vehicle");
+  }
+  if (y.size() != combined_->size() || dq.size() != combined_->size()) {
+    throw Error("Vehicle::derivative: expected a state of length " +
+                std::to_string(combined_->size()) + " for vehicle '" + name_ + "', got " +
+                std::to_string(y.size()) + " in and " + std::to_string(dq.size()) + " out");
+  }
+
+  // M3 PR 5 Design decision 1: lazily copy-constructs a policy-matching, counter-isolated probe
+  // monitor on first use, reused thereafter -- HealthMonitor holds no SignalRegistry reference
+  // (health_monitor.hpp's own private section), so this copy carries the real action/policy
+  // settings forward with no registry involvement and no allocation on any call after the first.
+  if (!probe_health_.has_value()) {
+    probe_health_.emplace(health);
+  }
+
+  // Design decision 1d: mirrors integrate()'s own begin_frame() call site exactly -- mass/inertia
+  // are constant in v1 (ADR-0003), so calling this every probe is idempotent and cheap, not a
+  // special-cased "first call only" optimization.
+  rigid_body_->begin_frame();
+
+  Wrench probe_wrench;  // never published_wrench_ itself (Design decision 1)
+  HaltReason wrench_fault;
+  evaluate_derivative_stage(ctx.t, y.data(), dq.data(), ctx, *probe_health_, wrench_fault,
+                            &probe_wrench);
+
+  // Design decision 1e: restores the stage buffer to match the accepted combined state on every
+  // exit path, including the raise below -- a probe must never leave anything behind (a
+  // bind_state()/SignalRegistry-visible stale trial state) that would change the very next real
+  // frame's own k1. combined_ itself was never touched by this call (y is the caller's own
+  // buffer, never combined_->data()), so there is nothing to roll back on that side.
+  stage_->copy_from(*combined_);
+
+  if (wrench_fault) {
+    // Design decision 1c: raise rather than return a plausible-looking wrong derivative -- the
+    // same "loud failure over silent wrong answer" principle write_input's own fault check uses.
+    throw Error("Vehicle::derivative: probe evaluation faulted for vehicle '" + name_ +
+                "': " + std::string(wrench_fault.source));
+  }
 }
 
 }  // namespace astra

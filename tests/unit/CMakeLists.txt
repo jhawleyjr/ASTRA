@@ -13,6 +13,7 @@ add_executable(astra_unit_tests
   kernel/scheduler_test.cpp
   kernel/notional_transport_cruise_config_test.cpp
   kernel/simulation_halt_test.cpp
+  kernel/simulation_derivative_test.cpp
   kernel/simulation_input_seam_test.cpp
   kernel/simulation_physical_config_test.cpp
   kernel/simulation_test.cpp

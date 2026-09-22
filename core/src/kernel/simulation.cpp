@@ -650,4 +650,26 @@ HaltReason Simulation::run(std::uint64_t frames) noexcept {
   return {};
 }
 
+// M3 PR 5 (ADR-0017's own PR 5 paragraph, docs/plans/pr5-nanobind-bindings.md Design decision 3).
+void Simulation::write_input(std::string_view name, double value) {
+  if (vehicles_.empty()) {
+    throw Error("Simulation::write_input: no vehicle configured");
+  }
+  InputRegistry& inputs = vehicles_.front().inputs();
+  inputs.write(name, value);
+  if (const std::string_view fault = inputs.latch(); !fault.empty()) {
+    throw Error("Simulation::write_input: " + std::string(fault) + " is non-finite after latch()");
+  }
+}
+
+// M3 PR 5 (ADR-0021 R4, docs/plans/pr5-nanobind-bindings.md).
+std::vector<double> Simulation::derivative(std::span<const double> state) {
+  if (vehicles_.empty()) {
+    throw Error("Simulation::derivative: no vehicle configured");
+  }
+  std::vector<double> dq(state.size(), 0.0);
+  vehicles_.front().derivative(clock_.context(), state, dq, *health_);
+  return dq;
+}
+
 }  // namespace astra

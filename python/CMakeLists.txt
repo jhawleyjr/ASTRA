@@ -18,13 +18,19 @@ find_package(Python 3.12 COMPONENTS Interpreter Development.Module REQUIRED)
 execute_process(COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
   OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE nanobind_ROOT COMMAND_ERROR_IS_FATAL ANY)
 find_package(nanobind 3.0 CONFIG REQUIRED)
+# M3 PR 5 (docs/plans/pr5-nanobind-bindings.md, "What Config from a Python dict needs"): yaml-cpp
+# is already an apt-installed, project-wide dependency (astra_core's own CMakeLists.txt links it
+# PRIVATE, which does not propagate here) -- Config.from_dict builds a YAML::Node directly in this
+# translation unit and emits it through the existing, unmodified Config::from_string(), so no
+# core/ change was needed, only this direct link.
+find_package(yaml-cpp REQUIRED)
 
 # astra::core brings astra_build_flags (-Werror everywhere, §14). NB_SUPPRESS_WARNINGS makes the nanobind and
 # Python headers SYSTEM includes: Python.h is C-style casts throughout and -Wold-style-cast would reject it.
 # NB_DOMAIN keeps this module's type and exception-translator tables apart from any other nanobind extension in
 # the process, so a translator registered elsewhere cannot catch an astra::Error first.
 nanobind_add_module(_core NB_STATIC NB_SUPPRESS_WARNINGS NB_DOMAIN astra bindings/_core.cpp)
-target_link_libraries(_core PRIVATE astra::core)
+target_link_libraries(_core PRIVATE astra::core yaml-cpp::yaml-cpp)
 target_compile_definitions(_core PRIVATE
   "ASTRA_VERSION=\"${PROJECT_VERSION}\""
   "ASTRA_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\"")

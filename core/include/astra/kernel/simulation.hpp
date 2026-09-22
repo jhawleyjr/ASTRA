@@ -142,6 +142,30 @@ class Simulation {
   [[nodiscard]] std::span<Vehicle> vehicles() noexcept { return vehicles_; }
   [[nodiscard]] std::uint64_t frames() const noexcept { return frames_; }
 
+  // M3 PR 5 (ADR-0017's own PR 5 paragraph, docs/plans/pr5-nanobind-bindings.md Design decision 3):
+  // the Python-facing write seam. Writes value to the first vehicle's own InputRegistry entry named
+  // name (v1: exactly one vehicle, ADR-0011 notwithstanding -- from_config's own current behavior),
+  // then commits it immediately via latch(), unlike the raw two-phase write()/latch() contract the
+  // per-frame path uses -- a caller driving only derivative() (never step()) has nothing else that
+  // would ever call latch() for it. Throws Error naming name if it is not a registered input
+  // (InputRegistry::write()'s own existing contract) or if the just-written value was itself
+  // non-finite (ADR-0017's own explicit requirement: "must check latch()'s returned name and raise
+  // rather than continue"). Not on the per-frame path: may allocate, may throw.
+  void write_input(std::string_view name, double value);
+
+  // M3 PR 5 (ADR-0021 R4, docs/plans/pr5-nanobind-bindings.md): evaluates the first vehicle's own
+  // derivative at an arbitrary state, without advancing the clock -- the same arithmetic
+  // Vehicle::integrate() evaluates for its own k1 RK4 sub-stage
+  // (Vehicle::evaluate_derivative_stage, shared by both call sites, not a second implementation).
+  // state must be exactly vehicles()[0].combined_state().size() doubles; the returned vector is the
+  // same length, freshly allocated, never a view into any internal scratch. t is the Simulation's
+  // own current, unadvanced clock time (clock_.context(), the same StepContext construction step()
+  // itself uses). Throws Error (see Vehicle::derivative()'s own contract) when: there is no vehicle
+  // configured; the vehicle has no physics; wind is configured but has never been latched by a real
+  // frame; the state length doesn't match; or the probe evaluation itself faults (out-of-domain,
+  // non-finite wrench/environment). Not on the per-frame path: may allocate, may throw.
+  [[nodiscard]] std::vector<double> derivative(std::span<const double> state);
+
  private:
   Simulation() = default;
 

@@ -157,7 +157,7 @@ TEST(VehicleStateCoupling, StageBufferMatchesCombinedBufferAfterInit) {
       fixture("    - { plugin: tests/plugins/state_owner, initial_value: 3.0 }\n");
   const Simulation sim = load(yaml, "stage-sync-after-init");
 
-  const auto combined = sim.vehicles().front().combined_state_for_testing();
+  const auto combined = sim.vehicles().front().combined_state();
   const auto stage = sim.vehicles().front().stage_state_for_testing();
   ASSERT_EQ(combined.size(), stage.size());
   for (std::size_t i = 0; i < combined.size(); ++i) {
@@ -172,7 +172,7 @@ TEST(VehicleStateCoupling, StageBufferMatchesCombinedBufferAfterANormalFrame) {
   const HaltReason halt = sim.step();
   ASSERT_FALSE(halt);
 
-  const auto combined = sim.vehicles().front().combined_state_for_testing();
+  const auto combined = sim.vehicles().front().combined_state();
   const auto stage = sim.vehicles().front().stage_state_for_testing();
   ASSERT_EQ(combined.size(), stage.size());
   for (std::size_t i = 0; i < combined.size(); ++i) {
@@ -197,7 +197,7 @@ TEST(VehicleStateCoupling, StageBufferMatchesCombinedBufferAfterAHaltedFrame) {
   const HaltReason halt = sim.step();
   ASSERT_TRUE(halt) << "tests/plugins/nan_wrench's own default config halts on frame 0";
 
-  const auto combined = sim.vehicles().front().combined_state_for_testing();
+  const auto combined = sim.vehicles().front().combined_state();
   const auto stage = sim.vehicles().front().stage_state_for_testing();
   ASSERT_EQ(combined.size(), stage.size());
   for (std::size_t i = 0; i < combined.size(); ++i) {
