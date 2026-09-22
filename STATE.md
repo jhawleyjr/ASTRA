@@ -15,7 +15,7 @@ arms it.
 None this session. PR 7's gate result (`fec3d67`) is PR 7's evidence, not PR 8's.
 
 ## Next step
-Joe answers Q1 (test_trim untrimmed-guess test) and Q2 (phugoid reference: PR 7 A + altitude state); then build commit A. No code yet.
+Joe reads plan Revision 2 (Q1/Q2 decided; gaps 1-3 closed in findings 3, 6, 7). No product code until he approves.
 
 ## Tried / failed
 Correction rounds: 0/2. Failed integrations: 0/2.
