@@ -139,8 +139,11 @@ def test_state_from_alpha_matches_the_real_quaternion_construction() -> None:
         real_q = np.array(
             sim.vehicles[0].state[_core.QUATERNION : _core.QUATERNION + _core.QUATERNION_SIZE]
         )
-        expected_q = np.array([math.cos(alpha_rad / 2.0), 0.0, math.sin(alpha_rad / 2.0), 0.0])
-        assert np.allclose(real_q, expected_q, atol=1e-15)
+        # Exercises the actual helper, not a second hand-typed formula -- p_n/true_airspeed_mps
+        # don't affect the quaternion slice, so arbitrary values isolate that slice for comparison.
+        helper_state = trim._state_from_alpha(np.zeros(3), 100.0, alpha_rad)
+        helper_q = helper_state[_core.QUATERNION : _core.QUATERNION + _core.QUATERNION_SIZE]
+        assert np.allclose(helper_q, real_q, atol=1e-15)
 
 
 def test_still_air_config_has_no_wind_configured() -> None:
