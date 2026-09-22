@@ -24,6 +24,9 @@ dev = [
   "pytest==9.1.1",
   "ruff==0.16.7",
   "pyright==1.1.414",
+  # M3 PR 6 (astra.trim, docs/plans/pr6-trim.md, D9): current release at pin time, 2026-09-21.
+  "scipy==1.18.1",
+  "pyyaml==6.0.3",
 ]
 
 [tool.scikit-build]
