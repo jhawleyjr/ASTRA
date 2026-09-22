@@ -1,24 +1,30 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines; true at handoff)
 
 ## In flight
-**M3 PR 8** (trimmed `cruise.yaml`, 300 s open-loop regression trajectory frozen under
-`tests/golden/notional_transport/`, phugoid period/damping cross-check against PR 7's numerical `A`).
-Tier 3. Branch `worktree-m3-pr8-cruise-regression`, base `origin/main` `553700f` (PR #45). No Codex
-plan critique (PLAN.md). Joe's decisions D19 (trim literals in `cruise.yaml`), D20 (C++ regression
-test + guarded capture script), D21 (`Simulation.run()` binding + Python phugoid cross-check) are
-settled; plan `docs/plans/pr8-cruise-regression.md` (draft; Q1/Q2 pending with Joe).
+**M3 PR 8** (trimmed `cruise.yaml`, 300 s regression trajectory, phugoid cross-check). Tier 3.
+Branch `worktree-m3-pr8-cruise-regression`, base `origin/main` `553700f` (confirmed current tip at
+packet time); local only, not pushed. Plan `docs/plans/pr8-cruise-regression.md` Revision 2
+(approved by Joe 2026-09-22 with five conditions, all met in the packet).
 
-**Golden capture is armed by Joe, separately.** Nothing under `tests/golden/**` is written until he
-arms it.
+**Stage: pre-capture candidate `ed10734`, reviewed; packet ready.** Packet:
+`docs/reviews/pr8-cruise-regression-human.md`; findings: `docs/reviews/pr8-cruise-regression-review.md`
+(R-001 and R-002, both verified; Codex final verdict approve, new findings none).
+**Golden capture is unarmed; nothing is written under `tests/golden/**` until Joe arms it.**
+Acceptance 2 (the frozen trajectory) is open by design.
 
 ## Last verified result
-None this session. PR 7's gate result (`fec3d67`) is PR 7's evidence, not PR 8's.
+`./scripts/check-full.sh` at `ed10734`: `check: OK`, exit 0, 388/388 on each of four presets, pytest
+111 passed (`docs/reviews/evidence/ed10734-full-gate.log`). Four-preset capture dry run is
+byte-identical with no halt (`docs/reviews/evidence/b4c5f44-capture-dryrun.md`).
 
 ## Next step
-Joe reads plan Revision 2 (Q1/Q2 decided; gaps 1-3 closed in findings 3, 6, 7). No product code until he approves.
+Joe decides on the pre-capture candidate and arms the capture. Once armed: run
+`tests/capture/capture_cruise_regression.sh` (commit B), add `MatchesTheFrozenTrajectoryBitwise`
+(commit C), then a renewed full gate and Codex review of B and C (a new finding goes to Joe:
+rounds are exhausted), then update the packet and open the draft PR if Joe authorizes it.
 
 ## Tried / failed
-Correction rounds: 0/2. Failed integrations: 0/2.
+Correction rounds: 2/2 (R-001, R-002). Failed integrations: 0/2.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.
