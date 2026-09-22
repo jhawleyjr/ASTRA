@@ -1,18 +1,19 @@
 # Human review packet: M3 PR 8 — trimmed cruise config, regression run, phugoid cross-check
 
 PR / candidate base and head: base `origin/main` `553700f` (M3 PR 7, #45), confirmed as the
-current tip via `git fetch` at packet time. Implementation candidate `ed10734` (code at `b4c5f44`
-plus the R-001/R-002 test fixes); the head adds only this packet, the findings/evidence records
-and STATE.md on top. Local only: not pushed, no PR. Working tree clean at packet time.
+current tip via `git fetch` after commit C. **Complete candidate `bffc751`**: the pre-capture
+candidate `ed10734` (approved), plus commit B `3d0d3a6` (the golden, written and committed by the
+armed capture script at `4ce6a9f`) and commit C `bffc751` (the golden-comparison test, J-1, J-2).
+The head adds only this packet, the findings/evidence records and STATE.md on top. Local only: not
+pushed, no PR. Working tree clean at packet time.
 Spec/plan: `docs/plans/pr8-cruise-regression.md` (Revision 2, approved by Joe 2026-09-22 with
-five conditions).
+five conditions; the J-1/J-2 note records commit C's cycle).
 Risk: Tier 3 (`aircraft/**` config; `tests/golden/**` via the capture step).
-**This is a pre-capture packet.** Golden capture stays unarmed until Joe says so. R6 (the frozen
-trajectory and its `MatchesTheFrozenTrajectoryBitwise` test) does not exist yet, so acceptance 2
-is open by design.
-Decision requested: (1) approve the pre-capture candidate `ed10734`; (2) arm the golden capture
-when ready. The merge decision comes after capture (commit B), the golden test (commit C), a
-renewed full gate and Codex review of B and C, and an update to this packet.
+**Post-capture update (2026-09-22).** All seven acceptance items now pass. One finding is open for
+Joe: R-003 (minor, re-capture path only; see Independent review).
+Decision requested: (1) R-003: accept the recommended one-line fix (a new fix cycle Joe
+authorizes), accept it as a follow-up, or reject it; (2) approve `bffc751` (or the R-003-fixed
+successor) and authorize pushing a draft PR. The squash-merge is Joe's.
 
 ## What changes and why
 
@@ -53,15 +54,16 @@ Diff `553700f..ed10734`: 20 files, +8508/−46. The three retained full-gate log
 
 | Check / acceptance | Result | Log / candidate |
 |---|---|---|
-| Full gate `./scripts/check-full.sh` | `check: OK`, exit 0; 388/388 per preset; pytest 111 passed | `docs/reviews/evidence/ed10734-full-gate.log` at **`ed10734`** |
-| Earlier gates (superseded) | `check: OK` at `b4c5f44` (pytest 107) and `ad04b9e` (pytest 110) | `docs/reviews/evidence/{b4c5f44,ad04b9e}-full-gate.log` |
+| Full gate `./scripts/check-full.sh` | `check: OK`, exit 0; 389/389 per preset; pytest 113 passed | `docs/reviews/evidence/bffc751-full-gate.log` at **`bffc751`** |
+| Earlier gates (superseded) | `check: OK` at `b4c5f44` (pytest 107), `ad04b9e` (110), `ed10734` (111; 388/388) | `docs/reviews/evidence/{b4c5f44,ad04b9e,ed10734}-full-gate.log` |
+| Capture (commit B `3d0d3a6`) | armed script, exit 0; `cross_preset_agreement: true (debug release asan static-plugins, byte for byte); no halt`; capture revision `4ce6a9f`; frozen bit patterns hash identically to the pre-arm dry run | `tests/golden/notional_transport/cruise_regression_manifest.md` |
 | 1. Trimmed derivative < 1e-6 | `test_cruise_config_initial_state_is_trimmed` passes; D8 max-abs 8.3e-17 (still air) | gate log |
-| 2. Bitwise match, four presets | **open: pending capture.** The dry run below shows the four presets agree | — |
-| 3. Capture refuses unarmed | 8 guard tests pass: unarmed; env ≠ 1; dirty tree; no baseline; inherited `GIT_*` isolation; halt; cross-preset mismatch; refusals with a golden already committed. The inherited-`GIT_*` test and the mismatch test were each shown to fail against a deliberately broken version | gate log |
-| 4. Phugoid period / damping | pass: 108.573 s vs 108.534 s (tolerance 5%); ζ 0.02711 vs 0.02730 (tolerance 0.02) | gate log |
+| 2. Bitwise match, four presets | `MatchesTheFrozenTrajectoryBitwise` passes under debug, release, asan and static-plugins | gate log at `bffc751` |
+| 3. Capture refuses unarmed | 10 guard tests pass: unarmed; env ≠ 1; dirty tree; no baseline; inherited `GIT_*` isolation; halt; cross-preset mismatch; an existing golden (J-2) with header+manifest, header only, and manifest only. Each of the inherited-`GIT_*`, mismatch and J-2 tests was shown to fail against a deliberately broken version | gate log |
+| 4. Phugoid period / damping | pass: 108.573 s vs 108.534 s (tolerance 5%); ζ 0.02711 vs 0.02730 (tolerance 0.02). J-1 left ζ unchanged | gate log |
 | 5. Two runs bitwise identical | `TwoRunsFromTheSameConfigAreBitwiseIdentical` passes, all four presets | gate log |
 | 6. Existing consumers green | all green; list from `grep -rl "notional_transport/configs/cruise.yaml" tests python aircraft --include=*.cpp --include=*.py` | gate log |
-| 7. Full gate green | yes, at `ed10734` | above |
+| 7. Full gate green | yes, at `bffc751` | above |
 | Pre-arm capture dry run | four presets byte-identical, no halt | `docs/reviews/evidence/b4c5f44-capture-dryrun.md` |
 
 **Dry run** (condition 2). The harness ran under debug, release, asan and static-plugins; all four
@@ -117,8 +119,9 @@ phugoid. In the 5×5 it splits into the phugoid (35.4 m amplitude) and the heigh
 Density changes −0.58% at 47 m and −0.80% at 65 m.
 
 **Gate cost.** Test wall time per preset (debug/release/static-plugins/asan) went from 36/1/90/91 s
-(PR 7) to 75/1/162/346 s. The determinism test runs 300 s twice: about 344 s under asan and
-160 s under static-plugins. After capture, the golden test adds one more run, in parallel.
+(PR 7) to 76/1/163/346 s at `bffc751`. The determinism test runs 300 s twice: about 344 s under
+asan and 160 s under static-plugins. The golden test's single run executes in parallel with it, so
+it added no wall time (asan 346 s both before and after commit C).
 
 Toolchain: clang-18, Ubuntu 24.04, per the gate log. Seed: Dryden 42 (cruise.yaml).
 
@@ -137,23 +140,42 @@ Findings: `docs/reviews/pr8-cruise-regression-review.md`.
   snapshotting golden files and asserting they are unchanged.
 - **Fix verification 2** (`ed10734`): R-001 and R-002 hold, "New findings: none", verdict approve.
   Caveat: the checks are final-state checks, not proof against a write that is later reverted.
-- Open findings: none. Correction rounds used: 2/2, so any further finding goes to Joe.
+- Correction rounds used: 2/2, so any further finding goes to Joe.
 - **Reviewer caveat:** Codex did not independently recompute the trim repr values. They are
   checked by the bit-for-bit trim reproduction and by acceptance 1.
+- **Commits B and C** (`ed10734..bffc751`, general + adversarial):
+  - **Adversarial:** verdict approve, "No material findings". Confirmed: B touches only the two
+    golden files; the manifest revisions and blobs match git; the frozen bytes match the dry run;
+    C's test compares every value and can't pass vacuously; J-2 runs before any build or write, and
+    the clone tests fail without it. Caveat on J-1: the claim that the window's maximum is the
+    second peak holds for this response, not for arbitrary slow-mode mixtures.
+  - **General:** one finding, **R-003 (minor, needs-human)**. The re-capture path J-2 documents
+    can't work as written. After Joe removes the golden, the script's full `cmake --build`
+    compiles the regression test, which includes the now-missing header, so the build fails
+    before the harness can regenerate it. The current candidate is unaffected, and the failure
+    is safe: the script stops and writes nothing. Not fixed, because rounds are exhausted.
+    **Recommended fix:** drop the full-build line (`capture_cruise_regression.sh:107`) and build
+    only `--target capture_cruise_regression`, which already depends on every plugin under both
+    plugin modes.
+- **Open findings:** R-003 only.
 
 ## Joe's attention
 
 - `aircraft/notional_transport/configs/cruise.yaml`: the literals and provenance comment.
-- `tests/capture/capture_cruise_regression.sh`: the refusal order and the arming check. Read this
-  before arming, since it is what writes the golden.
+- `tests/capture/capture_cruise_regression.sh`: the refusal order, including J-2's step 1b, and
+  R-003's step-4 build line.
+- `tests/golden/notional_transport/cruise_regression_manifest.md`: what was frozen, from which
+  revision, under which toolchains.
+- **The arming marker is still present** (`~/repos/ASTRA/.claude/touch-goldens`, created 15:54).
+  While it exists, agent writes to `tests/golden/**` are not blocked. The capture is done, so
+  remove it when convenient (the SessionStart hook also deletes it). I have not touched it.
 - `tests/python/test_cruise_phugoid.py`: the 5×5 construction, the measurement, and the
   log-decrement derivation. No reference in `docs/refs/` defines the log decrement.
 - Accepted-by-plan disclosure: the trim is still-air on a rotating Earth, so the unperturbed run
   drifts (u −0.19…+0.01 m/s, altitude +5.8 m, heading −3.2° over 300 s).
-- **Capture sequence once armed:** run `tests/capture/capture_cruise_regression.sh` from the
-  worktree root (commit B: header and manifest). Then commit C adds
-  `MatchesTheFrozenTrajectoryBitwise`, followed by a renewed full gate, Codex review of B and C,
-  and an update to this packet.
+- **Capture history:** armed at 15:54. The script ran from clean `4ce6a9f` and committed
+  `3d0d3a6`; commit C `bffc751` followed; the full gate and Codex review of B and C followed that.
+  The capture command itself is recorded in the manifest.
 - **Rollback:** revert the branch. No core, API or ICD change.
 
 ## Decision record
@@ -165,7 +187,8 @@ findings for commit C's cycle (not a third correction round): (J-1) the damping 
 peak window must end at the record end, not at a third crossing, which lands at 292.59 s of a
 300 s record; (J-2) the capture script must refuse when a golden already exists, because a
 re-capture needs a fresh, explicit authorization, not just arming. Gate cost accepted as written.
-Approved candidate/scope: `ed10734` against base `553700f`, pre-capture
+Approved candidate/scope: `ed10734` against base `553700f`, pre-capture. **The complete candidate
+`bffc751` awaits Joe's decision** (plus R-003).
 Merge observed: not merged
 Release authorization: not requested
 

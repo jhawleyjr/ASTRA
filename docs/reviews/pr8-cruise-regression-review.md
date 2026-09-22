@@ -85,9 +85,51 @@ final-state checks, not proof against a transient write that is later restored. 
 History: round 2 — open → fixed-unverified (`ed10734`) → verified.
 Human exception if needed: none.
 
+## Commits B and C (post-capture) review
+
+Scope: `ed10734` (Joe-approved pre-capture candidate) → `bffc751`: the packet-record commit
+`4ce6a9f`, commit B `3d0d3a6` (the armed capture script's golden commit) and commit C `bffc751`
+(the golden-comparison test, plus Joe's findings J-1 and J-2, which he ruled are not a correction
+round). Full gate at `bffc751`: `check: OK` (`docs/reviews/evidence/bffc751-full-gate.log`).
+
+- **Adversarial review** (focus on B's manifest and header, C's golden test, J-1 and J-2): exit 0,
+  verdict approve, "No material findings". It confirmed B touches only the two golden files, that
+  the manifest revisions and blob hashes match git, and that the frozen bytes match the dry-run
+  hash. C compares every value bitwise and can't pass vacuously. J-2 runs before any build or
+  write, and the clone tests would fail without it. Caveat on J-1: "its peak-order claim is
+  specific to this response, not arbitrary slow-mode mixtures."
+- **General review:** one finding, R-003 below.
+
+## Finding R-003
+
+Severity: minor (Codex: P2)
+Status: needs-human
+Location: `tests/unit/kernel/notional_transport_cruise_regression_test.cpp:13` at `bffc751`, with
+`tests/capture/capture_cruise_regression.sh:107` (`capture_under_all_presets`)
+Requirement/ADR: J-2's documented re-capture path: Joe removes the existing golden in a commit he
+authorizes, then re-runs the script.
+Failure: the regression test now includes the golden header unconditionally, and step 4 runs a
+full `cmake --build build/<preset>` before building the harness. After the golden is removed, that
+full build compiles the regression test, fails on the missing header, and stops the script before
+the harness can regenerate the golden. So the documented re-capture path can't be used as written.
+The current candidate is unaffected (the golden exists, the gate is green), and the failure mode
+is safe: the script stops and writes nothing.
+Requested outcome: keep an authorized re-capture buildable without the golden header.
+Builder response: not fixed, because correction rounds are exhausted (2/2) and this finding goes
+to Joe. Recommended fix: delete step 4's full-build line (`:107`) and build only
+`--target capture_cruise_regression`. That target already pulls in every plugin: under the dynamic
+presets through `astra_finalize_plugins()`'s `add_dependencies` (this PR added
+`capture_cruise_regression` to that list), and under static-plugins because the plugins link into
+`astra_core`, which the harness links. It would be a one-line script change plus a guard-test
+check. Alternative: make the test's golden include conditional in CMake, which is more machinery
+for a rarely used path.
+Verification: pending Joe's decision.
+History: B/C review — open → needs-human.
+Human exception if needed: pending (Joe).
+
 ## Completion
 
-Open findings: none. R-001 and R-002 verified, and the final verification pass at `ed10734`
+Open findings: R-003 (needs-human, minor, re-capture path only). Pre-capture findings: none open. R-001 and R-002 verified, and the final verification pass at `ed10734`
 re-confirmed R-001. New findings from that pass's fix-delta inspection: none ("No material
 findings", verdict approve). Correction rounds used: 2/2, so any further finding goes to Joe.
 
