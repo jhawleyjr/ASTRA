@@ -1,40 +1,38 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines; true at handoff)
 
 ## In flight
-**M3 PR 5** (nanobind bindings: `Simulation`, `Config` including `from_dict`, `SignalRegistry`/
-`HealthMonitor`/`VirtualClock`/`Vehicle` read views, PR 2's write seam, `Simulation.derivative()`)
-is **approved by Joe and open as PR #43**, awaiting a green `check` before his own squash-merge.
-Plan: `docs/plans/pr5-nanobind-bindings.md` (approved by Joe, after one Codex plan critique and
-Joe's own second review round). Implementation candidate `5964c63` (docs/process commits through
-`8af5eb1`), branch `worktree-m3-pr5-nanobind` pushed, PR
-https://github.com/jhawleyjr/ASTRA/pull/43 open and marked ready (not draft). PR body set via
-`gh api ... -X PATCH -F body=@<file>` (2026-09-19 lesson: `gh pr edit --body-file` fails on this
-repo/`gh` version) and verified landed via `gh pr view --json body`.
+**M3 PR 6** (`astra.trim`: `scipy.optimize.root` writing PR 5's control inputs, driving
+`Simulation.derivative(state)` to zero at cruise) is starting, worktree `m3-pr6-trim` off
+`origin/main` at `cc11c30` (M3 PR 5, merged, PR #43). PLAN.md's PR 5 box checked off this session
+with the merge SHA; PR 6/7's PLAN.md lines corrected from `python/tests/` to `tests/python/`
+(this repo's actual pytest convention, per PR 5's own finding). Not yet planned: building the
+implementation plan via `/plan-feature`, Tier 2, no Codex plan critique (PLAN.md says no — PR 5's
+own surface pins the design).
 
-Codex review (three passes, all clean): general (no actionable regressions), adversarial on Joe's
-own four-area focus — ownership/lifetime across the Python/C++ boundary, probe side-effect
-isolation (R5a/R5b), R9 bit-identity, no allocation on `Vehicle::integrate()`'s own per-frame path
-— (verdict approve, no material findings), and a fix-verification round scoped to Joe's own
-human-review test addition (verdict approve, no material findings). Findings record:
-`docs/reviews/pr5-nanobind-bindings-review.md`. Human-review packet, decision recorded:
-`docs/reviews/pr5-nanobind-bindings-human.md` — **Joe approved candidate `5964c63` against base
-`origin/main` at `96c9459`, 2026-09-21, in session** (conditional approval on the prior candidate
-`7755432`, condition satisfied by `5964c63`'s own discriminating wrench/atmosphere test, itself
-independently Codex-verified).
+Settled ahead of planning (Joe, this session — do not reopen): D8 residual is the 6-vector
+`[v̇_b, ω̇_b]` from `derivative(state)`'s rigid-body block (`ṗ_n`/`q̇_nb` excluded — a trimmed
+aircraft still translates and its quaternion rate need not be zero), max-abs, no weighting,
+threshold `< 1e-6`; unknowns elevator/throttle/alpha/theta with gamma=0 collapsing theta=alpha to a
+3-unknown/3-residual square problem (v̇_x, v̇_z, q̇), asserting the other three residuals are already
+small; `scipy.optimize.root` method `hybr`; inputs written by name via `sim.write_input`, names and
+ranges read from the registry/plugin config, never hardcoded; still air only, no
+`sample_environment()` in PR 6; test path `tests/python/test_trim.py`; scipy joins the dev group,
+pinned in `pyproject.toml`. Four acceptance tests: residual < 1e-6 at cruise; the untrimmed initial
+guess fails by a wide margin; physical plausibility (alpha in [0,10] deg, elevator/throttle inside
+configured ranges, thrust ≈ drag); determinism (two runs from the same guess bitwise-identical).
 
 ## Last verified result
-Local full four-preset gate `check: OK` at head `3be7e84` (first attempt clean), retained at
-`docs/reviews/evidence/5964c63-full-gate.log` — format/docs/hooks/ruff clean, debug/release/
-static-plugins/asan all 352/352, tidy clean, pyright 0 errors, pytest 77/77. GitHub's own `check`
-(GATE=local) is **green** on PR #43's current head
-(https://github.com/jhawleyjr/ASTRA/actions/runs/35684304771, conclusion success, confirmed via
-`gh pr checks 43` and `gh run view`).
+Inherited from PR 5's own local full four-preset gate `check: OK` at head `3be7e84`
+(`docs/reviews/evidence/5964c63-full-gate.log`) — no code changed this session yet, so nothing new
+to verify. `origin/main` at `cc11c30` matches this worktree's branch head; working tree clean before
+this session's PLAN.md/STATE.md edits and `git worktree prune`.
 
 ## Next step
-**Joe's squash-merge**, now that PR #43's `check` has finished green on the current head — nothing
-further for Claude unless that check fails or Joe requests changes. After merge: check off
-PLAN.md's PR 5 line with the merge SHA (deliberately **not done this session** — Joe's own
-instruction, same as PR 4a's own precedent: that happens next session, once the merge SHA exists).
+Write the PR 6 implementation plan (`/plan-feature`): map D8's residual and the four named
+acceptance tests above into a concrete plan, read the aero/turbofan plugin configs for the actual
+control-input names and throttle/elevator ranges (never hardcode them), pin the scipy version in
+`pyproject.toml`. No Codex plan critique (PLAN.md's own PR 6 line: "Plan critique: no"). Show Joe
+the plan before any code.
 
 ## Tried / failed
 Correction rounds: 0/2. Failed integrations: 0/2.
