@@ -15,8 +15,14 @@ Implementation: `python/astra/trim.py` (`trim_straight_and_level`/`TrimResult`),
 test_trim.py` (7 tests: R1–R4 plus 3 supporting checks), `pyproject.toml` (`scipy`, `pyyaml` pinned).
 scipy/pyyaml ship no type stubs; that boundary is routed through explicit `cast()`s and two narrow
 `pyright: ignore[reportUnknownMemberType]` comments rather than loosening `python/astra`'s strict
-pyright scope (`pyrightconfig.json`'s own `"strict": ["python/astra"]`). Worktree branch
-`worktree-m3-pr6-trim`, not yet pushed, no PR opened yet.
+pyright scope (`pyrightconfig.json`'s own `"strict": ["python/astra"]`). Joe's implementation
+review (`46c9a95`) found and fixed three things: `TrimResult`'s docstring overclaimed a residual
+bound the code never enforces (reworded); `p_n[-1] = altitude_m` silently assumed a geodetic Earth
+model, wrong under `earth/flat` (now raises naming `physical.earth`, ADR-0003); control names are
+hardcoded against the "read from the registry" instruction (accepted as a deviation — no
+`InputRegistry::names()` binding exists yet — documented in `trim.py`, the plan's D10 row, and a
+new PLAN.md follow-up under PR 7's line). Worktree branch `worktree-m3-pr6-trim`, not yet pushed,
+no PR opened yet.
 
 ## Last verified result
 Local full four-preset gate `check: OK` at head `641ff4a`, retained at
