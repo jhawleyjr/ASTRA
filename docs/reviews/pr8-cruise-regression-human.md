@@ -1,19 +1,26 @@
 # Human review packet: M3 PR 8 — trimmed cruise config, regression run, phugoid cross-check
 
 PR / candidate base and head: base `origin/main` `553700f` (M3 PR 7, #45), confirmed as the
-current tip via `git fetch` after commit C. **Complete candidate `bffc751`**: the pre-capture
+current tip via `git fetch` before push. **Final candidate `46b9aca`**: the pre-capture
 candidate `ed10734` (approved), plus commit B `3d0d3a6` (the golden, written and committed by the
-armed capture script at `4ce6a9f`) and commit C `bffc751` (the golden-comparison test, J-1, J-2).
-The head adds only this packet, the findings/evidence records and STATE.md on top. Local only: not
-pushed, no PR. Working tree clean at packet time.
+armed capture script at `4ce6a9f`), commit C `bffc751` (the golden-comparison test, J-1, J-2), and
+`46b9aca` (the Joe-authorized R-003 fix). The head adds only this packet, the findings/evidence
+records and STATE.md on top. Working tree clean at packet time.
 Spec/plan: `docs/plans/pr8-cruise-regression.md` (Revision 2, approved by Joe 2026-09-22 with
 five conditions; the J-1/J-2 note records commit C's cycle).
 Risk: Tier 3 (`aircraft/**` config; `tests/golden/**` via the capture step).
-**Post-capture update (2026-09-22).** All seven acceptance items now pass. One finding is open for
-Joe: R-003 (minor, re-capture path only; see Independent review).
-Decision requested: (1) R-003: accept the recommended one-line fix (a new fix cycle Joe
-authorizes), accept it as a follow-up, or reject it; (2) approve `bffc751` (or the R-003-fixed
-successor) and authorize pushing a draft PR. The squash-merge is Joe's.
+**Final update (2026-09-22).** All seven acceptance items pass at `46b9aca`. No findings are open;
+R-003 was fixed under Joe's authorization and verified.
+**The capture script's blob changed after capture.** The golden was produced by
+`tests/capture/capture_cruise_regression.sh` blob `afdc8dd8…` at capture revision `4ce6a9f`. J-2
+(`bffc751`) and R-003 (`46b9aca`) changed the script since, to blob `5605f493…`. Neither change
+touches what a capture computes: J-2 adds a refusal and R-003 narrows the build target. **The manifest
+does not name the script's blob.** It records `capture_revision` `4ce6a9f`, which pins the script
+that ran (`git rev-parse 4ce6a9f:tests/capture/capture_cruise_regression.sh` gives `afdc8dd8…`),
+plus the blobs of the harness `.cpp`, the run header and `cruise.yaml`. The manifest is frozen and
+human-owned, so it is not edited to add the script blob.
+Decision requested: squash-merge of the PR at the final candidate (Joe's). Push, draft PR, and
+`gh pr ready` were authorized by Joe on a green gate and verification.
 
 ## What changes and why
 
@@ -47,23 +54,24 @@ successor) and authorize pushing a draft PR. The squash-merge is Joe's.
 - **Not changed:** no new binding (`Simulation.run(frames)` was already bound by PR 5), no
   core/ADR/dependency change, and `astra.trim`/`astra.linearize` are unmodified.
 
-Diff `553700f..ed10734`: 20 files, +8508/−46. The three retained full-gate logs account for about
-7,200 of those lines.
+Diff `553700f..46b9aca`: 25 files, +17409/−46. Most of that is four retained full-gate logs (about
+14,400 lines) and the golden (1,300 lines).
 
 ## Evidence
 
 | Check / acceptance | Result | Log / candidate |
 |---|---|---|
-| Full gate `./scripts/check-full.sh` | `check: OK`, exit 0; 389/389 per preset; pytest 113 passed | `docs/reviews/evidence/bffc751-full-gate.log` at **`bffc751`** |
-| Earlier gates (superseded) | `check: OK` at `b4c5f44` (pytest 107), `ad04b9e` (110), `ed10734` (111; 388/388) | `docs/reviews/evidence/{b4c5f44,ad04b9e,ed10734}-full-gate.log` |
+| Full gate `./scripts/check-full.sh` | `check: OK`, exit 0; 389/389 per preset; pytest 114 passed | `docs/reviews/evidence/46b9aca-full-gate.log` at **`46b9aca`** |
+| Earlier gates (superseded) | `check: OK` at `b4c5f44` (pytest 107), `ad04b9e` (110), `ed10734` (111; 388/388), `bffc751` (113) | `docs/reviews/evidence/{b4c5f44,ad04b9e,ed10734,bffc751}-full-gate.log` |
+| R-003 dependency claim | in fresh binary directories under release and static-plugins, building only `capture_cruise_regression` yields a harness whose output hashes identically to the golden (`6120a053…`); the regression test is not built | session scratch (commands recorded in the findings file) |
 | Capture (commit B `3d0d3a6`) | armed script, exit 0; `cross_preset_agreement: true (debug release asan static-plugins, byte for byte); no halt`; capture revision `4ce6a9f`; frozen bit patterns hash identically to the pre-arm dry run | `tests/golden/notional_transport/cruise_regression_manifest.md` |
 | 1. Trimmed derivative < 1e-6 | `test_cruise_config_initial_state_is_trimmed` passes; D8 max-abs 8.3e-17 (still air) | gate log |
 | 2. Bitwise match, four presets | `MatchesTheFrozenTrajectoryBitwise` passes under debug, release, asan and static-plugins | gate log at `bffc751` |
-| 3. Capture refuses unarmed | 10 guard tests pass: unarmed; env ≠ 1; dirty tree; no baseline; inherited `GIT_*` isolation; halt; cross-preset mismatch; an existing golden (J-2) with header+manifest, header only, and manifest only. Each of the inherited-`GIT_*`, mismatch and J-2 tests was shown to fail against a deliberately broken version | gate log |
+| 3. Capture refuses unarmed | 11 guard tests pass: unarmed; env ≠ 1; dirty tree; no baseline; inherited `GIT_*` isolation; halt; cross-preset mismatch; an existing golden (J-2) with header+manifest, header only, and manifest only; and the authorized re-capture path building only the harness target (R-003). Each of the inherited-`GIT_*`, mismatch, J-2 and R-003 tests was shown to fail against a deliberately broken version | gate log |
 | 4. Phugoid period / damping | pass: 108.573 s vs 108.534 s (tolerance 5%); ζ 0.02711 vs 0.02730 (tolerance 0.02). J-1 left ζ unchanged | gate log |
 | 5. Two runs bitwise identical | `TwoRunsFromTheSameConfigAreBitwiseIdentical` passes, all four presets | gate log |
 | 6. Existing consumers green | all green; list from `grep -rl "notional_transport/configs/cruise.yaml" tests python aircraft --include=*.cpp --include=*.py` | gate log |
-| 7. Full gate green | yes, at `bffc751` | above |
+| 7. Full gate green | yes, at `46b9aca` | above |
 | Pre-arm capture dry run | four presets byte-identical, no halt | `docs/reviews/evidence/b4c5f44-capture-dryrun.md` |
 
 **Dry run** (condition 2). The harness ran under debug, release, asan and static-plugins; all four
@@ -152,23 +160,26 @@ Findings: `docs/reviews/pr8-cruise-regression-review.md`.
   - **General:** one finding, **R-003 (minor, needs-human)**. The re-capture path J-2 documents
     can't work as written. After Joe removes the golden, the script's full `cmake --build`
     compiles the regression test, which includes the now-missing header, so the build fails
-    before the harness can regenerate it. The current candidate is unaffected, and the failure
-    is safe: the script stops and writes nothing. Not fixed, because rounds are exhausted.
-    **Recommended fix:** drop the full-build line (`capture_cruise_regression.sh:107`) and build
-    only `--target capture_cruise_regression`, which already depends on every plugin under both
-    plugin modes.
-- **Open findings:** R-003 only.
+    before the harness can regenerate it. The failure was safe: the script stopped and wrote
+    nothing.
+- **R-003 fix** (`46b9aca`; authorized by Joe 2026-09-22, outside the correction budget, rounds
+  stay 2/2). Step 4 builds only `--target capture_cruise_regression`, and the script comment
+  explains that this target carries the full plugin dependency via `astra_finalize_plugins()`
+  under both plugin modes. I checked that claim in fresh build directories. The new guard test
+  `test_authorized_recapture_builds_only_the_harness_target` runs the real re-capture path: golden
+  removed in a commit, armed, J-2 not firing, and the stub `cmake`'s invocation log showing exactly
+  one harness-target build per preset. It fails if the full build is restored. **Codex fix
+  verification of the R-003 delta** (`abe3764..46b9aca`): approve, "New findings: none".
+- **Open findings:** none.
 
 ## Joe's attention
 
 - `aircraft/notional_transport/configs/cruise.yaml`: the literals and provenance comment.
 - `tests/capture/capture_cruise_regression.sh`: the refusal order, including J-2's step 1b, and
-  R-003's step-4 build line.
+  the R-003 step-4 build.
 - `tests/golden/notional_transport/cruise_regression_manifest.md`: what was frozen, from which
-  revision, under which toolchains.
-- **The arming marker is still present** (`~/repos/ASTRA/.claude/touch-goldens`, created 15:54).
-  While it exists, agent writes to `tests/golden/**` are not blocked. The capture is done, so
-  remove it when convenient (the SessionStart hook also deletes it). I have not touched it.
+  revision, under which toolchains. See the script-blob note at the top.
+- The arming marker has been removed (checked absent in both locations before the R-003 fix).
 - `tests/python/test_cruise_phugoid.py`: the 5×5 construction, the measurement, and the
   log-decrement derivation. No reference in `docs/refs/` defines the log decrement.
 - Accepted-by-plan disclosure: the trim is still-air on a rotating Earth, so the unperturbed run
@@ -187,8 +198,10 @@ findings for commit C's cycle (not a third correction round): (J-1) the damping 
 peak window must end at the record end, not at a third crossing, which lands at 292.59 s of a
 300 s record; (J-2) the capture script must refuse when a golden already exists, because a
 re-capture needs a fresh, explicit authorization, not just arming. Gate cost accepted as written.
-Approved candidate/scope: `ed10734` against base `553700f`, pre-capture. **The complete candidate
-`bffc751` awaits Joe's decision** (plus R-003).
+Joe, 2026-09-22: "R-003: fix it. Authorized by me, 2026-09-22, outside the correction budget";
+push, draft PR, and `gh pr ready` authorized on a green gate and fix verification.
+Approved candidate/scope: `ed10734` against base `553700f`, pre-capture. The final candidate
+`46b9aca` awaits Joe's squash-merge.
 Merge observed: not merged
 Release authorization: not requested
 

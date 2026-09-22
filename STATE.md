@@ -15,11 +15,12 @@ only the harness target, with a guard test on the real path. Packet:
 
 ## Last verified result
 `./scripts/check-full.sh` at `bffc751`: `check: OK`, exit 0, 389/389 on each of four presets,
-pytest 113 passed. The R-003 fix commit needs its own gate: see Next step.
+pytest 113 passed. At `46b9aca` (R-003 fix, final candidate): `check: OK`, exit 0, 389/389 per
+preset, pytest 114 passed (`docs/reviews/evidence/46b9aca-full-gate.log`). Codex R-003 fix
+verification: approve, new findings none.
 
 ## Next step
-Full gate on the R-003 fix commit → Codex fix verification of the R-003 delta → packet update. On
-green: push the branch, `gh pr create --draft`, `gh pr ready`, confirm GitHub's check on the pushed
+Done on green: packet updated for `46b9aca`. Now: push the branch, `gh pr create --draft`, `gh pr ready`, confirm GitHub's check on the pushed
 head (all authorized by Joe, 2026-09-22). The squash-merge is Joe's.
 
 ## Tried / failed

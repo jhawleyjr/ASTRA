@@ -103,7 +103,7 @@ round). Full gate at `bffc751`: `check: OK` (`docs/reviews/evidence/bffc751-full
 ## Finding R-003
 
 Severity: minor (Codex: P2)
-Status: fixed-unverified
+Status: verified
 Location: `tests/unit/kernel/notional_transport_cruise_regression_test.cpp:13` at `bffc751`, with
 `tests/capture/capture_cruise_regression.sh:107` (`capture_under_all_presets`)
 Requirement/ADR: J-2's documented re-capture path: Joe removes the existing golden in a commit he
@@ -138,15 +138,17 @@ presets through `astra_finalize_plugins()`'s `add_dependencies` (this PR added
 `astra_core`, which the harness links. It would be a one-line script change plus a guard-test
 check. Alternative: make the test's golden include conditional in CMake, which is more machinery
 for a rarely used path.
-Verification: pending Codex fix verification of the R-003 delta.
-History: B/C review — open → needs-human → fixed-unverified (Joe-authorized fix, outside the
-correction budget; rounds stay 2/2).
+Verification: Codex adversarial fix verification of the R-003 delta only, base `abe3764` head
+`46b9aca`, exit 0, verdict approve: "R-003 holds ... The dependency comment is accurate ... Missing
+or extra builds fail its assertions, preventing vacuous success. New findings: none." Full gate at
+`46b9aca`: `check: OK` (`docs/reviews/evidence/46b9aca-full-gate.log`).
+History: B/C review — open → needs-human → fixed-unverified (`46b9aca`, Joe-authorized, outside
+the correction budget; rounds stay 2/2) → verified.
 Human exception if needed: Joe authorized the fix outside the correction budget (above).
 
 ## Completion
 
-Open findings: R-003 fixed under Joe's authorization, pending fix verification. Pre-capture
-findings: none open. Correction rounds: 2/2 (R-003's fix is Joe-authorized, outside the budget). R-001 and R-002 verified, and the final verification pass at `ed10734`
+Open findings: none. R-001, R-002 and R-003 are verified; R-003's fix was Joe-authorized. Correction rounds: 2/2 (R-003's fix is Joe-authorized, outside the budget). R-001 and R-002 verified, and the final verification pass at `ed10734`
 re-confirmed R-001. New findings from that pass's fix-delta inspection: none ("No material
 findings", verdict approve). Correction rounds used: 2/2, so any further finding goes to Joe.
 
