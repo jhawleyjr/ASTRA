@@ -851,6 +851,14 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         `docs/reviews/pr8-cruise-regression-review.md`; human-review packet:
         `docs/reviews/pr8-cruise-regression-human.md`. PR #46 merged as `f4d69a7`, 2026-09-22
         (squash merge, Joe).
+  - [x] PR 9 — M3 closeout: `icd/astra_icd.h`'s elevator/aileron/rudder comment states the positive-
+        deflection sense directly (comment-only; no layout, version, or static-assert change); the
+        deflection-range follow-up narrowed to the actuator model (M4+); PR 8 and the M3 milestone
+        checked off; the fresh-checkout `tidy` gap recorded as a follow-up (fix: M3 PR 10). Tier 1,
+        no plan. **Implemented, validated (full gate green at candidate `4277242`, four presets,
+        389/389 each, pytest 114 passed -- reached only after a manual `capture_cruise_regression`
+        target build, the gap above; one Codex general pass, base `f4d69a7`, no actionable
+        defects).** PR #47 merged as `7a83a75`, 2026-09-22 (squash merge, Joe).
 - [ ] **M4 Lockstep** — shm transport + HAL + straight-and-level autopilot outside the sim tree; 10,000
       exchanges, zero missed; altitude ±30 m, heading ±2° under light Dryden; bit-identical logs; peer death
       halts within one timeout.
