@@ -51,3 +51,15 @@ exit=1
 ## tests/golden/** untouched
 $ git status --porcelain --untracked-files=all tests/golden
 exit=0
+
+## R1 script from a clean committed tree, f3c1460, 2026-09-23T05:40:17Z
+$ git status --porcelain
+$ env -u ASTRA_TOUCH_GOLDENS bash tests/golden/dynamics/capture_r1_golden.sh
+ core/src/kernel/simulation.cpp                     |  46 +-
+ core/src/kernel/vehicle.cpp                        | 528 +++++++++++++++------
+ 21 files changed, 1216 insertions(+), 359 deletions(-)
+capture_r1_golden.sh: core/, plugins/, cmake/, top-level build files, or aircraft/notional_transport/ differ from baseline 26ad594 (see above) -- refusing to capture
+exit=1
+$ git rev-parse HEAD (before: f3c14609e5dc9116f967bb37c749b6c5e959afdf)
+f3c14609e5dc9116f967bb37c749b6c5e959afdf
+$ git status --porcelain --untracked-files=all tests/golden
