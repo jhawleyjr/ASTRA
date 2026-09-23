@@ -874,7 +874,11 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         target build. `CMAKE_CXX_SCAN_FOR_MODULES OFF` at top level (no C++ modules in this tree) plus
         `CXX_SCAN_FOR_MODULES OFF` on `capture_cruise_regression`; fresh-configure pytest regression
         on the harness TU. Tier 2, no plan critique. Plan: `docs/plans/pr10-fresh-tidy.md`
-        (approved by Joe with changes, 2026-09-22). In progress.
+        (approved by Joe with changes, 2026-09-22). **Implemented, validated (full gate green at
+        `f3c1460` from `rm -rf build`, no manual target build, four presets 389/389 each, pytest
+        115 passed, `docs/reviews/evidence/f3c1460-full-gate.log`; regression fails at `7a83a75`;
+        one Codex general pass, no actionable defects).** Awaiting Joe's review:
+        `docs/reviews/pr10-fresh-tidy-human.md`.
 - [ ] **M4 Lockstep** — shm transport + HAL + straight-and-level autopilot outside the sim tree; 10,000
       exchanges, zero missed; altitude ±30 m, heading ±2° under light Dryden; bit-identical logs; peer death
       halts within one timeout.
