@@ -1,31 +1,40 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines; true at handoff)
 
 ## In flight
-**M3 PR 8** (trimmed `cruise.yaml`, 300 s regression trajectory, phugoid cross-check). Tier 3.
-Branch `worktree-m3-pr8-cruise-regression`, base `origin/main` `553700f`. Plan
-`docs/plans/pr8-cruise-regression.md` Revision 2 (approved, five conditions met) plus the J-1/J-2 note.
+**M3 PR 9** (M3 closeout + ICD control conventions). Tier 1. Branch
+`worktree-m3-pr9-icd-conventions`, base `origin/main` `f4d69a7`. No plan (Tier 1, single commit);
+no `/plan-feature`. Comment-only in `icd/`: no layout, version, or static-assert change.
 
-Joe approved pre-capture `ed10734`. Commit B `3d0d3a6` holds the golden, captured at `4ce6a9f`
-(four presets byte-identical, no halt). Commit C `bffc751` holds the golden test plus Joe's
-J-1/J-2. **R-003 (the re-capture path fails to build once the golden is removed): fix authorized
-by Joe, 2026-09-22, outside the correction budget; rounds stay 2/2.** The fix makes step 4 build
-only the harness target, with a guard test on the real path. Packet:
-`docs/reviews/pr8-cruise-regression-human.md`; findings:
-`docs/reviews/pr8-cruise-regression-review.md`. The arming marker has been removed (checked absent).
+One commit, scope: `PLAN.md` (check off PR 8 and the M3 milestone line, citing PRs 6/7/8; check off
+the positive-deflection-sense item as resolved here; narrow the deflection-range item to "actuator
+model owns it, M4+"; add a follow-up for the fresh-checkout `tidy` gap below, fix in M3 PR 10),
+`icd/astra_icd.h` line 45 (states elevator/aileron/rudder positive sense directly, cross-
+referencing `aircraft/notional_transport/physical/aero`, replacing the circular ADR-0001 pointer),
+`STATE.md` (this rewrite), `docs/lessons.md` (the two PR 8 lessons, confirmed absent before
+appending, plus a third on the `tidy` gap found this session).
 
 ## Last verified result
-`./scripts/check-full.sh` at `bffc751`: `check: OK`, exit 0, 389/389 on each of four presets,
-pytest 113 passed. At `46b9aca` (R-003 fix, final candidate): `check: OK`, exit 0, 389/389 per
-preset, pytest 114 passed (`docs/reviews/evidence/46b9aca-full-gate.log`). Codex R-003 fix
-verification: approve, new findings none.
+`./scripts/check-full.sh` pre-commit, working tree at `f4d69a7` plus the four edits: `check: OK`,
+exit 0, 389/389 per preset (four), pyright 0/0/0, pytest 114 passed. `git diff --stat` against
+`origin/main` touches only `PLAN.md`, `STATE.md`, `icd/astra_icd.h`, `docs/lessons.md`.
+
+**`main` fails its own full gate from a fresh checkout, right now, since `f4d69a7` (#46) — found,
+not fixed here (Tier 1; PLAN.md follow-up added, fix scheduled M3 PR 10, Tier 2).** A fresh
+`build/asan` fails `just tidy` on `tests/capture/capture_cruise_regression` (`EXCLUDE_FROM_ALL`,
+M3 PR 8): its dependency-scan artifact is generated only by an actual build of that target, which
+nothing in `just check` (`tidy` runs before `pytest`) or the `tmp_path`-only guard tests ever does.
+The evidence above was reached only after manually running `cmake --build build/asan --target
+capture_cruise_regression` (no source change) first; PR 8's own retained evidence passed only
+because its worktree's `build/asan` was already primed by a real, armed capture run, masking this.
 
 ## Next step
-Done on green: packet updated for `46b9aca`. Now: push the branch, `gh pr create --draft`, `gh pr ready`, confirm GitHub's check on the pushed
-head (all authorized by Joe, 2026-09-22). The squash-merge is Joe's.
+Diff approved by Joe, plus the lessons/PLAN.md additions above. Commit (one commit, all four
+files), one Codex general pass (no adversarial, no plan critique), push, `gh pr create --draft`,
+`gh pr ready`, report head SHA and check run. `git worktree prune` once removed.
 
 ## Tried / failed
-Correction rounds: 2/2 (R-001, R-002). J-1/J-2 (Joe's findings) and R-003 (Joe-authorized) are
-outside the budget. Failed integrations: 0/2.
+Correction rounds: 0/2. Failed integrations: 0/2. First full-gate run failed at `tidy` on the
+pre-existing gap above (not a regression); the target build then let it pass.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.

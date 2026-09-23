@@ -511,23 +511,28 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       `aircraft/notional_transport`'s own `physical/mass` plugins (M3 PR 1) document and use the
       product-of-inertia convention explicitly instead; the shared plugin's keys are unchanged and
       still undocumented. Not started.
-- [ ] `icd/astra_icd.h`'s elevator/aileron/rudder fields have no documented positive-deflection sense
-      (M3 PR 4 planning): the header comment says only "rad, positive per ADR-0001 sign conventions,"
+- [x] `icd/astra_icd.h`'s elevator/aileron/rudder fields have no documented positive-deflection sense
+      (M3 PR 4 planning): the header comment said only "rad, positive per ADR-0001 sign conventions,"
       and ADR-0001 itself only says the definition is "documented alongside them" — nowhere actually
-      states whether positive means trailing-edge-up or -down, left or right. `aircraft/notional_
-      transport`'s `physical/aero` plugin (PR 4) is the first consumer that needs a definition to
-      exist, and adopts JSBSim's own sense directly (elevator trailing-edge-down, positive aileron =
+      stated whether positive means trailing-edge-up or -down, left or right. `aircraft/notional_
+      transport`'s `physical/aero` plugin (PR 4) was the first consumer that needed a definition to
+      exist, and adopted JSBSim's own sense directly (elevator trailing-edge-down, positive aileron =
       right-wing-down roll, rudder trailing-edge-left — inferred from `docs/refs/aircrafts/737.xml`'s
-      own `Cmde`/`Clda`/`Cndr`/`Cldr` signs, approved by Joe as the ICD convention). Pinning it for
-      this one aircraft's own controls does not resolve the framework-wide gap: `icd/astra_icd.h`'s
-      own comment should eventually state the physical sense directly instead of pointing at
-      ADR-0001, which does not itself state it. Not started.
+      own `Cmde`/`Clda`/`Cndr`/`Cldr` signs, approved by Joe as the ICD convention). **Resolved by M3
+      PR 9:** `icd/astra_icd.h` line 45's comment now states the physical sense directly (elevator
+      trailing-edge-down = nose-down pitching moment, aileron right-wing-down rolling moment, rudder
+      trailing-edge-left = nose-left yawing moment) instead of pointing at ADR-0001, and cross-
+      references `aircraft/notional_transport/physical/aero`'s own convention. Comment-only; no
+      layout, version, or static-assert change.
 - [ ] Elevator/throttle deflection *range* has no declared home either (M3 PR 6 planning,
       `docs/plans/pr6-trim.md`, D10): the second control-surface property (after the
-      positive-deflection-sense gap above) with no config key or ICD field to read it from. PR 6's
-      own plausibility check hardcodes `elevator ∈ [-0.3, 0.3]` rad (737.xml) and `throttle ∈ [0, 1]`
-      (the ICD's documented convention, not a config value) directly in its test rather than adding
-      `aircraft/**/physical` config keys. Not started.
+      positive-deflection-sense gap above, resolved by M3 PR 9) with no config key or ICD field to
+      read it from. PR 6's own plausibility check hardcodes `elevator ∈ [-0.3, 0.3]` rad (737.xml)
+      and `throttle ∈ [0, 1]` (the ICD's documented convention, not a config value) directly in its
+      test rather than adding config keys. **Narrowed by M3 PR 9:** per-aircraft surface limits live
+      with the aircraft's own actuator model (M4+), not the ICD — `astra_sw_to_sim_v1`'s `elevator`/
+      `aileron`/`rudder`/`throttle` fields carry a commanded angle the sim does not clamp in v1; the
+      ICD does not carry limits. Not started.
 - [ ] `astra.trim`'s own hardcoded control-input names (D10, PR 6, `docs/plans/pr6-trim.md`) are not
       retrofitted to `InputRegistry::names()` by PR 7's own binding of it (M3 PR 7 planning): PR 7
       reads control names through it for `astra.linearize` only, and `trim_straight_and_level` keeps
@@ -540,6 +545,15 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       (108.5 s, 0.027), as S&L Example 3.8-5 describes. PR 8 builds that 5x5 in its own test only.
       An opt-in altitude state in `astra.linearize` itself would be a D11 revision -- Joe's call,
       not scheduled. Not started.
+- [ ] `just check` fails at its own `tidy` step on a fresh checkout of `main` (M3 PR 9 finding,
+      `docs/lessons.md` 2026-09-22): `tests/capture/capture_cruise_regression` (M3 PR 8) is
+      `EXCLUDE_FROM_ALL`, and `run-clang-tidy-18`'s compile-database pass over `build/asan` needs a
+      CXX-dependency-scan artifact for it that only a real build of that target produces -- nothing
+      in `just check`'s own recipe order or in the guard tests (`tmp_path`-only, never the real
+      `build/asan`) ever builds it. Present since `f4d69a7` (#46); masked so far only because every
+      worktree that has run the full gate green also happened to build the harness for real earlier
+      in the same session. Fix in M3 PR 10 (Tier 2, build behavior), before M4 planning, with a
+      fresh-`configure` regression covering it. Not started.
 - [ ] `cmake/AstraPlugin.cmake`'s `astra_finalize_plugins()` hardcodes which test executables get a
       plugin build-order dependency (`astra_unit_tests`, `astra_physics_tests`, and — since M3
       PR 1 — `astra_notional_transport_mass_test`, `astra_template_mass_test`), by explicit design
@@ -582,11 +596,15 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       because no concrete plugin has real numbers to declare before PR 4. PR 4 or a later PR adds
       the declaration virtual (a further `kCoreApiVersion` bump, precedented) and wires
       `HealthMonitor`'s own per-frame check against it. Not started.
-- [ ] **M3 Notional transport** — aero + mass + turbofan plugins; trims at cruise (10,000 m, 230 m/s
+- [x] **M3 Notional transport** — aero + mass + turbofan plugins; trims at cruise (10,000 m, 230 m/s
       TAS, ADR-0002 SI) with residual < 1e-6 (norm TBD, PR 6); linearized modes match design values,
       each mode against its own tolerance; a 300 s open-loop run matches its own frozen regression
       trajectory (not an oracle), independently cross-checked against the linearized model's
-      phugoid-cycle prediction. §16's M3 row is corrected to this wording by PR 0.
+      phugoid-cycle prediction. §16's M3 row is corrected to this wording by PR 0. Trim residual:
+      PR 6 (D8 max-abs 8.3e-17, still air). Linearized modes: PR 7 (five modes within their own
+      tolerance, central-difference `A`/`B`). Regression trajectory + independent cross-check: PR 8
+      (300 s bitwise-frozen run, four presets; phugoid period/damping against PR 7's 5×5 `A` within
+      0.5%/0.004).
   - [x] PR 0 — merged as `91aa358` (#36, 2026-09-19). Neutral status markers on `docs/architecture.md`: §7/§8/§12 note the `AeroModel`/
         `AeroInputs`/`Simulation` Python bindings as not-yet-built M3 scope, without rewriting §7's
         shape yet (that lands with PR 2/3's ADR, once the control-input design is actually pinned, to
@@ -803,7 +821,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         pushed and opened as PR #45, ready (not draft), GitHub's own `check` green at pushed head
         `b1d0fdc`. Human-review packet: `docs/reviews/pr7-linearize-human.md`. PR #45 merged as
         `553700f`, 2026-09-22 (squash merge, Joe).
-  - [ ] PR 8 — Cruise config(s) (D6's `vehicle.models` schema) + 300 s open-loop run frozen as a
+  - [x] PR 8 — Cruise config(s) (D6's `vehicle.models` schema) + 300 s open-loop run frozen as a
         regression trajectory (O5 -- not an oracle), generator-under-guard pattern from
         `tests/golden/nesc/`. Adds the actual independent check §16 (as corrected by PR 0) requires: a
         small-perturbation open-loop response compared against PR 7's linearized-model prediction
@@ -817,6 +835,22 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         what PR 8 is actually validating against, not because the closed form is unreliable (PR 7's
         own D18 Revision 4 got the closed-form phugoid frequency to within 0.9% once the right
         equation, 4.2-16, and CG-referenced coefficient were used).
+        **Implemented, validated (full gate green at final candidate `46b9aca`, four presets,
+        389/389 each, pytest 114 passed, retained at
+        `docs/reviews/evidence/46b9aca-full-gate.log`; Codex two passes, base `553700f` -- general
+        (`553700f..18ca1e8`) no actionable defects; adversarial (six-area focus) found R-001 (the
+        guard-test fixture's `git` calls inherited `GIT_DIR`/`GIT_WORK_TREE`), fixed `ad04b9e`;
+        fix-verification 1 found R-002 (the shared-clone fixture's own golden-absence assertion
+        would break the post-capture gate), fixed `ed10734`; fix-verification 2: R-001/R-002 hold,
+        no new findings, verdict approve -- correction rounds 2/2 consumed), approved by Joe.**
+        Joe-authorized fix outside the correction budget: R-003 (the re-capture path failed to
+        build once the golden was removed), fixed `46b9aca`, Codex fix-verification: approve, no
+        new findings. Human-review decision: Joe approved final candidate `46b9aca` against base
+        `553700f`, 2026-09-22 (pre-capture candidate `ed10734` approved first; commit B `3d0d3a6`
+        the golden, commit C `bffc751` the golden-comparison test plus J-1/J-2). Findings:
+        `docs/reviews/pr8-cruise-regression-review.md`; human-review packet:
+        `docs/reviews/pr8-cruise-regression-human.md`. PR #46 merged as `f4d69a7`, 2026-09-22
+        (squash merge, Joe).
 - [ ] **M4 Lockstep** — shm transport + HAL + straight-and-level autopilot outside the sim tree; 10,000
       exchanges, zero missed; altitude ±30 m, heading ±2° under light Dryden; bit-identical logs; peer death
       halts within one timeout.
