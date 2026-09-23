@@ -41,9 +41,15 @@ typedef struct { /* sim -> flight software: what the aircraft is doing */
 
 typedef struct { /* flight software -> sim: what the aircraft is told to do */
   uint32_t magic, version;
-  uint64_t frame;                   /* echoes the frame it responds to */
-  double elevator, aileron, rudder; /* rad, positive per ADR-0001 sign conventions */
-  double throttle[2];               /* 0..1 per engine */
+  uint64_t frame; /* echoes the frame it responds to */
+  /* Commanded surface angle, rad. Positive elevator = trailing-edge-down (nose-down pitching
+   * moment); positive aileron = right-wing-down rolling moment; positive rudder =
+   * trailing-edge-left (nose-left yawing moment) -- the same convention
+   * aircraft/notional_transport/physical/aero documents (docs/plans/pr4-notional-aero-turbofan.md's
+   * sign table). The sim does not clamp these in v1; range enforcement belongs to the actuator
+   * model. */
+  double elevator, aileron, rudder;
+  double throttle[2]; /* 0..1 per engine */
   uint32_t mode_flags, fault_flags;
 } astra_sw_to_sim_v1;
 
