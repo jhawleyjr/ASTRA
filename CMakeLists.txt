@@ -12,6 +12,10 @@ set(ASTRA_SANITIZERS "" CACHE STRING
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+# No C++ modules in this tree. CMake >= 3.28 otherwise scans every C++20+ TU under Ninja and adds an
+# `@<object>.modmap` argument to each compile_commands.json entry that only a build of that target
+# writes, so clang-tidy fails on any TU not yet built -- every EXCLUDE_FROM_ALL target, always.
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if(NOT CMAKE_BUILD_TYPE)

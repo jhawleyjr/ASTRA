@@ -1,0 +1,51 @@
+# Acceptance (1), revert case, 2026-09-23T05:35:03Z: 7a83a75 (fix absent) + only the new test file
+$ git rev-parse HEAD
+7a83a75244addb695b67e117fd34b14fecc06fbf
+exit=0
+7a83a75244addb695b67e117fd34b14fecc06fbf
+$ git status --porcelain
+?? tests/python/test_tidy_fresh_configure.py
+exit=0
+?? tests/python/test_tidy_fresh_configure.py
+$ grep -c SCAN_FOR_MODULES CMakeLists.txt tests/capture/CMakeLists.txt
+tests/capture/CMakeLists.txt:0
+CMakeLists.txt:0
+exit=1
+
+## Manual sequence: fresh scratch configure (dir did not exist), no build, tidy on the harness TU
+$ test ! -e /tmp/claude-1000/-home-joe-repos-ASTRA/45b2670b-095e-4569-94dc-724d3656f6c6/scratchpad/revert-fresh-asan-2
+exit=0
+$ cmake --preset asan -B /tmp/claude-1000/-home-joe-repos-ASTRA/45b2670b-095e-4569-94dc-724d3656f6c6/scratchpad/revert-fresh-asan-2
+Preset CMake variables:
+
+  ASTRA_SANITIZERS="address,undefined"
+  CMAKE_BUILD_TYPE="Debug"
+  CMAKE_CXX_COMPILER="clang++-18"
+  CMAKE_EXPORT_COMPILE_COMMANDS="ON"
+
+exit=0
+$ ls /tmp/claude-1000/-home-joe-repos-ASTRA/45b2670b-095e-4569-94dc-724d3656f6c6/scratchpad/revert-fresh-asan-2/tests/capture/CMakeFiles/capture_cruise_regression.dir/
+CXXDependInfo.json
+exit=0
+$ run-clang-tidy-18 -clang-tidy-binary clang-tidy-18 -p /tmp/claude-1000/-home-joe-repos-ASTRA/45b2670b-095e-4569-94dc-724d3656f6c6/scratchpad/revert-fresh-asan-2 -quiet -j 8 /tmp/claude-1000/-home-joe-repos-ASTRA/45b2670b-095e-4569-94dc-724d3656f6c6/scratchpad/wt-revert-7a83a75/tests/capture/capture_cruise_regression.cpp$
+clang-tidy-18 -p=/tmp/claude-1000/-home-joe-repos-ASTRA/45b2670b-095e-4569-94dc-724d3656f6c6/scratchpad/revert-fresh-asan-2 -quiet /tmp/claude-1000/-home-joe-repos-ASTRA/45b2670b-095e-4569-94dc-724d3656f6c6/scratchpad/wt-revert-7a83a75/tests/capture/capture_cruise_regression.cpp
+error: no such file or directory: '@tests/capture/CMakeFiles/capture_cruise_regression.dir/capture_cruise_regression.cpp.o.modmap' [clang-diagnostic-error]
+60189 warnings and 1 error generated.
+Error while processing /tmp/claude-1000/-home-joe-repos-ASTRA/45b2670b-095e-4569-94dc-724d3656f6c6/scratchpad/wt-revert-7a83a75/tests/capture/capture_cruise_regression.cpp.
+exit=1
+
+## The regression test itself (its own fresh tmp_path configure)
+$ /home/joe/repos/ASTRA/.venv/bin/python -m pytest tests/python/test_tidy_fresh_configure.py -q -p no:cacheprovider
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___ test_tidy_passes_on_the_exclude_from_all_harness_from_a_fresh_configure ____
+
+tmp_path = PosixPath('/tmp/pytest-of-joe/pytest-2/test_tidy_passes_on_the_exclud0')
+
+    def test_tidy_passes_on_the_exclude_from_all_harness_from_a_fresh_configure(tmp_path: Path) -> None:
+        build = tmp_path / "asan"
+        subprocess.run(
+            ["cmake", "--preset", "asan", "-B", str(build)],
+            cwd=REPO_ROOT,
+            env=_env(),
+exit=1
