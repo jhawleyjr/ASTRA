@@ -545,7 +545,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       (108.5 s, 0.027), as S&L Example 3.8-5 describes. PR 8 builds that 5x5 in its own test only.
       An opt-in altitude state in `astra.linearize` itself would be a D11 revision -- Joe's call,
       not scheduled. Not started.
-- [ ] `just check` fails at its own `tidy` step on a fresh checkout of `main` (M3 PR 9 finding,
+- [x] `just check` fails at its own `tidy` step on a fresh checkout of `main` (M3 PR 9 finding,
       `docs/lessons.md` 2026-09-22): `tests/capture/capture_cruise_regression` (M3 PR 8) is
       `EXCLUDE_FROM_ALL`, and `run-clang-tidy-18`'s compile-database pass over `build/asan` needs a
       CXX-dependency-scan artifact for it that only a real build of that target produces -- nothing
@@ -553,7 +553,18 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       `build/asan`) ever builds it. Present since `f4d69a7` (#46); masked so far only because every
       worktree that has run the full gate green also happened to build the harness for real earlier
       in the same session. Fix in M3 PR 10 (Tier 2, build behavior), before M4 planning, with a
-      fresh-`configure` regression covering it. Not started.
+      fresh-`configure` regression covering it. **Resolved by M3 PR 10** (`docs/plans/
+      pr10-fresh-tidy.md`): the missing artifact is the target's `.modmap` (CMake 3.28 module
+      scanning, on for every C++23 TU); `CMAKE_CXX_SCAN_FOR_MODULES OFF` at top level plus the
+      target property on the harness; regression `tests/python/test_tidy_fresh_configure.py`.
+- [ ] `tests/golden/dynamics/capture_r1_golden.cpp` (the R1/R1-Sim capture harness, M3 PR 4a) is
+      stale: it includes `astra/kernel/eom.hpp` and uses `astra::Eom`/`post_step_renormalize`, all
+      retired by ADR-0021 in PR 4a itself. A future R1 re-capture needs a source fix to that harness
+      under Joe's authorization (it is under `tests/golden/**`), not just re-adding
+      `add_subdirectory(golden/dynamics)` as `tests/CMakeLists.txt`'s comment implies. Its script
+      `capture_r1_golden.sh` also has no arming check of its own (unlike PR 8's); today it refuses
+      at its clean-tree and baseline-drift (`26ad594`) steps, before its first commit (M3 PR 10
+      finding). Not started.
 - [ ] `cmake/AstraPlugin.cmake`'s `astra_finalize_plugins()` hardcodes which test executables get a
       plugin build-order dependency (`astra_unit_tests`, `astra_physics_tests`, and — since M3
       PR 1 — `astra_notional_transport_mass_test`, `astra_template_mass_test`), by explicit design
@@ -859,6 +870,11 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         389/389 each, pytest 114 passed -- reached only after a manual `capture_cruise_regression`
         target build, the gap above; one Codex general pass, base `f4d69a7`, no actionable
         defects).** PR #47 merged as `7a83a75`, 2026-09-22 (squash merge, Joe).
+  - [ ] PR 10 — fresh-checkout `tidy` fix: `just check` passes from a fresh configure with no manual
+        target build. `CMAKE_CXX_SCAN_FOR_MODULES OFF` at top level (no C++ modules in this tree) plus
+        `CXX_SCAN_FOR_MODULES OFF` on `capture_cruise_regression`; fresh-configure pytest regression
+        on the harness TU. Tier 2, no plan critique. Plan: `docs/plans/pr10-fresh-tidy.md`
+        (approved by Joe with changes, 2026-09-22). In progress.
 - [ ] **M4 Lockstep** — shm transport + HAL + straight-and-level autopilot outside the sim tree; 10,000
       exchanges, zero missed; altitude ±30 m, heading ±2° under light Dryden; bit-identical logs; peer death
       halts within one timeout.

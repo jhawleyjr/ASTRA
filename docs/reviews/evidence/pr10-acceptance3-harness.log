@@ -1,0 +1,53 @@
+# Acceptance (3), candidate bc3bf07 + working tree, 2026-09-23T05:35:31Z
+$ git status --porcelain tests/golden
+exit=0
+$ ls .claude/touch-goldens /home/joe/repos/ASTRA/.claude/touch-goldens
+ls: cannot access '.claude/touch-goldens': No such file or directory
+ls: cannot access '/home/joe/repos/ASTRA/.claude/touch-goldens': No such file or directory
+exit=2
+## Cruise harness: build into scratch, run to scratch
+$ cmake --preset asan -B /tmp/claude-1000/-home-joe-repos-ASTRA/45b2670b-095e-4569-94dc-724d3656f6c6/scratchpad/acc3-asan
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE  
+-- Configuring done (0.2s)
+-- Generating done (0.0s)
+-- Build files have been written to: /tmp/claude-1000/-home-joe-repos-ASTRA/45b2670b-095e-4569-94dc-724d3656f6c6/scratchpad/acc3-asan
+exit=0
+$ grep -c modmap /tmp/claude-1000/-home-joe-repos-ASTRA/45b2670b-095e-4569-94dc-724d3656f6c6/scratchpad/acc3-asan/compile_commands.json
+0
+exit=1
+$ cmake --build /tmp/claude-1000/-home-joe-repos-ASTRA/45b2670b-095e-4569-94dc-724d3656f6c6/scratchpad/acc3-asan --target capture_cruise_regression --parallel 8
+[88/93] Linking CXX shared module plugins/libastra_tests_plugins_wind_consumer.so
+[89/93] Building CXX object tests/plugins/nesc_aero/CMakeFiles/astra_tests_plugins_nesc_aero.dir/nesc_aero.cpp.o
+[90/93] Linking CXX shared module plugins/libastra_tests_plugins_state_owner.so
+[91/93] Linking CXX shared module plugins/libastra_tests_plugins_nesc_aero.so
+[92/93] Building CXX object tests/capture/CMakeFiles/capture_cruise_regression.dir/capture_cruise_regression.cpp.o
+[93/93] Linking CXX executable tests/capture/capture_cruise_regression
+exit=0
+$ /tmp/claude-1000/-home-joe-repos-ASTRA/45b2670b-095e-4569-94dc-724d3656f6c6/scratchpad/acc3-asan/tests/capture/capture_cruise_regression trajectory /home/joe/repos/ASTRA/.claude/worktrees/m3-pr10-fresh-tidy/aircraft /tmp/claude-1000/-home-joe-repos-ASTRA/45b2670b-095e-4569-94dc-724d3656f6c6/scratchpad/acc3-asan/plugins
+    {{0x3f8628f19c3428e3ULL, 0xbf36df4304ce1c07ULL, 0x40c39ba2752e253cULL, 0x406ccee27745d97cULL, 0xc02bf4b640ad73a1ULL, 0x400e01402466f23fULL, 0x3feffce2ed5bb9c9ULL, 0xbf9a64b9ab53521eULL, 0xbf749c05d00cb332ULL, 0xbf812d3cdd66cea3ULL, 0x3fbe2baedd5c5a09ULL, 0xbf7b252771db574aULL, 0xbfa6f18c2b03614fULL}},  // t = 296 s
+    {{0x3f863bf9736c002aULL, 0xbf370d37276f4d02ULL, 0x40c3982174b625a5ULL, 0x406ce834cebdf295ULL, 0xbffc2d536e3d0aadULL, 0x400ae848d0093f64ULL, 0x3feff9ecf73afb43ULL, 0x3f8fd48c87f17d32ULL, 0xbf835798f61711b1ULL, 0xbfa16022c651e9bdULL, 0x3f79cc0796fea92aULL, 0xbf771bd8def6b330ULL, 0xbf9b07dfde164744ULL}},  // t = 297 s
+    {{0x3f864f08b54cc256ULL, 0xbf373bb2e4426c61ULL, 0x40c3943a48ca1d3cULL, 0x406cf5404dedb362ULL, 0xbfee0ba44c868e22ULL, 0x400adb074a022be2ULL, 0x3feffa1d3a5dbba7ULL, 0x3f648a0566c6d81eULL, 0xbf858c55ef943104ULL, 0xbfa2991d72078ad9ULL, 0xbfa364cfd4e7d55fULL, 0xbf5319b5ea93dd56ULL, 0x3f85cd0d60e064b3ULL}},  // t = 298 s
+    {{0x3f86621ffeed9a4cULL, 0xbf376a06bb1fefb9ULL, 0x40c38fee1dcde56eULL, 0x406d01f4a41e2dbcULL, 0x3fea77e14ccd2e96ULL, 0x4010bd6130e4c9fbULL, 0x3feff933953a14bcULL, 0x3f6c5cf752beb7f8ULL, 0xbf85051c3c53060aULL, 0xbfa41a987530addaULL, 0x3fa383afa08b956fULL, 0x3f54599c9c34c345ULL, 0xbf9bde4c0362e4c5ULL}},  // t = 299 s
+    {{0x3f867541a8a68267ULL, 0xbf37978151c5a999ULL, 0x40c38bb28993ff53ULL, 0x406d1164c59b9861ULL, 0x4019bfded83f1570ULL, 0x4001af1ba036aac6ULL, 0x3feff40dcbccc26bULL, 0x3f895c32d73cf128ULL, 0xbf877360e4de7563ULL, 0xbfaa41c64f5ee22aULL, 0xbfaeb18df507110cULL, 0xbf7f75e77cd30624ULL, 0x3f900396cba13264ULL}}  // t = 300 s
+}};
+exit=0
+trajectory output: 305 lines -> scratch acc3-trajectory.out
+$ /tmp/claude-1000/-home-joe-repos-ASTRA/45b2670b-095e-4569-94dc-724d3656f6c6/scratchpad/acc3-asan/tests/capture/capture_cruise_regression meta
+EIGEN_VERSION=3.4.0
+GLIBCXX=20240908
+exit=0
+## Unarmed refusals (ASTRA_TOUCH_GOLDENS unset, no marker)
+$ env -u ASTRA_TOUCH_GOLDENS bash tests/capture/capture_cruise_regression.sh
+capture_cruise_regression.sh: unarmed: tests/golden/** is human-owned. Joe arms a capture by touching .claude/touch-goldens (this tree or the main checkout) or launching with ASTRA_TOUCH_GOLDENS=1. Nothing was built or written.
+exit=1
+$ env -u ASTRA_TOUCH_GOLDENS bash tests/golden/dynamics/capture_r1_golden.sh
+ M tests/capture/CMakeLists.txt
+?? docs/plans/pr10-fresh-tidy.md
+?? tests/python/test_tidy_fresh_configure.py
+capture_r1_golden.sh: tree has changes outside this capture step's own files (see above); commit or discard them first
+exit=1
+## tests/golden/** untouched
+$ git status --porcelain --untracked-files=all tests/golden
+exit=0

@@ -6,3 +6,7 @@
 add_executable(capture_cruise_regression EXCLUDE_FROM_ALL capture_cruise_regression.cpp)
 target_link_libraries(capture_cruise_regression PRIVATE astra::core)
 target_include_directories(capture_cruise_regression PRIVATE "${ASTRA_SOURCE_DIR}/tests/support")
+# Already OFF for every target via the top-level CMAKE_CXX_SCAN_FOR_MODULES; restated here because this
+# EXCLUDE_FROM_ALL target is the one `just tidy` sees without ever building (M3 PR 10), so it must never
+# depend on a build-time .modmap even if the top-level default changes.
+set_target_properties(capture_cruise_regression PROPERTIES CXX_SCAN_FOR_MODULES OFF)

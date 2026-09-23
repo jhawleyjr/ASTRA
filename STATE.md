@@ -25,10 +25,15 @@ capture scripts still build and run their harness (dry-run to scratch, unarmed r
 nothing under `tests/golden/**` written); (4) full gate green.
 
 ## Last verified result
-None yet this PR. Base `7a83a75` inherits the known fresh-checkout `tidy` failure (PR 9 finding).
+Acceptance (1): regression passes on the candidate (8.0 s); fails at `7a83a75` + test only, with the
+manual fresh-configure/no-build/tidy sequence exit 1 (`docs/reviews/evidence/pr10-acceptance1-revert-
+7a83a75.log`). Acceptance (3): harness builds and runs to scratch, cruise script refuses unarmed,
+`tests/golden/**` untouched (`docs/reviews/evidence/pr10-acceptance3-harness.log`); R1 script's
+refusal from a clean tree still to record. Plan Revision 2 approved by Joe with changes.
 
 ## Next step
-First commit (PLAN.md PR 9 line, this file), then `/plan-feature` and the root-cause reproduction.
+`rm -rf build`, `./scripts/check-full.sh` (acceptance 2/4), R1 clean-tree refusal, Codex general
+pass (`7a83a75..HEAD`), `/human-review` packet (finding: PR 4a's de-wiring, see plan decisions).
 
 ## Tried / failed
 Correction rounds: 0/2. Failed integrations: 0/2.
