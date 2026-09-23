@@ -75,9 +75,13 @@ by your instruction.
 
 ## Decision record
 
-State: pending
-Human decision/date/reference: pending
-Approved candidate/scope: pending
+State: approved
+Human decision/date/reference: Joe, 2026-09-22, in session: "approve the candidate at head 936c2a8
+(code candidate f3c1460)". The top-level `CMAKE_CXX_SCAN_FOR_MODULES OFF` setting was Joe's explicit
+approval (plan Revision 2; it was proposed as the better approach, not in his original instruction).
+No lesson edit for finding 2: the "reachable, not encountered" wording stands.
+Approved candidate/scope: head `936c2a8`, code candidate `f3c1460`, base `7a83a75`; later commits
+record this decision only
 Merge observed: not merged
 Release authorization: not requested
 

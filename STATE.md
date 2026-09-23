@@ -18,9 +18,8 @@ Acceptance 1 and 3 evidence are in `docs/reviews/evidence/pr10-*`. Codex general
 `7a83a75..1fcd846`: no actionable defects (`docs/reviews/pr10-fresh-tidy-review.md`).
 
 ## Next step
-Joe reviews `docs/reviews/pr10-fresh-tidy-human.md`, including finding 2 (the PR 4a history is
-worded as "reachable", not "encountered"). Then push, `gh pr create --draft`, `gh pr ready`, once
-authorized.
+Joe approved head `936c2a8` (code candidate `f3c1460`), 2026-09-22. Push, open the draft PR, mark it
+ready, confirm GitHub's `check`; then Joe squash-merges.
 
 ## Tried / failed
 Correction rounds: 0/2. Failed integrations: 0/2.

@@ -877,8 +877,9 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         (approved by Joe with changes, 2026-09-22). **Implemented, validated (full gate green at
         `f3c1460` from `rm -rf build`, no manual target build, four presets 389/389 each, pytest
         115 passed, `docs/reviews/evidence/f3c1460-full-gate.log`; regression fails at `7a83a75`;
-        one Codex general pass, no actionable defects).** Awaiting Joe's review:
-        `docs/reviews/pr10-fresh-tidy-human.md`.
+        one Codex general pass, no actionable defects), approved by Joe.** Human-review decision: Joe
+        approved head `936c2a8` (code candidate `f3c1460`) against base `7a83a75`, 2026-09-22.
+        Packet: `docs/reviews/pr10-fresh-tidy-human.md`.
 - [ ] **M4 Lockstep** — shm transport + HAL + straight-and-level autopilot outside the sim tree; 10,000
       exchanges, zero missed; altitude ±30 m, heading ±2° under light Dryden; bit-identical logs; peer death
       halts within one timeout.
