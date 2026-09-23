@@ -6,6 +6,8 @@ include(GoogleTest)
 astra_discover_plugins(tests/plugins)
 add_subdirectory(unit)
 add_subdirectory(physics)
+# M3 PR 8's cruise regression capture harness (EXCLUDE_FROM_ALL; see tests/capture/CMakeLists.txt).
+add_subdirectory(capture)
 # tests/golden/dynamics/CMakeLists.txt (the R1/R1-Sim capture harness's EXCLUDE_FROM_ALL target) is
 # deliberately NOT added here. The capture step it existed for is done (goldens frozen at `ba383ab`,
 # docs/plans/pr4a-dynamics-model.md); its source stays under tests/golden/dynamics/ (human-owned,

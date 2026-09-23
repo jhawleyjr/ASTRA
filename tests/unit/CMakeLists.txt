@@ -71,6 +71,24 @@ target_compile_definitions(astra_notional_transport_mass_test PRIVATE
 gtest_discover_tests(astra_notional_transport_mass_test TEST_PREFIX "notional_transport_mass."
                      DISCOVERY_MODE PRE_TEST PROPERTIES LABELS unit)
 
+# M3 PR 8 (docs/plans/pr8-cruise-regression.md, D20): the 300 s cruise regression run. Own
+# executable so ctest's names carry "notional_transport_cruise_regression" for `-R
+# notional_transport_cruise_regression`; labeled physics, not unit -- several 300 s runs are too slow
+# for the Stop hook's fast unit subset. Includes tests/support/cruise_regression_run.hpp (shared with
+# tests/capture/'s harness) and, once captured, tests/golden/notional_transport/'s frozen header.
+add_executable(astra_notional_transport_cruise_regression_test
+  kernel/notional_transport_cruise_regression_test.cpp)
+target_link_libraries(astra_notional_transport_cruise_regression_test
+  PRIVATE astra::core GTest::gtest_main)
+target_compile_definitions(astra_notional_transport_cruise_regression_test PRIVATE
+  "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""
+  "ASTRA_AIRCRAFT_DIR=\"${ASTRA_SOURCE_DIR}/aircraft\"")
+target_include_directories(astra_notional_transport_cruise_regression_test PRIVATE
+  "${ASTRA_SOURCE_DIR}/tests" "${ASTRA_SOURCE_DIR}/tests/support")
+gtest_discover_tests(astra_notional_transport_cruise_regression_test
+                     TEST_PREFIX "notional_transport_cruise_regression."
+                     DISCOVERY_MODE PRE_TEST PROPERTIES LABELS physics)
+
 add_executable(astra_template_mass_test mass/template_mass_test.cpp)
 target_link_libraries(astra_template_mass_test PRIVATE astra::core GTest::gtest_main)
 target_compile_definitions(astra_template_mass_test PRIVATE

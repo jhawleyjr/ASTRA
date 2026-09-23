@@ -532,6 +532,14 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       retrofitted to `InputRegistry::names()` by PR 7's own binding of it (M3 PR 7 planning): PR 7
       reads control names through it for `astra.linearize` only, and `trim_straight_and_level` keeps
       its literals. Not started.
+- [ ] `astra.linearize`'s 9-state `A` (PR 7, D11) omits altitude: position is held fixed, so `A` has
+      no d/dh and no density/thrust-lapse coupling (M3 PR 8 finding, `docs/plans/
+      pr8-cruise-regression.md` finding 4). Against a nonlinear open-loop run from the trimmed
+      cruise, `modes(A).phugoid`'s damped period is 125.3 s against a measured 108.6 s (15% long;
+      the measured period is 13% short of it) and its zeta 0.052 against 0.027; `A` plus one altitude column and the h_dot row matches
+      (108.5 s, 0.027), as S&L Example 3.8-5 describes. PR 8 builds that 5x5 in its own test only.
+      An opt-in altitude state in `astra.linearize` itself would be a D11 revision -- Joe's call,
+      not scheduled. Not started.
 - [ ] `cmake/AstraPlugin.cmake`'s `astra_finalize_plugins()` hardcodes which test executables get a
       plugin build-order dependency (`astra_unit_tests`, `astra_physics_tests`, and — since M3
       PR 1 — `astra_notional_transport_mass_test`, `astra_template_mass_test`), by explicit design
@@ -765,7 +773,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         guard (satisfied by `031dca8` itself). Findings: `docs/reviews/pr6-trim-review.md`;
         human-review packet: `docs/reviews/pr6-trim-human.md`. PR #44 merged as `53064e0`,
         2026-09-21 (squash merge, Joe).
-  - [ ] PR 7 — `astra.linearize`: central-difference A/B about trim; short period/phugoid/Dutch
+  - [x] PR 7 — `astra.linearize`: central-difference A/B about trim; short period/phugoid/Dutch
         roll/roll/spiral checked as a sanity comparison against S&L §4.2's classical closed-form
         mode approximations, not an independent O4 source (supersedes O4: `docs/refs/aircrafts/
         737.xml` is a JSBSim example aircraft with Aeromatic/Roskam-estimated coefficients, not a
@@ -793,8 +801,8 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         text actually specifies) closes phugoid to 0.9%. `xfail` removed; all five modes pass
         unmarked. **Approved by Joe, 2026-09-22, in session** (candidate `fec3d67`, base `53064e0`);
         pushed and opened as PR #45, ready (not draft), GitHub's own `check` green at pushed head
-        `b1d0fdc`. Human-review packet: `docs/reviews/pr7-linearize-human.md`. Awaiting Joe's own
-        squash-merge.
+        `b1d0fdc`. Human-review packet: `docs/reviews/pr7-linearize-human.md`. PR #45 merged as
+        `553700f`, 2026-09-22 (squash merge, Joe).
   - [ ] PR 8 — Cruise config(s) (D6's `vehicle.models` schema) + 300 s open-loop run frozen as a
         regression trajectory (O5 -- not an oracle), generator-under-guard pattern from
         `tests/golden/nesc/`. Adds the actual independent check §16 (as corrected by PR 0) requires: a

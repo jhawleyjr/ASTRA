@@ -156,7 +156,9 @@ std::span<const StaticPluginEntry> static_plugin_table() noexcept { return kTabl
                                  astra_notional_transport_mass_test astra_template_mass_test
                                  astra_notional_transport_aero_wrench_test astra_template_aero_test
                                  astra_notional_transport_turbofan_wrench_test
-                                 astra_template_turbofan_test)
+                                 astra_template_turbofan_test
+                                 astra_notional_transport_cruise_regression_test
+                                 capture_cruise_regression)
       if(TARGET ${test_target})
         add_dependencies(${test_target} ${targets})
       endif()
