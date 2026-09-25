@@ -1,0 +1,72 @@
+[codex] Starting Codex task thread.
+[codex] Thread ready (01a0d7c6-0169-7553-828b-ef6c6ee5d304).
+[codex] Turn started (01a0d7c6-01b8-7db1-8bc5-5112d6747f1b).
+[codex] Assistant message captured: I’ll inspect the correction delta and review packet, then check each oracle’s independence an...
+[codex] Running command: /bin/bash -lc 'git status --short; git diff --stat origin/main; cat docs/agents/review.md doc...
+[codex] Command completed: /bin/bash -lc 'git status --short; git diff --stat origin/main; cat docs/agents/review.md doc... (exit 0)
+[codex] Running command: /bin/bash -lc 'cat core/include/astra/util/icd_pack.hpp; nl -ba tests/unit/icd/icd_pack_test....
+[codex] Command completed: /bin/bash -lc 'cat core/include/astra/util/icd_pack.hpp; nl -ba tests/unit/icd/icd_pack_test.... (exit 0)
+[codex] Running command: /bin/bash -lc 'git diff 6965165 cdc9867 -- icd/astra_icd.h tests/unit/icd/icd_pack_test.cpp c...
+[codex] Command completed: /bin/bash -lc 'git diff 6965165 cdc9867 -- icd/astra_icd.h tests/unit/icd/icd_pack_test.cpp c... (exit 0)
+[codex] Running command: /bin/bash -lc "sed -n '248,490p' tests/unit/icd/icd_pack_test.cpp"
+[codex] Command completed: /bin/bash -lc "sed -n '248,490p' tests/unit/icd/icd_pack_test.cpp" (exit 0)
+[codex] Running command: /bin/bash -lc "sed -n '490,640p' tests/unit/icd/icd_pack_test.cpp; git diff 6965165 cdc9867 -...
+[codex] Command completed: /bin/bash -lc "sed -n '490,640p' tests/unit/icd/icd_pack_test.cpp; git diff 6965165 cdc9867 -... (exit 0)
+[codex] Assistant message captured: The altitude CAS test avoids the sea-level cancellation, but its claimed table values were ge...
+[codex] Running command: /bin/bash -lc 'cat docs/decisions/000{1,2,6}*.md; cat docs/architecture.md STATE.md PLAN.md d...
+[codex] Command completed: /bin/bash -lc 'cat docs/decisions/000{1,2,6}*.md; cat docs/architecture.md STATE.md PLAN.md d... (exit 0)
+[codex] Running command: /bin/bash -lc "git diff 6965165 cdc9867 -- tests/unit/icd/icd_pack_test.cpp; rg --files docs/...
+[codex] Command completed: /bin/bash -lc "git diff 6965165 cdc9867 -- tests/unit/icd/icd_pack_test.cpp; rg --files docs/... (exit 0)
+[codex] Searching:
+[codex] Running command: /bin/bash -lc "rg --files --hidden --no-ignore docs/refs | head -30; git rev-parse origin/mai...
+[codex] Command completed: /bin/bash -lc "rg --files --hidden --no-ignore docs/refs | head -30; git rev-parse origin/mai... (exit 0)
+[codex] Searching:
+[codex] Running command: /bin/bash -lc "cat docs/refs/README.md; git diff 6965165 cdc9867 -- core/include/astra/util/i...
+[codex] Command completed: /bin/bash -lc "cat docs/refs/README.md; git diff 6965165 cdc9867 -- core/include/astra/util/i... (exit 0)
+[codex] Running command: /bin/bash -lc "rg --files --hidden --no-ignore /home/joe/repos/ASTRA/docs/refs | rg -i 'textb...
+[codex] Command failed: /bin/bash -lc "rg --files --hidden --no-ignore /home/joe/repos/ASTRA/docs/refs | rg -i 'textb... (exit 1)
+[codex] Searching:
+[codex] Assistant message captured: The 0.05 m/s tolerance is still sufficient after correcting the arithmetic: the conservative ...
+[codex] Running command: /bin/bash -lc 'cat /home/joe/.codex/plugins/cache/openai-primary-runtime/pdf/26.909.12148/ski...
+[codex] Command completed: /bin/bash -lc 'cat /home/joe/.codex/plugins/cache/openai-primary-runtime/pdf/26.909.12148/ski... (exit 0)
+[codex] Searching:
+[codex] Running command: /bin/bash -lc "pdftotext -layout '/home/joe/repos/ASTRA/docs/refs/textbooks/Johnson, Eric N._...
+[codex] Command completed: /bin/bash -lc "pdftotext -layout '/home/joe/repos/ASTRA/docs/refs/textbooks/Johnson, Eric N._... (exit 0)
+[codex] Searching:
+[codex] Running command: /bin/bash -lc "pdftotext -layout '/home/joe/repos/ASTRA/docs/refs/textbooks/Johnson, Eric N._...
+[codex] Command completed: /bin/bash -lc "pdftotext -layout '/home/joe/repos/ASTRA/docs/refs/textbooks/Johnson, Eric N._... (exit 0)
+[codex] Searching:
+[codex] Searching:
+[codex] Assistant message captured: { "verdict": "needs-attention", "summary": "Do not ship as correction-complete: item 1 still ...
+[codex] Turn completed.
+# Codex Adversarial Review
+
+Target: branch diff against origin/main
+Verdict: needs-attention
+
+Do not ship as correction-complete: item 1 still lacks the claimed independent published-table oracle. No newly introduced runtime defect was found. Reviewed origin/main a3d6071..c29c8d7, emphasizing 6965165..cdc9867 and the packet. No files edited or builds/tests run; retained cdc9867 gate log ends with check: OK and exit=0.
+
+Six correction verdicts:
+1. PARTIAL: moving CAS to altitude eliminates cancellation and detects substantial exponent/factor mutations. However, the expected rows were generated from the same relation, not independently transcribed. The packet overclaims published-table independence. Arithmetic: qc is 13860.3948 Pa, not 13862.4; target ratio 1.13679146114, Mc 0.43192755394, expected CAS 146.98240255 m/s. The comment's f'=0.668 is not a lower bound: f' ranges approximately 0.659208–0.677372. Using the lower bound gives rounding contributions about 7.59e-5 and 1.98e-5 Mach, interpolation error at most 3.47e-5 Mach, total approximately 0.0444 m/s. Thus 0.05 remains sufficient; those arithmetic inaccuracies alone are nonblocking.
+2. HOLDS: textbook citations now identify DCM 1.3-10, Euler extraction 1.3-11, half-angle Example 1.8-1 Eq. (1), p.52, and quaternion/DCM 1.8-16 and 1.8-18; checked the local textbook.
+3. HOLDS: contradictory PR-5 duplicate-constant follow-up removed; header macros are the definitions and tests pin their numerical values.
+4. HOLDS: corrected R and approximately 1.1e-4 m/s discrepancy are sound.
+5. HOLDS: no struct-layout, version, or static-assert change; core implementation identifiers and file:line references removed. Remaining q_nb/C_nb/v_b notation describes mathematical quantities.
+6. HOLDS: both failed gate logs are absent from the current evidence tree; historical failure rows remain.
+
+Oracle discrimination audit (all 25 tests):
+• HeaderFrameAndTimeAreExactlyTheClocks detects incorrect header/frame/time packing; it does not independently validate all VirtualClock behavior. EveryByteIsDefinedEvenFromGarbage detects stale reserved/status bytes and nonfinite outputs, but finiteness alone cannot prove every numeric field was initialized correctly.
+• AttitudeCompositeMatchesGolden and AttitudeCompositeNegMatchesGolden use independent golden angles and reject axis/order/sign mistakes. RatesAndBodyVelocityPassThrough uses distinct signed literals and rejects swaps or transformations.
+• VerticalSpeedIsMinusTheDownComponentOfVnFromGoldenDcm independently detects transpose/sign mistakes. PitchUpTenDegreesFlyingForwardClimbs provides a nonzero physical-sign oracle. AirDataCompositeAttitudeWithWindFromGoldenDcm detects incorrect wind rotation/subtraction, magnitude, angles and Mach using golden DCM arithmetic. StillAirPositiveWzGivesPositiveAlpha checks alpha sign/magnitude. YawEastIntoANorthWindGivesPositiveBeta independently checks wind direction, beta, TAS and yaw.
+• CasMatchesPublishedIsentropicTableAtTenKilometers is nonvacuous and discriminates implementation mutations, but its claimed independent provenance fails. CasAtTenKilometersHandComputed detects implementation deviations from the specified formula, not a shared formula error. CasEqualsTasAtIsaSeaLevelAgainstTheRealPlugin detects reference-constant mismatch; matched forward/inverse relations cancel and remain untested there. LowMachCasApproachesEquivalentAirspeed independently checks the leading low-Mach limit, but permits small erroneous compressibility corrections, including wrong-sign corrections within its absolute bound. Its strict nonzero check rejects exactly EAS, not EAS plus arbitrary tiny error. It cannot generally validate a changed-gamma relation that preserves the leading limit.
+• DefaultAllNanAtmosphereFlagsAndZeroesMachAndCas rejects unguarded NaNs and inappropriate loss of TAS. NonPositivePressureFlagsAtmosphere checks zero pressure only; it does not establish negative-pressure or invalid-sound-speed coverage. SupersonicFlagsCasOnlyAndKeepsAirData checks M=1.1, not the M=1 boundary or preservation of every angle. NonFiniteWindFlagsAndZeroesEveryAirRelativeField checks a NaN wind component and all five placeholders, not every nonfinite variant.
+• LevelFlightReadsMinusGInBodyZ detects gravity/sign mistakes. SpecificForceIsForceOverMassPerAxis rejects swaps and wrong division. FrameZeroIsInvalidEvenWithAPreviousWrench checks the frame-zero override. MissingPreviousNonFiniteForceOrBadMassAreInvalid discriminates all seven supplied invalid cases. These tests validate supplied previous data, not future caller enforcement of one-frame lag.
+• FlatEarthLatLonAreZeroWithAFlagAndAltitudeIsMinusDown and RoundEarthLatLonAndAltitudeArePNComponentsWithoutAFlag use independent literals to detect representation/sign/flag mistakes. VerticalSpeedEqualsTheRealEarthModelsAltitudeRate includes an independent golden DCM anchor, so shared rotation code between packer and plugins does not make it circular.
+
+Findings:
+- [medium] The replacement CAS anchor still lacks the claimed independent table provenance (tests/unit/icd/icd_pack_test.cpp:341-354)
+  Correction item 1 requires an independent, discriminating CAS anchor. The altitude case does discriminate substantial implementation mutations, but the packet explicitly admits its three reference values were generated from the same isentropic closed form. Thus a mistaken relation shared by implementation and reference construction remains unchecked. Moreover, NACA 1135 Table I tabulates static/total pressure p/pt (for example 0.6560 at M=0.80), not the claimed printed total/static values 1.5243, 1.1355 and 1.1422. See [NACA 1135, Table I](https://ntrs.nasa.gov/api/citations/19930091059/downloads/19930091059.pdf). The test and packet therefore overstate independent validation, and the rounding budget is not derived from the actual cited table entries. This leaves the central correction's acceptance evidence incomplete, even though the implemented formula and current numerical tolerance appear sound.
+  Recommendation: Transcribe the actual published pressure-ratio rows and explicitly propagate reciprocal conversion, rounding and interpolation errors, or use a verified source that prints the desired ratios. Update the expected value, derivation and packet discrimination table to reflect that provenance; retain the altitude case.
+
+Next steps:
+- Have the builder replace the formula-generated reference with verified published data, correct the arithmetic commentary, and refresh validation and the review packet.

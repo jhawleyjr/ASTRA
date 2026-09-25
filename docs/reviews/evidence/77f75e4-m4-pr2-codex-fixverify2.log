@@ -1,0 +1,33 @@
+[codex] Starting Codex task thread.
+[codex] Thread ready (01a0d7d5-5034-75e1-ac5c-3ce76404d160).
+[codex] Turn started (01a0d7d5-5070-7a11-b84f-7662f757ea26).
+[codex] Assistant message captured: I’ll inspect the correction delta and review packet, independently check the CAS arithmetic a...
+[codex] Running command: /bin/bash -lc 'git status --short; git rev-parse HEAD origin/main; git diff cdc9867..3322d26 ...
+[codex] Command completed: /bin/bash -lc 'git status --short; git rev-parse HEAD origin/main; git diff cdc9867..3322d26 ... (exit 0)
+[codex] Running command: /bin/bash -lc 'cat docs/architecture.md docs/process/workflow.md STATE.md PLAN.md docs/lesson...
+[codex] Command completed: /bin/bash -lc 'cat docs/architecture.md docs/process/workflow.md STATE.md PLAN.md docs/lesson... (exit 0)
+[codex] Running command: /bin/bash -lc 'cat docs/agents/review.md docs/reviews/m4-pr2-icd-pack-human.md docs/reviews/e...
+[codex] Command completed: /bin/bash -lc 'cat docs/agents/review.md docs/reviews/m4-pr2-icd-pack-human.md docs/reviews/e... (exit 0)
+[codex] Running command: /bin/bash -lc "rg --files docs/decisions docs/plans docs/specs | sort; head -30 docs/reviews/...
+[codex] Command completed: /bin/bash -lc "rg --files docs/decisions docs/plans docs/specs | sort; head -30 docs/reviews/... (exit 0)
+[codex] Searching:
+[codex] Running command: /bin/bash -lc "git diff cdc9867..3322d26 --name-status; git diff 3322d26..77f75e4 -- docs/rev...
+[codex] Command completed: /bin/bash -lc "git diff cdc9867..3322d26 --name-status; git diff 3322d26..77f75e4 -- docs/rev... (exit 0)
+[codex] Assistant message captured: The printed-value calculation gives 147.013208 m/s, and the 0.06 m/s tolerance still rejects ...
+[codex] Searching:
+[codex] Running command: /bin/bash -lc "git diff cdc9867..3322d26 -- docs/reviews/m4-pr2-icd-pack-human.md; cat docs/d...
+[codex] Command completed: /bin/bash -lc "git diff cdc9867..3322d26 -- docs/reviews/m4-pr2-icd-pack-human.md; cat docs/d... (exit 0)
+[codex] Assistant message captured: { "verdict": "approve", "summary": "F-1 resolved. New findings: none. Reviewed a3d6071..77f75...
+[codex] Turn completed.
+# Codex Adversarial Review
+
+Target: branch diff against origin/main
+Verdict: approve
+
+F-1 resolved. New findings: none. Reviewed a3d6071..77f75e4, focusing on cdc9867..3322d26 and the packet. The three p/pt entries match NACA 1135 Table I and the closed form: [NTRS scan](https://ntrs.nasa.gov/api/citations/19930091059/downloads/19930091059.pdf). Independently calculated qc=13862.780488 Pa, total/static target=1.136815006, static/total target=0.8796505981, Mc=0.4320180806, and expected CAS=147.013208 m/s. Exact implementation CAS=146.984377 m/s; the 0.028831 m/s gap fits the approximately 0.05567 m/s error budget and 0.06 tolerance. Discrimination holds: forward exponent 3.4 gives 144.515 m/s, inverse exponent 0.29 gives 148.103 m/s, and matched exponents 3.4 and 1/3.4 give 146.663 m/s; all fail. No newly introduced material defect. Packet evidence accurately reports the retained gate's check: OK and exit=0; unretained mutation executions cannot be independently confirmed. No files edited or builds/tests run.
+
+No material findings.
+
+Next steps:
+- Nonblocking accuracy corrections: test comment lines 350–358 should use |g''| <= 0.808 (maximum approximately 0.807351). The test and packet should attribute the 0.029 m/s gap to combined rounding and interpolation, not solely .6560 rounding, which contributes approximately 0.00673 m/s. Neither correction changes the justified tolerance or F-1 verdict.
+- Replace the packet's VERIFY_RESULT and VERIFY_DETAIL placeholders with this verification.
