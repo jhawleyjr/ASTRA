@@ -24,8 +24,9 @@ wait) **only** to compute the absolute deadline of one blocking wait, and the ti
 Exactly two sites are allowed:
 
 1. the sim-side shm transport's wait (handshake and acknowledgment waits), and
-2. the `embedded/hal` shm backend's wait (the peer's end of the same timeout; it is what lets the autopilot exit
-   nonzero when the sim dies, plan R4b).
+2. the `embedded/hal` shm backend's wait, against the peer's own driver-supplied `peer_timeout_ms` (>= the sim's
+   `timeout_ms`, ADR-0024); it is what lets the autopilot exit nonzero when the sim dies or pauses longer than
+   that (plan R4b).
 
 Each site is confined to one function, so a future symbol scan can allowlist it by name. Invariants:
 

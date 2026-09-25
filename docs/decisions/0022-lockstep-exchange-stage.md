@@ -32,10 +32,13 @@ handles (pending), and let the same frame's `latch()` commit it. Commands comput
 from frame k, with zero compute delay (disclosed). Between exchanges the latched commands hold (zero-order hold).
 
 **Config** (unknown keys are errors, `ConfigError` naming the path; exact spelling is a PR 3 detail):
-`transport: { plugin, divisor, timeout_ms, handshake_timeout_ms, commands, limits }`. The ICD-field-to-input-name
+`transport: { plugin, divisor, timeout_ms, handshake_timeout_ms, peer_timeout_ms, commands, limits }`. The ICD-field-to-input-name
 map lives in config data, never in `core/` (principle 6). `astra_sw_to_sim_v1.throttle[2]` maps to the single shared
 `controls.throttle` input (ADR-0017): the map accepts both entries and **requires equality**; a mismatch halts.
-Defaults: `timeout_ms` 1000, `handshake_timeout_ms` 5000. `limits` are per-command bounds; a command outside its
+Defaults: `timeout_ms` 1000, `handshake_timeout_ms` 5000. `peer_timeout_ms` is the autopilot-side wait (ADR-0024): the
+driver passes the same value to the HAL, and init rejects a value below `timeout_ms` with a `ConfigError` naming it
+(its default is PR 3's to set, not below `timeout_ms`). Lockstep runs are driven by back-to-back `run()`/`step()`
+calls: a pause longer than `peer_timeout_ms` ends the peer nonzero and the next exchange halts `kTransport`. `limits` are per-command bounds; a command outside its
 limit **halts**, it is never clamped (clamping would hide an autopilot fault). No `transport` block means behavior
 bit-identical to a build without this record (M3's frozen regression stays untouched).
 

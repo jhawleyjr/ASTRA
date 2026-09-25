@@ -53,6 +53,16 @@ would duplicate frame 0). Expiry at any step is an init error naming `transport`
 (no private flag). The intended wait is the absolute-deadline form (`FUTEX_WAIT_BITSET`, `CLOCK_MONOTONIC`), so a
 spurious wakeup or `EINTR` re-waits against the same deadline (ADR-0023).
 
+**Peer timeout and an idle sim.** The HAL's per-exchange wait uses its own `peer_timeout_ms`, supplied by the
+driver (a HAL init argument), not the sim's `timeout_ms`; it must be **>= the sim's `timeout_ms`** (the sim checks
+this at init when it is given the value, ADR-0022). The HAL cannot tell a dead sim from an idle one: Python work
+between `run()`/`step()` calls, REPL stepping, or a debugger stop look identical to death from the peer's side, and
+expiry is a nonzero exit. So the contract is: lockstep runs are driven by back-to-back `run()`/`step()` calls; a
+sim pause longer than `peer_timeout_ms` ends the peer with a nonzero exit, and the sim's next exchange then halts
+`kTransport` (its own timeout expires with no reply). That is a detected failure, not a hang and not a wrong
+trajectory. Interactive or debugger-driven stepping needs a larger `peer_timeout_ms`. There is **no keepalive and
+no protocol change**: the peer's liveness detector is only its own deadline (ADR-0023).
+
 **Shutdown and ownership.** The HAL futex-waits on `req_seq`, so shutdown must change *that* word, or a wake sent
 between the HAL's state check and its wait would be lost (the kernel's value compare sees an unchanged word and
 sleeps until the deadline). On normal completion the sim, in this order: release-stores `sim_state = CLOSED`;
@@ -73,6 +83,9 @@ liveness detector. A peer that re-stores an identical sequence value is not dete
 - **Keep mirrored copies plus a layout-equality test.** The equality test catches drift only after the fact and
   leaves two definitions of one wire format.
 - **Zero-initialized sequence words.** Collide with a frame-0 request.
+- **A keepalive or heartbeat so the peer can tell an idle sim from a dead one.** Adds a third writer-owned word
+  and a protocol rule to serve interactive use; the plan's pid-probing rejection applies to the same problem. The
+  contract instead is a larger `peer_timeout_ms` for interactive runs (Joe's decision, PR 1 round 2).
 - **Signaling `CLOSED` only through `sim_state`.** The HAL waits on `req_seq`, so the wake can be lost between its
   state check and its wait (Codex review finding, PR 1); a check-on-expiry rule alone would leave a shutdown delay of
   up to one timeout.
@@ -87,7 +100,9 @@ liveness detector. A peer that re-stores an identical sequence value is not dete
 The HAL and the shm plugin cannot disagree on layout. ASan cannot see futex memory-order bugs and TSan cannot
 follow cross-process futex synchronization (accepted gap, plan Q14); mitigation is a 1e6-exchange Release echo
 stress test plus review of acquire/release pairing and single-writer discipline. Tests: two-process echo-peer,
-delayed initialization, both start orders, `CLOSED` exit 0, stale segment, no orphans (plan R5, PR 4, PR 6).
+delayed initialization, both start orders, `CLOSED` exit 0, stale segment, no orphans (plan R5, PR 4, PR 6). A third test pins the peer timeout (plan R4b): the sim pauses
+between `run()` calls for longer than `peer_timeout_ms`; the autopilot exits nonzero and the next exchange halts
+`kTransport`.
 Two interleaving tests pin the review findings: (1) a creator paused before `ftruncate` and again after sizing but
 before `SIM_READY` (the peer attaches, sees no readiness, waits, then completes the handshake, never faulting or
 reading an unfinished header); (2) a close interleaved with the HAL's pre-wait state check, using a test hook that

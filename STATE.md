@@ -29,8 +29,8 @@ stale (retired `astra::Eom`/`post_step_renormalize` symbols, ADR-0021). Needs Jo
 it is under `tests/golden/**`.
 
 ## Tried / failed
-Correction rounds: 1/2 (Codex adversarial review found three defects in the ADR drafts, all verified and fixed
-in the round-1 commit; fix verification pending). Failed integrations: 0/2.
+Correction rounds: 2/2 (round 1: three Codex findings fixed; round 2: Joe's `peer_timeout_ms` change, plan Q19).
+Failed integrations: 0/2. No further autonomous correction rounds; a new defect goes to Joe.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.
