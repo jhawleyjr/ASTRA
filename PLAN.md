@@ -870,7 +870,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         389/389 each, pytest 114 passed -- reached only after a manual `capture_cruise_regression`
         target build, the gap above; one Codex general pass, base `f4d69a7`, no actionable
         defects).** PR #47 merged as `7a83a75`, 2026-09-22 (squash merge, Joe).
-  - [ ] PR 10 — fresh-checkout `tidy` fix: `just check` passes from a fresh configure with no manual
+  - [x] PR 10 — fresh-checkout `tidy` fix: `just check` passes from a fresh configure with no manual
         target build. `CMAKE_CXX_SCAN_FOR_MODULES OFF` at top level (no C++ modules in this tree) plus
         `CXX_SCAN_FOR_MODULES OFF` on `capture_cruise_regression`; fresh-configure pytest regression
         on the harness TU. Tier 2, no plan critique. Plan: `docs/plans/pr10-fresh-tidy.md`
@@ -879,7 +879,8 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         115 passed, `docs/reviews/evidence/f3c1460-full-gate.log`; regression fails at `7a83a75`;
         one Codex general pass, no actionable defects), approved by Joe.** Human-review decision: Joe
         approved head `936c2a8` (code candidate `f3c1460`) against base `7a83a75`, 2026-09-22.
-        Packet: `docs/reviews/pr10-fresh-tidy-human.md`.
+        Packet: `docs/reviews/pr10-fresh-tidy-human.md`. PR #48 merged as `a0b0820`, 2026-09-22
+        (squash merge, Joe).
 - [ ] **M4 Lockstep** — shm transport + HAL + straight-and-level autopilot outside the sim tree; 10,000
       exchanges, zero missed; altitude ±30 m, heading ±2° under light Dryden; bit-identical logs; peer death
       halts within one timeout.

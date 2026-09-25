@@ -1,27 +1,25 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines; true at handoff)
 
 ## In flight
-**M3 PR 10** (fresh-checkout `tidy` fix), PR #48, awaiting Joe's squash-merge. Tier 2 (build/gate behavior). Branch
-`worktree-m3-pr10-fresh-tidy`, base `origin/main` `7a83a75`. No plan critique. Codex: one general
-pass, plus fix verification if needed.
-
-Outcome: `just check` passes from a fresh configure with no manual target build, proved by a
-regression test. PLAN.md follow-up "`just check` fails at its own `tidy` step on a fresh checkout".
-
-Plan: `docs/plans/pr10-fresh-tidy.md` (Revision 2, approved by Joe with changes). Acceptance (1)–(4)
-are listed there; all four are met, with evidence below.
+No task in flight once this check-off PR merges. Last task: M3 PR 10 (fresh-checkout `tidy`
+fix), PR #48, squash-merged as `a0b0820`. This PR checks it off in PLAN.md and rewrites this file;
+Tier 0 (prose only, no execution/build/test/policy change), no product gate run.
 
 ## Last verified result
-`./scripts/check-full.sh` at `f3c1460` after `rm -rf build`: `check: OK`, exit 0, 389/389 × four
-presets, pytest 115 passed, no manual target build (`docs/reviews/evidence/f3c1460-full-gate.log`).
-Acceptance 1 and 3 evidence are in `docs/reviews/evidence/pr10-*`. Codex general pass on
-`7a83a75..1fcd846`: no actionable defects (`docs/reviews/pr10-fresh-tidy-review.md`).
+PR 10's own full gate: `./scripts/check-full.sh` at `f3c1460` after `rm -rf build`: `check: OK`,
+exit 0, 389/389 × four presets, pytest 115 passed, no manual target build
+(`docs/reviews/evidence/f3c1460-full-gate.log`). `main` (`a0b0820`) is docs/evidence-only since
+`f3c1460`, so that result still covers its code. Human decision:
+`docs/reviews/pr10-fresh-tidy-human.md`.
 
 ## Next step
-Joe approved head `936c2a8` (code candidate `f3c1460`), 2026-09-22; decision recorded in
-`docs/reviews/pr10-fresh-tidy-human.md`. Pushed; PR #48 opened as draft, marked ready. GitHub's
-`check` passed at `2a4bd5c` (run 35824800593, local-gate mode, not a full gate). Remaining: Joe
-squash-merges #48, then `git worktree remove` this worktree and check off PR 10 in the next session.
+Joe merges this check-off PR. Then Joe picks the next task: M4 Lockstep planning
+(`/plan-feature`, not started) or a PLAN.md follow-up.
+
+## Open follow-up (not scheduled)
+PLAN.md: `tests/golden/dynamics/capture_r1_golden.cpp` (R1/R1-Sim capture harness, M3 PR 4a) is
+stale (retired `astra::Eom`/`post_step_renormalize` symbols, ADR-0021). Needs Joe's authorization —
+it is under `tests/golden/**`.
 
 ## Tried / failed
 Correction rounds: 0/2. Failed integrations: 0/2.
