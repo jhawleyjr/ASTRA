@@ -44,7 +44,7 @@ ASTRA is a vehicle-agnostic 6-DoF framework: C++23 core, Python bindings, real e
 - **Units** (ADR-0002): SI everywhere inside `core/`, `plugins/`, `aircraft/` (m, s, kg, rad, N, Pa, K). Conversions
   only at boundaries. Signal names carry no unit suffix; the unit string lives in the SignalRegistry metadata.
 - **Time** (ADR-0010): integer `frame` counter is the source of truth; `t = frame * dt` derived, never accumulated.
-  Fixed `dt = 1 ms`; every rate is an integer divisor of the major frame. Wall-clock access is restricted to the `RealTime` pacer per ADR-0010; it never supplies simulation time.
+  Fixed `dt = 1 ms`; every rate is an integer divisor of the major frame. Wall-clock access is restricted to the `RealTime` pacer per ADR-0010 and the lockstep transport timeout (ADR-0023); it never supplies simulation time.
 - **Per-frame path** (`step`, `compute`, integrator, transport exchange, logger sample): no heap allocation, no
   exceptions, no blocking I/O, no `std::string`, no `dlopen`. Init may allocate and throw typed errors naming the
   config path. Step-time model errors go through status flags, not exceptions.

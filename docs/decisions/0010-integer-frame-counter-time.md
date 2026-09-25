@@ -2,6 +2,8 @@
 
 Status: **accepted**, 2026-09-14. Elaborates ADR-0000 row "Time"; `docs/architecture.md` §5 Clock and modes.
 
+**Superseded in part by ADR-0023** (2026-09-24): only the Context sentence "no model, transport, or embedded process reads the wall clock" and the Consequences bullet permitting no clock call outside the `RealTime` pacer, and only for the lockstep transport's wait deadline (two sites: the sim-side shm wait and the HAL shm wait; never a time value, expiry is only a halt or nonzero exit). The frame counter as time's source of truth, `t` derived, integer-divisor rates, and frame-counter continuity are not superseded.
+
 ## Context
 
 The sim owns time (principle 1): no model, transport, or embedded process reads the wall clock. Logs must

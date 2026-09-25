@@ -2,6 +2,8 @@
 
 Status: **accepted**, 2026-09-14. Elaborates ADR-0000 row "Embedded SW hosting (digital)"; `docs/architecture.md` §5 modes, §10 Transport.
 
+**Superseded in part by ADR-0024** (2026-09-24): the Decision sentence "`embedded/hal/` has the mirror-image `shm` backend", the Consequences line "mirrored byte-for-byte in the HAL" (replaced by one shared layout header in `embedded/hal/`), the literal `req_seq = frame` / `ack_seq = frame` rule (sequence words start at `UINT32_MAX`, with `UINT32_MAX - 1` reserved), and "peer liveness is the pid in the header plus the timeout" (the timeout alone is the detector; pids are diagnostic). Everything else, the shm + raw futex decision and its rejected alternatives, the transport divisor and zero-order hold, blocking in either clock mode, `LoopbackTransport`, the halt consequence, and the M4 acceptance, remains in force. See also ADR-0022 (exchange stage) and ADR-0023 (timeout clock).
+
 ## Context
 
 In v1 the flight software runs as a separate process on the same host and must be stepped in lockstep by
