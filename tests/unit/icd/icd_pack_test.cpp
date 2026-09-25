@@ -338,32 +338,40 @@ TEST(IcdPack, YawEastIntoANorthWindGivesPositiveBeta) {
 TEST(IcdPack, CasMatchesPublishedIsentropicTableAtTenKilometers) {
   // The discriminating anchor: a published-table inversion at ALTITUDE. (At p = p0 the forward and
   // inverse relations cancel, so cas = M a0 for any matched exponent pair; it would prove nothing.)
-  // NACA Report 1135 (Ames, 1953) Table I, gamma = 1.4, prints p0/p to 4 decimals: M = 0.80 has
-  // 1.5243, and the rows bracketing the inverse are M = 0.43 -> 1.1355 and M = 0.44 -> 1.1422.
-  // ISA 10 km (U.S. Std Atmosphere 1976: p = 26436 Pa, a = 299.53 m/s), M = 0.8, so
-  // qc = (1.5243 - 1) * 26436 = 13862.4 Pa, qc/p0 + 1 = 1.136791. The calibrated Mach Mc is the
-  // Mach whose tabulated p0/p equals that; linear interpolation between the two rows gives
-  // Mc = 0.43 + 0.01 * (1.136791 - 1.1355) / (1.1422 - 1.1355) = 0.431928, and cas = Mc * a0,
-  // a0 = 340.29411 m/s (sqrt(1.4 * (8314.32/28.9644) * 288.15)), about 146.98 m/s.
-  // Tolerance, in Mach then times a0. With f = p0/p, f' = 0.668 and f'' <= 1.83 on [0.43, 0.44]:
-  // (a) the table rows' 4-decimal rounding, +/-5e-5 in f at either row, moves the interpolated
-  // value by at most 5e-5, i.e. 5e-5 / 0.668 = 7.5e-5 in Mach; (b) the 1.5243 rounding, +/-5e-5
-  // in p0/p at M = 0.8, moves qc/p0 by 5e-5 * 26436 / 101325 = 1.3e-5, i.e. 2.0e-5 in Mach;
-  // (c) linear interpolation error <= (h^2 f''/8) / f' = (0.01^2 * 1.83 / 8) / 0.668 = 3.4e-5 in
-  // Mach. Sum 1.29e-4 Mach * 340.29 = 0.044 m/s, so 0.05 m/s. A wrong exponent pair (3.5 -> 3.4,
-  // or 2/7 -> 0.29) moves cas by more than 1 m/s here, so this test discriminates.
+  // NACA Report 1135 (Ames, 1953) Table I "Subsonic flow" (gamma = 1.4) prints the static to total
+  // pressure ratio p/pt to 4 decimals: M = 0.80 -> .6560, M = 0.43 -> .8807, M = 0.44 -> .8755.
+  // Transcribed from the text layer of the NTRS scan (document 19930091059) and cross-checked
+  // against (1 + 0.2 M^2)^-3.5, which agrees to every printed digit at all three Mach numbers.
+  // ISA 10 km (U.S. Std Atmosphere 1976: p = 26436 Pa, a = 299.53 m/s), M = 0.8, so the table
+  // gives pt/p = 1/0.6560 = 1.524390 and qc = (1/0.6560 - 1) * 26436 = 13862.78 Pa,
+  // qc/p0 + 1 = 1.136815. The calibrated Mach Mc is the Mach whose tabulated pt/p equals that,
+  // i.e. p/pt = 1/1.136815 = 0.879651; interpolating the printed p/pt column linearly between the
+  // rows gives Mc = 0.43 + 0.01 * (0.8807 - 0.879651) / (0.8807 - 0.8755) = 0.432018, and
+  // cas = Mc * a0, a0 = 340.29411 m/s (sqrt(1.4 * (8314.32/28.9644) * 288.15)): 147.013 m/s.
+  // Tolerance, in Mach then times a0. With g = p/pt, |g'| >= 0.511 and |g''| <= 0.807 on
+  // [0.43, 0.44]: (a) the rows' 4-decimal rounding, +/-5e-5 in g at either row, moves the
+  // interpolated value by at most 5e-5, i.e. 5e-5 / 0.511 = 9.8e-5 in Mach; (b) the .6560
+  // rounding (+/-5e-5 in p/pt at M = 0.8: pt/p +/-1.16e-4, qc/p0 +/-3.0e-5) moves the target g by
+  // at most 2.35e-5, i.e. 4.6e-5 in Mach; (c) linear interpolation error <= (h^2 g''/8) / |g'| =
+  // (0.01^2 * 0.807 / 8) / 0.511 = 2.0e-5 in Mach. Sum 1.63e-4 Mach * 340.29 = 0.056 m/s, so
+  // 0.06 m/s. (The implementation's exact M = 0.8 gives 146.984, 0.029 m/s below the printed-digit
+  // value, inside the budget: it is the .6560 rounding.) A wrong exponent pair (3.5 -> 3.4, or
+  // 2/7 -> 0.29) moves cas by more than 1 m/s here, so this test discriminates.
   constexpr double kA0 = 340.29411;
   constexpr double kRowLowMach = 0.43;
-  constexpr double kRowLowRatio = 1.1355;
-  constexpr double kRowHighRatio = 1.1422;  // M = 0.44
-  const double target_ratio = (1.5243 - 1.0) * 26436.0 / 101325.0 + 1.0;
+  constexpr double kRowLowRatio = 0.8807;   // p/pt at M = 0.43
+  constexpr double kRowHighRatio = 0.8755;  // p/pt at M = 0.44
+  constexpr double kPrintedRatioAtMach08 = 0.6560;
+  const double impact_over_sea_level =
+      (1.0 / kPrintedRatioAtMach08 - 1.0) * 26436.0 / 101325.0;  // qc / p0
+  const double target_ratio = 1.0 / (impact_over_sea_level + 1.0);
   const double calibrated_mach =
       kRowLowMach + 0.01 * (target_ratio - kRowLowRatio) / (kRowHighRatio - kRowLowRatio);
   const double tas = 0.8 * 299.53;
   const auto out = pack(context_at(1), level_state({tas, 0.0, 0.0}),
                         env_with(kZero, atmosphere(26436.0, 299.53)), flat_stub());
   EXPECT_NEAR(out.mach, 0.8, 1e-12);
-  EXPECT_NEAR(out.cas, calibrated_mach * kA0, 0.05);
+  EXPECT_NEAR(out.cas, calibrated_mach * kA0, 0.06);
   EXPECT_EQ(
       out.status_flags & (ASTRA_ICD_STATUS_ATMOSPHERE_INVALID | ASTRA_ICD_STATUS_CAS_SUPERSONIC),
       0U);
@@ -373,10 +381,9 @@ TEST(IcdPack, CasAtTenKilometersHandComputed) {
   // Discriminates only implementation slips (a typo, a wrong constant): the expected value is this
   // same closed form evaluated in Python, so it cannot catch a wrong relation; the table anchor
   // above does that. ISA 10 km (U.S. Std Atmosphere 1976: p = 26436 Pa, a = 299.53 m/s), M = 0.8,
-  // tas = 239.624 m/s. qc = p ((1 + 0.2 M^2)^3.5 - 1) = 26436 * 0.52434001 = 13861.4525 Pa (the
-  // table's 0.5243 x p agrees to 5 digits), cas = a0 sqrt(5 ((qc/p0 + 1)^(2/7) - 1)) =
-  // 146.98437733646873 m/s (evaluated in Python, independent of the C++; ~285.7 kt, a typical M0.80
-  // cruise CAS).
+  // tas = 239.624 m/s. qc = p ((1 + 0.2 M^2)^3.5 - 1) = 26436 * 0.52434001 = 13861.4525 Pa, cas =
+  // a0 sqrt(5 ((qc/p0 + 1)^(2/7) - 1)) = 146.98437733646873 m/s (evaluated in Python, independent
+  // of the C++; ~285.7 kt, a typical M0.80 cruise CAS).
   const double tas = 0.8 * 299.53;
   const auto out = pack(context_at(1), level_state({tas, 0.0, 0.0}),
                         env_with(kZero, atmosphere(26436.0, 299.53)), flat_stub());
