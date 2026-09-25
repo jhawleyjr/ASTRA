@@ -1,6 +1,6 @@
 # ADR-0024: Shared shm layout header and lockstep protocol refinements (supersedes ADR-0007 in part)
 
-Status: proposed
+Status: **accepted**, 2026-09-24
 Date: 2026-09-24
 Owner: Joe
 Related/supersedes: supersedes ADR-0007 **in part**: its Decision sentence "`embedded/hal/` has the mirror-image
@@ -111,4 +111,4 @@ Check for this record: A1. No `icd/astra_icd.h` struct changes.
 
 ## Approval
 
-Pending. Joe's decision, date, and any requested changes are recorded here when given.
+Accepted by Joe, 2026-09-24. Decision record: `docs/reviews/m4-pr1-adrs-human.md` (Decision record, state approved), which approved ADR-0022/0023/0024 with one change, correction round 2 (the HAL wait uses a driver-supplied `peer_timeout_ms`, plan Q19), after independent Codex review with two fix rounds (plan Q18, Q19); the handshake (F1), shutdown (F3) and peer timeout (round 2) text is his. Retained Codex output: `docs/reviews/evidence/`.

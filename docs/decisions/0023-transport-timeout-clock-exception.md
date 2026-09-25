@@ -1,6 +1,6 @@
 # ADR-0023: Monotonic-clock exception to ADR-0010 for the lockstep transport timeout
 
-Status: proposed
+Status: **accepted**, 2026-09-24
 Date: 2026-09-24
 Owner: Joe
 Related/supersedes: supersedes ADR-0010 **in part**: only the Consequences bullet that permits no `steady_clock`
@@ -56,4 +56,4 @@ Check for this record: A1.
 
 ## Approval
 
-Pending. Joe's decision, date, and any requested changes are recorded here when given.
+Accepted by Joe, 2026-09-24. Decision record: `docs/reviews/m4-pr1-adrs-human.md` (Decision record, state approved), which approved ADR-0022/0023/0024 with one change, correction round 2 (the HAL wait uses a driver-supplied `peer_timeout_ms`, plan Q19), after independent Codex review with two fix rounds (plan Q18, Q19); site 2 names the peer's `peer_timeout_ms`. Retained Codex output: `docs/reviews/evidence/`.

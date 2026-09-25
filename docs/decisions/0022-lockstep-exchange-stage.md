@@ -1,6 +1,6 @@
 # ADR-0022: Lockstep exchange stage owned by `Simulation`
 
-Status: proposed
+Status: **accepted**, 2026-09-24
 Date: 2026-09-24
 Owner: Joe
 Related/supersedes: elaborates ADR-0007 (transport protocol; its shm-specific parts are amended by ADR-0024),
@@ -109,5 +109,4 @@ Codex review). Not covered: HWIL timing, `SCHED_FIFO` behavior, cross-machine la
 
 ## Approval
 
-Pending. Joe's decision, date, and any requested changes are recorded here when given; the record remains
-proposed until then.
+Accepted by Joe, 2026-09-24. Decision record: `docs/reviews/m4-pr1-adrs-human.md` (Decision record, state approved), which approved ADR-0022/0023/0024 with one change, correction round 2 (the HAL wait uses a driver-supplied `peer_timeout_ms`, plan Q19), after independent Codex review with two fix rounds (plan Q18, Q19); Joe's own decisions in round 1 fixed the non-finite-command routing (F2) and the shutdown value (F3). Retained Codex output: `docs/reviews/evidence/`.
