@@ -1,14 +1,15 @@
 # Human review packet: M4 PR 1, lockstep decision records and architecture rev 8
 
 PR / candidate base and head: base `origin/main` = `e16d26a` (still main's tip at packet time, fetched
-2026-09-24; nothing to re-validate). Reviewed candidate head: `91107c4` on `worktree-m4-pr1-adrs` (two
-commits: `d058a3a` review commit, `91107c4` correction round 1). This packet and two retained Codex logs are
-added in a later docs-only commit; they change no ADR, architecture, or plan text. **Not pushed. No PR yet.**
+2026-09-24; nothing to re-validate). Reviewed candidate head: `639541f` on `worktree-m4-pr1-adrs` (`d058a3a` review commit, `91107c4`
+correction round 1, `6da926f` packet and retained logs, `639541f` correction round 2). The commits after
+`639541f` (this packet's round-2/decision update, then the status/banner-only flip commit) change no design
+text beyond ADR status, Approval, banners, and the architecture status line.
 Spec/plan/task: [docs/plans/m4-lockstep.md](../plans/m4-lockstep.md), PR 1 row (decisions Q1 to Q18).
 Risk: Tier 3 (policy). Transport/concurrency and health-behavior decisions recorded as ADRs; docs only, no
 executable, build, test, or golden change.
 Decision requested: (1) accept ADR-0022, ADR-0023, ADR-0024 as written; (2) approve the out-of-row edits below;
-(3) authorize the flip commit (status and banners only) and then push and a draft PR. Merge and release are
+(3) authorize the flip commit (status and banners only), then the push and a draft PR. **All three were granted, see the Decision record.** Merge and release are
 **not** requested here; Joe squash-merges.
 
 ## What changes and why
@@ -51,6 +52,8 @@ within one timeout plus the Q3 allowance). Diff stat: 7 files, +313/-38 (three n
 | A1 `git diff --check` | exit 0 at both points | same |
 | Codex adversarial review of `e16d26a..d058a3a` (`--base origin/main`, exit 0) | verdict **needs-attention**, three findings | [log](evidence/d058a3a-m4-pr1-codex-adversarial-review.log) |
 | Codex fix verification of `e16d26a..91107c4` (exit 0) | verdict **approve**, no material findings | [log](evidence/91107c4-m4-pr1-codex-fix-verification.log) |
+| Codex fix verification of the round-2 delta (`--base HEAD~1`, exit 0) | verdict **approve**, no material findings | [log](evidence/639541f-m4-pr1-codex-round2-verification.log) |
+| A1 after round 2 | `docs_check.py` exit 0 (24 files), `git diff --check` exit 0 | this session, tree before `639541f` |
 | Product gate (`./scripts/check-full.sh`) | **not run**: your instruction (no product gate unless asked) and no executable, build, test, or runtime-policy change; recorded as scope, not as a pass | last full gate is M3's `f3c1460-full-gate.log`, unchanged |
 
 Limitations: nothing here is tested code. Every behavior the ADRs specify (finite check order, close
@@ -62,8 +65,8 @@ model identity is not recorded in the companion's output (companion 1.0.6, `adve
 ## Independent review
 
 Builder: Claude (Opus 5.5 at the start of this work, Sonnet 5 for the later edits, per the session's
-system notices). Reviewer: Codex via the installed companion, fresh context, read-only. **Round 1 of 2**
-used; failed integrations 0/2.
+system notices). Reviewer: Codex via the installed companion, fresh context, read-only. **Rounds 2 of 2**
+used (round 1: F1 to F3; round 2: Joe's `peer_timeout_ms` change); failed integrations 0/2.
 
 | ID | Sev | Finding | Verified how | Resolution |
 |---|---|---|---|---|
@@ -71,7 +74,17 @@ used; failed integrations 0/2.
 | F2 | high | ADR-0022: "non-finite command halts through `health.input`" is false when `sim.health.input` is `warn`/`off` | `core/src/kernel/health_monitor.cpp:151-154` applies `input_action_` (parsed from config, `health_monitor.hpp:222`, default halt) | **Your decision (alternative option):** exchange stage checks finiteness before limits and before `InputHandle::write()`, halts `kTransport` naming the ICD field; `sim.health.input` unconstrained; ADR-0017 stays a backstop. R5 and architecture §15 changed to match. **Fixed** |
 | F3 | medium | Lost wakeup: HAL waits on `req_seq` but `CLOSED` is stored in `sim_state`; normal completion could wait out the deadline and then exit nonzero under ADR-0023 | Traced the interleaving against the drafted text | **Your decision:** sim stores `sim_state = CLOSED`, then `req_seq = UINT32_MAX - 1` (reserved), then `FUTEX_WAKE`, so the kernel value compare catches it; HAL also re-checks before classifying expiry, close beats expiry; interleaving test. Range check tightens to `frame < UINT32_MAX - 1` everywhere. **Fixed** |
 
-Remaining critical/major/minor: none reported by the verification pass. No finding rejected. Codex's
+**Round 2 (Joe's decision, plan Q19):** the HAL wait cannot tell a dead sim from an idle one (Python between
+`run()`/`step()` calls, REPL, a debugger stop) and expiry is a nonzero exit. The HAL uses its own driver-supplied
+`peer_timeout_ms` (>= the sim's `timeout_ms`, checked at sim init); lockstep runs are driven by back-to-back
+`run()`/`step()` calls; a pause longer than `peer_timeout_ms` ends the peer nonzero and the sim's next exchange
+halts `kTransport`; interactive stepping needs a larger value. No keepalive, no protocol change. Recorded in
+ADR-0024, ADR-0022's config line, ADR-0023's site 2, architecture §10/§11, plan R4b/R5. New test: the sim pauses
+between `run()` calls for longer than `peer_timeout_ms`; the autopilot exits nonzero and the next exchange halts
+`kTransport`. Codex verified this delta alone: approve. This uses the last autonomous correction round; any new
+defect returns to Joe.
+
+Remaining critical/major/minor: none reported by either verification pass. No finding rejected. Codex's
 "approve" is a recommendation, not your approval.
 
 ## Joe's attention
@@ -99,23 +112,29 @@ until PR 3 merges. ADR-0007 and ADR-0010 are unchanged until the flip commit.
 
 ## Decision record
 
-State: pending
-Human decision/date/reference: pending
-Approved candidate/scope: pending
-Merge observed: not merged
+State: approved
+Human decision/date/reference: Joe, 2026-09-24, in the session message approving ADR-0022/0023/0024 and the
+architecture, `AGENTS.md`, and plan edits, with one change (correction round 2: the HAL wait uses a
+driver-supplied `peer_timeout_ms`, plan Q19). Also authorized in that message: the flip commit (status to
+accepted, banners on ADR-0007 and ADR-0010, architecture status line), an explicit push of
+`worktree-m4-pr1-adrs`, a draft PR, and `gh pr ready`.
+Approved candidate/scope: ADR-0022, ADR-0023, ADR-0024 as of `639541f` plus the round-2 change recorded here;
+the out-of-row edits listed above (`AGENTS.md` line 47, architecture §2 principle 1, plan rows, Q18, Q19).
+Merge observed: not merged (Joe squash-merges)
 Release authorization: not requested
 
 Significant tradeoff rationale: accepted a slightly larger surface in ADR-0022 (a local finite check that
 duplicates ADR-0017's) to make the halt independent of a configurable health action; reserved one more
 sequence value so shutdown wakes through the word the HAL actually waits on.
-Accepted risks: none yet; the futex-ordering validation gap (plan Q14) is already accepted. Owner Joe;
-trigger: PR 4's echo stress test and review.
+Accepted risks: the futex-ordering validation gap (plan Q14), owner Joe, trigger: PR 4's echo stress test and
+review. Interactive or debugger stepping under lockstep ends the autopilot unless `peer_timeout_ms` is raised
+(round 2, deliberate; no keepalive), owner Joe, trigger: the first interactive-stepping use case.
 Nonblocking follow-ups: none new. Existing: PLAN.md duplicate §15 bullets (PR 7).
 Architectural decisions: [ADR-0022](../decisions/0022-lockstep-exchange-stage.md),
 [ADR-0023](../decisions/0023-transport-timeout-clock-exception.md),
 [ADR-0024](../decisions/0024-shm-layout-header-and-protocol.md), all **proposed**.
 
-Remaining steps: your decision here; re-arm `.claude/touch-goldens`; the flip commit sets the three ADRs to
+Remaining steps (done in the flip commit unless noted): the flip commit sets the three ADRs to
 `Status: **accepted**, <date>`, fills each Approval with a citation of this Decision record, and adds the
 "**Superseded in part by ADR-00NN** (<date>): ..." banners under the Status lines of ADR-0007 (to 0024) and
 ADR-0010 (to 0023); rerun A1; then push `worktree-m4-pr1-adrs` explicitly (its upstream is `origin/main`, so

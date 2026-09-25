@@ -1,26 +1,21 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines; true at handoff)
 
 ## In flight
-M4 PR 1 (decision records + architecture edits), Tier 3 (policy). Docs only; no product gate (no
-execution, build, test, or policy-runtime change). Plan: `docs/plans/m4-lockstep.md`. Branch
-`worktree-m4-pr1-adrs` off `origin/main` `e16d26a`, **not pushed**. Review commit: ADR-0022 (exchange
-stage), ADR-0023 (monotonic-clock exception to ADR-0010), ADR-0024 (shm layout header/protocol, supersedes
-ADR-0007 in part), all `Status: proposed`, Approval pending; architecture §2/§5/§10/§11/§15/§16 (rev 8).
-ADR-0007 and ADR-0010 are untouched until the flip commit.
-Out-of-row edits (Joe's instruction): `AGENTS.md` line 47 (one clause, ADR-0023), architecture §2
-principle 1, plan rows (PR 1 (b) names ADR-0024; PR 3 cites 0022, 0023; PR 4 cites 0007, 0024). Grep of
-`.claude/hooks`, `.claude/skills`, `scripts/` for wall-clock-only or byte-for-byte-mirror text: no hits.
+M4 PR 1 (decision records + architecture rev 8), Tier 3 (policy), docs only. Branch `worktree-m4-pr1-adrs`
+off `origin/main` `e16d26a`, in a draft PR awaiting Joe's squash-merge. ADR-0022 (exchange stage), ADR-0023
+(monotonic-clock exception to ADR-0010), ADR-0024 (shm layout header/protocol, supersedes ADR-0007 in part) are
+**accepted by Joe 2026-09-24** (packet `docs/reviews/m4-pr1-adrs-human.md`, Decision record approved); ADR-0007
+and ADR-0010 carry "Superseded in part" banners. Plan: `docs/plans/m4-lockstep.md` (Q18, Q19 record two Codex
+correction rounds). Out-of-row edits: `AGENTS.md` line 47, architecture §2 principle 1, plan rows; no hits in
+hooks/skills/scripts.
 
 ## Last verified result
-`python3 scripts/docs_check.py` (OK, 24 files) and `git diff --check`: both exit 0 on the pre-commit tree.
-Codex adversarial review of `d058a3a`: needs-attention, F1 to F3, fixed in round 1 (plan Q18); the packet is
-`docs/reviews/m4-pr1-adrs-human.md`. M3's last
-full gate is unchanged (`docs/reviews/evidence/f3c1460-full-gate.log`, `check: OK`); none ran here.
+`python3 scripts/docs_check.py` (OK, 24 files) and `git diff --check`: exit 0 on the final tree (see PR).
+Codex adversarial review plus two fix-verification passes: approve, logs in `docs/reviews/evidence/`
+(`*-m4-pr1-codex-*`). No product gate (docs only, per Joe). M3's last full gate: `f3c1460-full-gate.log`.
 
 ## Next step
-Joe reads the packet. Then Joe re-arms `.claude/touch-goldens`; one flip commit (status/banner only) sets
-ADR-0022/23/24 to accepted with Approval citing the packet's decision record and adds the "Superseded in
-part" banners to ADR-0007 (to 0024) and ADR-0010 (to 0023); rerun A1; only then push and open a draft PR.
+Joe squash-merges PR 1. Then M4 PR 2 (ICD truth packing, Tier 3, binding ADRs 0001/0002/0006; acceptance A2).
 PLAN.md is untouched (duplicate §15 bullets, lines 600/605, go in PR 7).
 
 ## Open follow-up (not scheduled)
