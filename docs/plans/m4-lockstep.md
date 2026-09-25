@@ -83,11 +83,11 @@ Commands computed from frame-k state are therefore applied from frame k with zer
 
 **Transport failure is unconditionally terminal** (§15, ADR-0007 Consequences; critique F-4): timeout, wrong
 or unexpected ack value, echoed-frame mismatch, bad magic/version, frame-counter discontinuity, peer closed or
-gone, sequence range exhausted. `HaltReason{kTransport, source = transport plugin path, frame, vehicle_index}`; the
+gone, sequence range exhausted, a non-finite command (see below). `HaltReason{kTransport, source = transport plugin path, frame, vehicle_index}`; the
 clock does not advance; nothing further steps. There is **no** `warn`/`off` action for this check (a run that
 continues past a missed lockstep exchange is no longer meaningful, and would let wall-time expiry change the
-trajectory); `sim.health.transport` is not introduced. A non-finite command value keeps using ADR-0017's
-`health.input` (naming the input). Handshake failure before frame 0 is an init error naming `transport`.
+trajectory); `sim.health.transport` is not introduced. A non-finite command halts `kTransport` naming the ICD field, checked by the exchange stage itself before limits and before
+`InputHandle::write()` (Q18); ADR-0017's `health.input` remains only a backstop. Handshake failure before frame 0 is an init error naming `transport`.
 
 **Receive state machine** (critique F-1). After publishing request `frame` the sim waits on `ack_seq`. Unchanged
 `ack_seq` (including a spurious wakeup or a re-`FUTEX_WAKE` with no store) means *still waiting*, never a
@@ -100,7 +100,7 @@ R5 covers only the cases above.
 **Handshake, readiness, and shutdown** (critique F-2, F-5), to be pinned in the PR 1 ADR: the sim creates the
 segment `O_EXCL`, sizes it, initializes the whole header (both sequence words to `UINT32_MAX`, `sim_pid`), then
 publishes `state = SIM_READY` with release. The peer attaches (retrying `open` until the handshake timeout, so
-either start order works), validates magic, version, and layout size with acquire, then publishes `PEER_READY`;
+either start order works; checking the backing size before mapping; polling until it observes `SIM_READY`, Q18), validates magic, version, and layout size with acquire, then publishes `PEER_READY`;
 the sim waits for it (handshake timeout) before frame 0. No frame payload is read or written before both
 readiness states are visible. On normal completion the sim publishes `state = CLOSED` and wakes the peer; the HAL
 maps `CLOSED` to a clean exit (status 0), never to peer death. The creator unlinks on close; the driver also
@@ -114,7 +114,7 @@ computed when the wait begins; every re-wait after a spurious wakeup or `EINTR` 
 same deadline, never a fresh timeout. Peer death is detected no later than that deadline. Two separate
 measurements in the tests: wait duration (must not exceed the timeout by more than wake latency) and kill-to-halt.
 
-**Sequence range** (critique F-6). The exchange stage checks `frame < UINT32_MAX` at every publication and halts
+**Sequence range** (critique F-6). The exchange stage checks `frame < UINT32_MAX - 1` at every publication (`UINT32_MAX - 1` is reserved as the shutdown value of `req_seq`, Q18) and halts
 `kTransport` otherwise, independent of `sim.frames`, so repeated `run()`/`step()` calls cannot reach the
 sentinel; a boundary test steps a clock preset near the limit.
 
@@ -143,7 +143,7 @@ comparison covers counts and layout, not only payloads.
 | R3 | Bit-identical across two runs: byte-equal recorder (sim-to-sw stream, sw-to-sim stream, state stream) and final state bytes; SHA-256 recorded. Still equal with injected autopilot scheduling jitter; a different Dryden seed makes them differ (the comparison is live). | Fresh-process runs, same build/machine. |
 | R4 | Peer death: autopilot SIGKILLed (and separately `abort()` via a test flag) after exchange N gives `HaltReason{kTransport, ...}` with kill-to-halt no greater than the configured timeout plus a wake/measurement allowance (Q3), measured from the kill (or from the autopilot's last reply for the `abort()` flag), and separately the sim's wait duration no greater than the timeout plus the same allowance; no hang (hard test timeout); clock frame equals halt frame; state finite; commands from before death not applied after halt. A repeated-wakeup test (peer issues `FUTEX_WAKE` without storing) proves the deadline does not restart. | Driver test plus shm unit test. |
 | R4b | Sim death: autopilot exits nonzero within its HAL timeout; no orphan. | Driver test. |
-| R5 | Per the receive state machine: an out-of-order `ack_seq`, a wrong echoed `reply.frame`, bad magic/version, a late ack, a peer `CLOSED`, and sequence-range exhaustion (including via repeated `run()`/`step()`) each halt naming the transport; an unchanged `ack_seq` or a spurious wakeup keeps waiting. A re-stored identical sequence value is **not claimed detectable** (critique F-1). NaN command halts through `health.input` naming the input. Startup: delayed initialization and either start order (autopilot first or sim first) reach handshake; normal completion exits the autopilot with status 0; startup failure, driver death, and a stale segment each leave no orphan process or segment (critique F-2, F-5). | Unit tests on loopback and shm; driver tests for lifecycle. |
+| R5 | Per the receive state machine: an out-of-order `ack_seq`, a wrong echoed `reply.frame`, bad magic/version, a late ack, a peer `CLOSED`, and sequence-range exhaustion (including via repeated `run()`/`step()`) each halt naming the transport; an unchanged `ack_seq` or a spurious wakeup keeps waiting. A re-stored identical sequence value is **not claimed detectable** (critique F-1). A non-finite command (NaN, infinity) halts `kTransport` naming the ICD field under every `sim.health.input` setting (Q18). Startup: delayed initialization and either start order (autopilot first or sim first) reach handshake; normal completion exits the autopilot with status 0; startup failure, driver death, and a stale segment each leave no orphan process or segment (critique F-2, F-5). | Unit tests on loopback and shm; driver tests for lifecycle. |
 | R6 | Zero heap allocations over 1000 frames including exchanges. | Extend `tests/physics/no_alloc_test.cpp`. |
 | R7 | ZOH: latched command values are constant across the 9 frames between exchanges; a new command is committed on the frame it arrives. | Unit test on latched values. |
 | R8 | No `transport` block: bit-identical to today (existing goldens, including the M3 frozen regression, pass unmodified). Unknown keys or unknown input names: `ConfigError` naming the path. | Existing suites plus config tests. |
@@ -192,7 +192,7 @@ Tier 3 PRs 3 and 4 get their own plan critique (exchange-stage ownership; futex 
    **Decision (Joe, 2026-09-24):** single shared header, as an ADR-0007 superseding amendment in PR 1.
 5. **Process lifecycle.** Recommend the sim creates the segment `O_EXCL` (name `astra_<driver pid>_<nonce>`, supplied by the driver through config) and unlinks on close; there is no unlink-on-next-start (nothing safely identifies old segments); the Python driver also unlinks its own segment in a `finally`, launches and reaps the autopilot (zombies defeat `kill(pid,0)`, so the timeout, not pid probing, is the detector); the autopilot exits when the sim dies (HAL timeout); test fixture removes leftover segments whose creator pid is dead.
    **Decision (Joe, 2026-09-24):** closed as recommended.
-6. **Sequence words.** ADR-0007's `req_seq = frame` collides with a zero-initialized word at frame 0. Recommend initializing both words to `UINT32_MAX` (sentinel), checking `frame < UINT32_MAX` at every publication (halting `kTransport` otherwise), not only `sim.frames` at init, because repeated `run()`/`step()` bypass an init check (critique F-6); wrap-safe compares. §15's "one round-trip before frame 0": recommend a header-only handshake, not a probe frame (a probe would duplicate frame 0).
+6. **Sequence words.** ADR-0007's `req_seq = frame` collides with a zero-initialized word at frame 0. Recommend initializing both words to `UINT32_MAX` (sentinel), checking `frame < UINT32_MAX` at every publication (halting `kTransport` otherwise; **amended by Q18 to `frame < UINT32_MAX - 1`**), not only `sim.frames` at init, because repeated `run()`/`step()` bypass an init check (critique F-6); wrap-safe compares. §15's "one round-trip before frame 0": recommend a header-only handshake, not a probe frame (a probe would duplicate frame 0).
    **Decision (Joe, 2026-09-24):** closed as recommended.
 7. **"Light Dryden" as config.** `cruise.yaml`'s `sigma_high: 3.0` m/s, `w20_knots: 15` is labeled light. Needs your chart read (human-owned).
    **Decision (Joe, 2026-09-24):** chart read from MIL-F-8785C Fig. 7 (p.49) at 32,800 ft (10,000 m). **The reading is Joe's, not mine.** Both levels gate M4 (this supersedes the earlier "moderate non-gating"):
@@ -232,6 +232,7 @@ Tier 3 PRs 3 and 4 get their own plan critique (exchange-stage ownership; futex 
    **Decision (Joe, 2026-09-24):** as recommended.
 17. **Plan changes beyond your four (from the critique).** (a) transport failure is terminal, with no `warn`/`off` action (contradicts nothing you wrote; ADR-0007 already says halt); (b) R2 checks every major frame rather than every exchange, a superset of your per-exchange instruction; (c) the "within one timeout" slack is now strict (Q3); (d) `ax/ay/az` lag one frame (Q11). Say if you want any of these reversed.
    **Decision (Joe, 2026-09-24):** (a) to (d) accepted.
+18. **PR 1 Codex review, correction round 1 (Joe, 2026-09-24).** Codex's adversarial review of the ADR drafts found three defects, each verified against the repository. (F1) The shm attach could fault on a not-yet-sized segment or read an unfinished header: the peer checks `fstat` size before mapping and acquire-polls until it observes `SIM_READY` before reading any field, all against one handshake deadline. (F2) "NaN halts through `health.input`" was false: `HealthMonitor::check_input` honors `sim.health.input` (`warn`/`off` continue on the last good value, `health_monitor.cpp:151-154`). **Decision:** the exchange stage checks every received command for finiteness before limits and before `InputHandle::write()` and halts `kTransport` naming the ICD field (a NaN also defeats a `v < lo || v > hi` limit test); `sim.health.input` stays unconstrained and ADR-0017's check remains a backstop. This replaces R5's "NaN command halts through `health.input`" and Contract text above. (F3) Shutdown could lose its wake (the HAL waits on `req_seq`, `CLOSED` lives in `sim_state`): on close the sim stores `sim_state = CLOSED`, then `req_seq = UINT32_MAX - 1` (reserved `CLOSE_SEQ`), then `FUTEX_WAKE`; the HAL also re-checks `sim_state` and `req_seq` before classifying expiry, and close takes precedence over expiry. Consequence: the sequence-range check tightens to `frame < UINT32_MAX - 1` (Q6 amended). New tests: creator paused before sizing and before readiness; close interleaved with the HAL's pre-wait check; NaN and infinity commands under each `sim.health.input` setting.
 
 ## Validation and risks
 

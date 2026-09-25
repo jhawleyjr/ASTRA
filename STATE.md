@@ -13,7 +13,8 @@ principle 1, plan rows (PR 1 (b) names ADR-0024; PR 3 cites 0022, 0023; PR 4 cit
 
 ## Last verified result
 `python3 scripts/docs_check.py` (OK, 24 files) and `git diff --check`: both exit 0 on the pre-commit tree.
-Codex review and human packet: see the handoff message and `docs/reviews/m4-pr1-adrs-human.md`. M3's last
+Codex adversarial review of `d058a3a`: needs-attention, F1 to F3, fixed in round 1 (plan Q18); the packet is
+`docs/reviews/m4-pr1-adrs-human.md`. M3's last
 full gate is unchanged (`docs/reviews/evidence/f3c1460-full-gate.log`, `check: OK`); none ran here.
 
 ## Next step
@@ -28,7 +29,8 @@ stale (retired `astra::Eom`/`post_step_renormalize` symbols, ADR-0021). Needs Jo
 it is under `tests/golden/**`.
 
 ## Tried / failed
-Correction rounds: 0/2. Failed integrations: 0/2.
+Correction rounds: 1/2 (Codex adversarial review found three defects in the ADR drafts, all verified and fixed
+in the round-1 commit; fix verification pending). Failed integrations: 0/2.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.

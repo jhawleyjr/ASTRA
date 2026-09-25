@@ -44,18 +44,27 @@ bit-identical to a build without this record (M3's frozen regression stays untou
 `ack_seq == frame` completes the wait, and the payload is then validated. Any other value is a protocol failure:
 `ack_seq` moved to something that is neither the previous value nor `frame`, or `reply.frame != frame`. A peer that
 re-stores the identical sequence value is undetectable from sequence words alone and is **not claimed
-detectable**. The sim checks `frame < UINT32_MAX` at every publication (not only against `sim.frames` at init,
-which repeated `run()`/`step()` calls bypass) and halts otherwise.
+detectable**. The sim checks `frame < UINT32_MAX - 1` at every publication (not only against `sim.frames` at
+init, which repeated `run()`/`step()` calls bypass) and halts otherwise: `UINT32_MAX` is the initial sentinel and
+`UINT32_MAX - 1` is reserved as the shutdown value of `req_seq` (ADR-0024), so neither can be a frame.
+
+**Command validation order.** On every received reply the exchange stage checks, in this order and before any
+`InputHandle::write()`: (1) magic, version, and echoed frame; (2) **every command value is finite**; (3) `throttle[2]`
+equality; (4) each command against its configured limit. The first failure halts. A non-finite command halts
+`kTransport` naming the ICD field, unconditionally. The check is needed regardless of routing, because a NaN also
+defeats a `v < lo || v > hi` limit test (both comparisons are false). It is **not** delegated to ADR-0017's
+`health.input`: that check honors `sim.health.input` (`warn` or `off` keeps the last good value and continues), so
+routing through it could not guarantee a halt. `sim.health.input` is left unconstrained, and ADR-0017's check
+remains as a backstop for every other writer.
 
 **Failure is unconditionally terminal.** Timeout, an unexpected or out-of-order ack, echoed-frame mismatch, bad
-magic or version, frame-counter discontinuity, peer closed or gone, sequence range exhausted, a limit violation, and
-a `throttle[2]` mismatch each halt with `HaltReason{kTransport, source = transport plugin path, frame,
-vehicle_index}` (a limit violation or throttle mismatch names the ICD field). The clock does not advance and
+magic or version, frame-counter discontinuity, peer closed or gone, sequence range exhausted, a non-finite command,
+a limit violation, and a `throttle[2]` mismatch each halt with `HaltReason{kTransport, source = transport plugin
+path, frame, vehicle_index}` (the last three name the ICD field). The clock does not advance and
 nothing further steps. There is **no `warn`/`off` action** and no `sim.health.transport` key: a run that continues
 past a missed lockstep exchange is not meaningful, and letting wall-time expiry change the trajectory would break
-determinism. `HealthCheck::kTransport` is a new additive enum value (bound to Python). A non-finite command
-still halts through ADR-0017's `health.input`, naming the input. A handshake failure before frame 0 is an init
-error naming `transport`.
+determinism. `HealthCheck::kTransport` is a new additive enum value (bound to Python). A handshake failure before
+frame 0 is an init error naming `transport`.
 
 **Timeout reading.** "Within one timeout" is strict: peer death is detected by one immutable absolute deadline
 per wait (ADR-0023), kill-to-halt is no greater than `timeout_ms` plus a wake/measurement allowance (the greater
@@ -80,13 +89,18 @@ logger supersedes the recorder.
   one milestone; M4 has no dynamic actuator (commanded equals achieved).
 - **`warn`/`off` for transport health.** Contradicts ADR-0007's halt consequence and would let timing change results.
 - **Clamping out-of-limit commands.** Hides autopilot faults.
+- **Routing a non-finite command through `health.input` only.** `sim.health.input` may be `warn` or `off`, which
+  keeps the last good value and continues, so a NaN reply would not halt (Codex review finding, PR 1).
+- **Constraining `sim.health.input` to `halt` when a transport is present.** Works, but restricts a global setting
+  to serve one stage and leaves the limit check exposed to NaN; a local finite check is simpler.
 - **Sampling state only at exchange frames.** Leaves 90 % of frames and the tail unchecked against the acceptance bands.
 - **Detecting a re-stored identical sequence value.** Not possible from sequence words alone; claiming it would be false.
 
 ## Consequences and validation
 
 Additive behind an absent `transport` block, so reverting any M4 PR restores today's behavior. The exchange path
-is allocation-free (extends `tests/physics/no_alloc_test.cpp`). Validation is in `docs/plans/m4-lockstep.md`
+is allocation-free (extends `tests/physics/no_alloc_test.cpp`). Acceptance adds a NaN and an infinity command under each of `sim.health.input` = `halt`, `warn`, `off`, each
+halting `kTransport` naming the ICD field. Validation is in `docs/plans/m4-lockstep.md`
 R1 to R12b and acceptance commands A2 to A6; this record's own check is A1 (`docs_check`, `git diff --check`, one
 Codex review). Not covered: HWIL timing, `SCHED_FIFO` behavior, cross-machine layout.
 

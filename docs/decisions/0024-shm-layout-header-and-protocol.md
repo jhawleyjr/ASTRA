@@ -32,24 +32,36 @@ and `peer_state` (`NONE`, `PEER_READY`); `req_seq` and `ack_seq`; the two ICD fr
 (diagnostic only). **Every word has exactly one writer**: sim writes `sim_state` and `req_seq`; peer writes
 `peer_state` and `ack_seq`. Exact offsets are PR 4's, under this record.
 
-**Sentinel.** Both sequence words are initialized to `UINT32_MAX`; `frame = 0` is therefore distinguishable from a
-zeroed word. Comparisons are wrap-safe; the sim halts `kTransport` rather than publish `frame == UINT32_MAX`
-(ADR-0022).
+**Sentinel and reserved value.** Both sequence words are initialized to `UINT32_MAX`; `frame = 0` is therefore
+distinguishable from a zeroed word. `UINT32_MAX - 1` (`CLOSE_SEQ`) is reserved: it is the value the sim stores in
+`req_seq` at shutdown (below). Neither value can be a frame: the sim halts `kTransport` rather than publish
+`frame >= UINT32_MAX - 1` (ADR-0022). Comparisons are wrap-safe.
 
-**Handshake, header-only.** The sim creates the segment `O_EXCL`, sizes it, initializes the whole header, then
-release-stores `sim_state = SIM_READY`. The peer retries `open` until the handshake timeout (so either start order
-works), acquire-loads `sim_state`, validates magic, version, and layout size, then release-stores
-`peer_state = PEER_READY`. The sim waits for it (handshake timeout) before frame 0. No frame payload is read or
-written before both states are visible. No probe frame is used (it would duplicate frame 0). Failure is an init
-error naming `transport`.
+**Handshake, header-only.** The sim creates the segment `O_EXCL`, sizes it (`ftruncate`), initializes the whole
+header, then release-stores `sim_state = SIM_READY`. The segment is discoverable before that point, so the peer
+must not trust anything it finds until it has seen `SIM_READY`. The peer, against **one** handshake deadline
+(ADR-0023) covering every step: retries `open` until it succeeds (so either start order works); checks the backing
+size with `fstat` and does not `mmap` or touch the header while the size is smaller than the layout (a zero-length
+or short segment is "creator not finished", keep retrying); maps it; **polls with acquire-loads until it observes
+`sim_state == SIM_READY`**; only then validates magic, version, and layout size (a mismatch is a hard failure, not a
+retry); then release-stores `peer_state = PEER_READY`. The sim waits for it (same handshake budget, separate wait)
+before frame 0. No frame payload is read or written before both states are visible. No probe frame is used (it
+would duplicate frame 0). Expiry at any step is an init error naming `transport` (sim) or a nonzero exit (HAL).
 
 **Per-exchange ordering.** The writer stores the payload, then release-stores its sequence word, then
 `FUTEX_WAKE`s; the reader acquire-loads the sequence word before reading the payload. Futexes are process-shared
 (no private flag). The intended wait is the absolute-deadline form (`FUTEX_WAIT_BITSET`, `CLOCK_MONOTONIC`), so a
 spurious wakeup or `EINTR` re-waits against the same deadline (ADR-0023).
 
-**Shutdown and ownership.** On normal completion the sim release-stores `sim_state = CLOSED` and wakes the peer;
-the HAL maps `CLOSED` to a clean exit (status 0), never to peer death. The creator unlinks on close. Segment names
+**Shutdown and ownership.** The HAL futex-waits on `req_seq`, so shutdown must change *that* word, or a wake sent
+between the HAL's state check and its wait would be lost (the kernel's value compare sees an unchanged word and
+sleeps until the deadline). On normal completion the sim, in this order: release-stores `sim_state = CLOSED`;
+release-stores `req_seq = CLOSE_SEQ`; then `FUTEX_WAKE`s. A HAL entering `FUTEX_WAIT` with the old `req_seq` as its
+expected value then returns immediately (value mismatch), whichever side of the state check the close landed on.
+On every wake, and before classifying a timeout, the HAL acquire-loads `req_seq` and `sim_state`; `req_seq ==
+CLOSE_SEQ` or `sim_state == CLOSED` is a clean exit (status 0), never peer death, and **takes precedence over
+deadline expiry** (a close that lands at the deadline is still a close). `CLOSE_SEQ` on `req_seq` is never a
+request. The creator unlinks on close. Segment names
 are `astra_<driver pid>_<nonce>`, chosen by the driver and passed through config; the driver also unlinks its own
 segment in a `finally`, terminates then kills and reaps the autopilot with a bounded wait on every exit path, and a
 test fixture removes leftovers whose creator pid is dead. There is **no unlink-on-next-start** (nothing safely
@@ -61,6 +73,10 @@ liveness detector. A peer that re-stores an identical sequence value is not dete
 - **Keep mirrored copies plus a layout-equality test.** The equality test catches drift only after the fact and
   leaves two definitions of one wire format.
 - **Zero-initialized sequence words.** Collide with a frame-0 request.
+- **Signaling `CLOSED` only through `sim_state`.** The HAL waits on `req_seq`, so the wake can be lost between its
+  state check and its wait (Codex review finding, PR 1); a check-on-expiry rule alone would leave a shutdown delay of
+  up to one timeout.
+- **Attaching on `open` success alone.** The segment exists before it is sized and initialized (Codex review finding).
 - **A probe frame for the handshake.** Duplicates frame 0 and pollutes the recorded stream.
 - **One shared state word with two writers.** A read-modify-write race on a word neither side owns; single-writer
   words need no atomics beyond load/store ordering.
@@ -72,6 +88,10 @@ The HAL and the shm plugin cannot disagree on layout. ASan cannot see futex memo
 follow cross-process futex synchronization (accepted gap, plan Q14); mitigation is a 1e6-exchange Release echo
 stress test plus review of acquire/release pairing and single-writer discipline. Tests: two-process echo-peer,
 delayed initialization, both start orders, `CLOSED` exit 0, stale segment, no orphans (plan R5, PR 4, PR 6).
+Two interleaving tests pin the review findings: (1) a creator paused before `ftruncate` and again after sizing but
+before `SIM_READY` (the peer attaches, sees no readiness, waits, then completes the handshake, never faulting or
+reading an unfinished header); (2) a close interleaved with the HAL's pre-wait state check, using a test hook that
+runs the sim's shutdown between the HAL's check and its `FUTEX_WAIT` (the HAL exits 0 promptly, not at the deadline).
 Check for this record: A1. No `icd/astra_icd.h` struct changes.
 
 ## Approval
