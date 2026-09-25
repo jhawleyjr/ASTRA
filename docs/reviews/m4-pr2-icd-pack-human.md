@@ -125,16 +125,17 @@ defect from here goes to Joe.
 
 ## Decision record
 
-State: pending
-Human decision/date/reference: pending (round 0: Joe did not approve and requested six corrections; round 1 applied, awaiting his review)
-Approved candidate/scope: pending
-Merge observed: not merged
+State: approved
+Human decision/date/reference: Joe, 2026-09-25, approved in session ("Approved: candidate 3322d26 (evidence/packet head 1e63268), M4 PR 2 as scoped"); the p/pt spot-check is accepted on the closed-form agreement plus Codex's scan check. Earlier this session he had requested six corrections (applied), which were followed by one Codex-found fix (round 2).
+Approved candidate/scope: product candidate `3322d26`; evidence and packet head `1e63268` (docs only on top of it).
+Merge observed: not merged (Joe squash-merges)
 Release authorization: not requested
 
 Significant tradeoff rationale: bit constants live in `astra_icd.h` (Joe's decision) so the C++17 autopilot need not
 copy magic numbers; the cost is that the ICD header is no longer comment-only.
 Accepted risks: duplicated ISA constants (owner: Joe; trigger: any change to isa1976's constants); NACA table values
 transcribed from an OCR text layer, not read from the page image (owner: Joe's spot-check).
-Nonblocking follow-ups: (a) two accuracy nits Codex found in the CAS table test comment, not fixed because a comment edit changes the candidate and correction rounds are exhausted: it says `|g''| <= 0.807` (max is about 0.8074, so 0.808) and attributes the 0.029 m/s gap to the .6560 rounding alone (it is combined rounding and interpolation; neither changes the tolerance or the verdict), Joe to say whether to fix in a further round; (b) the paired citation fix in `frames.hpp` and the golden header (golden part needs Joe's
-authorization).
+Nonblocking follow-ups (no further round on this PR):
+(a) CAS table test comment, to fix in a follow-up: the `|g''|` bound should read 0.808 (max about 0.8074); the 0.029 m/s gap between the implementation and the printed-value result is mostly the M 0.43/0.44 row rounding (about 0.026), with the .6560 rounding about 0.007 and interpolation about -0.004 (the packet's earlier wording blaming .6560 alone was wrong); and state that the "changed-gamma pair" mutant means matched exponents 3.4 and 1/3.4 with the 0.2 and 5 factors held, and that a fully consistent gamma change (1.41) moves CAS by only 0.010 m/s, which the table test does not catch and which is physically negligible.
+(b) Separate Tier 0 PR after this merges (authorized by Joe): correct the equation citations in `core/include/astra/util/frames.hpp` and in the comments of `tests/golden/frames/adr0001_cases.hpp` (comment-only in the golden file, no data change; Joe arms the golden guard for that session). Correct numbers, 2015 edition: DCM Eq. (1.3-10), Euler from DCM Eq. (1.3-11), half-angle Euler-to-quaternion Example 1.8-1 Eq. (1) p. 52, q to DCM Eq. (1.8-16)/(1.8-18).
 Architectural decisions: none new; binds ADR-0001, ADR-0002, ADR-0006.
