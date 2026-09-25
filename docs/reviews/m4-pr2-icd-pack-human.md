@@ -1,10 +1,10 @@
 # Human review packet: M4 PR 2, ICD truth packing
 
 PR / candidate base and head: base `a3d6071` (`origin/main` at branch time, #51's merge commit; re-check
-before merge). Product candidate `6965165` (code, tests, ICD header); the evidence commit on top of it
-adds only retained logs and this packet. Branch `worktree-m4-pr2-icd-pack`, not pushed.
+before merge). Product candidate `cdc9867` (code, tests, ICD header, correction round 1); evidence and packet
+commits on top add only retained logs and this document. Branch `worktree-m4-pr2-icd-pack`, not pushed.
 Spec/plan/task: [M4 plan](../plans/m4-lockstep.md) PR 2 row, R11, R12a, Q11; approved plan for this PR
-with Joe's eight amendments (2026-09-25).
+with Joe's eight amendments (2026-09-25) and his six correction-round-1 items (below).
 Risk: Tier 3 (`icd/` semantics, numerical utility). Binding ADRs 0001, 0002, 0006.
 Decision requested: approve behavior for this PR and the squash-merge. No release requested.
 
@@ -16,81 +16,109 @@ struct from the `StepContext`, frame-start `VehicleState`, `EnvironmentSample`, 
 previous-frame wrench and mass. It is `noexcept`, allocation-free, and zeroes the struct with `memset` first.
 Not wired into `Simulation` (PR 3).
 
-Field definitions (all also written into `icd/astra_icd.h` comments):
+Field definitions (written in words in `icd/astra_icd.h`; the implementation pointers live in `icd_pack.hpp`):
 
 - `t = ctx.t` (exactly `VirtualClock::t()`), Euler angles from `q_nb` (code maps (psi,theta,phi) to the ICD's
-  (phi,theta,psi)), `p/q/r` = `omega_b` (inertial-relative, per your note), `u/v/w` = ground-relative `v_b`.
+  (phi,theta,psi)), `p/q/r` = `omega_b` (inertial-relative), `u/v/w` = ground-relative `v_b`.
 - `alpha/beta/tas/mach` from the air-relative velocity; `cas` from the subsonic compressible relation with
   `a0 = sqrt(1.4 * (8314.32/28.9644) * 288.15)` (same constants as isa1976), `p0 = 101325`.
-- `vertical_speed = -(C_bn v_b)_z`; the header comment records that this equals the Earth model's altitude rate
-  for flat, round and wgs84_rotating (checked against the real plugins in a test).
-- `ax/ay/az` = previous frame's k1-stage `wrench_total` force / mass (specific force, gravity excluded, one-frame lag).
-- Five `status_flags` bit `#define`s in `icd/astra_icd.h` (your authorization): 1 accel invalid (frame 0, no previous,
+- `vertical_speed = -(C_bn v_b)_z`; the header comment says it equals the Earth model's altitude rate, and a test
+  checks that against the real flat, round and wgs84_rotating plugins.
+- `ax/ay/az` = previous frame's first-stage total force / mass (specific force, gravity excluded, one-frame lag).
+- Five `status_flags` bit `#define`s in `icd/astra_icd.h` (Joe's decision): 1 accel invalid (frame 0, no previous,
   non-finite force, non-finite or non-positive mass), 2 lat/lon not modeled (flat Earth), 4 atmosphere invalid
   (mach, cas = 0), 8 CAS supersonic (cas = 0 only), 16 wind non-finite (tas, alpha, beta, mach, cas = 0).
   Every lost field is a defined 0, never NaN.
 
-Diff (`git diff --stat a3d6071 6965165`): 4 files, +781/-10: `icd_pack.hpp` (new, 139), `astra_icd.h` (comments and
-defines only, no struct, version or static-assert line touched), `icd_pack_test.cpp` (new, 594, 25 tests),
-`tests/unit/CMakeLists.txt` (+1). No golden, tolerance or ADR touched. Read-only use of the human-owned
+Diff (`git diff --stat a3d6071 cdc9867`): `icd_pack.hpp` (new), `astra_icd.h` (comments and defines only, no struct,
+version or static-assert line touched), `icd_pack_test.cpp` (new, 25 tests), `tests/unit/CMakeLists.txt` (+1). No
+golden, tolerance, ADR or `frames.hpp` touched. Read-only use of the human-owned
 `tests/golden/frames/adr0001_cases.hpp`.
+
+## Correction round 1 (Joe's six items, all applied in `cdc9867`)
+
+1. **CAS anchor.** The sea-level table test was non-discriminating (at p = p0 the forward and inverse relations
+   cancel, so `cas = M a0` for any matched exponent pair). Replaced by `CasMatchesPublishedIsentropicTableAtTenKilometers`:
+   NACA 1135 Table I, `p0/p = 1.5243` at M 0.8, `qc = (1.5243 - 1) * 26436 Pa` at ISA 10 km, `qc/p0 + 1 = 1.136791`,
+   inverted by interpolating the M 0.43 (1.1355) and M 0.44 (1.1422) rows to Mc = 0.431928, expecting
+   `cas = Mc * a0 = 146.982 m/s`; tolerance 0.05 m/s, derived in the test from the rows' 4-decimal rounding (7.5e-5
+   Mach), the 1.5243 rounding (2.0e-5) and the interpolation error (3.4e-5). **Provenance limit:** NACA 1135 is not in
+   `docs/refs/`, so I did not read the printed page; the two row values and 1.5243 are the isentropic closed form
+   rounded to the table's 4 printed decimals. Please spot-check them against the table.
+2. **Textbook.** The half-angle formula is printed in Example 1.8-1 Eq. (1), p. 52 (my earlier "not printed" was
+   wrong: I searched for stacked-fraction text and missed it). Test header now cites 1.3-10 (DCM), 1.3-11 (Euler from
+   DCM), 1.8-10a, Example 1.8-1 Eq. (1), 1.8-16 (q to DCM array form) and 1.8-18 (expansion).
+3. **Bit constants.** The contradictory "PR 5 adds its own constants plus a static_assert test" follow-up is removed;
+   the `#define`s in `astra_icd.h` are the single definition.
+4. **Sea-level test comment.** Fixed: a 340.294 literal is 1.1e-4 m/s below a0 = 340.29411; R = 8314.32/28.9644 =
+   287.0531 (sqrt(1.4 * 287.05 * 288.15) = 340.2923 was the wrong figure I had quoted).
+5. **ABI header.** `astra_icd.h` comments no longer contain `round.cpp:97`, `VirtualClock::t()` or
+   `v<i>.wrench_total.*`; definitions are in words, pointers moved to `icd_pack.hpp`.
+6. **Failed logs.** The two FAILED gate logs are removed from `docs/reviews/evidence/`; their rows stay below.
+
+## What each CAS/air-data test actually discriminates
+
+| Test | Discriminates | Does not |
+|---|---|---|
+| `CasMatchesPublishedIsentropicTableAtTenKilometers` | The exponent pair and factors of the relation (published-table inversion at altitude). Mutants forward 3.5 to 3.4, inverse 2/7 to 0.29, and a changed-gamma pair all fail it. | Sea-level constants alone; supersonic. |
+| `CasAtTenKilometersHandComputed` | Implementation slips against the same closed form evaluated in Python (typos, wrong constant). | A wrong relation. |
+| `CasEqualsTasAtIsaSeaLevelAgainstTheRealPlugin` | Sea-level constants `p0`, `a0` against the real isa1976 plugin (the 340.294 literal fails it). | The exponents (they cancel at p0). |
+| `LowMachCasApproachesEquivalentAirspeed` | The low-Mach limit CAS to EAS within `M^2/8`; also failed the exponent mutants above. | Fine exponent errors below that bound. |
 
 ## Evidence
 
-| Check / acceptance | Result / date / duration | Log or retained artifact / candidate |
+| Check / acceptance | Result | Log or candidate |
 |---|---|---|
-| A2 part 1: `cmake --build --preset asan --parallel && ctest --preset asan -R IcdPack --no-tests=error` | pass, 25/25, exit 0 (run on the pre-format tree, then re-run on `6965165` after the lint fix: 25/25) | this session; the tests also run inside the full gate below |
-| A2 part 2: `./scripts/check-full.sh` on `6965165` | **pass**: `check: OK`, `exit=0` | [6965165-full-gate.log](evidence/6965165-full-gate.log) |
-| Earlier full gate on `8413365` | **failed** at `format-check` (exit 123), files not clang-formatted | [8413365-full-gate-FAILED-format.log](evidence/8413365-full-gate-FAILED-format.log) |
-| Earlier full gate on `c439661` | **failed** at `tidy` (exit 1): 8 clang-tidy errors, all in `icd_pack_test.cpp` (unnamed parameters, constant case, loop to `ranges::all_of`) | [c439661-full-gate-FAILED-tidy.log](evidence/c439661-full-gate-FAILED-tidy.log) |
-| Mutation check of the oracles | 5 mutants each fail 2 to 4 tests: vertical-speed sign, conjugate quaternion (q_nb/q_bn swap), az sign, `340.294` literal for a0, phi/psi swap | run once from a scratch script, not retained in the repo |
-| Codex adversarial review | approve, no findings | [6965165-m4-pr2-codex-adversarial.log](evidence/6965165-m4-pr2-codex-adversarial.log) |
+| A2 part 1: `cmake --build --preset asan --parallel && ctest --preset asan -R IcdPack --no-tests=error` | pass, 25/25, on the `cdc9867` tree | this session |
+| A2 part 2: `./scripts/check-full.sh` on `cdc9867` | **pass**: `check: OK`, `exit=0` | [cdc9867-full-gate.log](evidence/cdc9867-full-gate.log) |
+| Full gate on `6965165` (round-0 candidate) | pass: `check: OK`, `exit=0`; superseded by the round-1 candidate | [6965165-full-gate.log](evidence/6965165-full-gate.log) |
+| Failed gate, candidate `8413365` | failed at `format-check`, exit 123 (files not clang-formatted); log removed per Joe | none |
+| Failed gate, candidate `c439661` | failed at `tidy`, exit 1 (8 clang-tidy errors, all in `icd_pack_test.cpp`); log removed per Joe | none |
+| Mutation check | round 0: 5 mutants (vertical-speed sign, conjugate quaternion, `az` sign, `340.294` literal, phi/psi swap), each fails 2 to 4 tests. Round 1: 3 CAS-exponent mutants, each fails the new altitude table test | scratch scripts, not retained |
+| Codex adversarial review, round 0 (`a3d6071..6965165`) | approve, no findings | [6965165-m4-pr2-codex-adversarial.log](evidence/6965165-m4-pr2-codex-adversarial.log) |
+| Codex fix-verification, round 1 | see "Independent review" | see below |
 
-The two failed gates were lint only (no test failed) and are counted as two failed integrations; both fixes were
-mechanical and confined to the new test file. CI is local-gate mode, so a green GitHub check is not a full-gate
-result. Note: the background task wrapper reported exit 0 for the failed runs because a trailing `echo` ran last;
-the logs' own `exit=` lines are what were read.
+The two failed gates were lint only (no test failed): failed integrations 2/2. The background task wrapper reported
+exit 0 for those runs because a trailing `echo` ran last; the logs' own `exit=` lines are what were read. CI is
+local-gate mode, so a green GitHub check is not a full-gate result.
 
-Oracle provenance: attitude and rotation direction come from the golden ADR-0001 `composite` and
-`composite_neg` cases (numpy); beta and vertical-speed signs from single-axis physical cases; CAS anchored three
-ways: NACA 1135 / Anderson isentropic table value `p0/p = 1.5243` at M 0.8 (tolerance 0.02 m/s from the table's
-5-digit rounding, derived in the test), an ISA 10 km value evaluated in Python (`146.98437733646873 m/s`), and the
-sea-level `CAS == TAS` identity against the real isa1976 plugin plus a low-Mach EAS bound of `M^2/8`.
-The oracle's `1e-11` tolerance (R12b's proposed 1e-12 belongs to the later driver test, not this PR).
+Oracle provenance: attitude and rotation direction come from the golden ADR-0001 `composite` and `composite_neg`
+cases (numpy); beta and vertical-speed signs from single-axis physical cases; CAS as in the table above. The `1e-11`
+tolerance is this PR's; R12b's proposed 1e-12 belongs to the later driver test.
 
 ## Independent review
 
-Claude built; Codex (companion 1.0.6, thread `01a0d771-f8f3-7f93-8ec9-f35fb61b7fc9`) reviewed the committed branch
-diff `a3d6071..6965165` in one adversarial pass with a numerical focus (frames, signs, units, CAS constants,
-invalid-input handling, oracle independence, false comments). Verdict approve, no findings. Codex did not run builds
-or tests, so its statement is a reading, not a repeat of the gate. Fix rounds: 0. Open critical/major/minor: none.
+Claude built; Codex (companion 1.0.6) reviewed. Round 0: one adversarial pass over `a3d6071..6965165`, approve, no
+findings (Codex did not run builds or tests). Correction round 1 (Joe's six items, above): Codex fix-verification over
+the delta `6965165..cdc9867` with an explicit instruction to judge whether each oracle can discriminate, not just pass.
+Result: PENDING at the time of writing; recorded in the "Round 1 result" section below when it returns.
 
 ## Joe's attention
 
-- **Textbook citation mismatch (your amendment 1).** I checked `~/repos/ASTRA/docs/refs/textbooks/` (Johnson, Lewis,
-  Stevens 2015). In that edition Eq. 1.3-10 is the DCM, 1.3-11 is Euler angles from the DCM, 1.8-16 is the quaternion
-  vector rotation, 1.8-18 is q to DCM, and 1.8-9a/10a is the axis-angle quaternion; the Euler-to-quaternion half-angle
-  form is not printed. The test header cites those real numbers. The human-owned golden's header cites 1.3-11 for the
-  DCM and 1.8-16 for the half-angle form, so it disagrees; I did not touch it. Your call whether to fix that comment.
-- `icd_pack.hpp` duplicates the isa1976 sea-level constants (file-local there). The plugin identity test would catch
-  a drift, but there is no shared source of truth. Left as is to avoid a core-to-plugin dependency.
+- **Follow-up (one item, not in this PR):** correct the equation citations in `core/include/astra/util/frames.hpp`
+  and in the human-owned `tests/golden/frames/adr0001_cases.hpp` together; the golden header cites 1.3-11 for the DCM
+  and 1.8-16 for the half-angle form, and the right numbers are 1.3-10, Example 1.8-1 Eq. (1) (p. 52) and 1.8-16 for
+  q to DCM. The golden part needs your authorization.
+- `icd_pack.hpp` duplicates the isa1976 sea-level constants (file-local there). The plugin identity test catches a
+  drift, but there is no shared source of truth. Left to avoid a core-to-plugin dependency.
 - `PreviousFrame` is a struct the caller (PR 3) must fill from the published `v<i>.wrench_total.*` signals and the
   mass at frame k-1; PR 3 must pass null at frame 0. This is the main integration risk for PR 3.
 - Mach >= 1 gives `cas = 0` plus bit 8. The notional transport cruises subsonic, so this is unexercised in flight.
 - Rollback: additive, no callers; reverting the commits restores today's behavior. The bit `#define`s are ABI once
-  PR 5's autopilot reads them.
+  the autopilot reads them.
 
 ## Decision record
 
 State: pending
-Human decision/date/reference: pending
+Human decision/date/reference: pending (round 0: Joe did not approve and requested six corrections; round 1 applied, awaiting his review)
 Approved candidate/scope: pending
 Merge observed: not merged
 Release authorization: not requested
 
-Significant tradeoff rationale: bit constants live in `astra_icd.h` (your decision) so the C++17 autopilot need not
+Significant tradeoff rationale: bit constants live in `astra_icd.h` (Joe's decision) so the C++17 autopilot need not
 copy magic numbers; the cost is that the ICD header is no longer comment-only.
-Accepted risks: duplicated ISA constants (owner: Joe; trigger: any change to isa1976's constants).
-Nonblocking follow-ups: PR 5 adds its own constants plus a test including both headers and `static_assert`ing equality
-(your instruction); optional fix of the golden header's equation numbers (requires your authorization, `tests/golden/**`).
+Accepted risks: duplicated ISA constants (owner: Joe; trigger: any change to isa1976's constants); NACA table row
+values not read from the printed page (owner: Joe's spot-check).
+Nonblocking follow-ups: the paired citation fix in `frames.hpp` and the golden header (golden part needs Joe's
+authorization).
 Architectural decisions: none new; binds ADR-0001, ADR-0002, ADR-0006.
