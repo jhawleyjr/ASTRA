@@ -29,7 +29,8 @@
  * means the named field(s) carry a defined placeholder of exactly 0, never NaN; every bit not
  * listed here is 0 in v1.
  */
-/* ax/ay/az = 0: frame 0, no previous wrench, a non-finite force, or a non-finite/non-positive mass. */
+/* ax/ay/az = 0: frame 0, no previous wrench, a non-finite force, or a non-finite/non-positive mass.
+ */
 #define ASTRA_ICD_STATUS_ACCEL_INVALID 0x00000001u
 /* lat/lon = 0: the Earth model has no geodetic position (flat Earth). */
 #define ASTRA_ICD_STATUS_LATLON_NOT_MODELED 0x00000002u

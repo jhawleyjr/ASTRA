@@ -42,18 +42,18 @@ using astra::EnvironmentSample;
 using astra::StateVector;
 using astra::StepContext;
 using astra::VehicleState;
-using astra::icd_pack::PreviousFrame;
 using astra::icd_pack::pack_sim_to_sw;
+using astra::icd_pack::PreviousFrame;
 
 constexpr double kTol = 1e-11;
 // Eigen's braced default is uninitialized; every "no wind / no rate" below is this explicit zero.
 const Eigen::Vector3d kZero = Eigen::Vector3d::Zero();
 constexpr double kDeg = std::numbers::pi / 180.0;
 constexpr double kStandardGravity = 9.80665;
-constexpr std::uint32_t kKnownFlags = ASTRA_ICD_STATUS_ACCEL_INVALID |
-                                      ASTRA_ICD_STATUS_LATLON_NOT_MODELED |
-                                      ASTRA_ICD_STATUS_ATMOSPHERE_INVALID |
-                                      ASTRA_ICD_STATUS_CAS_SUPERSONIC | ASTRA_ICD_STATUS_WIND_INVALID;
+constexpr std::uint32_t kKnownFlags =
+    ASTRA_ICD_STATUS_ACCEL_INVALID | ASTRA_ICD_STATUS_LATLON_NOT_MODELED |
+    ASTRA_ICD_STATUS_ATMOSPHERE_INVALID | ASTRA_ICD_STATUS_CAS_SUPERSONIC |
+    ASTRA_ICD_STATUS_WIND_INVALID;
 
 // The five bit values are ABI: pinned as literals so a renumbering is a test failure.
 static_assert(ASTRA_ICD_STATUS_ACCEL_INVALID == 1U);
@@ -162,9 +162,28 @@ astra_sim_to_sw_v1 pack(const StepContext& ctx, const StateVector& y, const Envi
 }
 
 bool all_fields_finite(const astra_sim_to_sw_v1& o) {
-  for (const double x : {o.t, o.phi, o.theta, o.psi, o.p, o.q, o.r, o.u, o.v, o.w, o.alpha, o.beta,
-                         o.tas, o.cas, o.mach, o.altitude, o.vertical_speed, o.lat, o.lon, o.ax,
-                         o.ay, o.az}) {
+  for (const double x : {o.t,
+                         o.phi,
+                         o.theta,
+                         o.psi,
+                         o.p,
+                         o.q,
+                         o.r,
+                         o.u,
+                         o.v,
+                         o.w,
+                         o.alpha,
+                         o.beta,
+                         o.tas,
+                         o.cas,
+                         o.mach,
+                         o.altitude,
+                         o.vertical_speed,
+                         o.lat,
+                         o.lon,
+                         o.ax,
+                         o.ay,
+                         o.az}) {
     if (!std::isfinite(x)) {
       return false;
     }
@@ -178,8 +197,8 @@ TEST(IcdPack, HeaderFrameAndTimeAreExactlyTheClocks) {
   // t must be bit-equal to VirtualClock::t() = static_cast<double>(frame) * dt (ADR-0010), which
   // R12b's 1e-12 check depends on. Expected here: 12345 * 0.001, computed in the test.
   const StepContext ctx = context_at(12345);
-  const auto out = pack(ctx, level_state({100.0, 0.0, 0.0}), env_with(kZero, atmosphere(1.0e5, 340.0)),
-                        flat_stub());
+  const auto out = pack(ctx, level_state({100.0, 0.0, 0.0}),
+                        env_with(kZero, atmosphere(1.0e5, 340.0)), flat_stub());
   EXPECT_EQ(out.magic, ASTRA_ICD_MAGIC);
   EXPECT_EQ(out.version, ASTRA_ICD_VERSION);
   EXPECT_EQ(out.frame, 12345U);
@@ -224,8 +243,8 @@ TEST(IcdPack, AttitudeCompositeNegMatchesGolden) {  // psi=-135, theta=-60, phi=
 }
 
 TEST(IcdPack, RatesAndBodyVelocityPassThrough) {
-  const StateVector y = make_state({1.0, 2.0, 3.0}, {101.0, -7.0, 5.5}, {1.0, 0.0, 0.0, 0.0},
-                                   {0.01, -0.02, 0.03});
+  const StateVector y =
+      make_state({1.0, 2.0, 3.0}, {101.0, -7.0, 5.5}, {1.0, 0.0, 0.0, 0.0}, {0.01, -0.02, 0.03});
   const auto out = pack(context_at(1), y, env_with(kZero, atmosphere(1.0e5, 340.0)), flat_stub());
   EXPECT_EQ(out.p, 0.01);
   EXPECT_EQ(out.q, -0.02);
@@ -256,9 +275,10 @@ TEST(IcdPack, PitchUpTenDegreesFlyingForwardClimbs) {
   // rotation about y; the golden's pitch_30 is the same form).
   constexpr double kV = 100.0;
   const double half = 10.0 * kDeg / 2.0;
-  const auto out = pack(context_at(1),
-                        make_state(kZero, {kV, 0.0, 0.0}, {std::cos(half), 0.0, std::sin(half), 0.0}, kZero),
-                        env_with(kZero, atmosphere(1.0e5, 340.0)), flat_stub());
+  const auto out =
+      pack(context_at(1),
+           make_state(kZero, {kV, 0.0, 0.0}, {std::cos(half), 0.0, std::sin(half), 0.0}, kZero),
+           env_with(kZero, atmosphere(1.0e5, 340.0)), flat_stub());
   EXPECT_GT(out.vertical_speed, 0.0);
   EXPECT_NEAR(out.vertical_speed, kV * std::sin(10.0 * kDeg), kTol);  // 17.364817766693033
   EXPECT_NEAR(out.theta, 10.0 * kDeg, kTol);
@@ -325,8 +345,9 @@ TEST(IcdPack, CasMatchesPublishedIsentropicTableAtSeaLevel) {
                         env_with(kZero, atmosphere(101325.0, kA0)), flat_stub());
   EXPECT_NEAR(out.mach, 0.8, 1e-9);
   EXPECT_NEAR(out.cas, 0.8 * kA0, 0.02);
-  EXPECT_EQ(out.status_flags & (ASTRA_ICD_STATUS_ATMOSPHERE_INVALID | ASTRA_ICD_STATUS_CAS_SUPERSONIC),
-            0U);
+  EXPECT_EQ(
+      out.status_flags & (ASTRA_ICD_STATUS_ATMOSPHERE_INVALID | ASTRA_ICD_STATUS_CAS_SUPERSONIC),
+      0U);
 }
 
 TEST(IcdPack, CasAtTenKilometersHandComputed) {
@@ -359,8 +380,8 @@ TEST(IcdPack, CasEqualsTasAtIsaSeaLevelAgainstTheRealPlugin) {
   const AtmoState sea_level = load_isa().at(0.0);
   for (const double tas : {50.0, 200.0, 300.0}) {
     SCOPED_TRACE(tas);
-    const auto out = pack(context_at(1), level_state({tas, 0.0, 0.0}),
-                          env_with(kZero, sea_level), flat_stub());
+    const auto out =
+        pack(context_at(1), level_state({tas, 0.0, 0.0}), env_with(kZero, sea_level), flat_stub());
     EXPECT_NEAR(out.cas, tas, 1e-9);
   }
 }
@@ -374,18 +395,20 @@ TEST(IcdPack, LowMachCasApproachesEquivalentAirspeed) {
   const AtmoState alt = isa.at(3000.0);
   const AtmoState sl = isa.at(0.0);
   const double tas = 34.0;
-  const auto out = pack(context_at(1), level_state({tas, 0.0, 0.0}), env_with(kZero, alt), flat_stub());
+  const auto out =
+      pack(context_at(1), level_state({tas, 0.0, 0.0}), env_with(kZero, alt), flat_stub());
   const double eas = tas * std::sqrt(alt.density_kg_m3 / sl.density_kg_m3);
   const double mach = tas / alt.speed_of_sound_m_s;
   EXPECT_LE(std::abs(out.cas / eas - 1.0), mach * mach / 8.0);
   EXPECT_GT(std::abs(out.cas / eas - 1.0), 0.0);  // it is not vacuous: CAS != EAS exactly
 }
 
-// ---- degenerate air data: flagged, defined, never NaN ----------------------------------------------
+// ---- degenerate air data: flagged, defined, never NaN
+// ----------------------------------------------
 
 TEST(IcdPack, DefaultAllNanAtmosphereFlagsAndZeroesMachAndCas) {
-  const auto out = pack(context_at(1), level_state({100.0, 0.0, 0.0}), EnvironmentSample{},
-                        flat_stub());
+  const auto out =
+      pack(context_at(1), level_state({100.0, 0.0, 0.0}), EnvironmentSample{}, flat_stub());
   EXPECT_NE(out.status_flags & ASTRA_ICD_STATUS_ATMOSPHERE_INVALID, 0U);
   EXPECT_EQ(out.mach, 0.0);
   EXPECT_EQ(out.cas, 0.0);
@@ -413,10 +436,10 @@ TEST(IcdPack, SupersonicFlagsCasOnlyAndKeepsAirData) {
 }
 
 TEST(IcdPack, NonFiniteWindFlagsAndZeroesEveryAirRelativeField) {
-  const auto out = pack(context_at(1), level_state({100.0, 0.0, 5.0}),
-                        env_with({std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0},
-                                 atmosphere(26436.0, 299.53)),
-                        flat_stub());
+  const auto out = pack(
+      context_at(1), level_state({100.0, 0.0, 5.0}),
+      env_with({std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0}, atmosphere(26436.0, 299.53)),
+      flat_stub());
   EXPECT_NE(out.status_flags & ASTRA_ICD_STATUS_WIND_INVALID, 0U);
   EXPECT_EQ(out.tas, 0.0);
   EXPECT_EQ(out.alpha, 0.0);
@@ -498,9 +521,9 @@ TEST(IcdPack, MissingPreviousNonFiniteForceOrBadMassAreInvalid) {
 
 TEST(IcdPack, FlatEarthLatLonAreZeroWithAFlagAndAltitudeIsMinusDown) {
   // p_n = NED metres; altitude = -p_n(2).
-  const auto out = pack(context_at(1),
-                        make_state({1200.0, -800.0, -10000.0}, {100.0, 0.0, 0.0}, {1, 0, 0, 0}, kZero),
-                        env_with(kZero, atmosphere(26436.0, 299.53)), flat_stub());
+  const auto out = pack(
+      context_at(1), make_state({1200.0, -800.0, -10000.0}, {100.0, 0.0, 0.0}, {1, 0, 0, 0}, kZero),
+      env_with(kZero, atmosphere(26436.0, 299.53)), flat_stub());
   EXPECT_NE(out.status_flags & ASTRA_ICD_STATUS_LATLON_NOT_MODELED, 0U);
   EXPECT_EQ(out.lat, 0.0);
   EXPECT_EQ(out.lon, 0.0);
@@ -509,9 +532,9 @@ TEST(IcdPack, FlatEarthLatLonAreZeroWithAFlagAndAltitudeIsMinusDown) {
 
 TEST(IcdPack, RoundEarthLatLonAndAltitudeArePNComponentsWithoutAFlag) {
   // p_n = (lat, lon, altitude) rad, rad, m.
-  const auto out = pack(context_at(1),
-                        make_state({0.6, -1.2, 10000.0}, {100.0, 0.0, 0.0}, {1, 0, 0, 0}, kZero),
-                        env_with(kZero, atmosphere(26436.0, 299.53)), round_stub());
+  const auto out =
+      pack(context_at(1), make_state({0.6, -1.2, 10000.0}, {100.0, 0.0, 0.0}, {1, 0, 0, 0}, kZero),
+           env_with(kZero, atmosphere(26436.0, 299.53)), round_stub());
   EXPECT_EQ(out.status_flags & ASTRA_ICD_STATUS_LATLON_NOT_MODELED, 0U);
   EXPECT_EQ(out.lat, 0.6);
   EXPECT_EQ(out.lon, -1.2);

@@ -27,11 +27,11 @@ namespace astra::icd_pack {
 
 // ISA sea-level reference (the same constants plugins/physical/atmosphere/isa1976 uses: U.S.
 // Standard Atmosphere 1976 pp. 8-9) for the calibrated-airspeed relation.
-inline constexpr double kSeaLevelPressure = 101325.0;      // p0, Pa
-inline constexpr double kSeaLevelTemperature = 288.15;     // T0, K
-inline constexpr double kGasConstant = 8314.32;            // R*, N.m/(kmol.K)
-inline constexpr double kMeanMolecularWeight = 28.9644;    // M0, kg/kmol
-inline constexpr double kSpecificHeatRatio = 1.4;          // gamma
+inline constexpr double kSeaLevelPressure = 101325.0;    // p0, Pa
+inline constexpr double kSeaLevelTemperature = 288.15;   // T0, K
+inline constexpr double kGasConstant = 8314.32;          // R*, N.m/(kmol.K)
+inline constexpr double kMeanMolecularWeight = 28.9644;  // M0, kg/kmol
+inline constexpr double kSpecificHeatRatio = 1.4;        // gamma
 
 // a0 = sqrt(gamma * (R* / M0) * T0) = 340.29411 m/s, the ISA sea-level speed of sound.
 [[nodiscard]] inline double sea_level_speed_of_sound() noexcept {
@@ -44,8 +44,8 @@ inline constexpr double kSpecificHeatRatio = 1.4;          // gamma
 // the same relation inverted at sea level: cas = a0 * sqrt(2/(gamma-1) * ((qc/p0 + 1)^((gamma-1)/
 // gamma) - 1)). gamma = 1.4 gives the exponents 3.5 and 2/7 and the factors 0.2 and 5 below.
 [[nodiscard]] inline double calibrated_airspeed(double static_pressure, double mach) noexcept {
-  constexpr double kHalfGammaMinusOne = 0.2;   // (gamma-1)/2
-  constexpr double kPitotExponent = 3.5;       // gamma/(gamma-1)
+  constexpr double kHalfGammaMinusOne = 0.2;      // (gamma-1)/2
+  constexpr double kPitotExponent = 3.5;          // gamma/(gamma-1)
   constexpr double kInverseExponent = 2.0 / 7.0;  // (gamma-1)/gamma
   constexpr double kTwoOverGammaMinusOne = 5.0;   // 2/(gamma-1)
   const double impact_pressure =
