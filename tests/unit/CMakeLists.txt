@@ -7,6 +7,7 @@ add_executable(astra_unit_tests
   gravity/inverse_square_test.cpp
   gravity/wgs84_j2_test.cpp
   health/health_monitor_test.cpp
+  icd/icd_pack_test.cpp
   icd/icd_test.cpp
   kernel/aero_propulsion_seam_test.cpp
   kernel/clock_test.cpp
