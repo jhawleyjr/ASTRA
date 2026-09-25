@@ -1,0 +1,180 @@
+find . \( -path ./build -o -path ./.git -o -path ./.claude -o -path ./.venv \) -prune -o -type f \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.c' \) -print0 | xargs -0 clang-format-18 --dry-run --Werror
+./icd/astra_icd.h:32:101: error: code should be clang-formatted [-Wclang-format-violations]
+/* ax/ay/az = 0: frame 0, no previous wrench, a non-finite force, or a non-finite/non-positive mass. */
+                                                                                                    ^
+./core/include/astra/util/icd_pack.hpp:30:54: error: code should be clang-formatted [-Wclang-format-violations]
+inline constexpr double kSeaLevelPressure = 101325.0;      // p0, Pa
+                                                     ^
+./core/include/astra/util/icd_pack.hpp:31:55: error: code should be clang-formatted [-Wclang-format-violations]
+inline constexpr double kSeaLevelTemperature = 288.15;     // T0, K
+                                                      ^
+./core/include/astra/util/icd_pack.hpp:32:48: error: code should be clang-formatted [-Wclang-format-violations]
+inline constexpr double kGasConstant = 8314.32;            // R*, N.m/(kmol.K)
+                                               ^
+./core/include/astra/util/icd_pack.hpp:33:56: error: code should be clang-formatted [-Wclang-format-violations]
+inline constexpr double kMeanMolecularWeight = 28.9644;    // M0, kg/kmol
+                                                       ^
+./core/include/astra/util/icd_pack.hpp:34:50: error: code should be clang-formatted [-Wclang-format-violations]
+inline constexpr double kSpecificHeatRatio = 1.4;          // gamma
+                                                 ^
+./core/include/astra/util/icd_pack.hpp:47:45: error: code should be clang-formatted [-Wclang-format-violations]
+  constexpr double kHalfGammaMinusOne = 0.2;   // (gamma-1)/2
+                                            ^
+./core/include/astra/util/icd_pack.hpp:48:41: error: code should be clang-formatted [-Wclang-format-violations]
+  constexpr double kPitotExponent = 3.5;       // gamma/(gamma-1)
+                                        ^
+./tests/unit/icd/icd_pack_test.cpp:45:1: error: code should be clang-formatted [-Wclang-format-violations]
+using astra::icd_pack::PreviousFrame;
+^
+./tests/unit/icd/icd_pack_test.cpp:46:1: error: code should be clang-formatted [-Wclang-format-violations]
+using astra::icd_pack::pack_sim_to_sw;
+^
+./tests/unit/icd/icd_pack_test.cpp:53:38: error: code should be clang-formatted [-Wclang-format-violations]
+constexpr std::uint32_t kKnownFlags = ASTRA_ICD_STATUS_ACCEL_INVALID |
+                                     ^
+./tests/unit/icd/icd_pack_test.cpp:53:71: error: code should be clang-formatted [-Wclang-format-violations]
+constexpr std::uint32_t kKnownFlags = ASTRA_ICD_STATUS_ACCEL_INVALID |
+                                                                      ^
+./tests/unit/icd/icd_pack_test.cpp:54:76: error: code should be clang-formatted [-Wclang-format-violations]
+                                      ASTRA_ICD_STATUS_LATLON_NOT_MODELED |
+                                                                           ^
+./tests/unit/icd/icd_pack_test.cpp:55:76: error: code should be clang-formatted [-Wclang-format-violations]
+                                      ASTRA_ICD_STATUS_ATMOSPHERE_INVALID |
+                                                                           ^
+./tests/unit/icd/icd_pack_test.cpp:56:72: error: code should be clang-formatted [-Wclang-format-violations]
+                                      ASTRA_ICD_STATUS_CAS_SUPERSONIC | ASTRA_ICD_STATUS_WIND_INVALID;
+                                                                       ^
+./tests/unit/icd/icd_pack_test.cpp:165:30: error: code should be clang-formatted [-Wclang-format-violations]
+  for (const double x : {o.t, o.phi, o.theta, o.psi, o.p, o.q, o.r, o.u, o.v, o.w, o.alpha, o.beta,
+                             ^
+./tests/unit/icd/icd_pack_test.cpp:165:37: error: code should be clang-formatted [-Wclang-format-violations]
+  for (const double x : {o.t, o.phi, o.theta, o.psi, o.p, o.q, o.r, o.u, o.v, o.w, o.alpha, o.beta,
+                                    ^
+./tests/unit/icd/icd_pack_test.cpp:165:46: error: code should be clang-formatted [-Wclang-format-violations]
+  for (const double x : {o.t, o.phi, o.theta, o.psi, o.p, o.q, o.r, o.u, o.v, o.w, o.alpha, o.beta,
+                                             ^
+./tests/unit/icd/icd_pack_test.cpp:165:53: error: code should be clang-formatted [-Wclang-format-violations]
+  for (const double x : {o.t, o.phi, o.theta, o.psi, o.p, o.q, o.r, o.u, o.v, o.w, o.alpha, o.beta,
+                                                    ^
+./tests/unit/icd/icd_pack_test.cpp:165:58: error: code should be clang-formatted [-Wclang-format-violations]
+  for (const double x : {o.t, o.phi, o.theta, o.psi, o.p, o.q, o.r, o.u, o.v, o.w, o.alpha, o.beta,
+                                                         ^
+./tests/unit/icd/icd_pack_test.cpp:165:63: error: code should be clang-formatted [-Wclang-format-violations]
+  for (const double x : {o.t, o.phi, o.theta, o.psi, o.p, o.q, o.r, o.u, o.v, o.w, o.alpha, o.beta,
+                                                              ^
+./tests/unit/icd/icd_pack_test.cpp:165:68: error: code should be clang-formatted [-Wclang-format-violations]
+  for (const double x : {o.t, o.phi, o.theta, o.psi, o.p, o.q, o.r, o.u, o.v, o.w, o.alpha, o.beta,
+                                                                   ^
+./tests/unit/icd/icd_pack_test.cpp:165:73: error: code should be clang-formatted [-Wclang-format-violations]
+  for (const double x : {o.t, o.phi, o.theta, o.psi, o.p, o.q, o.r, o.u, o.v, o.w, o.alpha, o.beta,
+                                                                        ^
+./tests/unit/icd/icd_pack_test.cpp:165:78: error: code should be clang-formatted [-Wclang-format-violations]
+  for (const double x : {o.t, o.phi, o.theta, o.psi, o.p, o.q, o.r, o.u, o.v, o.w, o.alpha, o.beta,
+                                                                             ^
+./tests/unit/icd/icd_pack_test.cpp:165:83: error: code should be clang-formatted [-Wclang-format-violations]
+  for (const double x : {o.t, o.phi, o.theta, o.psi, o.p, o.q, o.r, o.u, o.v, o.w, o.alpha, o.beta,
+                                                                                  ^
+./tests/unit/icd/icd_pack_test.cpp:165:92: error: code should be clang-formatted [-Wclang-format-violations]
+  for (const double x : {o.t, o.phi, o.theta, o.psi, o.p, o.q, o.r, o.u, o.v, o.w, o.alpha, o.beta,
+                                                                                           ^
+./tests/unit/icd/icd_pack_test.cpp:166:32: error: code should be clang-formatted [-Wclang-format-violations]
+                         o.tas, o.cas, o.mach, o.altitude, o.vertical_speed, o.lat, o.lon, o.ax,
+                               ^
+./tests/unit/icd/icd_pack_test.cpp:166:39: error: code should be clang-formatted [-Wclang-format-violations]
+                         o.tas, o.cas, o.mach, o.altitude, o.vertical_speed, o.lat, o.lon, o.ax,
+                                      ^
+./tests/unit/icd/icd_pack_test.cpp:166:47: error: code should be clang-formatted [-Wclang-format-violations]
+                         o.tas, o.cas, o.mach, o.altitude, o.vertical_speed, o.lat, o.lon, o.ax,
+                                              ^
+./tests/unit/icd/icd_pack_test.cpp:166:59: error: code should be clang-formatted [-Wclang-format-violations]
+                         o.tas, o.cas, o.mach, o.altitude, o.vertical_speed, o.lat, o.lon, o.ax,
+                                                          ^
+./tests/unit/icd/icd_pack_test.cpp:166:77: error: code should be clang-formatted [-Wclang-format-violations]
+                         o.tas, o.cas, o.mach, o.altitude, o.vertical_speed, o.lat, o.lon, o.ax,
+                                                                            ^
+./tests/unit/icd/icd_pack_test.cpp:166:84: error: code should be clang-formatted [-Wclang-format-violations]
+                         o.tas, o.cas, o.mach, o.altitude, o.vertical_speed, o.lat, o.lon, o.ax,
+                                                                                   ^
+./tests/unit/icd/icd_pack_test.cpp:166:91: error: code should be clang-formatted [-Wclang-format-violations]
+                         o.tas, o.cas, o.mach, o.altitude, o.vertical_speed, o.lat, o.lon, o.ax,
+                                                                                          ^
+./tests/unit/icd/icd_pack_test.cpp:167:31: error: code should be clang-formatted [-Wclang-format-violations]
+                         o.ay, o.az}) {
+                              ^
+./tests/unit/icd/icd_pack_test.cpp:181:61: error: code should be clang-formatted [-Wclang-format-violations]
+  const auto out = pack(ctx, level_state({100.0, 0.0, 0.0}), env_with(kZero, atmosphere(1.0e5, 340.0)),
+                                                            ^
+./tests/unit/icd/icd_pack_test.cpp:181:104: error: code should be clang-formatted [-Wclang-format-violations]
+  const auto out = pack(ctx, level_state({100.0, 0.0, 0.0}), env_with(kZero, atmosphere(1.0e5, 340.0)),
+                                                                                                       ^
+./tests/unit/icd/icd_pack_test.cpp:227:24: error: code should be clang-formatted [-Wclang-format-violations]
+  const StateVector y = make_state({1.0, 2.0, 3.0}, {101.0, -7.0, 5.5}, {1.0, 0.0, 0.0, 0.0},
+                       ^
+./tests/unit/icd/icd_pack_test.cpp:227:94: error: code should be clang-formatted [-Wclang-format-violations]
+  const StateVector y = make_state({1.0, 2.0, 3.0}, {101.0, -7.0, 5.5}, {1.0, 0.0, 0.0, 0.0},
+                                                                                             ^
+./tests/unit/icd/icd_pack_test.cpp:259:19: error: code should be clang-formatted [-Wclang-format-violations]
+  const auto out = pack(context_at(1),
+                  ^
+./tests/unit/icd/icd_pack_test.cpp:259:39: error: code should be clang-formatted [-Wclang-format-violations]
+  const auto out = pack(context_at(1),
+                                      ^
+./tests/unit/icd/icd_pack_test.cpp:260:110: error: code should be clang-formatted [-Wclang-format-violations]
+                        make_state(kZero, {kV, 0.0, 0.0}, {std::cos(half), 0.0, std::sin(half), 0.0}, kZero),
+                                                                                                             ^
+./tests/unit/icd/icd_pack_test.cpp:328:13: error: code should be clang-formatted [-Wclang-format-violations]
+  EXPECT_EQ(out.status_flags & (ASTRA_ICD_STATUS_ATMOSPHERE_INVALID | ASTRA_ICD_STATUS_CAS_SUPERSONIC),
+            ^
+./tests/unit/icd/icd_pack_test.cpp:328:104: error: code should be clang-formatted [-Wclang-format-violations]
+  EXPECT_EQ(out.status_flags & (ASTRA_ICD_STATUS_ATMOSPHERE_INVALID | ASTRA_ICD_STATUS_CAS_SUPERSONIC),
+                                                                                                       ^
+./tests/unit/icd/icd_pack_test.cpp:362:21: error: code should be clang-formatted [-Wclang-format-violations]
+    const auto out = pack(context_at(1), level_state({tas, 0.0, 0.0}),
+                    ^
+./tests/unit/icd/icd_pack_test.cpp:362:71: error: code should be clang-formatted [-Wclang-format-violations]
+    const auto out = pack(context_at(1), level_state({tas, 0.0, 0.0}),
+                                                                      ^
+./tests/unit/icd/icd_pack_test.cpp:377:19: error: code should be clang-formatted [-Wclang-format-violations]
+  const auto out = pack(context_at(1), level_state({tas, 0.0, 0.0}), env_with(kZero, alt), flat_stub());
+                  ^
+./tests/unit/icd/icd_pack_test.cpp:384:57: error: code should be clang-formatted [-Wclang-format-violations]
+// ---- degenerate air data: flagged, defined, never NaN ----------------------------------------------
+                                                        ^
+./tests/unit/icd/icd_pack_test.cpp:387:19: error: code should be clang-formatted [-Wclang-format-violations]
+  const auto out = pack(context_at(1), level_state({100.0, 0.0, 0.0}), EnvironmentSample{},
+                  ^
+./tests/unit/icd/icd_pack_test.cpp:387:92: error: code should be clang-formatted [-Wclang-format-violations]
+  const auto out = pack(context_at(1), level_state({100.0, 0.0, 0.0}), EnvironmentSample{},
+                                                                                           ^
+./tests/unit/icd/icd_pack_test.cpp:416:25: error: code should be clang-formatted [-Wclang-format-violations]
+  const auto out = pack(context_at(1), level_state({100.0, 0.0, 5.0}),
+                        ^
+./tests/unit/icd/icd_pack_test.cpp:416:71: error: code should be clang-formatted [-Wclang-format-violations]
+  const auto out = pack(context_at(1), level_state({100.0, 0.0, 5.0}),
+                                                                      ^
+./tests/unit/icd/icd_pack_test.cpp:417:87: error: code should be clang-formatted [-Wclang-format-violations]
+                        env_with({std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0},
+                                                                                      ^
+./tests/unit/icd/icd_pack_test.cpp:418:63: error: code should be clang-formatted [-Wclang-format-violations]
+                                 atmosphere(26436.0, 299.53)),
+                                                              ^
+./tests/unit/icd/icd_pack_test.cpp:501:25: error: code should be clang-formatted [-Wclang-format-violations]
+  const auto out = pack(context_at(1),
+                        ^
+./tests/unit/icd/icd_pack_test.cpp:501:39: error: code should be clang-formatted [-Wclang-format-violations]
+  const auto out = pack(context_at(1),
+                                      ^
+./tests/unit/icd/icd_pack_test.cpp:502:104: error: code should be clang-formatted [-Wclang-format-violations]
+                        make_state({1200.0, -800.0, -10000.0}, {100.0, 0.0, 0.0}, {1, 0, 0, 0}, kZero),
+                                                                                                       ^
+./tests/unit/icd/icd_pack_test.cpp:512:19: error: code should be clang-formatted [-Wclang-format-violations]
+  const auto out = pack(context_at(1),
+                  ^
+./tests/unit/icd/icd_pack_test.cpp:512:39: error: code should be clang-formatted [-Wclang-format-violations]
+  const auto out = pack(context_at(1),
+                                      ^
+./tests/unit/icd/icd_pack_test.cpp:513:98: error: code should be clang-formatted [-Wclang-format-violations]
+                        make_state({0.6, -1.2, 10000.0}, {100.0, 0.0, 0.0}, {1, 0, 0, 0}, kZero),
+                                                                                                 ^
+error: Recipe `format-check` failed on line 65 with exit code 123
+exit=123
