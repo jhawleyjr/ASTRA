@@ -1,0 +1,33 @@
+[codex] Starting Codex task thread.
+[codex] Thread ready (01a0d743-fdc2-72a2-ac8e-505d414b7341).
+[codex] Turn started (01a0d743-fdff-7d20-a0e7-9eeb3b997427).
+[codex] Assistant message captured: I’ll inspect the branch diff and review rules, then trace each fix and the close-sequence rac...
+[codex] Running command: /bin/bash -lc 'git status --short; git diff origin/main...HEAD --stat; cat AGENTS.md docs/age...
+[codex] Command completed: /bin/bash -lc 'git status --short; git diff origin/main...HEAD --stat; cat AGENTS.md docs/age... (exit 0)
+[codex] Running command: /bin/bash -lc 'git diff d058a3a..91107c4; cat docs/decisions/0022-lockstep-exchange-stage.md ...
+[codex] Command completed: /bin/bash -lc 'git diff d058a3a..91107c4; cat docs/decisions/0022-lockstep-exchange-stage.md ... (exit 0)
+[codex] Running command: /bin/bash -lc 'cat docs/plans/m4-lockstep.md'
+[codex] Command completed: /bin/bash -lc 'cat docs/plans/m4-lockstep.md' (exit 0)
+[codex] Running command: /bin/bash -lc "git diff origin/main...HEAD -- docs/architecture.md AGENTS.md docs/decisions/0...
+[codex] Command completed: /bin/bash -lc "git diff origin/main...HEAD -- docs/architecture.md AGENTS.md docs/decisions/0... (exit 0)
+[codex] Assistant message captured: F1 and F2 now specify the required attach ordering and unconditional finite-command checks. I...
+[codex] Running command: /bin/bash -lc 'git rev-parse origin/main HEAD; git diff origin/main...HEAD -- docs/architectu...
+[codex] Command completed: /bin/bash -lc 'git rev-parse origin/main HEAD; git diff origin/main...HEAD -- docs/architectu... (exit 0)
+[codex] Running command: /bin/bash -lc "rg -n 'UINT32_MAX|CLOSE_SEQ|Q18|creator|interleav|A1|PR 4' docs/plans/m4-locks...
+[codex] Command completed: /bin/bash -lc "rg -n 'UINT32_MAX|CLOSE_SEQ|Q18|creator|interleav|A1|PR 4' docs/plans/m4-locks... (exit 0)
+[codex] Running command: /bin/bash -lc "cat STATE.md; sed -n '190,270p' docs/plans/m4-lockstep.md; git diff --check or...
+[codex] Command completed: /bin/bash -lc "cat STATE.md; sed -n '190,270p' docs/plans/m4-lockstep.md; git diff --check or... (exit 0)
+[codex] Running command: /bin/bash -lc "cat docs/decisions/0023-transport-timeout-clock-exception.md; git diff d058a3a...
+[codex] Command completed: /bin/bash -lc "cat docs/decisions/0023-transport-timeout-clock-exception.md; git diff d058a3a... (exit 0)
+[codex] Running command: /bin/bash -lc 'git diff --check origin/main...HEAD; git status --porcelain'
+[codex] Command completed: /bin/bash -lc 'git diff --check origin/main...HEAD; git status --porcelain' (exit 0)
+[codex] Assistant message captured: { "verdict": "approve", "summary": "Approve the docs-only correction at 91107c4 against e16d2...
+[codex] Turn completed.
+# Codex Adversarial Review
+
+Target: branch diff against origin/main
+Verdict: approve
+
+Approve the docs-only correction at 91107c4 against e16d26a. F1: resolved—size-before-map, readiness acquire-poll, one handshake deadline, and creator-pause tests specified. F2: resolved—finite checks precede limits and all writes, unconditionally halt kTransport naming the ICD field, and leave sim.health.input unconstrained. F3: resolved—ordered CLOSED/CLOSE_SEQ publication, futex value change, expiry re-check, close precedence, and interleaving test specified. Frame bounds consistently exclude both reserved values; no remaining evidence-backed ordering defect found. git diff --check exited 0; working tree clean. No builds or runtime tests run; test coverage is specified, not implemented by this change.
+
+No material findings.

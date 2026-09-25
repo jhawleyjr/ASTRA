@@ -1,0 +1,47 @@
+[codex] Starting Codex task thread.
+[codex] Thread ready (01a0d73f-5a13-7e31-96b2-24d60736523b).
+[codex] Turn started (01a0d73f-5a59-7632-b5ce-3f576167d2c2).
+[codex] Assistant message captured: I’ll inspect the diff and governing decisions, then check the timeout and shared-memory contr...
+[codex] Running command: /bin/bash -lc 'git status --short; git diff origin/main -- AGENTS.md docs/architecture.md doc...
+[codex] Command completed: /bin/bash -lc 'git status --short; git diff origin/main -- AGENTS.md docs/architecture.md doc... (exit 0)
+[codex] Running command: /bin/bash -lc 'cat AGENTS.md docs/agents/review.md docs/process/workflow.md docs/agents/READM...
+[codex] Command completed: /bin/bash -lc 'cat AGENTS.md docs/agents/review.md docs/process/workflow.md docs/agents/READM... (exit 0)
+[codex] Running command: /bin/bash -lc 'cat docs/agents/review.md; cat docs/decisions/0022* docs/decisions/0023* docs/...
+[codex] Command completed: /bin/bash -lc 'cat docs/agents/review.md; cat docs/decisions/0022* docs/decisions/0023* docs/... (exit 0)
+[codex] Running command: /bin/bash -lc 'cat docs/plans/m4-lockstep.md'
+[codex] Command completed: /bin/bash -lc 'cat docs/plans/m4-lockstep.md' (exit 0)
+[codex] Running command: /bin/bash -lc "sed -n '20,122p' docs/plans/m4-lockstep.md; cat docs/decisions/000{6,7,8,9}* d...
+[codex] Command completed: /bin/bash -lc "sed -n '20,122p' docs/plans/m4-lockstep.md; cat docs/decisions/000{6,7,8,9}* d... (exit 0)
+[codex] Running command: /bin/bash -lc 'git diff origin/main -- docs/architecture.md docs/plans/m4-lockstep.md; nl -ba...
+[codex] Command completed: /bin/bash -lc 'git diff origin/main -- docs/architecture.md docs/plans/m4-lockstep.md; nl -ba... (exit 0)
+[codex] Assistant message captured: The ADRs preserve the plan’s main decisions, including terminal failures, throttle equality, ...
+[codex] Running command: /bin/bash -lc "cat docs/decisions/0010* docs/decisions/0011* docs/decisions/0017*; sed -n '12...
+[codex] Command completed: /bin/bash -lc "cat docs/decisions/0010* docs/decisions/0011* docs/decisions/0017*; sed -n '12... (exit 0)
+[codex] Running command: /bin/bash -lc "git diff origin/main -- docs/architecture.md docs/plans/m4-lockstep.md; git re...
+[codex] Command completed: /bin/bash -lc "git diff origin/main -- docs/architecture.md docs/plans/m4-lockstep.md; git re... (exit 0)
+[codex] Running command: /bin/bash -lc "nl -ba docs/decisions/0024-shm-layout-header-and-protocol.md; nl -ba docs/deci...
+[codex] Command failed: /bin/bash -lc "nl -ba docs/decisions/0024-shm-layout-header-and-protocol.md; nl -ba docs/deci... (exit 2)
+[codex] Running command: /bin/bash -lc "rg -n 'check_input|HealthAction::kWarn|input_action|input.*Action' core; sed -...
+[codex] Command completed: /bin/bash -lc "rg -n 'check_input|HealthAction::kWarn|input_action|input.*Action' core; sed -... (exit 0)
+[codex] Assistant message captured: { "verdict": "needs-attention", "summary": "Do not accept yet: startup and shutdown synchroni...
+[codex] Turn completed.
+# Codex Adversarial Review
+
+Target: branch diff against origin/main
+Verdict: needs-attention
+
+Do not accept yet: startup and shutdown synchronization remain underspecified, and the promised non-finite-command halt conflicts with configurable input health behavior. Reviewed e16d26a..d058a3a; no edits or builds.
+
+Findings:
+- [high] Gate attachment on segment size and observed SIM_READY (docs/decisions/0024-shm-layout-header-and-protocol.md:39-44)
+  The segment becomes discoverable before sizing and initialization finish. Retrying open alone therefore permits attachment to a zero-length segment, where header access can fault, or to an unfinished header. An acquire-load only publishes initialized contents if it actually observes SIM_READY; the specified sequence does not require waiting for that value before validation. Following it can fail valid delayed-start runs, contrary to R5.
+  Recommendation: Require checking the backing size before header access, waiting until an acquire-load observes SIM_READY before validating initialized fields, and using one handshake deadline throughout. Specify tests pausing the creator before sizing and before publishing readiness.
+- [high] Make the non-finite-command halt independent of input health configuration (docs/decisions/0022-lockstep-exchange-stage.md:56-58)
+  The claimed halt delegates to ADR-0017's health.input, which permits warn/off. Architecture §15 explicitly preserves last-good input values under warn, and HealthMonitor::check_input applies input_action_ (health_monitor.cpp:151–154). Thus a NaN elevator reply routed through the prescribed seam can retain the previous command and continue instead of satisfying R5's mandatory halt. ADR-0022 neither restricts this configuration nor defines an unconditional input-fault path.
+  Recommendation: Define how transport-enabled runs guarantee a named input halt: reject warn/off for health.input at initialization, or require an unconditional transport-command finite check retaining the input diagnostic. Preserve existing behavior when transport is absent and cover warn/off explicitly in acceptance.
+- [medium] Close the lost-wakeup window between CLOSED and req_seq waits (docs/decisions/0024-shm-layout-header-and-protocol.md:51-52)
+  The HAL waits on req_seq, but shutdown changes only sim_state. If the HAL checks sim_state, the sim publishes CLOSED and wakes, and the HAL then enters FUTEX_WAIT on the unchanged req_seq, the wake is lost. The documented protocol can consequently wait until timeout on normal completion; ADR-0023 specifies nonzero exit on expiry, conflicting with the required clean exit. No timeout-versus-CLOSED precedence or race-safe shutdown notification is specified.
+  Recommendation: Specify a shutdown notification that changes the predicate watched by the futex, or explicitly require a CLOSED recheck before classifying timeout and accept the bounded shutdown delay. Add a test forcing closure between the HAL's state check and futex entry.
+
+Next steps:
+- Resolve these contracts in the proposed ADRs and matching architecture text before acceptance.
