@@ -7,8 +7,7 @@ head `1e63268`. Branch `worktree-m4-pr2-icd-pack` off `origin/main` `a3d6071` (c
 Scope: `core/include/astra/util/icd_pack.hpp`, `icd/astra_icd.h` (comments plus five `status_flags` `#define`s, R11
 holds), `tests/unit/icd/icd_pack_test.cpp` (25 tests). Not wired into `Simulation` (M4 PR 3). Packet:
 `docs/reviews/m4-pr2-icd-pack-human.md` (decision record: approved). Plan: `docs/plans/m4-lockstep.md`.
-The PR head carries one docs-only wrap commit (this STATE.md, one `docs/lessons.md` entry) on top of `752436d`;
-the product candidate stays `3322d26`.
+Docs-only wrap commits (STATE.md, one lesson) sit on top of `752436d`; the product candidate stays `3322d26`.
 
 ## Last verified result
 Full gate `./scripts/check-full.sh` on `3322d26`: `check: OK`, `exit=0`, `docs/reviews/evidence/3322d26-full-gate.log`.
