@@ -43,7 +43,8 @@ golden, tolerance, ADR or `frames.hpp` touched. Read-only use of the human-owned
    At ISA 10 km, `qc = (1/0.6560 - 1) * 26436 = 13862.78 Pa`, target p/pt = 0.879651, interpolated in the printed
    column to Mc = 0.432018, expecting `cas = Mc * a0 = 147.013 m/s`; tolerance 0.06 m/s, derived in the test from the
    rows' rounding (9.8e-5 Mach), the .6560 rounding (4.6e-5) and the interpolation error (2.0e-5). The
-   implementation gives 146.984 (0.029 m/s below, inside the budget; it is the .6560 rounding).
+   implementation gives 146.984 (0.029 m/s below, inside the budget; the combined table rounding and interpolation,
+   of which the .6560 rounding alone is about 0.007 m/s).
    **Provenance history (a defect, corrected in round 2):** the first version of this anchor quoted pt/p rows
    (1.5243, 1.1355, 1.1422) that I had generated from the closed form and described as "printed"; Codex found Table I
    tabulates p/pt. I then downloaded the NTRS scan (document 19930091059) and transcribed the three p/pt values from
@@ -82,7 +83,7 @@ golden, tolerance, ADR or `frames.hpp` touched. Read-only use of the human-owned
 | Mutation check | round 0: 5 mutants (vertical-speed sign, conjugate quaternion, `az` sign, `340.294` literal, phi/psi swap), each fails 2 to 4 tests. Rounds 1 and 2: 3 CAS-exponent mutants (forward 3.5 to 3.4, inverse 2/7 to 0.29, changed-gamma pair), each fails the altitude table test, re-run against the printed-p/pt version | scratch scripts, not retained |
 | Codex adversarial review, round 0 (`a3d6071..6965165`) | approve, no findings | [6965165-m4-pr2-codex-adversarial.log](evidence/6965165-m4-pr2-codex-adversarial.log) |
 | Codex fix-verification of Joe's round 1 (`6965165..cdc9867`, head `c29c8d7`) | needs-attention: items 2 to 6 hold, item 1 partial, one medium finding (below) | [c29c8d7-m4-pr2-codex-fixverify.log](evidence/c29c8d7-m4-pr2-codex-fixverify.log) |
-| Codex fix-verification of round 2 (`cdc9867..3322d26`) | VERIFY_RESULT | see "Independent review" |
+| Codex fix-verification of round 2 (`cdc9867..3322d26`) | approve: F-1 resolved, new findings none (Codex recomputed qc, target ratio, Mc and CAS 147.013208, confirmed the three p/pt entries against the NTRS scan, and that exponent mutants give 144.5, 148.1 and 146.7 m/s, all outside 0.06) | [77f75e4-m4-pr2-codex-fixverify2.log](evidence/77f75e4-m4-pr2-codex-fixverify2.log) |
 
 The two failed gates were lint only (no test failed): failed integrations 2/2. The background task wrapper reported
 exit 0 for those runs because a trailing `echo` ran last; the logs' own `exit=` lines are what were read. CI is
@@ -105,7 +106,7 @@ correction round 2 (`3322d26`)** by transcribing the printed p/pt values and re-
 above). Codex's nonblocking observations, not acted on: `NonPositivePressureFlagsAtmosphere` covers zero pressure only
 (not negative pressure or a bad speed of sound), `SupersonicFlags...` tests M = 1.1 but not the M = 1 boundary, and
 `LowMachCasApproachesEquivalentAirspeed` cannot reject a small wrong-sign compressibility correction within its bound.
-Round 2 verification: VERIFY_DETAIL Correction rounds used: 2 of 2 (round 1 was Joe's list, round 2 fixed F-1); a new
+Round 2 verification (`cdc9867..3322d26`, head `77f75e4`): approve, F-1 resolved, no new findings. Correction rounds used: 2 of 2 (round 1 was Joe's list, round 2 fixed F-1); a new
 defect from here goes to Joe.
 
 ## Joe's attention
@@ -134,6 +135,6 @@ Significant tradeoff rationale: bit constants live in `astra_icd.h` (Joe's decis
 copy magic numbers; the cost is that the ICD header is no longer comment-only.
 Accepted risks: duplicated ISA constants (owner: Joe; trigger: any change to isa1976's constants); NACA table values
 transcribed from an OCR text layer, not read from the page image (owner: Joe's spot-check).
-Nonblocking follow-ups: the paired citation fix in `frames.hpp` and the golden header (golden part needs Joe's
+Nonblocking follow-ups: (a) two accuracy nits Codex found in the CAS table test comment, not fixed because a comment edit changes the candidate and correction rounds are exhausted: it says `|g''| <= 0.807` (max is about 0.8074, so 0.808) and attributes the 0.029 m/s gap to the .6560 rounding alone (it is combined rounding and interpolation; neither changes the tolerance or the verdict), Joe to say whether to fix in a further round; (b) the paired citation fix in `frames.hpp` and the golden header (golden part needs Joe's
 authorization).
 Architectural decisions: none new; binds ADR-0001, ADR-0002, ADR-0006.
