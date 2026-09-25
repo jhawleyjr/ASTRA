@@ -8,7 +8,9 @@
 //
 // Textbook: Johnson/Lewis/Stevens, Aircraft Control and Simulation, 3rd ed. (2015) as shipped in
 // docs/refs/textbooks: the DCM C_frd/ned is Eq. (1.3-10), Euler angles from the DCM Eq. (1.3-11),
-// q_b/a for a right-handed coordinate rotation Eq. (1.8-10a), q -> DCM Eq. (1.8-18).
+// q_b/a for a right-handed coordinate rotation Eq. (1.8-10a), the half-angle yaw-pitch-roll
+// quaternion Example 1.8-1 Eq. (1) (p. 52), q -> DCM array form Eq. (1.8-16) and its expansion
+// Eq. (1.8-18).
 #include "astra/util/icd_pack.hpp"
 
 #include <gtest/gtest.h>
@@ -333,29 +335,48 @@ TEST(IcdPack, YawEastIntoANorthWindGivesPositiveBeta) {
 
 // ---- calibrated airspeed ---------------------------------------------------------------------
 
-TEST(IcdPack, CasMatchesPublishedIsentropicTableAtSeaLevel) {
-  // Anchor from a published table, not from the formula under test: NACA Report 1135 (Ames, 1953)
-  // Table I / Anderson, Modern Compressible Flow, App. A: at M = 0.8, gamma = 1.4, p0/p = 1.5243.
-  // At ISA sea level, static pressure p0 with M = 0.8 has qc/p0 = 0.5243, so cas = M * a0 (the
-  // sea-level calibrated Mach IS 0.8). a0 = sqrt(1.4 * (8314.32/28.9644) * 288.15) = 340.29411,
-  // so 0.8 a0 = 272.2353. Tolerance: 1.5243 is printed to 5 digits (+/-5e-5, 3.3e-5 relative); the
-  // sensitivity d ln(p0/p) = 0.993 dM at M = 0.8 (3.5 * 0.4M / (1 + 0.2M^2)) gives dM = 3.3e-5,
-  // i.e. 0.011 m/s; 0.02 m/s covers it.
+TEST(IcdPack, CasMatchesPublishedIsentropicTableAtTenKilometers) {
+  // The discriminating anchor: a published-table inversion at ALTITUDE. (At p = p0 the forward and
+  // inverse relations cancel, so cas = M a0 for any matched exponent pair; it would prove nothing.)
+  // NACA Report 1135 (Ames, 1953) Table I, gamma = 1.4, prints p0/p to 4 decimals: M = 0.80 has
+  // 1.5243, and the rows bracketing the inverse are M = 0.43 -> 1.1355 and M = 0.44 -> 1.1422.
+  // ISA 10 km (U.S. Std Atmosphere 1976: p = 26436 Pa, a = 299.53 m/s), M = 0.8, so
+  // qc = (1.5243 - 1) * 26436 = 13862.4 Pa, qc/p0 + 1 = 1.136791. The calibrated Mach Mc is the
+  // Mach whose tabulated p0/p equals that; linear interpolation between the two rows gives
+  // Mc = 0.43 + 0.01 * (1.136791 - 1.1355) / (1.1422 - 1.1355) = 0.431928, and cas = Mc * a0,
+  // a0 = 340.29411 m/s (sqrt(1.4 * (8314.32/28.9644) * 288.15)), about 146.98 m/s.
+  // Tolerance, in Mach then times a0. With f = p0/p, f' = 0.668 and f'' <= 1.83 on [0.43, 0.44]:
+  // (a) the table rows' 4-decimal rounding, +/-5e-5 in f at either row, moves the interpolated
+  // value by at most 5e-5, i.e. 5e-5 / 0.668 = 7.5e-5 in Mach; (b) the 1.5243 rounding, +/-5e-5
+  // in p0/p at M = 0.8, moves qc/p0 by 5e-5 * 26436 / 101325 = 1.3e-5, i.e. 2.0e-5 in Mach;
+  // (c) linear interpolation error <= (h^2 f''/8) / f' = (0.01^2 * 1.83 / 8) / 0.668 = 3.4e-5 in
+  // Mach. Sum 1.29e-4 Mach * 340.29 = 0.044 m/s, so 0.05 m/s. A wrong exponent pair (3.5 -> 3.4,
+  // or 2/7 -> 0.29) moves cas by more than 1 m/s here, so this test discriminates.
   constexpr double kA0 = 340.29411;
-  const auto out = pack(context_at(1), level_state({0.8 * kA0, 0.0, 0.0}),
-                        env_with(kZero, atmosphere(101325.0, kA0)), flat_stub());
-  EXPECT_NEAR(out.mach, 0.8, 1e-9);
-  EXPECT_NEAR(out.cas, 0.8 * kA0, 0.02);
+  constexpr double kRowLowMach = 0.43;
+  constexpr double kRowLowRatio = 1.1355;
+  constexpr double kRowHighRatio = 1.1422;  // M = 0.44
+  const double target_ratio = (1.5243 - 1.0) * 26436.0 / 101325.0 + 1.0;
+  const double calibrated_mach =
+      kRowLowMach + 0.01 * (target_ratio - kRowLowRatio) / (kRowHighRatio - kRowLowRatio);
+  const double tas = 0.8 * 299.53;
+  const auto out = pack(context_at(1), level_state({tas, 0.0, 0.0}),
+                        env_with(kZero, atmosphere(26436.0, 299.53)), flat_stub());
+  EXPECT_NEAR(out.mach, 0.8, 1e-12);
+  EXPECT_NEAR(out.cas, calibrated_mach * kA0, 0.05);
   EXPECT_EQ(
       out.status_flags & (ASTRA_ICD_STATUS_ATMOSPHERE_INVALID | ASTRA_ICD_STATUS_CAS_SUPERSONIC),
       0U);
 }
 
 TEST(IcdPack, CasAtTenKilometersHandComputed) {
-  // ISA 10 km (U.S. Std Atmosphere 1976: p = 26436 Pa, a = 299.53 m/s), M = 0.8, tas = 239.624 m/s.
-  // qc = p ((1 + 0.2 M^2)^3.5 - 1) = 26436 * 0.52434001 = 13861.4525 Pa (the table's 0.5243 x p
-  // agrees to 5 digits), cas = a0 sqrt(5 ((qc/p0 + 1)^(2/7) - 1)) = 146.98437733646873 m/s
-  // (evaluated in Python, independent of the C++; ~285.7 kt, a typical M0.80 cruise CAS).
+  // Discriminates only implementation slips (a typo, a wrong constant): the expected value is this
+  // same closed form evaluated in Python, so it cannot catch a wrong relation; the table anchor
+  // above does that. ISA 10 km (U.S. Std Atmosphere 1976: p = 26436 Pa, a = 299.53 m/s), M = 0.8,
+  // tas = 239.624 m/s. qc = p ((1 + 0.2 M^2)^3.5 - 1) = 26436 * 0.52434001 = 13861.4525 Pa (the
+  // table's 0.5243 x p agrees to 5 digits), cas = a0 sqrt(5 ((qc/p0 + 1)^(2/7) - 1)) =
+  // 146.98437733646873 m/s (evaluated in Python, independent of the C++; ~285.7 kt, a typical M0.80
+  // cruise CAS).
   const double tas = 0.8 * 299.53;
   const auto out = pack(context_at(1), level_state({tas, 0.0, 0.0}),
                         env_with(kZero, atmosphere(26436.0, 299.53)), flat_stub());
@@ -376,8 +397,10 @@ astra::AtmosphereModel& load_isa() {
 
 TEST(IcdPack, CasEqualsTasAtIsaSeaLevelAgainstTheRealPlugin) {
   // At ISA sea level CAS == TAS by construction (same p0 and a0 in both). Uses the plugin's own
-  // pressure and speed of sound so a constants mismatch (e.g. a 340.294 literal, 1.1e-7 m/s off
-  // sqrt(1.4 * 287.05 * 288.15) = 340.29411) would show.
+  // pressure and speed of sound so a constants mismatch would show: a 340.294 literal is 1.1e-4
+  // m/s below a0 = sqrt(1.4 * R * 288.15) = 340.29411 m/s, R = 8314.32 / 28.9644 = 287.0531. This
+  // discriminates only the sea-level constants (p0, a0) against the plugin; the exponents are
+  // anchored by the table test above.
   const AtmoState sea_level = load_isa().at(0.0);
   for (const double tas : {50.0, 200.0, 300.0}) {
     SCOPED_TRACE(tas);

@@ -7,6 +7,12 @@
 // rigid-body state, the frame's EnvironmentSample, the Earth model, and the PREVIOUS frame's
 // published wrench_total and mass. Every field's definition, and every status_flags bit, is
 // documented in icd/astra_icd.h; the bit macros used here are that header's, with no second copy.
+//
+// Implementation pointers for those definitions: t is ctx.t, which is VirtualClock::t()
+// (static_cast<double>(frame) * dt). vertical_speed = -(C_bn v_b)_z equals the Earth model's
+// altitude rate: p_n_dot(2) for round (round.cpp) and wgs84_rotating, where p_n(2) is altitude and
+// p_n_dot(2) = -v_n(2); and -p_n_dot(2) for flat, where p_n(2) is down. ax/ay/az come from the
+// previous frame's published v<i>.wrench_total.* (the k1-stage sum, gravity excluded).
 #pragma once
 
 #include <Eigen/Core>

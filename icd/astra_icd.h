@@ -44,7 +44,7 @@
 typedef struct { /* sim -> flight software: what the aircraft is doing */
   uint32_t magic, version;
   uint64_t frame; /* sim major-frame counter */
-  double t;       /* sim time, s: exactly frame * dt (VirtualClock::t()) */
+  double t;       /* sim time, s: exactly (double)frame * dt, dt the fixed step */
   /* 3-2-1 Euler angles of q_nb, rad (v1: truth; later: sensor-model outputs). */
   double phi, theta, psi;
   /* Body angular rate omega_b, rad/s: relative to INERTIAL space (what a gyro measures), not
@@ -60,18 +60,17 @@ typedef struct { /* sim -> flight software: what the aircraft is doing */
    * a0 = sqrt(1.4 * (8314.32 / 28.9644) * 288.15) m/s), so cas == tas at ISA sea level. */
   double tas, cas, mach;
   /* altitude: the Earth model's altitude above its reference surface, m. vertical_speed: climb
-   * rate, m/s, positive up, = -(C_bn v_b)_z. It equals the Earth model's altitude rate for flat
-   * (altitude = -p_n(2), so d/dt = -v_n(2)), round (round.cpp:97, p_n_dot(2) = -v_n(2)) and
-   * wgs84_rotating (p_n_dot(2) = -v_n(2)). */
+   * rate, m/s, positive up, = -(C_bn v_b)_z, the negated down component of the ground-relative
+   * velocity in NED. It equals the rate of change of altitude for every Earth model. */
   double altitude, vertical_speed;
   /* Geodetic latitude and longitude, rad. 0 with ASTRA_ICD_STATUS_LATLON_NOT_MODELED on a flat
    * Earth. */
   double lat, lon;
   /* Specific force in body axes, m/s^2, the IMU convention (z down: level flight at rest reads
-   * az = -g). Source, pinned: the k1-stage wrench_total (Vehicle's published v<i>.wrench_total.*;
-   * the sum of the wrench sources, gravity excluded), evaluated at frame k-1's START state with
-   * frame k-1's latched commands, divided by the mass, and packed at frame k. It is NOT evaluated
-   * at x_k: one frame of lag. Invalid at frame 0 (ASTRA_ICD_STATUS_ACCEL_INVALID). */
+   * az = -g). Source, pinned: the total body-axes force of the wrench sources (gravity excluded)
+   * from the first integrator stage, evaluated at frame k-1's START state with frame k-1's latched
+   * commands, divided by the mass, and packed at frame k. It is NOT evaluated at x_k: one frame
+   * of lag. Invalid at frame 0 (ASTRA_ICD_STATUS_ACCEL_INVALID). */
   double ax, ay, az;
   uint32_t status_flags, reserved; /* status_flags: ASTRA_ICD_STATUS_*; reserved is 0 */
 } astra_sim_to_sw_v1;
