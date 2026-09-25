@@ -1,23 +1,26 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines; true at handoff)
 
 ## In flight
-M4 Lockstep: spec/plan approved by Joe with recorded decisions (2026-09-24); no implementation started.
-Tier 3 (transport/concurrency, `icd/`, health behavior). Artifact: `docs/plans/m4-lockstep.md` (spec
-R1-R12b, PR 1-7 decomposition, decisions, one Codex plan critique, ten findings accepted). Branch
-`worktree-m4-lockstep-plan` off `origin/main` `827077b`; the plan is in a draft PR awaiting Joe's
-squash-merge (Tier 0: plan + STATE only, no product gate).
+M4 PR 1 (decision records + architecture edits), Tier 3 (policy). Docs only; no product gate (no
+execution, build, test, or policy-runtime change). Plan: `docs/plans/m4-lockstep.md`. Branch
+`worktree-m4-pr1-adrs` off `origin/main` `e16d26a`, **not pushed**. Review commit: ADR-0022 (exchange
+stage), ADR-0023 (monotonic-clock exception to ADR-0010), ADR-0024 (shm layout header/protocol, supersedes
+ADR-0007 in part), all `Status: proposed`, Approval pending; architecture §2/§5/§10/§11/§15/§16 (rev 8).
+ADR-0007 and ADR-0010 are untouched until the flip commit.
+Out-of-row edits (Joe's instruction): `AGENTS.md` line 47 (one clause, ADR-0023), architecture §2
+principle 1, plan rows (PR 1 (b) names ADR-0024; PR 3 cites 0022, 0023; PR 4 cites 0007, 0024). Grep of
+`.claude/hooks`, `.claude/skills`, `scripts/` for wall-clock-only or byte-for-byte-mirror text: no hits.
 
 ## Last verified result
-M3 (unchanged; these planning sessions ran no build or test). PR 10's full gate:
-`./scripts/check-full.sh` at `f3c1460` after `rm -rf build`: `check: OK`, exit 0, 389/389 × four presets,
-pytest 115 passed (`docs/reviews/evidence/f3c1460-full-gate.log`). This session's checks:
-`python3 scripts/docs_check.py` and `git diff --check` (results in the handoff message).
+`python3 scripts/docs_check.py` (OK, 24 files) and `git diff --check`: both exit 0 on the pre-commit tree.
+Codex review and human packet: see the handoff message and `docs/reviews/m4-pr1-adrs-human.md`. M3's last
+full gate is unchanged (`docs/reviews/evidence/f3c1460-full-gate.log`, `check: OK`); none ran here.
 
 ## Next step
-PR 1 (ADRs + architecture edits, incl. the ADR-0007 superseding amendment, the ADR-0010 clock
-exception, and §16's M4 row naming both turbulence levels): needs Joe to authorize `docs/decisions/**`
-at launch (`touch-goldens` marker or `ASTRA_TOUCH_GOLDENS=1` on the launch line). All plan questions are
-decided; Q7 is settled (light 0.15 m/s / 15 kt, moderate 1.5 m/s / 30 kt, both gate). PLAN.md is untouched (duplicate §15 bullets, lines 600/605, go in PR 7).
+Joe reads the packet. Then Joe re-arms `.claude/touch-goldens`; one flip commit (status/banner only) sets
+ADR-0022/23/24 to accepted with Approval citing the packet's decision record and adds the "Superseded in
+part" banners to ADR-0007 (to 0024) and ADR-0010 (to 0023); rerun A1; only then push and open a draft PR.
+PLAN.md is untouched (duplicate §15 bullets, lines 600/605, go in PR 7).
 
 ## Open follow-up (not scheduled)
 PLAN.md: `tests/golden/dynamics/capture_r1_golden.cpp` (R1/R1-Sim capture harness, M3 PR 4a) is
