@@ -13,6 +13,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -113,17 +114,21 @@ class StubEarth final : public EarthModel {
  public:
   StubEarth(astra::PositionRepresentation representation, double altitude_sign)
       : representation_(representation), altitude_sign_(altitude_sign) {}
-  void init(const astra::Config&, astra::SignalRegistry&) override {}
+  void init([[maybe_unused]] const astra::Config& config,
+            [[maybe_unused]] astra::SignalRegistry& registry) override {}
   void reset() override {}
-  void step(const StepContext&) override {}
+  void step([[maybe_unused]] const StepContext& ctx) override {}
   [[nodiscard]] std::string_view name() const override { return "stub_earth"; }
-  [[nodiscard]] Eigen::Vector3d p_n_dot(const VehicleState&) const noexcept override {
+  [[nodiscard]] Eigen::Vector3d p_n_dot(
+      [[maybe_unused]] const VehicleState& vs) const noexcept override {
     return Eigen::Vector3d::Zero();
   }
-  [[nodiscard]] Eigen::Vector3d omega_ie_n(const VehicleState&) const noexcept override {
+  [[nodiscard]] Eigen::Vector3d omega_ie_n(
+      [[maybe_unused]] const VehicleState& vs) const noexcept override {
     return Eigen::Vector3d::Zero();
   }
-  [[nodiscard]] Eigen::Vector3d omega_en_n(const VehicleState&) const noexcept override {
+  [[nodiscard]] Eigen::Vector3d omega_en_n(
+      [[maybe_unused]] const VehicleState& vs) const noexcept override {
     return Eigen::Vector3d::Zero();
   }
   [[nodiscard]] double altitude(const VehicleState& vs) const noexcept override {
@@ -139,12 +144,12 @@ class StubEarth final : public EarthModel {
 };
 
 const StubEarth& flat_stub() {
-  static const StubEarth earth{astra::PositionRepresentation::kFlatNed, -1.0};
-  return earth;
+  static const StubEarth kEarth{astra::PositionRepresentation::kFlatNed, -1.0};
+  return kEarth;
 }
 const StubEarth& round_stub() {
-  static const StubEarth earth{astra::PositionRepresentation::kGeodetic, 1.0};
-  return earth;
+  static const StubEarth kEarth{astra::PositionRepresentation::kGeodetic, 1.0};
+  return kEarth;
 }
 
 EnvironmentSample env_with(const Eigen::Vector3d& wind_n, const AtmoState& atmo) {
@@ -162,33 +167,29 @@ astra_sim_to_sw_v1 pack(const StepContext& ctx, const StateVector& y, const Envi
 }
 
 bool all_fields_finite(const astra_sim_to_sw_v1& o) {
-  for (const double x : {o.t,
-                         o.phi,
-                         o.theta,
-                         o.psi,
-                         o.p,
-                         o.q,
-                         o.r,
-                         o.u,
-                         o.v,
-                         o.w,
-                         o.alpha,
-                         o.beta,
-                         o.tas,
-                         o.cas,
-                         o.mach,
-                         o.altitude,
-                         o.vertical_speed,
-                         o.lat,
-                         o.lon,
-                         o.ax,
-                         o.ay,
-                         o.az}) {
-    if (!std::isfinite(x)) {
-      return false;
-    }
-  }
-  return true;
+  const std::array<double, 22> fields{o.t,
+                                      o.phi,
+                                      o.theta,
+                                      o.psi,
+                                      o.p,
+                                      o.q,
+                                      o.r,
+                                      o.u,
+                                      o.v,
+                                      o.w,
+                                      o.alpha,
+                                      o.beta,
+                                      o.tas,
+                                      o.cas,
+                                      o.mach,
+                                      o.altitude,
+                                      o.vertical_speed,
+                                      o.lat,
+                                      o.lon,
+                                      o.ax,
+                                      o.ay,
+                                      o.az};
+  return std::ranges::all_of(fields, [](double x) { return std::isfinite(x); });
 }
 
 // ---- identity, time, zeroing ---------------------------------------------------------------
