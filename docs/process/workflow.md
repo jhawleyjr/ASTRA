@@ -100,9 +100,11 @@ build, test, or policy behavior changes; record the scope and checks instead of 
 - Standing authorization (Joe, 2026-09-26): commit coherent, descriptively worded work as it lands, push the task
   branch (only the task branch) after each meaningful commit, and open a draft PR as soon as the branch has its
   first commit; keep its body current with the packet or brief. Nothing is held only locally. Joe squash-merges.
-  No agent commits or pushes to `main`, merges, force-pushes shared history, marks a PR ready as a merge signal,
-  changes branch protection, or publishes a release without explicit authorization. Permission to implement
-  and push is not permission to send messages (email, chat, issue or PR comments to other people).
+  No agent commits or pushes to `main`, merges a PR, rebases or force-pushes a pushed branch, marks a PR ready as a
+  merge signal, changes branch protection, or publishes a release without explicit authorization. Merging
+  `origin/main` into the task branch is the required integration step (final integration with `main`, step 11), not
+  a prohibited merge. Permission to implement and push is not permission to send messages (email, chat, issue or PR
+  comments to other people).
   A push after the PR opens does not re-run CI's `check`; see the `gh pr ready --undo` / `gh pr ready` rerun under
   [Human approval and merge/release gates](#human-approval-and-mergerelease-gates) before merge. That rerun re-triggers `check` and is not itself a merge signal.
 
