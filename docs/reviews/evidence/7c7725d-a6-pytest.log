@@ -1,0 +1,47 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.1.1, pluggy-1.6.0 -- /home/joe/repos/ASTRA/.claude/worktrees/m4-pr6-lockstep-acceptance/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/joe/repos/ASTRA/.claude/worktrees/m4-pr6-lockstep-acceptance
+configfile: pyproject.toml
+collecting ... collected 38 items
+
+tests/python/test_lockstep.py::test_turbulence_configs_differ_from_cruise_only_where_intended[path0-0.15-15.0] PASSED [  2%]
+tests/python/test_lockstep.py::test_turbulence_configs_differ_from_cruise_only_where_intended[path1-1.5-30.0] PASSED [  5%]
+tests/python/test_lockstep.py::test_trim_matches_config_initial_state[path0] PASSED [  7%]
+tests/python/test_lockstep.py::test_trim_matches_config_initial_state[path1] PASSED [ 10%]
+tests/python/test_lockstep.py::test_config_alone_refuses_to_run PASSED   [ 13%]
+tests/python/test_lockstep.py::test_segment_name_format_and_uniqueness PASSED [ 15%]
+tests/python/test_lockstep.py::test_remove_stale_segments_is_conservative PASSED [ 18%]
+tests/python/test_lockstep.py::test_load_config_rejects_a_segment_in_the_file PASSED [ 21%]
+tests/python/test_lockstep.py::test_exchange_recorder_bytes_is_a_copy_and_none_without_transport PASSED [ 23%]
+tests/python/test_lockstep.py::test_recording_decoder_layout PASSED      [ 26%]
+tests/python/test_lockstep.py::test_r1_lockstep_health[A_light_autopilot] PASSED [ 28%]
+tests/python/test_lockstep.py::test_r1_lockstep_health[F_moderate_autopilot] PASSED [ 31%]
+tests/python/test_lockstep.py::test_r2_altitude_and_heading_bands[A_light_autopilot] PASSED [ 34%]
+tests/python/test_lockstep.py::test_r2_altitude_and_heading_bands[F_moderate_autopilot] PASSED [ 36%]
+tests/python/test_lockstep.py::test_r2c_hold_is_reported[E_light_hold] PASSED [ 39%]
+tests/python/test_lockstep.py::test_r2c_hold_is_reported[G_moderate_hold] PASSED [ 42%]
+tests/python/test_lockstep.py::test_r2d_autopilot_beats_hold_light PASSED [ 44%]
+tests/python/test_lockstep.py::test_r12b_icd_matches_state[A_light_autopilot] PASSED [ 47%]
+tests/python/test_lockstep.py::test_r12b_icd_matches_state[F_moderate_autopilot] PASSED [ 50%]
+tests/python/test_lockstep.py::test_r3_bit_identical_with_jitter PASSED  [ 52%]
+tests/python/test_lockstep.py::test_r3_seed_changes_bytes PASSED         [ 55%]
+tests/python/test_lockstep.py::test_seed_sweep_light_is_reported PASSED  [ 57%]
+tests/python/test_lockstep.py::test_r4_sigkill_kill_to_halt PASSED       [ 60%]
+tests/python/test_lockstep.py::test_r4_abort_reply_to_halt PASSED        [ 63%]
+tests/python/test_lockstep.py::test_r4_wait_duration PASSED              [ 65%]
+tests/python/test_lockstep.py::test_r4b_sim_pause PASSED                 [ 68%]
+tests/python/test_lockstep.py::test_r4b_sim_death PASSED                 [ 71%]
+tests/python/test_lockstep.py::test_session_normal_completion PASSED     [ 73%]
+tests/python/test_lockstep.py::test_session_missing_executable PASSED    [ 76%]
+tests/python/test_lockstep.py::test_session_popen_failure PASSED         [ 78%]
+tests/python/test_lockstep.py::test_session_peer_exits_at_once PASSED    [ 81%]
+tests/python/test_lockstep.py::test_session_escalates_to_sigkill PASSED  [ 84%]
+tests/python/test_lockstep.py::test_session_body_exception PASSED        [ 86%]
+tests/python/test_lockstep.py::test_session_stopped_peer PASSED          [ 89%]
+tests/python/test_lockstep.py::test_session_keyboard_interrupt PASSED    [ 92%]
+tests/python/test_lockstep.py::test_session_retained_registry PASSED     [ 94%]
+tests/python/test_lockstep.py::test_driver_death_after_handshake PASSED  [ 97%]
+tests/python/test_lockstep.py::test_driver_death_before_handshake PASSED [100%]
+
+============================= 38 passed in 19.29s ==============================
