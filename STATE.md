@@ -2,38 +2,37 @@
 
 ## In flight
 M4 PR 7 (M4 closeout), Tier 0 to 1, docs only: branch `worktree-m4-pr7-closeout` off `origin/main` `0fcae33` (PR 6
-#57). First candidate `a2e9215` (record `6086259`): PLAN.md M4 check-off with each clause cited to PR 6's evidence
-(packet `docs/reviews/m4-pr6-lockstep-acceptance-human.md`, `docs/reviews/evidence/4e418e1-*`), PR 1 to PR 7
-sub-items, duplicate §15 envelope-monitor bullet removed, open M4 follow-ups added as PLAN.md items. Correction
-round 1 (Joe's review): `docs/architecture.md` stale M4 status wording (§7 reference plugins, §10 `Transport`
-ownership line; Joe-authorized, status only), the moderate hold altitude added to the M4 R2 disclosure. Stage: fixes
-done, A1 and Codex delta review recorded below; Joe's review next. Not pushed (stop before push, per Joe). PR 7 is
-merged once `origin/main` contains it. Plan row: `docs/plans/m4-lockstep.md` PR 7 (A1).
+#57). First candidate `a2e9215`: PLAN.md M4 check-off with each clause cited to PR 6's evidence (packet
+`docs/reviews/m4-pr6-lockstep-acceptance-human.md`, `docs/reviews/evidence/4e418e1-*`), PR 1 to PR 7 sub-items,
+duplicate §15 bullet removed, open M4 follow-ups as PLAN.md items. Round 1 (`3b24a0c`, Joe's review): architecture
+§7/§10 stale M4 status wording; moderate hold altitude in the R2 disclosure. Round 2 (Joe's review of `3b24a0c`):
+architecture §10's `Transport` paragraph opening rewritten to the built interface (`transport.hpp`) and ADR-0022's
+ownership split (Joe-authorized, accuracy only); PLAN.md PR 7 sub-item reworded to match. Stage: A1 and the Codex
+delta review recorded below; Joe's review next. Not pushed (stop before push, per Joe). PR 7 is merged once
+`origin/main` contains it. Plan row: `docs/plans/m4-lockstep.md` PR 7 (A1).
 
 ## Last verified result
-This session, first candidate `a2e9215`: A1 exit 0 both; Codex general review (`0fcae33..a2e9215`, thread
-`01a0dfbe-f9f8-7fa0-83ea-ded2ec63602d`) no actionable defects (`docs/reviews/evidence/a2e9215-codex-review.log`).
-Round 1 candidate `3b24a0c`: A1 exit 0 both; Codex review of the delta only (`--base 6086259`, `6086259..3b24a0c`,
-thread `01a0dfc2-d21d-75f3-a9f4-5f17edebdf67`): exit 0, no actionable defects, matches the evidence and transport
-ADRs (`docs/reviews/evidence/3b24a0c-codex-review.log`). Later commits: this record only.
-`docs_check.py` does not scan PLAN.md, STATE.md or architecture.md; `git diff --check` covers whitespace only.
-No product, test, golden, tolerance or ADR file changed, so no gate was run for this PR. M4's acceptance evidence is
-prior-session (PR 6, `4e418e1`): full gate exit 0, `check: OK` (`docs/reviews/evidence/4e418e1-full-gate.log`); A6
-pytest 42 passed, ctest `ClosedLoopAcceptance` 4/4. The PR 6 packet's "trace SVGs not rendered" note is superseded:
-Joe rendered and checked them during his review of PR 6.
+This session. `a2e9215`: A1 exit 0 both; Codex general review, no actionable defects
+(`docs/reviews/evidence/a2e9215-codex-review.log`). `3b24a0c`: A1 exit 0 both; Codex delta review (`6086259..3b24a0c`)
+no actionable defects (`docs/reviews/evidence/3b24a0c-codex-review.log`). Round 2 candidate: A1 and the Codex delta
+review (`0a6313a..HEAD`, focused on transport.hpp, lockstep_exchange.hpp, ADR-0022) are pending until recorded here.
+`docs_check.py` does not scan PLAN.md, STATE.md or architecture.md; `git diff --check` covers whitespace only. No
+product, test, golden, tolerance or ADR file changed, so no gate was run for this PR. M4's acceptance evidence is
+prior-session (PR 6, `4e418e1`): full gate exit 0, `check: OK` (`docs/reviews/evidence/4e418e1-full-gate.log`).
+The PR 6 packet's "trace SVGs not rendered" note is superseded: Joe rendered and checked them during his PR 6 review.
 
 ## Next step
-1. Joe: review round 1, then push, open the PR and squash-merge (or send changes back).
+1. Joe: review round 2, then push, open the PR and squash-merge (or decide otherwise; the budget is exhausted).
 2. After Joe's squash-merge, the next PR adds PR 7's merge commit to its PLAN.md sub-item and to the M4 entry (M3 PR
-   9/10 precedent); the next task otherwise is Joe's to assign (M5 Tooling planning via `/plan-feature` from a fresh
-   worktree off `origin/main`, or a PLAN.md follow-up).
-3. Open follow-ups, all PLAN.md items: moderate throttle jitter from airspeed gusts; `OPTIONAL_GAIN_NAMES`/`kSideslip`
-   removal; follow-ups A (PR 2 CAS comment nits), B (frames citations; Joe arms the guard), C (recorder sizing); the
-   wall-clock symbol scan; Joe-owned: the stale `tests/golden/dynamics/capture_r1_golden.cpp`. The throttle SVG
-   label overlap is recorded in the M4 entry as cosmetic, left as is.
+   9/10 precedent); otherwise the next task is Joe's to assign (M5 Tooling planning or a PLAN.md follow-up).
+3. Open follow-ups, all PLAN.md items: moderate throttle jitter; `OPTIONAL_GAIN_NAMES`/`kSideslip` removal;
+   follow-ups A, B (Joe arms the guard), C; the wall-clock symbol scan; Joe-owned: the stale
+   `tests/golden/dynamics/capture_r1_golden.cpp`. Architecture §12's Python status omits PR 6's `astra.lockstep`
+   and `Simulation.exchange_recorder_bytes()` (left alone, outside the authorized edits).
 
 ## Tried / failed
-Correction rounds: 1/2 (round 1: Joe's review of `6086259`); failed integrations: 0/2.
+Correction rounds: 2/2 (round 1: Joe's review of `6086259`; round 2: Joe's review of `3b24a0c`); failed
+integrations: 0/2. The budget is exhausted: any new defect goes to Joe.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.

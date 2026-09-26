@@ -946,7 +946,8 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         `docs/plans/m4-pr6-lockstep-acceptance.md`, packet `docs/reviews/m4-pr6-lockstep-acceptance-human.md`
         (approved by Joe on `4e418e1`, 2026-09-26). PR #57 merged as `0fcae33` (squash merge, Joe).
   - [x] PR 7 — M4 closeout: this check-off, the duplicate §15 envelope-monitor bullet removed, the open M4
-        follow-ups recorded above, and `docs/architecture.md`'s stale M4 status wording in §7 and §10 corrected
-        (Joe-authorized, status only). Tier 0 to 1, docs only; A1 plus a Codex review of the diff.
+        follow-ups recorded above, and `docs/architecture.md`'s stale M4 status wording in §7 and §10 plus §10's
+        outdated `Transport` interface sketch corrected to the built interface (Joe-authorized, status and
+        accuracy only). Tier 0 to 1, docs only; A1 plus a Codex review of the diff.
 - [ ] **M5 Tooling** — HDF5 logging + replay, scenario harness over `tests/scenarios/`, Monte Carlo of 64 runs,
       FlightGear packets verified by a decoder test.
