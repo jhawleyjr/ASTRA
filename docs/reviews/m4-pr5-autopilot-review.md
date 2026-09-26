@@ -15,7 +15,7 @@ Round: fix 1 (correction rounds 1 of 2; failed integrations 1 of 2, from round 0
 ## Finding H-1
 
 Severity: major
-Status: fixed-unverified
+Status: verified
 Location: `embedded/autopilot/autopilot.cpp` (rudder law) and `gains.hpp` (`kSideslip`) at `56ea2ec`;
 `tests/embedded/autopilot_test.cpp` `RudderYawDamperOpposesYawRateAndSideslip`
 Requirement/ADR: plan D3/D7 (yaw damper); `aero_math.hpp:146` yaw moment
@@ -37,14 +37,14 @@ for either sign of beta, and the rudder ignores beta today); `BetaIsNotReadSoANo
 helper reads `cn_beta`/`cn_rudder` from `cruise.yaml` and `test_closed_loop_effective_cn_beta_is_not_below_open_loop`
 asserts effective `cn_beta` >= open loop (it accepts an optional `kSideslip` in `gains.hpp`, so adding the round-0 value
 fails it: `0.2062 >= 0.26`, and only that test). Mutations: see [`fc22cc8-a5-mutations.md`](evidence/fc22cc8-a5-mutations.md).
-Verification: pending Codex verification of the fix delta.
-History: round 0 found by Joe; round 1 fixed; verification pending.
+Verification: Codex adversarial verification of `56ea2ec..a0eec8c` (thread `01a0dee1-c13a-71d1-a3be-02b89dd1018f`, [log](evidence/a0eec8c-codex-verify.log)), verdict approve: H-1 fix holds: positive rudder gives a negative yaw moment, removing the +0.269 beta term removes the -0.0538 contribution to Cn_beta, no operational sideslip dependency remains (optional helper references exist to support the mutations). Codex noted that 0.26 and 0.2062 are the native (AERORP) coefficients, not total CG derivatives; the moment transfer does not change this feedback increment, so the comparison stands.
+History: round 0 found by Joe; round 1 fixed; verified by Codex on `a0eec8c`.
 Human exception if needed: none.
 
 ## Finding H-2
 
 Severity: major
-Status: fixed-unverified
+Status: verified
 Location: `embedded/autopilot/gains.hpp` (`kBankP = 0.055`), `tests/python/test_autopilot_design.py` (slowest-pole-only
 floor) at `56ea2ec`
 Requirement/ADR: plan D7 (gain design); Joe's review criterion: bank-attitude closed-loop time constant of 2 s or less,
@@ -67,14 +67,14 @@ against a fastest outer pole of 0.152 rad/s, ratio 8.4, time constant 1.7 s, so 
 asserted in `test_pitch_loop_is_separated_from_the_altitude_and_speed_loops`. `kHeadingP` = 2.5 is the smallest tried
 value (1.5, 2.0, 2.5, 3.0, 4.0) meeting every target and not at a search bound. Evidence:
 [gain design](evidence/m4-pr5-gain-design.md).
-Verification: pending Codex verification of the fix delta.
-History: round 0 found by Joe; round 1 fixed; verification pending.
+Verification: Codex adversarial verification of `56ea2ec..a0eec8c` (thread `01a0dee1-c13a-71d1-a3be-02b89dd1018f`, [log](evidence/a0eec8c-codex-verify.log)), verdict approve: H-2 fix holds: the bank and pitch feedback matrices use the right states, actuator columns and signs; pole selection and separation arithmetic match the recorded 1.16 s, 14.5x and 8.4x; fixed dimensions, nonempty reductions, missing-pair exceptions and stability assertions prevent vacuous acceptance. Caveat recorded: these ratios are modal separation measures, not measured frequency-response bandwidths.
+History: round 0 found by Joe; round 1 fixed; verified by Codex on `a0eec8c`.
 Human exception if needed: none.
 
 ## Finding H-3
 
 Severity: minor
-Status: fixed-unverified
+Status: verified
 Location: `embedded/autopilot/cli.cpp` (`kAirspeed`) at `56ea2ec`
 Requirement/ADR: plan D2
 Failure: `--airspeed-mps 0` or a negative value was accepted.
@@ -82,13 +82,15 @@ Requested outcome: reject `--airspeed-mps <= 0` at parse time (exit 1), with a C
 Builder response: **fixed.** `assign` requires the airspeed to be finite and positive; `AutopilotCli.RejectsBadNumbers`
 gains `0`, `-230`, `-0.0`; `AutopilotProcess.BadCommandLinesExit...` gains a zero-airspeed process case (exit 1, empty
 stdout). Mutation: accepting `<= 0` again is caught by both.
-Verification: pending Codex verification of the fix delta.
-History: round 0 found by Joe; round 1 fixed; verification pending.
+Verification: Codex adversarial verification of `56ea2ec..a0eec8c` (thread `01a0dee1-c13a-71d1-a3be-02b89dd1018f`, [log](evidence/a0eec8c-codex-verify.log)), verdict approve: H-3 fix holds: finite-and-positive parsing rejects zero, negative values and negative zero before HAL initialization, matching the unit and process tests.
+History: round 0 found by Joe; round 1 fixed; verified by Codex on `a0eec8c`.
 Human exception if needed: none.
 
 ## Completion
 
-Round 1 is fix-unverified until the Codex verification below is recorded. Open critical/major findings: 0 open, 2
-fixed-unverified (H-1, H-2). Rejected findings: none. Minor deferrals: none. Scope not reviewed by an independent pass
-beyond the round-0 Codex review of `34eec2d..3dc9ca7` (no actionable findings) and the verification of this fix delta.
-New findings from the verification's own fix-delta inspection: pending.
+Critical/major open: 0 (H-1 and H-2 verified fixed by Codex on `a0eec8c`); minor: H-3 verified. Rejected findings: none.
+Minor deferrals: none. Codex's verdict on `56ea2ec..a0eec8c`: approve. New findings from the verification's own
+fix-delta, callers and invariants inspection: **none.** Scope: the fix delta and its callers; the round-0 candidate was
+reviewed by Codex on `34eec2d..3dc9ca7` (no actionable findings). Not covered: builds and tests (Codex ran none; ours
+are the gate and A5 logs), the modal-separation-versus-frequency-response caveat above. Reviewer recommendation is not
+Joe's approval.
