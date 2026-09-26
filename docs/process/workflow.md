@@ -9,7 +9,7 @@ handoff; its old mandatory push/open-PR closeout no longer applies. Git retains 
 
 [Architecture](../architecture.md) and accepted [ADRs](../decisions/) govern design.
 [PLAN.md](../../PLAN.md) is the milestone checklist; [STATE.md](../../STATE.md) is the current handoff
-(40 lines maximum, rewritten). Verify Git/PR state: a handoff can be stale after a merge.
+(40 lines maximum, rewritten). Verify Git/PR state: a handoff written before a merge predates it by design; check `git log origin/main`, and don't report it as stale.
 [AGENTS.md](../../AGENTS.md) is the canonical shared rule file; `CLAUDE.md` imports it. Together they
 stay under 100 lines. [Agent procedures](../agents/README.md) hold repeatable details.
 
