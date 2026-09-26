@@ -26,7 +26,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, NoReturn
@@ -840,17 +840,37 @@ def test_r4b_sim_pause(reaper: Reaper, binaries: dict[str, str]) -> None:
     assert result["halt_ms"] <= TIMEOUT_MS + ALLOWANCE_MS, result["halt_ms"]
 
 
-def _pidfd_exit_ns(pid: int, timeout_s: float) -> int:
-    """monotonic_ns at which pid exits (exact: a pidfd wakes on exit), failing after timeout_s."""
-    fd = os.pidfd_open(pid)
-    try:
-        ready, _, _ = select.select([fd], [], [], timeout_s)
-        exited = time.monotonic_ns()
-    finally:
-        os.close(fd)
+class PeerExitedBeforeKillError(AssertionError):
+    """The peer had already exited when the kill was due (review R-003)."""
+
+
+def _kill_while_peer_runs(host: Host, peer_running: Callable[[], bool]) -> int:
+    """Kills the child only if the peer is running right now (a pidfd poll, never a cached status);
+    returns t_kill. The death tests also bound kill-to-exit from below, which closes the window
+    between this check and the kill: an exit that preceded the kill would measure about 0 ms."""
+    if not peer_running():
+        raise PeerExitedBeforeKillError(
+            "the peer exited before the kill: a stalled sim, not a death"
+        )
+    return host.kill_child_only()
+
+
+def _pidfd_running(fd: int) -> bool:
+    ready, _, _ = select.select([fd], [], [], 0.0)
+    return not ready
+
+
+def _pidfd_exit_ns(fd: int, timeout_s: float) -> int:
+    """monotonic_ns at which the pidfd's process exits (a pidfd wakes on exit); fails on timeout."""
+    ready, _, _ = select.select([fd], [], [], timeout_s)
     if not ready:
-        pytest.fail(f"pid {pid} still running after {timeout_s} s")
-    return exited
+        pytest.fail(f"pidfd {fd}: still running after {timeout_s} s")
+    return time.monotonic_ns()
+
+
+# The sim exchanges without pause until the kill, so the peer's deadline began within one exchange
+# of it and kill-to-exit is about timeout_ms; an exit before the kill would measure about 0 ms.
+KILL_TO_EXIT_FLOOR_MS = TIMEOUT_MS / 2
 
 
 def test_r4b_sim_death(reaper: Reaper, binaries: dict[str, str], trim: ls.AutopilotTrim) -> None:
@@ -866,20 +886,46 @@ def test_r4b_sim_death(reaper: Reaper, binaries: dict[str, str], trim: ls.Autopi
             SHORT_RUN_TIMEOUT_S,
         )
         host.expect("READY")
-        assert autopilot.returncode is None
-        assert host.proc.poll() is None  # both alive at the kill
-        t_kill = host.kill_child_only()
+        assert host.proc.poll() is None
+        t_kill = _kill_while_peer_runs(host, autopilot.running)  # R-003: a real liveness check
         status = autopilot.wait(TIMEOUT_MS / 1000 + 5.0)
         assert status is not None
         assert autopilot.exited_ns is not None
         kill_to_exit_ms = (autopilot.exited_ns - t_kill) / 1e6
         assert status == 2, autopilot.stderr  # timeout, not 0: no CLOSED was ever written
-        assert kill_to_exit_ms <= TIMEOUT_MS + ALLOWANCE_MS, kill_to_exit_ms
+        assert KILL_TO_EXIT_FLOOR_MS <= kill_to_exit_ms <= TIMEOUT_MS + ALLOWANCE_MS, (
+            kill_to_exit_ms
+        )
         assert not (ls.SHM_DIRECTORY / segment).exists()  # unlinked at the handshake
     finally:
         autopilot.stop()
         with contextlib.suppress(FileNotFoundError):
             os.unlink(ls.SHM_DIRECTORY / segment)
+
+
+def test_death_check_rejects_a_peer_that_exited_first(
+    reaper: Reaper, binaries: dict[str, str], trim: ls.AutopilotTrim
+) -> None:
+    """R-003's negative control: a sim that stalls after READY for longer than peer_timeout_ms lets
+    the autopilot time out first; the death tests' check must refuse to count that as a kill."""
+    segment = ls.new_segment_name()
+    config = ls.load_config(
+        LIGHT, segment=segment, timeout_ms=int(TIMEOUT_MS), peer_timeout_ms=int(TIMEOUT_MS)
+    )
+    autopilot = ls.PeerProcess(ls.autopilot_argv(binaries["--autopilot"], config, SETPOINTS, trim))
+    try:
+        host = Host(
+            reaper,
+            _child_args(binaries, "sim-only", LIGHT, "--segment", segment, "--stall-s", "3"),
+            SHORT_RUN_TIMEOUT_S,
+        )
+        host.expect("READY")
+        assert autopilot.wait(TIMEOUT_MS / 1000 + 5.0) == 2  # it timed out during the stall
+        with pytest.raises(PeerExitedBeforeKillError):
+            _kill_while_peer_runs(host, autopilot.running)
+        host.kill_child_only()
+    finally:
+        autopilot.stop()
 
 
 # --- driver lifecycle -----------------------------------------------------------------------------
@@ -963,6 +1009,42 @@ def test_session_keyboard_interrupt(
     assert facts["peer_returncode"] == -signal.SIGTERM
 
 
+def test_session_interrupt_in_cleanup(
+    reaper: Reaper, binaries: dict[str, str], tmp_path: Path
+) -> None:
+    """R-002: a KeyboardInterrupt inside stop()'s grace wait still kills and reaps the peer."""
+    facts = _lifecycle(reaper, binaries, "interrupt-in-cleanup", tmp_path)
+    assert facts["exception"] == "KeyboardInterrupt"
+    assert facts["context"] == "ConfigError"  # chained to the failed handshake, not replacing it
+    assert facts["peer_returncode"] == -signal.SIGKILL  # it ignores SIGTERM
+    # Well before the uninterrupted path's end (about 1.3 s: handshake plus the 1 s grace), so the
+    # kill came from the interrupt path, not from the grace expiring.
+    assert facts["elapsed_s"] < 1.0, facts["elapsed_s"]
+
+
+def test_session_rejects_an_unsafe_segment(tmp_path: Path) -> None:
+    """R-001: the name is validated before anything is launched, and the target survives."""
+    target = tmp_path / "unrelated"
+    target.write_bytes(b"keep")
+    config = _yaml(LIGHT)
+    for bad in (str(target), "../unrelated", "astra_1_x/../../unrelated", "not_a_segment"):
+        config["transport"]["segment"] = bad
+        with (
+            pytest.raises(ValueError, match="astra_<pid>_<nonce>"),
+            ls.lockstep_session(config, ["/nonexistent/peer"]),
+        ):
+            pass
+    assert target.read_bytes() == b"keep"
+
+
+def test_unlink_segment_refuses_an_unsafe_name(tmp_path: Path) -> None:
+    target = tmp_path / "unrelated"
+    target.write_bytes(b"keep")
+    with pytest.raises(ValueError, match="astra_<pid>_<nonce>"):
+        ls._unlink_segment(str(target))  # pyright: ignore[reportPrivateUsage]
+    assert target.exists()
+
+
 def test_session_retained_registry(
     reaper: Reaper, binaries: dict[str, str], tmp_path: Path
 ) -> None:
@@ -977,12 +1059,20 @@ def test_driver_death_after_handshake(reaper: Reaper, binaries: dict[str, str]) 
     segment = host.expect("SEGMENT").split()[1]
     host.expect("READY")
     autopilot = host.pids["peer"]
-    t_kill = host.kill_child_only()  # the child only: its autopilot must end by its own timeout
-    exited = _pidfd_exit_ns(autopilot, TIMEOUT_MS / 1000 + 5.0)  # adopted by this subreaper
-    status = reaper.collect(autopilot, 5.0)
+    # Opened before the kill, while the child is alive and has not reaped the autopilot, so the pid
+    # cannot have been reused (R-003).
+    fd = os.pidfd_open(autopilot)
+    try:
+        # The child only: its autopilot must end by its own timeout.
+        t_kill = _kill_while_peer_runs(host, lambda: _pidfd_running(fd))
+        exited = _pidfd_exit_ns(fd, TIMEOUT_MS / 1000 + 5.0)
+    finally:
+        os.close(fd)
+    status = reaper.collect(autopilot, 5.0)  # adopted by this subreaper
     assert status is not None, "the orphaned autopilot was not reparented to the subreaper"
     assert os.waitstatus_to_exitcode(status) == 2
-    assert (exited - t_kill) / 1e6 <= TIMEOUT_MS + ALLOWANCE_MS
+    kill_to_exit_ms = (exited - t_kill) / 1e6
+    assert KILL_TO_EXIT_FLOOR_MS <= kill_to_exit_ms <= TIMEOUT_MS + ALLOWANCE_MS, kill_to_exit_ms
     assert not (ls.SHM_DIRECTORY / segment).exists()
 
 

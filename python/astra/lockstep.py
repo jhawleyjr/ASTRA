@@ -230,9 +230,20 @@ def remove_stale_segments(directory: Path = SHM_DIRECTORY) -> list[str]:
     return removed
 
 
+def checked_segment(segment: object) -> str:
+    """``segment`` if it matches the shm plugin's ``astra_<pid>_<nonce>`` rule, else ``ValueError``.
+
+    The rule admits no ``/`` and no ``..``, so ``SHM_DIRECTORY / segment`` never leaves ``/dev/shm``
+    (review R-001: an absolute name would replace the directory, and the cleanup would unlink it).
+    """
+    if not isinstance(segment, str) or _SEGMENT.fullmatch(segment) is None:
+        raise ValueError(f"segment {segment!r} does not match astra_<pid>_<nonce>")
+    return segment
+
+
 def _unlink_segment(segment: str) -> None:
     with contextlib.suppress(FileNotFoundError):
-        os.unlink(SHM_DIRECTORY / segment)
+        os.unlink(SHM_DIRECTORY / checked_segment(segment))
 
 
 def _mapping(value: object, where: str) -> dict[str, Any]:
@@ -266,8 +277,7 @@ def load_config(
     a
     core default). The overrides are for tests; none of them changes a trajectory except ``seed``.
     """
-    if _SEGMENT.fullmatch(segment) is None:
-        raise ValueError(f"segment {segment!r} does not match astra_<pid>_<nonce>")
+    checked_segment(segment)
     with open(config_path, encoding="utf-8") as f:
         config = _mapping(yaml.safe_load(f), str(config_path))
     transport = transport_block(config)
@@ -431,6 +441,14 @@ class PeerProcess:
         self._finish()
         return status
 
+    def running(self) -> bool:
+        """True while the peer has not exited: a zero-timeout pidfd poll, never Popen's cached
+        status (review R-003), and nothing is reaped."""
+        if self._process.returncode is not None:
+            return False
+        ready, _, _ = select.select([self._pidfd], [], [], 0.0)
+        return not ready
+
     def signal(self, signum: int) -> None:
         """Sends ``signum`` unless the peer is already reaped."""
         if self._process.returncode is None:
@@ -440,17 +458,37 @@ class PeerProcess:
     def stop(self, grace_s: float = 1.0, kill_wait_s: float = 5.0) -> int:
         """SIGCONT (a jittered peer may be stopped), SIGTERM, ``grace_s``, SIGKILL, ``kill_wait_s``:
         always reaps or raises ``LockstepError``. A no-op once the peer has exited."""
-        status = self.wait(0.0)
-        if status is not None:
-            return status
-        self.signal(signal.SIGCONT)
-        self.signal(signal.SIGTERM)
-        status = self.wait(grace_s)
-        if status is None:
-            self.signal(signal.SIGKILL)
-            status = self.wait(kill_wait_s)
-        if status is None:
-            raise LockstepError(f"peer pid {self.pid} survived SIGKILL for {kill_wait_s} s")
+        try:
+            status = self.wait(0.0)
+            if status is None:
+                self.signal(signal.SIGCONT)
+                self.signal(signal.SIGTERM)
+                status = self.wait(grace_s)
+        finally:
+            # However the graceful phase ended (a timeout, or an exception such as KeyboardInterrupt
+            # inside its wait; review R-002), a peer still running is killed and collected.
+            if self._process.returncode is None:
+                status = self._kill_and_reap(kill_wait_s)
+        assert status is not None
+        return status
+
+    def _kill_and_reap(self, kill_wait_s: float) -> int:
+        """SIGKILL, then collect; an interrupt during the collection is deferred until the peer is
+        reaped (a SIGKILLed process exits at once), then re-raised."""
+        self.signal(signal.SIGKILL)
+        interrupted: BaseException | None = None
+        deadline = time.monotonic() + kill_wait_s
+        status: int | None = None
+        while status is None:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise LockstepError(f"peer pid {self.pid} survived SIGKILL for {kill_wait_s} s")
+            try:
+                status = self.wait(remaining)
+            except KeyboardInterrupt as error:
+                interrupted = error
+        if interrupted is not None:
+            raise interrupted
         return status
 
     def summary(self) -> PeerSummary | None:
@@ -564,7 +602,7 @@ def lockstep_session(
     (``on_peer_launched`` runs then, before the handshake).
     """
     transport = transport_block(config)
-    segment = str(transport["segment"])
+    segment = checked_segment(transport.get("segment"))  # before anything is launched (R-001)
     clean_exit_s = int(transport["peer_timeout_ms"]) / 1000.0 + 1.0
     peer = PeerProcess(peer_argv, pass_fds=pass_fds)
     session: Session | None = None
@@ -600,9 +638,11 @@ def lockstep_session(
             del held  # the destructor closes the transport unless something else holds it
 
         def reap_peer() -> None:
-            if body_error is None and not leaked:
-                peer.wait(clean_exit_s)
-            peer.stop(stop_grace_s)
+            try:
+                if body_error is None and not leaked:
+                    peer.wait(clean_exit_s)
+            finally:
+                peer.stop(stop_grace_s)  # runs even if the clean wait raised (R-002)
 
         if body_error is None:
             _record_cleanup_error(errors, close_simulation)
@@ -622,15 +662,25 @@ def lockstep_session(
                     "stopped"
                 )
             )
-        if errors:
+        # An interrupt (KeyboardInterrupt, SystemExit) during cleanup is re-raised once every step
+        # has run, chained to the body's exception, never reduced to a note (R-002). Any other
+        # cleanup error is a note on the body's exception, or raised itself after a clean body.
+        interrupts = [e for e in errors if not isinstance(e, Exception)]
+        others = [e for e in errors if isinstance(e, Exception)]
+        if interrupts:
+            first: BaseException = interrupts[0]
+            for error in [*interrupts[1:], *others]:
+                first.add_note(f"astra.lockstep cleanup also failed: {error!r}")
+            raise first
+        if others:
             if body_error is not None:
-                for error in errors:
+                for error in others:
                     body_error.add_note(f"astra.lockstep cleanup also failed: {error!r}")
             else:
-                first = errors[0]
-                for error in errors[1:]:
-                    first.add_note(f"astra.lockstep cleanup also failed: {error!r}")
-                raise first
+                raised = others[0]
+                for error in others[1:]:
+                    raised.add_note(f"astra.lockstep cleanup also failed: {error!r}")
+                raise raised
 
 
 @dataclasses.dataclass(frozen=True)

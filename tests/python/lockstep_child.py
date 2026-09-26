@@ -309,6 +309,14 @@ def scenario_sim_only(args: argparse.Namespace) -> None:
         _core.Config.from_dict(config, origin="sim-only"), _core.default_plugin_dir()
     )
     registry = sim.registry
+    if args.stall_s > 0:
+        first = sim.run(1000)
+        if first or registry.find("transport.exchanges") != 100.0:
+            raise SystemExit("barrier not reached")
+        say("READY")
+        time.sleep(args.stall_s)  # longer than peer_timeout_ms: the autopilot times out first
+        say("COMPLETED")
+        return
     barrier_run(lambda n: sim.run(n) or None, registry.find)
 
 
@@ -351,7 +359,7 @@ def scenario_lifecycle(args: argparse.Namespace) -> None:
     by pytest."""
     case = args.case
     segment = ls.new_segment_name()
-    handshake = 300 if case in ("bad-args", "term-ignoring-peer") else None
+    handshake = 300 if case in ("bad-args", "term-ignoring-peer", "interrupt-in-cleanup") else None
     config = ls.load_config(args.config, segment=segment, handshake_timeout_ms=handshake)
     trim = ls.trim_for(args.config, SETPOINTS)
     argv = ls.autopilot_argv(args.autopilot, config, SETPOINTS, trim)
@@ -359,7 +367,7 @@ def scenario_lifecycle(args: argparse.Namespace) -> None:
         argv[0] = "/nonexistent/astra_autopilot"
     elif case == "bad-args":
         argv.append("--bogus")
-    elif case == "term-ignoring-peer":
+    elif case in ("term-ignoring-peer", "interrupt-in-cleanup"):
         argv = [
             sys.executable,
             "-c",
@@ -379,6 +387,15 @@ def scenario_lifecycle(args: argparse.Namespace) -> None:
         report_pid("peer", peer.pid)
 
     kept: Any = None
+    started = time.monotonic()
+    if case == "interrupt-in-cleanup":
+        # The handshake fails at about 0.3 s; stop()'s 1 s grace wait on the SIGTERM-ignoring peer
+        # then runs until about 1.3 s. The alarm at 0.6 s raises KeyboardInterrupt inside that wait.
+        def on_alarm(_signum: int, _frame: object) -> None:
+            raise KeyboardInterrupt
+
+        signal.signal(signal.SIGALRM, on_alarm)
+        signal.setitimer(signal.ITIMER_REAL, 0.6)
     try:
         with ls.lockstep_session(config, argv, on_peer_launched=launched) as session:
             if case == "normal":
@@ -408,6 +425,9 @@ def scenario_lifecycle(args: argparse.Namespace) -> None:
         facts["exception"] = type(error).__name__
         facts["message"] = str(error)
         facts["notes"] = list(getattr(error, "__notes__", []))
+        context = error.__context__
+        facts["context"] = None if context is None else type(context).__name__
+    facts["elapsed_s"] = time.monotonic() - started
     del kept
     facts["segment_exists"] = (ls.SHM_DIRECTORY / segment).exists()
     facts["peer_launched"] = bool(peers)
@@ -434,6 +454,7 @@ def main() -> int:
     parser.add_argument("--mode", choices=("sigkill", "abort", "wait"))
     parser.add_argument("--segment")
     parser.add_argument("--case")
+    parser.add_argument("--stall-s", type=float, default=0.0)
     args = parser.parse_args()
     scenarios = {
         "run": scenario_run,
