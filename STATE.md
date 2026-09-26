@@ -1,40 +1,36 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines; true at handoff)
 
 ## In flight
-M4 PR 5 (`embedded/autopilot`, standalone embedded build, Q13 gain design), Tier 2: **approved by Joe 2026-09-26**, product
-and test candidate `fc22cc8` on branch `worktree-m4-pr5-autopilot` off `origin/main` `34eec2d`; later commits are documents
-only. [Draft PR #56](https://github.com/jhawleyjr/ASTRA/pull/56), body = the packet (verified with `gh pr view --json
-body`); stays draft, Joe squash-merges. PR 5 is merged once `origin/main` contains it (open at `c612657`). Plan: `docs/plans/m4-pr5-autopilot.md`. Packet: `docs/reviews/m4-pr5-autopilot-human.md` (approved). Findings:
-`docs/reviews/m4-pr5-autopilot-review.md` (H-1 to H-3, verified).
+M4 PR 6 (turbulence configs, `astra.lockstep`, M4 acceptance R1 to R4b, R12b), Tier 3: **approved by Joe 2026-09-26**
+on candidate `4e418e1` (product and tests), branch `worktree-m4-pr6-lockstep-acceptance` off `origin/main` `f4de27d`;
+later commits are documents only. Pushed as a draft PR whose body is the packet (verified with `gh pr view --json body`);
+Joe squash-merges. PR 6 is merged once `origin/main` contains it. Plan: `docs/plans/m4-pr6-lockstep-acceptance.md`.
+Packet (approved): `docs/reviews/m4-pr6-lockstep-acceptance-human.md`. Findings: `docs/reviews/m4-pr6-lockstep-acceptance-review.md`.
 
 ## Last verified result
-On `fc22cc8`, this session: `./scripts/check-full.sh` exit 0, `check: OK` (debug 555, release 556, static-plugins 555,
-asan 555 tests; hooks 144; pyright 0 errors; pytest 135; `docs/reviews/evidence/fc22cc8-full-gate.log`). A5 separately,
-all exit 0: `just embedded-standalone`, ctest `(Autopilot|EmbeddedBoundary)` 45/45, design test 19/19
-(`fc22cc8-a5-*.log`). Mutations all caught (`fc22cc8-a5-mutations.md`). Codex verification of `56ea2ec..a0eec8c`:
-approve, H-1/H-2/H-3 verified, new findings none (`a0eec8c-codex-verify.log`). PR 3/PR 4/M3/PR 8 tests unmodified.
+This session, on `4e418e1` with no edits during the gate: `./scripts/check-full.sh` exit 0, `check: OK` (debug 558,
+release 559, static-plugins 558, asan 559; pyright 0 errors; pytest 177; `docs/reviews/evidence/4e418e1-full-gate.log`).
+A6 separately, both exit 0: `.venv/bin/pytest tests/python/test_lockstep.py` 42 passed; `ctest --preset asan -R
+ClosedLoopAcceptance --no-tests=error` 4/4 (full length 58.6 s). R2 seed 42: light 1.33 m / 0.083 deg, moderate
+10.41 m / 0.828 deg; hold peer also inside both bands (moderate heading 1.97 deg); R2d ratios 0.18 / 0.14. Codex
+round-2 verification (thread `01a0df61-8094-7690-b094-c1594d502d23`): approve, R-001 to R-003 closed, new findings
+none. The `dff89af` gate log is marked CONTAMINATED (edits during its pytest stage): not evidence.
 
 ## Next step
-1. After Joe's squash-merge is observed on `origin/main`: M4 PR 6 from a fresh worktree off it (turbulence configs, Python
-   driver `astra.lockstep`, acceptance runs R1 to R4b, R12b). Its handoff is at the end of the PR 5 packet (CLI incl.
-   `--theta-trim` = `TrimResult.alpha_rad`, limits equal to the autopilot's, frame-0 caveat under Dryden, gust throttle
-   traces, first knobs `kHeadingP`/bank limit and, for altitude misses beyond +/-30 m, `kAltP`/`kAltI`/pitch gains; a
-   retune touches `gains.hpp` and reruns `test_autopilot_design.py`).
-2. Nonblocking follow-up (owner: whoever next touches the gains): remove `OPTIONAL_GAIN_NAMES`/`kSideslip` support from
-   `tests/python/autopilot_design.py`.
-3. Follow-up A (comment-only PR): PR 2's CAS table test comment nits (`docs/reviews/m4-pr2-icd-pack-human.md`).
-4. Follow-up B (Tier 0, authorized; Joe arms the guard): citations in `util/frames.hpp` and
-   `tests/golden/frames/adr0001_cases.hpp` (DCM 1.3-10, Euler 1.3-11, Example 1.8-1 Eq. (1) p. 52, q to DCM 1.8-16/18).
-5. Not scheduled: follow-up C (Joe: `LockstepExchange` recorder sizing for an absurd `sim.frames`); a wall-clock symbol
-   scan allowlisting the two ADR-0023 clock functions (architecture §15).
-PLAN.md untouched (M4 check-off and the duplicate §15 bullet: M4 PR 7). Joe-owned: the stale
-`tests/golden/dynamics/capture_r1_golden.cpp` (retired `astra::Eom` symbols, ADR-0021) needs his authorization.
+1. After Joe's squash-merge is observed on `origin/main`: M4 PR 7 from a fresh worktree off it (PLAN.md M4 check-off,
+   remove the duplicate §15 envelope-monitor bullet, follow-ups, STATE).
+2. Nonblocking follow-ups (Joe, 2026-09-26): moderate throttle jitter from airspeed gusts through the speed loop (up
+   to 0.019 per exchange, no limit reached), revisit when a sensor or actuator model lands; the "trim 0.4986" label
+   overlaps the trace in `docs/reviews/evidence/7c7725d-throttle-moderate.svg` (cosmetic, file left as is).
+3. Carried: remove `OPTIONAL_GAIN_NAMES`/`kSideslip` from `tests/python/autopilot_design.py` (whoever next touches the
+   gains); follow-ups A (PR 2 CAS nits), B (frames citations; Joe arms the guard), C (recorder sizing), the wall-clock
+   symbol scan. PLAN.md untouched (PR 7). Joe-owned: the stale `tests/golden/dynamics/capture_r1_golden.cpp`.
 
 ## Tried / failed
-Correction rounds: 1/2 (Joe's review of `56ea2ec`: H-1 to H-3, fixed in `fc22cc8`); failed integrations: 1/2 (clang-tidy
-on `49e54b3`, fixed in `56ea2ec`; `49e54b3-full-gate-failure-tidy.log`). A new defect goes to Joe.
-Coverage gaps disclosed in the packet: the design model has no saturation or turbulence (PR 6's R2 decides); margins
-are loop-at-a-time and inner-loop bandwidths are modal; LeakSanitizer under ptrace (lesson 2026-09-17).
+Correction rounds: 2/2 (Codex R-001 to R-003 on `7c7725d`; round 1 `dff89af`; round 2 `4e418e1`, tests only); failed
+integrations: 0/2. The budget is exhausted: any new defect goes to Joe.
+Packet disclosures: the R2 bands do not separate hold from the autopilot at seed 42 (R2d is the only gate that does);
+trace SVGs not rendered in-session (headless Firefox could not write); timing tests share the machine with other sessions.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.

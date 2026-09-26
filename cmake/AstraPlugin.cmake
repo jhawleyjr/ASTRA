@@ -160,7 +160,8 @@ std::span<const StaticPluginEntry> static_plugin_table() noexcept { return kTabl
                                  astra_notional_transport_cruise_regression_test
                                  capture_cruise_regression
                                  astra_lockstep_tests astra_lockstep_timing_tests
-                                 astra_echo_peer_stress_test)
+                                 astra_echo_peer_stress_test astra_closed_loop_tests
+                                 astra_closed_loop_full_test)
       if(TARGET ${test_target})
         add_dependencies(${test_target} ${targets})
       endif()

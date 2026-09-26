@@ -12,6 +12,8 @@ exit codes. Invoke them from any working directory by their relative or absolute
 | `ctest --preset asan -R <name> --no-tests=error` | Selected existing CTest cases after building |
 | `.venv/bin/pytest tests/python -k <name>` | Selected Python tests after `just python` |
 | `just embedded-standalone` | `embedded/` alone (`cmake -S embedded`, no preset, no Eigen/yaml-cpp/GoogleTest/Python) with clang++-18 and g++, then the autopilot's no-`astra_core` binary check and a no-argument exit-1 smoke run (ADR-0008) |
+| `.venv/bin/pytest tests/python/test_lockstep.py` | M4 acceptance at full length (Release): R1 to R4b, R12b, the driver's lifecycle. Every run is a child process with a hard timeout; pytest is a child subreaper for the module. Set `ASTRA_LOCKSTEP_REPORT_DIR` to keep each run's `summary.json`, `trace.csv` and recorder; set `ASTRA_AUTOPILOT` / `ASTRA_ECHO_PEER` to use other binaries than `build/python`'s |
+| `ctest --preset asan -R ClosedLoopAcceptance --no-tests=error` | The closed loop in C++: the limits-equality test, 1,000 exchanges and a same-process R3 pair on every preset; the full 10,000 exchanges (label `acceptance`) on asan only |
 | `just hooks-test` | Existing oracle/main/Stop-hook regression cases |
 | `just tidy` / `just format-check` | Static analysis / read-only C++ formatting check |
 | `just format` | Mutating C++/Python formatting; inspect the resulting diff |

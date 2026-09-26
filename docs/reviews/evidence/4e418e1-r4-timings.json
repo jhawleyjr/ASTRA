@@ -1,0 +1,22 @@
+{
+ "sigkill_kill_to_halt_ms": [
+  487.421,
+  487.278,
+  487.786
+ ],
+ "abort_reply_to_halt_bound_ms": [
+  500.376,
+  500.366,
+  500.343
+ ],
+ "wait_duration_ms": [
+  500.339,
+  500.099,
+  500.099
+ ],
+ "pause_next_exchange_halt_ms": [
+  500.114,
+  500.123,
+  500.364
+ ]
+}
