@@ -917,10 +917,10 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         (`4e418e1-a6-reports.json`); the full-length light run also passes under asan (58.6 s).
       - *altitude ±30 m, heading ±2°* (R2a/R2b, seed 42, every one of the 100,001 recorded states incl. the
         final one): light 1.33 m / 0.083°, moderate 10.41 m / 0.828°. Disclosed and accepted by Joe
-        (2026-09-26): at seed 42 the constant-trim hold peer also stays inside both bands (moderate heading
-        1.966°), so the bands do not discriminate there (R2c); R2d, autopilot/hold ratios 0.178 (altitude) and
-        0.139 (heading) against ≤ 0.5, is the gate that does. Non-gating light sweep, seeds 43 to 50: 0.75 to
-        1.65 m, 0.074° to 0.123°.
+        (2026-09-26): at seed 42 the constant-trim hold peer also stays inside both bands (moderate altitude
+        21.00 m at the final frame, still growing; moderate heading 1.966°), so the bands do not discriminate
+        there (R2c); R2d, autopilot/hold ratios 0.178 (altitude) and 0.139 (heading) against ≤ 0.5, is the gate
+        that does. Non-gating light sweep, seeds 43 to 50: 0.75 to 1.65 m, 0.074° to 0.123°.
       - *bit-identical logs* (R3): runs A (light), B (repeat) and C (injected autopilot scheduling jitter, 63
         stops) are byte-identical, SHA-256 `da98ae4c803fdc217c7fa36c05e848ef0404f3f088392711a1fe6aff51d9c2bd`,
         each a fresh process; D (seed 43) differs, so the comparison is live.
@@ -946,6 +946,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         `docs/plans/m4-pr6-lockstep-acceptance.md`, packet `docs/reviews/m4-pr6-lockstep-acceptance-human.md`
         (approved by Joe on `4e418e1`, 2026-09-26). PR #57 merged as `0fcae33` (squash merge, Joe).
   - [x] PR 7 — M4 closeout: this check-off, the duplicate §15 envelope-monitor bullet removed, the open M4
-        follow-ups recorded above. Tier 0 to 1, docs only; A1 plus a Codex review of the diff.
+        follow-ups recorded above, and `docs/architecture.md`'s stale M4 status wording in §7 and §10 corrected
+        (Joe-authorized, status only). Tier 0 to 1, docs only; A1 plus a Codex review of the diff.
 - [ ] **M5 Tooling** — HDF5 logging + replay, scenario harness over `tests/scenarios/`, Monte Carlo of 64 runs,
       FlightGear packets verified by a decoder test.
