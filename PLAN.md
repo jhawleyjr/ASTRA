@@ -564,7 +564,7 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       `add_subdirectory(golden/dynamics)` as `tests/CMakeLists.txt`'s comment implies. Its script
       `capture_r1_golden.sh` also has no arming check of its own (unlike PR 8's); today it refuses
       at its clean-tree and baseline-drift (`26ad594`) steps, before its first commit (M3 PR 10
-      finding). Not started.
+      finding). Owner: Joe. Not started.
 - [ ] `cmake/AstraPlugin.cmake`'s `astra_finalize_plugins()` hardcodes which test executables get a
       plugin build-order dependency (`astra_unit_tests`, `astra_physics_tests`, and — since M3
       PR 1 — `astra_notional_transport_mass_test`, `astra_template_mass_test`), by explicit design
@@ -602,11 +602,29 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
       because no concrete plugin has real numbers to declare before PR 4. PR 4 or a later PR adds
       the declaration virtual (a further `kCoreApiVersion` bump, precedented) and wires
       `HealthMonitor`'s own per-frame check against it. Not started.
-- [ ] §15 envelope monitors (α, β, Mach, dynamic pressure, load-factor limits declared by the aero
-      model) — deferred from M3 PR 3 (ADR-0018): no declaration hook exists yet on `AeroModel`
-      because no concrete plugin has real numbers to declare before PR 4. PR 4 or a later PR adds
-      the declaration virtual (a further `kCoreApiVersion` bump, precedented) and wires
-      `HealthMonitor`'s own per-frame check against it. Not started.
+- [ ] Moderate-turbulence throttle jitter (M4 PR 6, Joe 2026-09-26, nonblocking): airspeed gusts pass
+      through the autopilot's speed loop to the throttle, up to 0.019 per exchange at moderate (throttle
+      0.310 to 0.633 around trim 0.4986), no limit reached (`docs/reviews/m4-pr6-lockstep-acceptance-human.md`).
+      Revisit when a sensor or actuator model lands. Not started.
+- [ ] Remove the `OPTIONAL_GAIN_NAMES`/`kSideslip` support from `tests/python/autopilot_design.py` (M4 PR 5
+      follow-up, carried by PR 6): `gains.hpp` defines no `kSideslip` and no sideslip term was needed at
+      M4 acceptance. Owner: whoever next touches the gains. Not started.
+- [ ] Follow-up A (M4 PR 2, comment-only): the CAS table test comment nits recorded in
+      `docs/reviews/m4-pr2-icd-pack-human.md` (Decision record, item (a)): the `|g''|` bound reads 0.808, the
+      0.029 m/s gap's attribution, and the "changed-gamma pair" mutant's meaning. Not started.
+- [ ] Follow-up B (M4 PR 2, Tier 0, authorized by Joe; Joe arms the golden guard for that session): correct
+      the equation citations in `core/include/astra/util/frames.hpp` and in the comments of
+      `tests/golden/frames/adr0001_cases.hpp` (comment-only, no data change): DCM Eq. (1.3-10), Euler from
+      DCM Eq. (1.3-11), half-angle Euler-to-quaternion Example 1.8-1 Eq. (1) p. 52, q to DCM Eq.
+      (1.8-16)/(1.8-18). Not started.
+- [ ] Follow-up C (M4 PR 3, Joe 2026-09-25, not scheduled): `LockstepExchange` recorder sizing for an absurd
+      `sim.frames`: preallocation throws `std::bad_alloc` at init instead of a `ConfigError` naming
+      `sim.frames`, and `sim.frames` near `UINT64_MAX` wraps the capacity arithmetic in its constructor
+      (`docs/reviews/m4-pr3-core-seam-human.md`). Not started.
+- [ ] Wall-clock symbol scan (architecture §15, not scheduled): the determinism guard "wall-clock APIs not
+      linked into any plugin" is prose only; a scan must allowlist the two ADR-0023 deadline sites (one
+      function in the shm transport, `plugins/sim/transport/shm/shm_wait.cpp`, one in the HAL's shm
+      backend, `embedded/hal/shm/hal_shm_wait.cpp`). Not started.
 - [x] **M3 Notional transport** — aero + mass + turbofan plugins; trims at cruise (10,000 m, 230 m/s
       TAS, ADR-0002 SI) with residual < 1e-6 (norm TBD, PR 6); linearized modes match design values,
       each mode against its own tolerance; a 300 s open-loop run matches its own frozen regression
@@ -881,8 +899,55 @@ Authoritative acceptance criteria: `docs/architecture.md` §16. Edited in place;
         approved head `936c2a8` (code candidate `f3c1460`) against base `7a83a75`, 2026-09-22.
         Packet: `docs/reviews/pr10-fresh-tidy-human.md`. PR #48 merged as `a0b0820`, 2026-09-22
         (squash merge, Joe).
-- [ ] **M4 Lockstep** — shm transport + HAL + straight-and-level autopilot outside the sim tree; 10,000
+- [x] **M4 Lockstep** — shm transport + HAL + straight-and-level autopilot outside the sim tree; 10,000
       exchanges, zero missed; altitude ±30 m, heading ±2° under light Dryden; bit-identical logs; peer death
       halts within one timeout.
+      Evidence per clause (§16's M4 row is the authoritative wording; it adds a second gating Dryden level,
+      moderate). All on M4 PR 6's approved candidate `4e418e1`: packet
+      `docs/reviews/m4-pr6-lockstep-acceptance-human.md` (Evidence section), logs under `docs/reviews/evidence/`:
+      `4e418e1-full-gate.log` (`./scripts/check-full.sh` exit 0, `check: OK`; debug 558, release 559,
+      static-plugins 558, asan 559; pytest 177), `4e418e1-a6-pytest.log` (`test_lockstep.py` 42 passed),
+      `4e418e1-a6-ctest-asan.log` (`ClosedLoopAcceptance` 4/4), `4e418e1-a6-reports.json`, `4e418e1-r4-timings.json`.
+      - *shm transport + HAL + autopilot outside the sim tree* (R9, R10): every acceptance run is over
+        `plugins/sim/transport/shm` and `embedded/hal`'s shm backend; the gate log's `embedded-standalone: OK`
+        builds `embedded/` standalone with clang++-18 and g++ and finds no `libastra_core` dependency and no
+        undefined `astra::` symbol in `astra_autopilot`; `EmbeddedBoundary_*` pass on every preset.
+      - *10,000 exchanges, zero missed* (R1): light and moderate runs report `exchanges` 10,000, `missed` 0,
+        recorder 10,000/10,000/100,001 records, and the autopilot's own summary `handled 10000 held 0`, exit 0
+        (`4e418e1-a6-reports.json`); the full-length light run also passes under asan (58.6 s).
+      - *altitude ±30 m, heading ±2°* (R2a/R2b, seed 42, every one of the 100,001 recorded states incl. the
+        final one): light 1.33 m / 0.083°, moderate 10.41 m / 0.828°. Disclosed and accepted by Joe
+        (2026-09-26): at seed 42 the constant-trim hold peer also stays inside both bands (moderate altitude
+        21.00 m at the final frame, still growing; moderate heading 1.966°), so the bands do not discriminate
+        there (R2c); R2d, autopilot/hold ratios 0.178 (altitude) and 0.139 (heading) against ≤ 0.5, is the gate
+        that does. Non-gating light sweep, seeds 43 to 50: 0.75 to 1.65 m, 0.074° to 0.123°.
+      - *bit-identical logs* (R3): runs A (light), B (repeat) and C (injected autopilot scheduling jitter, 63
+        stops) are byte-identical, SHA-256 `da98ae4c803fdc217c7fa36c05e848ef0404f3f088392711a1fe6aff51d9c2bd`,
+        each a fresh process; D (seed 43) differs, so the comparison is live.
+      - *peer death halts within one timeout* (R4, R4b; 500 ms test timeout, limit 550 ms incl. the Q3
+        allowance): SIGKILL kill-to-halt 487.3 to 487.8 ms, halt `kTransport`; abort reply-to-halt bound
+        500.3 to 500.4 ms; sim wait duration 500.1 to 500.3 ms (≥ 500 asserted: no early or restarted
+        deadline); sim pause 500.1 to 500.4 ms with autopilot exit 2 (`4e418e1-r4-timings.json`, 3 repeats each).
+      Cosmetic, left as is (Joe, 2026-09-26): the "trim 0.4986" label overlaps the trace in
+      `docs/reviews/evidence/7c7725d-throttle-moderate.svg`; the trace SVGs were rendered and checked by Joe
+      during his review of PR 6. Spec and plan: `docs/plans/m4-lockstep.md` (#50, `e16d26a`).
+  - [x] PR 1 — ADR-0022/0023/0024 and architecture rev 8 (lockstep decisions). Packet
+        `docs/reviews/m4-pr1-adrs-human.md`. PR #51 merged as `a3d6071` (squash merge, Joe).
+  - [x] PR 2 — ICD truth packing (`icd_pack.hpp`, `status_flags` bits, oracle tests; R12a). Packet
+        `docs/reviews/m4-pr2-icd-pack-human.md`. PR #52 merged as `794158d` (squash merge, Joe).
+  - [x] PR 3 — core seam (`Transport`, exchange stage, loopback, recorder, `kTransport`). Plan
+        `docs/plans/m4-pr3-core-seam.md`, packet `docs/reviews/m4-pr3-core-seam-human.md`. PR #53 merged as
+        `a3a6453` (squash merge, Joe).
+  - [x] PR 4 — shm transport and HAL shm backend. Plan `docs/plans/m4-pr4-shm-transport.md`, packet
+        `docs/reviews/m4-pr4-shm-transport-human.md`. PR #55 merged as `34eec2d` (squash merge, Joe).
+  - [x] PR 5 — `embedded/autopilot` and the standalone embedded build. Plan `docs/plans/m4-pr5-autopilot.md`,
+        packet `docs/reviews/m4-pr5-autopilot-human.md`. PR #56 merged as `f4de27d` (squash merge, Joe).
+  - [x] PR 6 — turbulence configs, `astra.lockstep` driver, and the M4 acceptance runs (R1 to R4b, R12b). Plan
+        `docs/plans/m4-pr6-lockstep-acceptance.md`, packet `docs/reviews/m4-pr6-lockstep-acceptance-human.md`
+        (approved by Joe on `4e418e1`, 2026-09-26). PR #57 merged as `0fcae33` (squash merge, Joe).
+  - [x] PR 7 — M4 closeout: this check-off, the duplicate §15 envelope-monitor bullet removed, the open M4
+        follow-ups recorded above, and `docs/architecture.md`'s stale M4 status wording in §7 and §10 plus §10's
+        outdated `Transport` interface sketch corrected to the built interface (Joe-authorized, status and
+        accuracy only). Tier 0 to 1, docs only; A1 plus a Codex review of the diff.
 - [ ] **M5 Tooling** — HDF5 logging + replay, scenario harness over `tests/scenarios/`, Monte Carlo of 64 runs,
       FlightGear packets verified by a decoder test.

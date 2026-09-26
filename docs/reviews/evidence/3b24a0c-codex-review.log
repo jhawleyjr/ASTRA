@@ -1,0 +1,21 @@
+[codex] Starting Codex review thread.
+[codex] Thread ready (01a0dfc2-d21d-75f3-a9f4-5f17edebdf67).
+[codex] Reviewer started: changes against '6086259'
+[codex] Running command: /bin/bash -lc 'git status --short; git diff --stat 60862599496dd1f3873626ca157f336eb79bd062; ...
+[codex] Command completed: /bin/bash -lc 'git status --short; git diff --stat 60862599496dd1f3873626ca157f336eb79bd062; ... (exit 0)
+[codex] Running command: /bin/bash -lc 'cat AGENTS.md; git diff 60862599496dd1f3873626ca157f336eb79bd062; cat docs/pro...
+[codex] Command completed: /bin/bash -lc 'cat AGENTS.md; git diff 60862599496dd1f3873626ca157f336eb79bd062; cat docs/pro... (exit 0)
+[codex] Running command: /bin/bash -lc "cat docs/agents/review.md; cat docs/decisions/0022* | head -70; cat docs/decis...
+[codex] Command completed: /bin/bash -lc "cat docs/agents/review.md; cat docs/decisions/0022* | head -70; cat docs/decis... (exit 0)
+[codex] Review output captured.
+[codex] Reviewer finished.
+[codex] Assistant message captured: The documentation-only changes match the cited acceptance evidence and transport ADRs; no act...
+[codex] Turn completed.
+# Codex Review
+
+Target: branch diff against 6086259
+
+The documentation-only changes match the cited acceptance evidence and transport ADRs; no actionable defects were found. Both git diff --check and python3 scripts/docs_check.py exited 0. Product tests were not run.
+exit=0
+
+[exited with code 0]
