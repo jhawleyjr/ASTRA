@@ -34,6 +34,8 @@ endforeach()
 # M4 PR 4's shm transport, HAL, and echo-peer tests; after ASTRA_GCC/ASTRA_CLANG_C, which its C11
 # layout checks reuse.
 add_subdirectory(lockstep)
+# M4 PR 5's autopilot tests: unit, process, and ADR-0008 boundary.
+add_subdirectory(embedded)
 
 # The static-plugins build must not reference dlopen at all; the shared build must, so the check is known
 # to be able to fire.
