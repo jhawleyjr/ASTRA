@@ -61,8 +61,8 @@ add18b1 -- tests/golden docs/decisions` is empty).
 | Full gate `./scripts/check-full.sh` | **`check: OK`, exit 0**; debug, release, static-plugins, asan each 450/450; tidy, format-check, pyright clean; pytest 116 passed | [`add18b1-full-gate.log`](evidence/add18b1-full-gate.log), `add18b1` |
 | A3 `ctest --preset asan -R '(Transport\|Loopback\|NoAlloc\|SimulationTransport)' --no-tests=error` | exit 0, 63/63: 26 `SimulationTransport`, 7 `LoopbackTransport`, 10 `physics.NoAlloc` incl. the new `ZeroHeapAllocationsOverOneThousandFramesWithLoopbackExchanges` and `ZeroHeapAllocationsOnTransportFaultsAndStickyHalts` | [`add18b1-a3.log`](evidence/add18b1-a3.log) |
 | M3 regression unmodified | `notional_transport_cruise_regression.*.MatchesTheFrozenTrajectoryBitwise` and `...TwoRunsFromTheSameConfigAreBitwiseIdentical` pass (also in every gate preset) | same A3 log |
-| Failed integration 1 | `126cfed`: all four presets passed; **pyright** failed (my new test called `int()` on a nanobind `enum.Enum`) | [`126cfed-full-gate.log`](evidence/126cfed-full-gate.log) |
-| Failed integration 2 | `d9ab7de`: all four presets passed; **pytest** failed: `test_package.py:31` pins `core_api_version() == 8`, the hand-bumped companion to Q-A I missed | [`d9ab7de-full-gate.log`](evidence/d9ab7de-full-gate.log) |
+| Failed integration 1 | `126cfed`: all four presets passed; **pyright** failed (my new test called `int()` on a nanobind `enum.Enum`) | `126cfed` full-gate log, pyright failure (log removed at Joe's request, 2026-09-25) |
+| Failed integration 2 | `d9ab7de`: all four presets passed; **pytest** failed: `test_package.py:31` pins `core_api_version() == 8`, the hand-bumped companion to Q-A I missed | `d9ab7de` full-gate log, pytest API-version-pin failure (log removed at Joe's request, 2026-09-25) |
 
 Requirement coverage (tests in `tests/unit/kernel/simulation_transport_test.cpp` unless noted):
 
@@ -129,7 +129,7 @@ Toolchain: clang-18, Ubuntu 24.04, same machine for every run. GitHub CI is loca
 - **Recorder memory** is preallocated from `sim.frames` (about 11 MB of state records per 100k frames). A
   `sim.frames` large enough to exhaust memory throws `std::bad_alloc` at init, not a `ConfigError`, and
   `sim.frames` near `UINT64_MAX` would wrap the capacity arithmetic. Neither is reachable from a sane config; not
-  guarded.
+  guarded in this PR (follow-up C, below).
 - **Command map**: every field is optional, but at least one must be mapped. Limits are required for all four
   keys, and every validation step covers every field. `throttle` must be two identical input names.
 - Rollback: revert the squash commit. The no-transport path differs only by null checks and the moved
@@ -137,16 +137,21 @@ Toolchain: clang-18, Ubuntu 24.04, same machine for every run. GitHub CI is loca
 
 ## Decision record
 
-State: pending
-Human decision/date/reference: pending
-Approved candidate/scope: pending
-Merge observed: not merged
+State: approved
+Human decision/date/reference: Joe, 2026-09-25: "Approved: behavior and scope of add18b1". Before push, the two
+failed-gate logs were removed (rows kept above, as in PR 2) and follow-up C recorded; those are document-only
+commits on top of `add18b1`.
+Approved candidate/scope: `add18b1` (product), plus document-only commits (this packet, evidence changes).
+Merge observed: not merged (Joe squash-merges; draft PR)
 Release authorization: not requested
 
-Significant tradeoff rationale: sticky halts with a transport (your addition) trade re-step flexibility for never
+Significant tradeoff rationale: sticky halts with a transport (Joe's addition) trade re-step flexibility for never
 re-publishing a frame.
-Accepted risks: none yet proposed beyond the plan's (termination depends on the transport's deadline contract, PR 4;
-recorder capacity arithmetic unguarded for absurd `sim.frames`). Owner: Joe, if accepted.
-Nonblocking follow-ups: none new. STATE.md's Follow-ups A and B from PR 2 are unchanged.
+Accepted risks: termination of the receive loop depends on the transport's deadline contract (PR 4 must honor it).
+Owner: Joe.
+Nonblocking follow-ups: **Follow-up C** (Joe, 2026-09-25, not fixed in this PR): recorder sizing for an absurd
+`sim.frames` -- preallocation throws `std::bad_alloc` at init instead of a `ConfigError` naming `sim.frames`, and
+`sim.frames` near `UINT64_MAX` wraps the capacity arithmetic (`sim_frames + 1`, `sim_frames + divisor - 1`) in
+`LockstepExchange`'s constructor. STATE.md's Follow-ups A and B from PR 2 are unchanged.
 Architectural decisions: ADR-0022, ADR-0023, ADR-0024 (accepted); no new ADR. The `kCoreApiVersion` number
 discrepancy with ADR-0022 is recorded in `core_api.hpp.in` per Q-A.
