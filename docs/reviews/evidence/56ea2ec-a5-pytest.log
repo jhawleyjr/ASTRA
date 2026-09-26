@@ -1,0 +1,24 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.1.1, pluggy-1.6.0
+rootdir: /home/joe/repos/ASTRA/.claude/worktrees/m4-pr5-autopilot
+configfile: pyproject.toml
+collected 14 items
+
+tests/python/test_autopilot_design.py .open-loop 5x5 phugoid: period 108.5343 s, zeta 0.02730
+.longitudinal poles: [-0.5726594 -1.11425355j -0.5726594 +1.11425355j -0.15162618+0.j
+ -0.05097595-0.0285164j  -0.05097595+0.0285164j  -0.04971909-0.02393252j
+ -0.04971909+0.02393252j]
+.lateral poles: [-1.83209226+0.j         -0.67997119-1.55042541j -0.67997119+1.55042541j
+ -0.05022171+0.j         -0.04986853-0.01193254j -0.04986853+0.01193254j]
+..Dutch roll: wn 1.6930 rad/s, zeta 0.4016, zeta*wn 0.6800
+.elevator: phase margin 92.7 deg, gain margin +inf / -inf dB
+throttle: phase margin 69.6 deg, gain margin +inf / -inf dB
+.aileron: phase margin 111.0 deg, gain margin +inf / -inf dB
+rudder: phase margin 93.4 deg, gain margin +17.2 / -inf dB
+..longitudinal sampled closed loop, max |z| = 0.999498
+.lateral sampled closed loop, max |z| = 0.999501
+.longitudinal sampled closed loop with one extra exchange of delay, max |z| = 0.999499
+.lateral sampled closed loop with one extra exchange of delay, max |z| = 0.999502
+..
+
+============================== 14 passed in 0.33s ==============================
