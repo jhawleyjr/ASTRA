@@ -1,0 +1,17 @@
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m4-pr6-lockstep-acceptance/build/asan
+    Start 508: ClosedLoopAcceptance.ConfigLimitsEqualAutopilotLimits
+1/4 Test #508: ClosedLoopAcceptance.ConfigLimitsEqualAutopilotLimits ...   Passed    0.01 sec
+    Start 509: ClosedLoopAcceptance.ShortLight
+2/4 Test #509: ClosedLoopAcceptance.ShortLight .........................   Passed    5.85 sec
+    Start 510: ClosedLoopAcceptance.ShortReproducible
+3/4 Test #510: ClosedLoopAcceptance.ShortReproducible ..................   Passed   11.64 sec
+    Start 511: ClosedLoopAcceptance.FullLengthLight
+4/4 Test #511: ClosedLoopAcceptance.FullLengthLight ....................   Passed   58.64 sec
+
+100% tests passed, 0 tests failed out of 4
+
+Label Time Summary:
+acceptance    =  58.64 sec*proc (1 test)
+lockstep      =  17.50 sec*proc (3 tests)
+
+Total Test time (real) =  76.16 sec

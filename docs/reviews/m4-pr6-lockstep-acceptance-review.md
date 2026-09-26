@@ -15,7 +15,7 @@ Round: initial (round 0); correction round 1 (`dff89af`); correction round 2 of 
 ## Finding [R-001]
 
 Severity: major (reviewer: P1)
-Status: fixed-unverified
+Status: verified (round 2)
 Location: `python/astra/lockstep.py:566-569` (`lockstep_session`) and `_unlink_segment`, at `7c7725d`
 Requirement/ADR: ADR-0024 (the driver unlinks its own uniquely named segment); M4 plan Q5
 Failure: `lockstep_session` takes the segment from a caller's config dict without validating it (only `load_config`
@@ -33,12 +33,13 @@ Verification: Codex round-1 verification (adversarial, fresh, `--base 30611b5`, 
 defect: the sweep only unlinks names matching the pattern inside the directory it is given, and the session and
 `_unlink_segment` always use `/dev/shm`. The requested outcome is read as "no session or unlink path leaves
 `/dev/shm`", which holds.
-History: round 0 found (general review); round 1 fixed; round 1 verified.
+History: round 0 found (general review); round 1 fixed; round 1 verified; round 2: Codex round-2 verification (adversarial, fresh, `--base dff89af`, head `4e418e1`, thread `01a0df61-8094-7690-b094-c1594d502d23`): verdict **approve**, closed.
+Status now: verified.
 
 ## Finding [R-002]
 
 Severity: major (reviewer: high)
-Status: fixed-unverified
+Status: verified (round 2)
 Location: `python/astra/lockstep.py:602-605` (`reap_peer`) and `PeerProcess.stop`, at `7c7725d`
 Requirement/ADR: plan C-1 (nested cleanup; every exit path reaps), ADR-0024
 Failure: in `reap_peer`, an exception from `peer.wait(clean_exit_s)` skips `peer.stop()`; in `stop()`, a
@@ -64,12 +65,13 @@ records the interrupted stack; the test asserts the stack contains `stop` at `st
 with the escalation in `stop()`'s `finally` disabled, the test fails (the peer is left running and the Reaper kills
 it). Pending round-2 verification.
 History: round 0 found (adversarial review); round 1 fixed; round 1 verification: code holds, test placement not
-proven; round 2 test fixed.
+proven; round 2 test fixed; round 2: Codex round-2 verification (adversarial, fresh, `--base dff89af`, head `4e418e1`, thread `01a0df61-8094-7690-b094-c1594d502d23`): verdict **approve**; "closed by inspection".
+Status now: verified.
 
 ## Finding [R-003]
 
 Severity: major (reviewer: medium)
-Status: fixed-unverified
+Status: verified (round 2)
 Location: `tests/python/test_lockstep.py:868-877` (`test_r4b_sim_death`) and `:975-985`
 (`test_driver_death_after_handshake`), at `7c7725d`
 Requirement/ADR: M4 plan R4b; plan C-6 (a live peer at the kill)
@@ -103,7 +105,9 @@ status), requires `PeerExitedBeforeKillError`, and checks the host was not kille
 liveness proof replaced by "trust the cached status", the control fails (`DID NOT RAISE`). Pending round-2
 verification.
 History: round 0 found (adversarial review); round 1 fixed; round 1 verification: not closed (floor unsound, control
-not live); round 2 fixed.
+not live); round 2 fixed; round 2: Codex round-2 verification (adversarial, fresh, `--base dff89af`, head `4e418e1`, thread `01a0df61-8094-7690-b094-c1594d502d23`): verdict **approve**; "closed by inspection", including the orphaned-group reasoning against
+the Linux 6.8 `kernel/exit.c`.
+Status now: verified.
 
 ## Completion
 
@@ -112,8 +116,16 @@ rejected. The adversarial reviewer's other targets (the subreaper's reported-pid
 counter check, the notify-pipe ownership, R4 timing, R3 determinism, R12b, the limits and trim and copy checks)
 produced no finding. Round 1 verification: R-001 verified; R-002 code verified, test placement not; R-003 not
 closed; "New findings: none beyond these verification gaps". Round 2 (the last autonomous correction round) addresses
-the R-002 and R-003 gaps in tests only (`lockstep.py` unchanged from `dff89af`); pending round-2 verification. A third
-round is not permitted: any remaining gap goes to Joe.
+the R-002 and R-003 gaps in tests only (`lockstep.py` unchanged from `dff89af`). Codex round-2 verification (adversarial, fresh, `--base dff89af`, head `4e418e1`, thread `01a0df61-8094-7690-b094-c1594d502d23`): verdict **approve**: R-001, R-002, R-003 closed;
+**New findings: none**. Codex's own caveat: static verification, not an independent rerun of the recorded mutation
+results. Open critical/major: none. Rejected findings: none. Correction rounds used: 2 of 2 (the budget is exhausted;
+a further defect goes to Joe). Failed integrations: 0 of 2.
+
+Validation on the final candidate `4e418e1` (no edits during the gate): `./scripts/check-full.sh` exit 0, `check: OK`
+(debug 558, release 559, static-plugins 558, asan 559; pyright 0 errors; pytest 177;
+[log](evidence/4e418e1-full-gate.log)); A6 pytest 42 passed ([log](evidence/4e418e1-a6-pytest.log)); A6 ctest asan
+4/4 ([log](evidence/4e418e1-a6-ctest-asan.log)). The acceptance data are byte-identical to `7c7725d`'s (same R3
+SHA-256, identical decimated traces), so the traces in the packet are the `7c7725d` files.
 
 Process note: the full gate started on `dff89af` was still running when the round-2 test edits were made, so its
 pytest stage graded a mixed tree; that log is kept as `evidence/dff89af-full-gate-CONTAMINATED.log` and is **not**

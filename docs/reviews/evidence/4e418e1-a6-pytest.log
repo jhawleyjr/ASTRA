@@ -1,0 +1,51 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.1.1, pluggy-1.6.0 -- /home/joe/repos/ASTRA/.claude/worktrees/m4-pr6-lockstep-acceptance/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/joe/repos/ASTRA/.claude/worktrees/m4-pr6-lockstep-acceptance
+configfile: pyproject.toml
+collecting ... collected 42 items
+
+tests/python/test_lockstep.py::test_turbulence_configs_differ_from_cruise_only_where_intended[path0-0.15-15.0] PASSED [  2%]
+tests/python/test_lockstep.py::test_turbulence_configs_differ_from_cruise_only_where_intended[path1-1.5-30.0] PASSED [  4%]
+tests/python/test_lockstep.py::test_trim_matches_config_initial_state[path0] PASSED [  7%]
+tests/python/test_lockstep.py::test_trim_matches_config_initial_state[path1] PASSED [  9%]
+tests/python/test_lockstep.py::test_config_alone_refuses_to_run PASSED   [ 11%]
+tests/python/test_lockstep.py::test_segment_name_format_and_uniqueness PASSED [ 14%]
+tests/python/test_lockstep.py::test_remove_stale_segments_is_conservative PASSED [ 16%]
+tests/python/test_lockstep.py::test_load_config_rejects_a_segment_in_the_file PASSED [ 19%]
+tests/python/test_lockstep.py::test_exchange_recorder_bytes_is_a_copy_and_none_without_transport PASSED [ 21%]
+tests/python/test_lockstep.py::test_recording_decoder_layout PASSED      [ 23%]
+tests/python/test_lockstep.py::test_r1_lockstep_health[A_light_autopilot] PASSED [ 26%]
+tests/python/test_lockstep.py::test_r1_lockstep_health[F_moderate_autopilot] PASSED [ 28%]
+tests/python/test_lockstep.py::test_r2_altitude_and_heading_bands[A_light_autopilot] PASSED [ 30%]
+tests/python/test_lockstep.py::test_r2_altitude_and_heading_bands[F_moderate_autopilot] PASSED [ 33%]
+tests/python/test_lockstep.py::test_r2c_hold_is_reported[E_light_hold] PASSED [ 35%]
+tests/python/test_lockstep.py::test_r2c_hold_is_reported[G_moderate_hold] PASSED [ 38%]
+tests/python/test_lockstep.py::test_r2d_autopilot_beats_hold_light PASSED [ 40%]
+tests/python/test_lockstep.py::test_r12b_icd_matches_state[A_light_autopilot] PASSED [ 42%]
+tests/python/test_lockstep.py::test_r12b_icd_matches_state[F_moderate_autopilot] PASSED [ 45%]
+tests/python/test_lockstep.py::test_r3_bit_identical_with_jitter PASSED  [ 47%]
+tests/python/test_lockstep.py::test_r3_seed_changes_bytes PASSED         [ 50%]
+tests/python/test_lockstep.py::test_seed_sweep_light_is_reported PASSED  [ 52%]
+tests/python/test_lockstep.py::test_r4_sigkill_kill_to_halt PASSED       [ 54%]
+tests/python/test_lockstep.py::test_r4_abort_reply_to_halt PASSED        [ 57%]
+tests/python/test_lockstep.py::test_r4_wait_duration PASSED              [ 59%]
+tests/python/test_lockstep.py::test_r4b_sim_pause PASSED                 [ 61%]
+tests/python/test_lockstep.py::test_r4b_sim_death PASSED                 [ 64%]
+tests/python/test_lockstep.py::test_death_check_rejects_a_peer_that_exited_first PASSED [ 66%]
+tests/python/test_lockstep.py::test_session_normal_completion PASSED     [ 69%]
+tests/python/test_lockstep.py::test_session_missing_executable PASSED    [ 71%]
+tests/python/test_lockstep.py::test_session_popen_failure PASSED         [ 73%]
+tests/python/test_lockstep.py::test_session_peer_exits_at_once PASSED    [ 76%]
+tests/python/test_lockstep.py::test_session_escalates_to_sigkill PASSED  [ 78%]
+tests/python/test_lockstep.py::test_session_body_exception PASSED        [ 80%]
+tests/python/test_lockstep.py::test_session_stopped_peer PASSED          [ 83%]
+tests/python/test_lockstep.py::test_session_keyboard_interrupt PASSED    [ 85%]
+tests/python/test_lockstep.py::test_session_interrupt_in_cleanup PASSED  [ 88%]
+tests/python/test_lockstep.py::test_session_rejects_an_unsafe_segment PASSED [ 90%]
+tests/python/test_lockstep.py::test_unlink_segment_refuses_an_unsafe_name PASSED [ 92%]
+tests/python/test_lockstep.py::test_session_retained_registry PASSED     [ 95%]
+tests/python/test_lockstep.py::test_driver_death_after_handshake PASSED  [ 97%]
+tests/python/test_lockstep.py::test_driver_death_before_handshake PASSED [100%]
+
+============================= 42 passed in 20.74s ==============================
