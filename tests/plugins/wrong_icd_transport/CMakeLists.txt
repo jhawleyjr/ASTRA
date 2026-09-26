@@ -1,0 +1,1 @@
+astra_add_plugin(SOURCES wrong_icd_transport.cpp NO_LOAD_ALL)

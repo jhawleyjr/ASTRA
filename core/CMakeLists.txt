@@ -43,9 +43,12 @@ add_library(astra_core SHARED
   src/interfaces/mass_properties_model.cpp
   src/interfaces/model.cpp
   src/interfaces/propulsion_model.cpp
+  src/interfaces/transport.cpp
   src/interfaces/wind_model.cpp
   src/interfaces/wrench_source.cpp
+  src/kernel/exchange_recorder.cpp
   src/kernel/health_monitor.cpp
+  src/kernel/lockstep_exchange.cpp
   src/kernel/rigid_body_6dof_dynamics.cpp
   src/kernel/simulation.cpp
   src/kernel/vehicle.cpp

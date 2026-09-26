@@ -1,0 +1,31 @@
+# tests/physics/no_alloc_test.cpp (M4 PR 3, docs/plans/m4-pr3-core-seam.md, R6): the lockstep
+# exchange path -- packing, publish, the receive state machine (three unchanged acks before every
+# real one), validation, staging through InputHandle, and the exchange recorder -- must not
+# allocate. 1000 frames at divisor 10 is 100 exchanges; the schedule changes the elevator twice so
+# the write path stages new values. Flat-Earth state as no_alloc_write_seam.yaml.
+sim:
+  dt: 0.001
+  frames: 1000
+vehicle:
+  models:
+    - { plugin: tests/plugins/input_consumer }
+  initial_controls:
+    controls:
+      elevator: 0.0
+physical:
+  earth: plugins/physical/earth/flat
+  gravity: plugins/physical/gravity/constant
+  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 }
+initial:
+  state: { p_n: [0.0, 0.0, -100.0], v_b: [60.0, 0.0, 0.0] }
+transport:
+  plugin: plugins/sim/transport/loopback
+  divisor: 10
+  commands: { elevator: controls.elevator }
+  limits: { elevator: [-1.0, 1.0], aileron: [-1.0, 1.0], rudder: [-1.0, 1.0], throttle: [0.0, 1.0] }
+  peer:
+    commands: { elevator: 0.01, throttle: [0.5, 0.5] }
+    spurious_wakeups: 3
+    schedule:
+      - { frame: 300, elevator: 0.02 }
+      - { frame: 700, elevator: -0.01 }

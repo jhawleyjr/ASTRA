@@ -27,8 +27,9 @@ def test_core_api_version_and_toolchain_string_come_from_libastra_core() -> None
     # requires_environment() goes from final to a plain overridden virtual, both classes' vtables
     # settling to their new, final shape; M3 PR 4a, ADR-0021: 7 -> 8, Model gained five new
     # virtuals (state_count, initial_state, integrate_state, bind_state, resolve_peers), changing
-    # Model's own vtable layout).
-    assert _core.core_api_version() == 8
+    # Model's own vtable layout; M4 PR 3, ADR-0022: 8 -> 9, the new Transport interface settling
+    # its vtable shape for the first time, Joe's Q-A decision in docs/plans/m4-pr3-core-seam.md).
+    assert _core.core_api_version() == 9
     assert "Clang" in _core.built_with()
     assert "sanitizers=none" in _core.built_with()
     assert "static-plugins=off" in _core.built_with()

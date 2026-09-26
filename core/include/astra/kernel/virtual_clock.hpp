@@ -33,6 +33,10 @@ class VirtualClock {
 
   void advance() noexcept { ++frame_; }
   void reset() noexcept { frame_ = 0; }
+  // Test-only (M4 PR 3): lets a test reach the lockstep sequence-range boundary (ADR-0022,
+  // frame < UINT32_MAX - 1) without stepping four billion frames. Reached only through
+  // Simulation::preset_frame_for_testing; nothing in production calls it.
+  void set_frame_for_testing(std::uint64_t frame) noexcept { frame_ = frame; }
 
  private:
   double dt_;

@@ -37,7 +37,12 @@ enum class HealthCheck : std::uint8_t {
   kQuaternionNorm,
   kOutOfDomain,
   kNonFiniteInput,
-  kNonFiniteEnvironment
+  kNonFiniteEnvironment,
+  // ADR-0022 (M4 PR 3): a lockstep transport failure. Unconditionally a halt, with no sim.health
+  // action key, so HealthMonitor never produces it: LockstepExchange builds the HaltReason itself
+  // (core/include/astra/kernel/lockstep_exchange.hpp names the failure kinds). Appended last so
+  // every existing value keeps its integer.
+  kTransport
 };
 enum class HealthAction : std::uint8_t { kOff, kWarn, kHalt };
 

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <utility>
 
 #include "astra/errors.hpp"
@@ -249,6 +250,17 @@ void Vehicle::reset() noexcept {
   for (LoadedPlugin& plugin : plugins_) {
     plugin.model->reset();
   }
+}
+
+// M4 PR 3: see the declarations' comment (vehicle.hpp).
+const Wrench& Vehicle::published_wrench() const noexcept {
+  static const Wrench kZero{};
+  return published_wrench_ ? *published_wrench_ : kZero;
+}
+
+double Vehicle::latched_mass() const noexcept {
+  return rigid_body_.has_value() ? rigid_body_->mass_props().mass
+                                 : std::numeric_limits<double>::quiet_NaN();
 }
 
 // ADR-0012: checked at p_n and the one-frame lookahead p_n + dt * p_n_dot(y) -- the lookahead is
