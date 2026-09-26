@@ -57,10 +57,11 @@ step 11: before merge, fetch and check whether `main` has advanced past the cand
 validated base (`git fetch origin && git log --oneline HEAD..origin/main`), not just whether the
 candidate itself is green. If `main` moved with changes that overlap or interact with this
 candidate, the merged result (`main` + candidate) is a combined state nothing has actually
-validated yet: rebase or merge locally, then rerun the checks the assigned risk tier requires
-against that combined state (at minimum fast validation; the full gate for tier 2-3, per
-[risk tiers](#risk-tiers)), and renew Codex review and Joe's decision for whatever the
-merge/rebase materially touched — an approval given against the old base does not carry over to
+validated yet: merge `origin/main` into the task branch (a pushed task branch is never rebased or
+force-pushed; Joe's squash-merge flattens the merge commits), then rerun the checks the assigned
+risk tier requires against that combined state (at minimum fast validation; the full gate for tier
+2-3, per [risk tiers](#risk-tiers)), and renew Codex review and Joe's decision for whatever the
+merge materially touched — an approval given against the old base does not carry over to
 a substantively different combined tree. GitHub's own required-status-check policy already
 refuses a stale check on this repository's protected branch (`strict_required_status_checks_policy`,
 live-verified below): a PR behind `main` cannot merge on an old green run. If `main` only moved in
