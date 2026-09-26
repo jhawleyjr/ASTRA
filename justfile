@@ -15,7 +15,7 @@ default: check
 # building every preset four times; every preset then builds and tests; the Python package builds and
 # installs into the venv; then clang-tidy, pyright (strict on python/astra/), and pytest, each after the
 # build its own analysis needs. Same checks, same failure propagation -- only the order changed.
-check: format-check docs-check hooks-test ruff (test "debug") (test "release") (test "static-plugins") (test "asan") python link-db tidy pyright pytest
+check: format-check docs-check embedded-standalone hooks-test ruff (test "debug") (test "release") (test "static-plugins") (test "asan") python link-db tidy pyright pytest
     @echo "check: OK"
 
 configure preset="asan":
@@ -80,6 +80,33 @@ pyright: python
 # Single tests: `.venv/bin/pytest tests/python -k <name>`.
 pytest: python
     {{venv}}/bin/pytest -q
+
+# ADR-0008: embedded/ configures and builds with nothing but a C++17 compiler. No preset, no find_package of
+# Eigen/yaml-cpp/GoogleTest, no Python: `cmake -S embedded` on its own, once per compiler (clang++-18, the
+# tree's, and g++, standing in for an older embedded toolchain), each in its own build directory. Then the
+# autopilot must not depend on astra_core (the same binary check the echo peer gets) and must refuse an empty
+# command line. Cheap, build-independent of the presets, so it sits early in `check`.
+embedded-standalone:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for cxx in clang++-18 g++; do
+        dir="build/embedded-standalone/${cxx}"
+        rm -rf "${dir}"
+        cmake -S embedded -B "${dir}" -DCMAKE_CXX_COMPILER="${cxx}" -DCMAKE_BUILD_TYPE=Release
+        if grep -Eiq 'eigen|yaml|gtest|python' "${dir}/CMakeCache.txt"; then
+            echo "embedded-standalone: ${cxx} configure pulled in a dependency beyond a C++17 compiler" >&2
+            exit 1
+        fi
+        cmake --build "${dir}" --parallel {{jobs}}
+        cmake "-DBINARY=${dir}/autopilot/astra_autopilot" -P tests/lockstep/check_no_astra_core.cmake
+        status=0
+        "${dir}/autopilot/astra_autopilot" 2>/dev/null || status=$?
+        if [ "${status}" -ne 1 ]; then
+            echo "embedded-standalone: ${cxx} astra_autopilot with no arguments exited ${status}, not 1" >&2
+            exit 1
+        fi
+    done
+    echo "embedded-standalone: OK"
 
 # Every .claude/hooks/tests/*.cases line against its hook, so "hooks fire" is verified by the gate.
 hooks-test:

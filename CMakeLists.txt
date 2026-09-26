@@ -27,26 +27,17 @@ set(ASTRA_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 set(ASTRA_PLUGIN_OUTPUT_DIR "${CMAKE_BINARY_DIR}/plugins")
 set(ASTRA_GENERATED_INCLUDE_DIR "${CMAKE_BINARY_DIR}/generated/include")
 
-# Flags every ASTRA target gets: -Werror everywhere (§14), sanitizers when the preset asks for them.
-# Eigen and GoogleTest come in as SYSTEM includes so their warnings stay theirs. No -ffast-math, ever.
-add_library(astra_build_flags INTERFACE)
-target_compile_options(astra_build_flags INTERFACE
-  -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor
-  -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror)
-if(ASTRA_SANITIZERS)
-  target_compile_options(astra_build_flags INTERFACE
-    "-fsanitize=${ASTRA_SANITIZERS}" -fno-sanitize-recover=all -fno-omit-frame-pointer)
-  target_link_options(astra_build_flags INTERFACE "-fsanitize=${ASTRA_SANITIZERS}")
-endif()
+# Flags every ASTRA target gets (cmake/AstraBuildFlags.cmake, shared with the standalone embedded build).
+include(AstraBuildFlags)
 
 find_package(Eigen3 3.4 REQUIRED CONFIG)
 find_package(yaml-cpp 0.8 REQUIRED CONFIG)
 
 include(AstraPlugin)
 add_subdirectory(icd)
-# The HAL, in-tree only until M4 PR 5 replaces this line with add_subdirectory(embedded) (ADR-0008;
-# docs/plans/m4-pr4-shm-transport.md Q-1).
-add_subdirectory(embedded/hal)
+# embedded/ is its own CMake project (ADR-0008): the HAL and the example autopilot. Built here so `just build`
+# produces everything; `just embedded-standalone` builds the same directory with no top-level project.
+add_subdirectory(embedded)
 add_subdirectory(core)
 if(SKBUILD OR ASTRA_BUILD_PYTHON)
   add_subdirectory(python)

@@ -1,0 +1,99 @@
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m4-pr5-autopilot/build/asan
+      Start 511: Autopilot.FrameZeroReplyAtSetpointEqualsTrimExactly
+ 1/45 Test #511: Autopilot.FrameZeroReplyAtSetpointEqualsTrimExactly ................................   Passed    0.01 sec
+      Start 512: Autopilot.EveryReplyCarriesTheConstantModeWordAndNoFault
+ 2/45 Test #512: Autopilot.EveryReplyCarriesTheConstantModeWordAndNoFault ...........................   Passed    0.00 sec
+      Start 513: Autopilot.ElevatorAltitudeLoopSignAndValue
+ 3/45 Test #513: Autopilot.ElevatorAltitudeLoopSignAndValue .........................................   Passed    0.00 sec
+      Start 514: Autopilot.ElevatorClimbRateDampsNoseUpMotion
+ 4/45 Test #514: Autopilot.ElevatorClimbRateDampsNoseUpMotion .......................................   Passed    0.01 sec
+      Start 515: Autopilot.ElevatorPitchFeedbackActsOnDeviationFromTrimTheta
+ 5/45 Test #515: Autopilot.ElevatorPitchFeedbackActsOnDeviationFromTrimTheta ........................   Passed    0.00 sec
+      Start 516: Autopilot.ThrottleAirspeedLoopSignAndValue
+ 6/45 Test #516: Autopilot.ThrottleAirspeedLoopSignAndValue .........................................   Passed    0.00 sec
+      Start 517: Autopilot.AileronHeadingBankAndRollRateLoops
+ 7/45 Test #517: Autopilot.AileronHeadingBankAndRollRateLoops .......................................   Passed    0.00 sec
+      Start 518: Autopilot.BankCommandIsClampedBeforeTheBankLoop
+ 8/45 Test #518: Autopilot.BankCommandIsClampedBeforeTheBankLoop ....................................   Passed    0.00 sec
+      Start 519: Autopilot.RudderYawDamperOpposesYawRate
+ 9/45 Test #519: Autopilot.RudderYawDamperOpposesYawRate ............................................   Passed    0.00 sec
+      Start 520: Autopilot.RudderNeverWeakensTheWeathervaneStability
+10/45 Test #520: Autopilot.RudderNeverWeakensTheWeathervaneStability ................................   Passed    0.00 sec
+      Start 521: Autopilot.HeadingErrorWrapsTheShortWay
+11/45 Test #521: Autopilot.HeadingErrorWrapsTheShortWay .............................................   Passed    0.00 sec
+      Start 522: Autopilot.IntegralAdvancesByKiTimesErrorTimesTheTimestampDifference
+12/45 Test #522: Autopilot.IntegralAdvancesByKiTimesErrorTimesTheTimestampDifference ................   Passed    0.00 sec
+      Start 523: Autopilot.IntegralScalesWithTheFrameSpacingNotAnAssumedPeriod
+13/45 Test #523: Autopilot.IntegralScalesWithTheFrameSpacingNotAnAssumedPeriod ......................   Passed    0.00 sec
+      Start 524: Autopilot.FrameZeroRepeatedTimeAndBackwardsTimeDoNotIntegrate
+14/45 Test #524: Autopilot.FrameZeroRepeatedTimeAndBackwardsTimeDoNotIntegrate ......................   Passed    0.00 sec
+      Start 525: Autopilot.NonFiniteTimeDoesNotIntegrateOrCorruptLaterFrames
+15/45 Test #525: Autopilot.NonFiniteTimeDoesNotIntegrateOrCorruptLaterFrames ........................   Passed    0.00 sec
+      Start 526: Autopilot.SaturatedLoopDoesNotWindUp
+16/45 Test #526: Autopilot.SaturatedLoopDoesNotWindUp ...............................................   Passed    0.01 sec
+      Start 527: Autopilot.SaturationAtTheLowLimitAlsoHoldsTheIntegral
+17/45 Test #527: Autopilot.SaturationAtTheLowLimitAlsoHoldsTheIntegral ..............................   Passed    0.00 sec
+      Start 528: Autopilot.EveryOutputStaysInsideItsLimitUnderViolentInput
+18/45 Test #528: Autopilot.EveryOutputStaysInsideItsLimitUnderViolentInput ..........................   Passed    0.00 sec
+      Start 529: Autopilot.EachReadFieldHoldsThePreviousCommandWhenNonFinite
+19/45 Test #529: Autopilot.EachReadFieldHoldsThePreviousCommandWhenNonFinite ........................   Passed    0.00 sec
+      Start 530: Autopilot.BetaIsNotReadSoANonFiniteBetaDoesNotHold
+20/45 Test #530: Autopilot.BetaIsNotReadSoANonFiniteBetaDoesNotHold .................................   Passed    0.00 sec
+      Start 531: Autopilot.WindInvalidHoldsEvenWithFiniteFields
+21/45 Test #531: Autopilot.WindInvalidHoldsEvenWithFiniteFields .....................................   Passed    0.01 sec
+      Start 532: Autopilot.StatusBitsThatTouchNoReadFieldAreIgnored
+22/45 Test #532: Autopilot.StatusBitsThatTouchNoReadFieldAreIgnored .................................   Passed    0.00 sec
+      Start 533: Autopilot.FirstFrameUnusableRepliesTheTrimBiasesWithinTheOutputLimits
+23/45 Test #533: Autopilot.FirstFrameUnusableRepliesTheTrimBiasesWithinTheOutputLimits ..............   Passed    0.00 sec
+      Start 534: Autopilot.HeldFramesLeaveLoopStateAloneAndRecoveryIntegratesOnePeriod
+24/45 Test #534: Autopilot.HeldFramesLeaveLoopStateAloneAndRecoveryIntegratesOnePeriod ..............   Passed    0.00 sec
+      Start 535: Autopilot.ReplayingTheSameScriptIsBitIdentical
+25/45 Test #535: Autopilot.ReplayingTheSameScriptIsBitIdentical .....................................   Passed    0.01 sec
+      Start 536: Autopilot.UpdateAllocatesNothing
+26/45 Test #536: Autopilot.UpdateAllocatesNothing ...................................................   Passed    0.01 sec
+      Start 537: AutopilotCli.AcceptsTheNineNamedArguments
+27/45 Test #537: AutopilotCli.AcceptsTheNineNamedArguments ..........................................   Passed    0.00 sec
+      Start 538: AutopilotCli.EachNamedArgumentIsRequired
+28/45 Test #538: AutopilotCli.EachNamedArgumentIsRequired ...........................................   Passed    0.00 sec
+      Start 539: AutopilotCli.RejectsUnknownDuplicateAndValuelessArguments
+29/45 Test #539: AutopilotCli.RejectsUnknownDuplicateAndValuelessArguments ..........................   Passed    0.00 sec
+      Start 540: AutopilotCli.RejectsBadNumbers
+30/45 Test #540: AutopilotCli.RejectsBadNumbers .....................................................   Passed    0.00 sec
+      Start 541: AutopilotCli.TrimsMustSatisfyTheOutputLimits
+31/45 Test #541: AutopilotCli.TrimsMustSatisfyTheOutputLimits .......................................   Passed    0.00 sec
+      Start 542: AutopilotCli.TestHooksNeedNotifyFdAndExactlyOneCount
+32/45 Test #542: AutopilotCli.TestHooksNeedNotifyFdAndExactlyOneCount ...............................   Passed    0.01 sec
+      Start 543: AutopilotProcess.RepliesMatchTheLibraryOnScriptedFramesAndTheSummaryCountsThem
+33/45 Test #543: AutopilotProcess.RepliesMatchTheLibraryOnScriptedFramesAndTheSummaryCountsThem .....   Passed    0.22 sec
+      Start 544: AutopilotProcess.FirstReplyAtSetpointIsTheTrim
+34/45 Test #544: AutopilotProcess.FirstReplyAtSetpointIsTheTrim .....................................   Passed    0.01 sec
+      Start 545: AutopilotProcess.CleanCloseExitsZeroWithAStatusOneSummary
+35/45 Test #545: AutopilotProcess.CleanCloseExitsZeroWithAStatusOneSummary ..........................   Passed    0.01 sec
+      Start 546: AutopilotProcess.SilentSimExitsWithTheHalTimeoutStatus
+36/45 Test #546: AutopilotProcess.SilentSimExitsWithTheHalTimeoutStatus .............................   Passed    0.31 sec
+      Start 547: AutopilotProcess.MissingSegmentExitsWithTheHandshakeTimeoutStatus
+37/45 Test #547: AutopilotProcess.MissingSegmentExitsWithTheHandshakeTimeoutStatus ..................   Passed    0.21 sec
+      Start 548: AutopilotProcess.ForeignLayoutExitsWithTheBadLayoutStatus
+38/45 Test #548: AutopilotProcess.ForeignLayoutExitsWithTheBadLayoutStatus ..........................   Passed    0.01 sec
+      Start 549: AutopilotProcess.RequestDisagreeingWithTheSequenceWordExitsWithTheProtocolStatus
+39/45 Test #549: AutopilotProcess.RequestDisagreeingWithTheSequenceWordExitsWithTheProtocolStatus ...   Passed    0.01 sec
+      Start 550: AutopilotProcess.BadCommandLinesExitOneWithoutTouchingTheHalOrPrintingASummary
+40/45 Test #550: AutopilotProcess.BadCommandLinesExitOneWithoutTouchingTheHalOrPrintingASummary .....   Passed    0.03 sec
+      Start 551: AutopilotProcess.StopAfterNotifiesThenPausesUntilKilled
+41/45 Test #551: AutopilotProcess.StopAfterNotifiesThenPausesUntilKilled ............................   Passed    0.11 sec
+      Start 552: AutopilotProcess.AbortAfterNotifiesThenAborts
+42/45 Test #552: AutopilotProcess.AbortAfterNotifiesThenAborts ......................................   Passed    0.13 sec
+      Start 553: EmbeddedBoundary_autopilot_links_no_astra_core
+43/45 Test #553: EmbeddedBoundary_autopilot_links_no_astra_core .....................................   Passed    0.02 sec
+      Start 554: EmbeddedBoundary_autopilot_reads_no_clock
+44/45 Test #554: EmbeddedBoundary_autopilot_reads_no_clock ..........................................   Passed    0.03 sec
+      Start 555: EmbeddedBoundary_autopilot_include_closure
+45/45 Test #555: EmbeddedBoundary_autopilot_include_closure .........................................   Passed    0.07 sec
+
+100% tests passed, 0 tests failed out of 45
+
+Label Time Summary:
+lockstep    =   1.06 sec*proc (10 tests)
+unit        =   0.26 sec*proc (35 tests)
+
+Total Test time (real) =   1.34 sec
