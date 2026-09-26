@@ -138,12 +138,13 @@ std::uint32_t ShmTransport::open(const TransportSettings& settings) {
     wake(&header.sim_state);
 
     // The peer's PEER_READY, against its own handshake deadline (ADR-0024: same budget, separate
-    // wait).
+    // wait). The decision uses the bounded wait's own value, loaded before its clock read, never a
+    // later reload (adversarial review R-1): expected NONE returns at once (EAGAIN) when the peer
+    // is already ready, and PEER_READY first observed after the deadline is expiry, not readiness.
     Deadline handshake;
     handshake.timeout_ms = settings.handshake_timeout_ms;
-    for (std::uint32_t state = load_acquire(header.peer_state); state != ASTRA_SHM_PEER_READY;
-         state = load_acquire(header.peer_state)) {
-      const WaitResult waited = wait_until(&header.peer_state, state, handshake);
+    for (;;) {
+      const WaitResult waited = wait_until(&header.peer_state, ASTRA_SHM_PEER_NONE, handshake);
       if (waited.kind == WaitKind::kExpired) {
         throw std::runtime_error("no peer reached PEER_READY on shm segment '" + segment_ +
                                  "' within handshake_timeout_ms (" +
@@ -151,6 +152,13 @@ std::uint32_t ShmTransport::open(const TransportSettings& settings) {
       }
       if (waited.kind == WaitKind::kFault) {
         throw system_error("futex wait", segment_);
+      }
+      if (waited.value == ASTRA_SHM_PEER_READY) {
+        break;
+      }
+      if (waited.value != ASTRA_SHM_PEER_NONE) {
+        throw std::runtime_error("the peer on shm segment '" + segment_ +
+                                 "' wrote an unknown peer_state " + std::to_string(waited.value));
       }
     }
     if (load_acquire(header.ack_seq) != ASTRA_SHM_SEQ_INIT) {

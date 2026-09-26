@@ -100,24 +100,31 @@ astra_hal_status attach(const std::array<char, kPathCapacity>& path, Deadline& d
   return ASTRA_HAL_OK;
 }
 
-// Handshake steps 4-7 on a mapped region: acquire-wait for SIM_READY (CLOSED first is a protocol
-// fault, Joe's change 1), validate, reject a stale session, then publish PEER_READY.
+// Handshake steps 4-7 on a mapped region: acquire-wait for SIM_READY (CLOSED is a protocol fault,
+// Joe's change 1), validate, reject a stale session, then publish PEER_READY.
+//
+// Every readiness decision uses the bounded wait's own value, loaded before its clock read, never
+// a later reload (adversarial review R-1): the first check is a wait with expected INIT, which
+// returns at once (EAGAIN) when the word has already moved, so READY first observed after the
+// handshake deadline -- the HAL descheduled after a wait, or attached late -- is expiry, not
+// readiness. CLOSED is rechecked on every return, expiry included, so a close that lands at the
+// deadline is still PROTOCOL, never HANDSHAKE_TIMEOUT (R-2).
 astra_hal_status complete_handshake(astra_shm_region_v1* region, Deadline& deadline) {
   astra_shm_header_v1& header = region->header;
   for (;;) {
-    const std::uint32_t state = load_acquire(&header.sim_state);
-    if (state == ASTRA_SHM_SIM_CLOSED) {
-      return ASTRA_HAL_PROTOCOL;
+    const WaitResult waited =
+        astra_hal_shm_wait_until(&header.sim_state, ASTRA_SHM_SIM_INIT, &deadline);
+    if (waited.kind != WaitKind::kReturned) {
+      if (load_acquire(&header.sim_state) == ASTRA_SHM_SIM_CLOSED) {
+        return ASTRA_HAL_PROTOCOL;
+      }
+      return waited.kind == WaitKind::kExpired ? ASTRA_HAL_HANDSHAKE_TIMEOUT : ASTRA_HAL_ERROR;
     }
-    if (state == ASTRA_SHM_SIM_READY) {
+    if (waited.value == ASTRA_SHM_SIM_READY) {
       break;
     }
-    const WaitResult waited = astra_hal_shm_wait_until(&header.sim_state, state, &deadline);
-    if (waited.kind == WaitKind::kExpired) {
-      return ASTRA_HAL_HANDSHAKE_TIMEOUT;
-    }
-    if (waited.kind == WaitKind::kFault) {
-      return ASTRA_HAL_ERROR;
+    if (waited.value != ASTRA_SHM_SIM_INIT) {
+      return ASTRA_HAL_PROTOCOL;  // CLOSED, or a value no sim writes
     }
   }
   // Only now, after the acquire of SIM_READY, is any other header field read.

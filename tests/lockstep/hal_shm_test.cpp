@@ -255,6 +255,86 @@ TEST_F(HalShm, ClosedDuringHandshakeIsProtocolError) {
   }
 }
 
+// ---------------------------------------------------------------------------------------------
+// The handshake deadline (adversarial review R-1, R-2), forced deterministically through the wait
+// wrapper: the HAL is held inside a wrapper past its deadline while the creator acts, which is
+// exactly "descheduled after an on-time return".
+
+constexpr std::uint32_t kShortHandshakeMs = 300;
+constexpr milliseconds kPastHandshake{400};
+
+TEST_F(HalShm, ReadyFirstObservedAfterHandshakeDeadlineIsTimeout) {
+  const std::string segment = shm_test::unique_segment();
+  shm_test::Creator sim(segment);
+  sim.size();
+  sim.init_header();  // sim_state still INIT
+  std::atomic<int> fired{0};
+  shm_test::hooks().after_wait = [&](const shm_test::WaitCall& call, astra_hal_shm::WaitResult& r) {
+    if (call.offset == shm_test::offset_of_sim_state() && r.kind == WaitKind::kReturned &&
+        fired++ == 0) {
+      std::this_thread::sleep_for(kPastHandshake);  // an on-time return, then held past it
+      sim.ready();                                  // READY lands after the deadline
+    }
+  };
+  std::atomic<astra_hal_status> status{ASTRA_HAL_OK};
+  {
+    const astra_hal_config config = hal_config(segment, kShortHandshakeMs);
+    const std::jthread hal([&] { status = hal_init(&config); });
+    while (fired.load() == 0 && status.load() == ASTRA_HAL_OK) {
+      shm_test::wake(sim.header().sim_state);  // no store: forces an on-time kReturned
+      std::this_thread::sleep_for(milliseconds{1});
+    }
+  }
+  EXPECT_EQ(fired.load(), 1) << "the hook ran on an on-time return";
+  EXPECT_EQ(status.load(), ASTRA_HAL_HANDSHAKE_TIMEOUT)
+      << "readiness first observed after the handshake deadline is expiry";
+  EXPECT_EQ(shm_test::load(sim.header().peer_state), ASTRA_SHM_PEER_NONE);
+}
+
+TEST_F(HalShm, ReadyAfterLateAttachIsTimeout) {
+  const std::string segment = shm_test::unique_segment();
+  std::unique_ptr<shm_test::Creator> sim;
+  std::atomic<int> fired{0};
+  shm_test::hooks().after_wait = [&](const shm_test::WaitCall& call, astra_hal_shm::WaitResult& r) {
+    if (call.offset == shm_test::kNoWord && r.kind == WaitKind::kReturned && fired++ == 0) {
+      std::this_thread::sleep_for(kPastHandshake);  // an on-time attach poll, then held past it
+      sim = std::make_unique<shm_test::Creator>(segment);
+      sim->create_ready();  // the segment appears, already READY, after the deadline
+    }
+  };
+  std::atomic<astra_hal_status> status{ASTRA_HAL_OK};
+  {
+    const astra_hal_config config = hal_config(segment, kShortHandshakeMs);
+    const std::jthread hal([&] { status = hal_init(&config); });
+  }
+  EXPECT_EQ(fired.load(), 1);
+  EXPECT_EQ(status.load(), ASTRA_HAL_HANDSHAKE_TIMEOUT)
+      << "an attach after the deadline must not accept the ready state it finds";
+  ASSERT_NE(sim, nullptr);
+  EXPECT_EQ(shm_test::load(sim->header().peer_state), ASTRA_SHM_PEER_NONE);
+}
+
+TEST_F(HalShm, ClosedAtHandshakeExpiryIsProtocolError) {
+  const std::string segment = shm_test::unique_segment();
+  shm_test::Creator sim(segment);
+  sim.size();
+  sim.init_header();
+  std::atomic<int> fired{0};
+  shm_test::hooks().after_wait = [&](const shm_test::WaitCall& call, astra_hal_shm::WaitResult& r) {
+    if (call.offset == shm_test::offset_of_sim_state() && r.kind == WaitKind::kExpired &&
+        fired++ == 0) {
+      shm_test::store(sim.header().sim_state, ASTRA_SHM_SIM_CLOSED);  // lands at the expiry
+    }
+  };
+  std::atomic<astra_hal_status> status{ASTRA_HAL_OK};
+  {
+    const astra_hal_config config = hal_config(segment, kShortHandshakeMs);
+    const std::jthread hal([&] { status = hal_init(&config); });
+  }
+  EXPECT_EQ(fired.load(), 1) << "the hook ran on a real handshake expiry";
+  EXPECT_EQ(status.load(), ASTRA_HAL_PROTOCOL) << "CLOSED during the handshake is exit 5, never 3";
+}
+
 TEST_F(HalShm, BadHeaderIsImmediateBadLayout) {
   struct Case {
     const char* name;
