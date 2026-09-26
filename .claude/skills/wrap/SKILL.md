@@ -54,6 +54,9 @@ to wrap. If later changes invalidate evidence, mark the affected gate pending an
    integrations: n/2`), and the existing `## Honesty rules` block verbatim. Include the branch/PR
    (or no PR), actual workflow stage, links to evidence, what remains and who owns it.
    Distinguish prior-session validation from commands run now; preserve useful product-task pointers.
+   When the handoff is waiting on Joe's merge, word `## In flight` and `## Next step` so they stay true after
+   the merge: name the PR and approved candidate, write "merged once origin/main contains it", and give the
+   next task directly. Never write "not merged" or "awaiting squash-merge".
 5. **docs/lessons.md:** append only a new lesson that actually occurred; do not duplicate old entries.
    Never modify goldens, tolerances or accepted ADRs as part of handoff.
 
