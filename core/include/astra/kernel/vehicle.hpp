@@ -158,6 +158,15 @@ class Vehicle {
   }
   [[nodiscard]] const EnvironmentSample& environment() const noexcept { return environment_; }
 
+  // M4 PR 3 (docs/plans/m4-pr3-core-seam.md): the exchange stage's PreviousFrame inputs
+  // (icd_pack.hpp). Read at frame k before integrate(), both still hold frame k-1's values: the
+  // k1-stage wrench integrate() last published, and the mass the last begin_frame() latched.
+  // Physics must be configured (a transport requires it); without it published_wrench() is a zero
+  // wrench and latched_mass() is NaN. The exchange stage decides separately whether frame k-1 was
+  // actually integrated (Vehicle::derivative() also calls begin_frame(), with no integration).
+  [[nodiscard]] const Wrench& published_wrench() const noexcept;
+  [[nodiscard]] double latched_mass() const noexcept;
+
   // Runs this frame's wrench accumulation, dynamics derivative, integrator step, and post-step
   // (docs/architecture.md §5): a no-op returning a falsey HaltReason when this vehicle has no
   // RigidBody6DofDynamics (physics off) -- a no-physics vehicle has no Earth model and no position

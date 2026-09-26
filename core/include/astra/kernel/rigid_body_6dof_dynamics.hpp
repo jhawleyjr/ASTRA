@@ -54,6 +54,10 @@ class RigidBody6DofDynamics : public DynamicsModel {
   [[nodiscard]] const EarthModel& earth() const noexcept { return earth_; }
   [[nodiscard]] const GravityModel& gravity() const noexcept { return gravity_; }
 
+  // The mass properties the last begin_frame() latched (M4 PR 3: the exchange stage's
+  // PreviousFrame mass, read before this frame's begin_frame(), so it is the previous frame's).
+  [[nodiscard]] const MassProps& mass_props() const noexcept { return mass_props_; }
+
  private:
   EarthModel& earth_;
   GravityModel& gravity_;

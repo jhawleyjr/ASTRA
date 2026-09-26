@@ -349,7 +349,8 @@ NB_MODULE(_core, m) {
       .value("QUATERNION_NORM", astra::HealthCheck::kQuaternionNorm)
       .value("OUT_OF_DOMAIN", astra::HealthCheck::kOutOfDomain)
       .value("NON_FINITE_INPUT", astra::HealthCheck::kNonFiniteInput)
-      .value("NON_FINITE_ENVIRONMENT", astra::HealthCheck::kNonFiniteEnvironment);
+      .value("NON_FINITE_ENVIRONMENT", astra::HealthCheck::kNonFiniteEnvironment)
+      .value("TRANSPORT", astra::HealthCheck::kTransport);  // M4 PR 3, ADR-0022
 
   nb::class_<PyHaltReason>(
       m, "HaltReason",

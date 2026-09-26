@@ -42,7 +42,13 @@ namespace astra {
 // plugin built against version 7 must be rejected, not dispatched through a slot it does not have
 // (same reasoning as every prior interface-growing bump above). All five are defaulted, so no
 // plugin's own behavior changes; only the vtable shape does.
-inline constexpr std::uint32_t kCoreApiVersion = 8;
+// 9 (M4 PR 3, ADR-0022): a new plugin-facing interface, Transport (interfaces/transport.hpp), settles
+// its vtable shape for the first time -- the same reasoning as version 3's WindModel and version 6's
+// AeroModel/PropulsionModel bumps. ADR-0022 says "7 to 8" because it was drafted against a stale
+// number (version 8 was already taken by M3 PR 4a above); the record's intent, one bump for the new
+// interface, holds. Joe's decision, 2026-09-25 (docs/plans/m4-pr3-core-seam.md, Q-A): 8 to 9, no
+// superseding ADR.
+inline constexpr std::uint32_t kCoreApiVersion = 9;
 
 // The toolchain and configuration this tree was configured with. A plugin built by a different configure
 // carries a different string and is rejected at load; it can only come from a stale build directory.

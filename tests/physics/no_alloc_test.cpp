@@ -3,8 +3,13 @@
 // a frame-0 allocation is a real finding to fix, not one to paper over by skipping past it.
 #include <gtest/gtest.h>
 
+#include <array>
 #include <cstddef>
+#include <cstdint>
+#include <fstream>
+#include <sstream>
 #include <string>
+#include <string_view>
 
 #include "astra/config/config.hpp"
 #include "astra/kernel/simulation.hpp"
@@ -183,6 +188,87 @@ TEST(NoAlloc, ZeroHeapAllocationsOverOneThousandFramesWithAStateOwningModel) {
                                            "while halting early";
   EXPECT_EQ(after, before)
       << "zero allocations over 1000 frames with a state-owning model configured (ADR-0021, R2)";
+}
+
+// M4 PR 3 (docs/plans/m4-pr3-core-seam.md, R6): the lockstep exchange -- icd_pack, publish, the
+// receive state machine with unchanged acks, validation, InputHandle staging, and the exchange
+// recorder -- must not allocate on the success path, over 100 exchanges.
+TEST(NoAlloc, ZeroHeapAllocationsOverOneThousandFramesWithLoopbackExchanges) {
+  const astra::Config config =
+      astra::Config::from_file(std::string{ASTRA_TEST_CONFIG_DIR} + "/no_alloc_transport.yaml");
+  astra::Simulation sim = astra::Simulation::from_config(config, ASTRA_TEST_PLUGIN_DIR);
+  ASSERT_EQ(sim.frames(), 1000U);
+
+  const std::size_t before = astra_test::allocation_count();
+  const astra::HaltReason halt = sim.run();
+  const std::size_t after = astra_test::allocation_count();
+
+  EXPECT_FALSE(halt) << "halted on check " << static_cast<int>(halt.check) << " at frame "
+                     << halt.frame;
+  EXPECT_EQ(sim.clock().frame(), 1000U) << "the run must complete, not merely allocate nothing "
+                                           "while halting early";
+  const double* exchanges = sim.registry().find("transport.exchanges");
+  ASSERT_NE(exchanges, nullptr);
+  EXPECT_EQ(*exchanges, 100.0) << "every exchange ran, so the count below covers all 100";
+  EXPECT_EQ(after, before) << "zero allocations over 1000 frames and 100 lockstep exchanges";
+}
+
+// M4 PR 3 (critique F-5): the failure paths too -- a faulting exchange of each HaltReason source
+// kind (a protocol fault naming the plugin path, a limit fault naming an ICD field), the
+// recorder-capacity halt, a non-transport halt made sticky by the stage (Joe's PR 3 addition),
+// and ten repeated step() calls on each stored halt. Each case must actually halt, or it measured
+// nothing.
+TEST(NoAlloc, ZeroHeapAllocationsOnTransportFaultsAndStickyHalts) {
+  const std::string base = [] {
+    std::ifstream in(std::string{ASTRA_TEST_CONFIG_DIR} + "/no_alloc_transport.yaml");
+    std::ostringstream text;
+    text << in.rdbuf();
+    return text.str();
+  }();
+  struct Case {
+    std::string_view name;
+    std::string_view frames;      // replaces "frames: 1000"
+    std::string_view models;      // extra vehicle.models entry, or ""
+    std::string_view peer_extra;  // appended under transport.peer
+    astra::HealthCheck check;
+    std::uint64_t halt_frame;
+  };
+  const std::array<Case, 4> cases = {{
+      {"protocol fault naming the plugin (timeout)", "1000", "",
+       "    faults: [ { frame: 500, kind: timeout } ]\n", astra::HealthCheck::kTransport, 500},
+      {"command fault naming an ICD field (non-finite)", "1000", "",
+       "    faults: [ { frame: 500, kind: non_finite, field: elevator, value: inf } ]\n",
+       astra::HealthCheck::kTransport, 500},
+      {"recorder capacity", "400", "", "", astra::HealthCheck::kTransport, 400},
+      {"sticky non-transport halt", "1000",
+       "    - { plugin: tests/plugins/nan_wrench, nan_frame: 500 }\n", "",
+       astra::HealthCheck::kNonFiniteWrench, 500},
+  }};
+  for (const Case& c : cases) {
+    SCOPED_TRACE(std::string{c.name});
+    std::string text = base;
+    text.replace(text.find("frames: 1000"), std::string_view{"frames: 1000"}.size(),
+                 "frames: " + std::string{c.frames});
+    const std::string models_anchor = "    - { plugin: tests/plugins/input_consumer }\n";
+    text.insert(text.find(models_anchor) + models_anchor.size(), std::string{c.models});
+    text += std::string{c.peer_extra};
+    const astra::Config config = astra::Config::from_string(text, c.name);
+    astra::Simulation sim = astra::Simulation::from_config(config, ASTRA_TEST_PLUGIN_DIR);
+
+    const std::size_t before = astra_test::allocation_count();
+    const astra::HaltReason halt = sim.run(1000);
+    astra::HaltReason again;
+    for (int i = 0; i < 10; ++i) {
+      again = sim.step();
+    }
+    const std::size_t after = astra_test::allocation_count();
+
+    EXPECT_EQ(halt.check, c.check);
+    EXPECT_EQ(halt.frame, c.halt_frame);
+    EXPECT_EQ(again.check, halt.check) << "the halt is sticky";
+    EXPECT_EQ(again.frame, halt.frame);
+    EXPECT_EQ(after, before) << "zero allocations on the failure path and on sticky re-steps";
+  }
 }
 
 }  // namespace

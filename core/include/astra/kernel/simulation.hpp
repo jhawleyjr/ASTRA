@@ -15,7 +15,9 @@
 #include <vector>
 
 #include "astra/config/config.hpp"
+#include "astra/kernel/exchange_recorder.hpp"
 #include "astra/kernel/health_monitor.hpp"
+#include "astra/kernel/lockstep_exchange.hpp"
 #include "astra/kernel/scheduler.hpp"
 #include "astra/kernel/vehicle.hpp"
 #include "astra/kernel/virtual_clock.hpp"
@@ -125,8 +127,18 @@ class Simulation {
   // vehicle models, then (when physics is configured) each vehicle's wrench accumulation, EOM
   // derivative, integrator step, and post-step renormalize, health-checked throughout (PLAN.md M1
   // PR 4). Returns the first vehicle's halt, if any; the clock does not advance on a halt, so
-  // halt.frame == clock().frame() afterwards. Transport exchange and the logger join this as later
-  // milestones create them.
+  // halt.frame == clock().frame() afterwards. The logger joins this in M5.
+  //
+  // M4 PR 3 (ADR-0022, docs/plans/m4-pr3-core-seam.md): with a "transport" block, the lockstep
+  // exchange runs for the bound vehicle (v1: index 0) at frame % transport.divisor == 0, after that
+  // frame's environment sample and before its step(); every transport failure is a
+  // HealthCheck::kTransport halt. **With a transport configured, every halt this returns is
+  // sticky** (Joe's PR 3 addition): transport, physics, domain, input-latch, and recorder-capacity
+  // halts alike are stored by the exchange stage, and every later step()/run() returns that same
+  // HaltReason immediately -- no environment step, no re-publication of the halted frame (so never
+  // a kFrameDiscontinuity), clock unchanged -- and teardown closes the transport with
+  // CloseReason::kAfterFailure. Without a transport, halts are not sticky: a repeated step()
+  // re-runs the halted frame, exactly as before M4 (R8).
   [[nodiscard]] HaltReason step() noexcept;
   // Steps `frames` major frames, or until one halts. Returns the halt that stopped the run, if any.
   [[nodiscard]] HaltReason run(std::uint64_t frames) noexcept;
@@ -141,6 +153,25 @@ class Simulation {
   // health halt end to end.
   [[nodiscard]] std::span<Vehicle> vehicles() noexcept { return vehicles_; }
   [[nodiscard]] std::uint64_t frames() const noexcept { return frames_; }
+
+  // M4 PR 3: which transport failure halted the run (kNone without a transport, before any
+  // failure, or when the stored halt came from a non-transport check).
+  [[nodiscard]] TransportFault transport_fault() const noexcept {
+    return exchange_ ? exchange_->fault() : TransportFault::kNone;
+  }
+  // M4 PR 3: the CloseReason teardown will pass to the transport (kNormal without a transport).
+  [[nodiscard]] CloseReason transport_close_reason() const noexcept {
+    return exchange_ ? exchange_->close_reason() : CloseReason::kNormal;
+  }
+  // M4 PR 3: the exchange recorder (ADR-0022), or null without a transport.
+  [[nodiscard]] const ExchangeRecorder* exchange_recorder() const noexcept {
+    return exchange_ ? &exchange_->recorder() : nullptr;
+  }
+  // Test-only (M4 PR 3): moves the clock to `frame`, so a test can reach the lockstep sequence
+  // limit (frame < UINT32_MAX - 1, ADR-0022). Same public-but-named posture as for_testing.
+  void preset_frame_for_testing(std::uint64_t frame) noexcept {
+    clock_.set_frame_for_testing(frame);
+  }
 
   // M3 PR 5 (ADR-0017's own PR 5 paragraph, docs/plans/pr5-nanobind-bindings.md Design decision 3):
   // the Python-facing write seam. Writes value to the first vehicle's own InputRegistry entry named
@@ -168,6 +199,14 @@ class Simulation {
 
  private:
   Simulation() = default;
+
+  // step()'s body: one frame, advancing the clock only on success. step() wraps it with the
+  // exchange stage's pre_frame()/post_step()/note_halt() when a transport is configured.
+  [[nodiscard]] HaltReason step_frame(const StepContext& ctx) noexcept;
+  // This frame's environment sample for one vehicle (wind begin_frame/wind_n, atmosphere at the
+  // Earth-derived altitude); step_frame's former inline block, unchanged.
+  [[nodiscard]] EnvironmentSample sample_environment(const StepContext& ctx,
+                                                     const Vehicle& vehicle) noexcept;
 
   VirtualClock clock_;
   SignalRegistry registry_;
@@ -199,6 +238,11 @@ class Simulation {
   // registers &counter_ pointers into registry_, so the monitor's address must survive every move
   // this Simulation goes through (a by-value member would dangle those pointers on the first move).
   std::unique_ptr<HealthMonitor> health_;
+  // M4 PR 3 (ADR-0022): null without a "transport" block. unique_ptr for the same reason as
+  // health_ (its transport.* signals and HaltReason sources must keep their addresses across
+  // moves). Declared last, so it is destroyed first: its destructor closes the transport while
+  // every vehicle it holds handles into is still alive.
+  std::unique_ptr<LockstepExchange> exchange_;
 };
 
 }  // namespace astra

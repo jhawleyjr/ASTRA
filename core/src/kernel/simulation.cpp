@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <span>
 #include <string>
 #include <string_view>
@@ -445,6 +446,20 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
   // check_wind_shareable's own comment for how it is actually exercised (Simulation::for_testing).
   check_wind_shareable(wind, sim.vehicles_.size(), wind_plugin_path, config.origin());
 
+  // M4 PR 3 (ADR-0022): after every bind_inputs() (vehicle.init above), so the command map resolves
+  // with no load-order dependency; before registry freeze and the unknown-key check, so its signals
+  // register and its keys count as consumed. The handshake itself runs last, below.
+  if (config.has("transport")) {
+    // icd_pack needs the Earth model (altitude, lat/lon), which loads only under "physical".
+    if (sim.earth_ == nullptr) {
+      throw ConfigError(config.origin(), "transport",
+                        "a transport requires a physical section (the ICD frame packs Earth-model "
+                        "altitude and position)");
+    }
+    sim.exchange_ = std::make_unique<LockstepExchange>(
+        config.at("transport"), loader, sim.vehicles_.front(), sim.registry_, sim.frames_);
+  }
+
   // Before freeze(): HealthMonitor::init registers "health.nan" / "health.quaternion" /
   // "health.max_q_drift", and SignalRegistry::add throws once frozen.
   sim.health_ = std::make_unique<HealthMonitor>();
@@ -456,6 +471,11 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
   if (!unknown.empty()) {
     throw ConfigError(config.origin(), unknown.front(),
                       "unknown config key (docs/architecture.md §15: unknown keys are errors)");
+  }
+  // Last, so a config error never starts a handshake (ADR-0024: the shm transport creates its
+  // segment here). Records the initial state as the recorder's frame-0 state first.
+  if (sim.exchange_ != nullptr) {
+    sim.exchange_->open(sim.vehicles_.front(), sim.clock_.frame(), config.origin());
   }
   return sim;
 }
@@ -561,42 +581,77 @@ Simulation Simulation::for_testing(const PluginLoader& loader,
 
 HaltReason Simulation::step() noexcept {
   const StepContext ctx = clock_.context();
+  if (exchange_ == nullptr) {
+    return step_frame(ctx);
+  }
+  // M4 PR 3: a stored halt (sticky) or a full recorder stops here, before anything runs.
+  if (const HaltReason halt = exchange_->pre_frame(ctx); halt) {
+    return halt;
+  }
+  const HaltReason halt = step_frame(ctx);
+  if (halt) {
+    exchange_->note_halt(halt);  // Joe's PR 3 addition: every halt is sticky with a transport
+  } else {
+    exchange_->post_step(vehicles_[exchange_->vehicle_index()], clock_.frame());
+  }
+  return halt;
+}
+
+// This frame's environment sample (docs/architecture.md §5, environment_sample.hpp), latched
+// here at frame-start state, before the wrench stage -- the same discipline Eom::begin_frame
+// and Vehicle::integrate's own VehicleState latch already use. wind and atmosphere are sampled
+// together, from the same frame-start VehicleState and the same single earth_->altitude(vs)
+// call, but they remain independent slots: either may be configured without the other (M2 PR
+// 3). This altitude_m is deliberately a different call than the post-step altitude ADR-0012's
+// domain check in step_frame takes -- that one runs after integration, on a different state, and
+// has nothing to share with this one. M4 PR 3: step_frame's own former inline block, moved here
+// unchanged (clang-tidy's readability-function-cognitive-complexity threshold, once the exchange
+// call joined step_frame). Per-frame path: no allocation, no exceptions.
+EnvironmentSample Simulation::sample_environment(const StepContext& ctx,
+                                                 const Vehicle& vehicle) noexcept {
+  EnvironmentSample sample;  // wind zero / atmosphere all-NaN by default
+  if (wind_ != nullptr || atmosphere_ != nullptr) {
+    // ADR-0021: vehicle.state() returns an Eigen::Map by value, not a reference into Vehicle's
+    // own storage -- constructing VehicleState from it directly (VehicleState{vehicle.state()})
+    // would bind through an implicit Map-to-StateVector conversion, materializing a temporary
+    // that dies at the end of THIS statement, dangling the very next line (caught by ASan: a
+    // stack-use-after-scope, since vs here is used across several statements, not consumed
+    // within one full expression the way earth->altitude(VehicleState{vehicle.state()})
+    // elsewhere in this file safely is). .data() instead aliases Vehicle's own live combined_
+    // buffer directly, exactly like the old `const StateVector&`-returning state() did.
+    const VehicleState vs{vehicle.state().data()};
+    // earth_ is always set whenever wind_ or atmosphere_ is (all three load only under a
+    // "physical" section, and earth loads first, unconditionally -- see the sim.earth_
+    // assignment above in from_config).
+    const double altitude_m = earth_->altitude(vs);
+    if (wind_ != nullptr) {
+      wind_->begin_frame(ctx, vs, altitude_m);  // per-vehicle evolution: uses this frame's V, h
+      sample.wind_n = wind_->wind_n(ctx, vs);   // pure read of what begin_frame just latched
+    }
+    if (atmosphere_ != nullptr) {
+      // Never clamped: at() itself returns all-NaN outside valid_range() (atmosphere_model.hpp),
+      // and ADR-0012's post-step check in step_frame is the halt path for that, not this
+      // assignment.
+      sample.atmosphere = atmosphere_->at(altitude_m);
+    }
+  }
+  return sample;
+}
+
+HaltReason Simulation::step_frame(const StepContext& ctx) noexcept {
   environment_scheduler_.step(ctx);  // scheduler-driven evolution only (e.g. a stochastic RNG draw)
   for (Vehicle& vehicle : vehicles_) {
-    // This frame's environment sample (docs/architecture.md §5, environment_sample.hpp), latched
-    // here at frame-start state, before the wrench stage -- the same discipline Eom::begin_frame
-    // and Vehicle::integrate's own VehicleState latch already use. wind and atmosphere are sampled
-    // together, from the same frame-start VehicleState and the same single earth_->altitude(vs)
-    // call, but they remain independent slots: either may be configured without the other (M2 PR
-    // 3). This altitude_m is deliberately a different call than the post-step altitude ADR-0012's
-    // domain check below takes -- that one runs after integration, on a different state, and has
-    // nothing to share with this one.
-    EnvironmentSample sample;  // wind zero / atmosphere all-NaN by default
-    if (wind_ != nullptr || atmosphere_ != nullptr) {
-      // ADR-0021: vehicle.state() returns an Eigen::Map by value, not a reference into Vehicle's
-      // own storage -- constructing VehicleState from it directly (VehicleState{vehicle.state()})
-      // would bind through an implicit Map-to-StateVector conversion, materializing a temporary
-      // that dies at the end of THIS statement, dangling the very next line (caught by ASan: a
-      // stack-use-after-scope, since vs here is used across several statements, not consumed
-      // within one full expression the way earth->altitude(VehicleState{vehicle.state()})
-      // elsewhere in this file safely is). .data() instead aliases Vehicle's own live combined_
-      // buffer directly, exactly like the old `const StateVector&`-returning state() did.
-      const VehicleState vs{vehicle.state().data()};
-      // earth_ is always set whenever wind_ or atmosphere_ is (all three load only under a
-      // "physical" section, and earth loads first, unconditionally -- see the sim.earth_
-      // assignment above in from_config).
-      const double altitude_m = earth_->altitude(vs);
-      if (wind_ != nullptr) {
-        wind_->begin_frame(ctx, vs, altitude_m);  // per-vehicle evolution: uses this frame's V, h
-        sample.wind_n = wind_->wind_n(ctx, vs);   // pure read of what begin_frame just latched
-      }
-      if (atmosphere_ != nullptr) {
-        // Never clamped: at() itself returns all-NaN outside valid_range() (atmosphere_model.hpp),
-        // and ADR-0012's post-step check below is the halt path for that, not this assignment.
-        sample.atmosphere = atmosphere_->at(altitude_m);
+    const EnvironmentSample sample = sample_environment(ctx, vehicle);
+    vehicle.set_environment(sample);
+    // M4 PR 3 (ADR-0022, architecture §5): the lockstep exchange, after this frame's environment
+    // sample and before this vehicle's step(), so latch() below commits its commands this frame.
+    // earth_ is non-null whenever exchange_ is (from_config requires "physical" for a transport).
+    if (exchange_ != nullptr && vehicle.index() == exchange_->vehicle_index() &&
+        exchange_->due(ctx.frame)) {
+      if (const HaltReason halt = exchange_->exchange(ctx, vehicle, sample, *earth_); halt) {
+        return halt;
       }
     }
-    vehicle.set_environment(sample);
     vehicle.step(ctx);
     // ADR-0017: latch() runs here -- after vehicle.step(ctx), before vehicle.integrate(...) -- so a
     // write issued from within THIS frame's own step() (a future M4 ActuatorModel's use case) is

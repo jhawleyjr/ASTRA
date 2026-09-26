@@ -11,6 +11,7 @@ add_executable(astra_unit_tests
   icd/icd_test.cpp
   kernel/aero_propulsion_seam_test.cpp
   kernel/clock_test.cpp
+  kernel/loopback_transport_test.cpp
   kernel/scheduler_test.cpp
   kernel/notional_transport_cruise_config_test.cpp
   kernel/simulation_halt_test.cpp
@@ -18,6 +19,7 @@ add_executable(astra_unit_tests
   kernel/simulation_input_seam_test.cpp
   kernel/simulation_physical_config_test.cpp
   kernel/simulation_test.cpp
+  kernel/simulation_transport_test.cpp
   kernel/state_buffer_test.cpp
   kernel/state_test.cpp
   kernel/vehicle_environment_test.cpp

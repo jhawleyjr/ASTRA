@@ -110,3 +110,9 @@ def test_halt_reason_is_falsy_when_nothing_halted() -> None:
     halt = sim.step()
     assert not halt
     assert halt.check == _core.HealthCheck.NONE
+
+
+def test_health_check_binds_transport_after_the_existing_values() -> None:
+    # M4 PR 3 (ADR-0022): kTransport is appended last, so every earlier value keeps its integer.
+    assert int(_core.HealthCheck.NON_FINITE_ENVIRONMENT) == 6
+    assert int(_core.HealthCheck.TRANSPORT) == 7
