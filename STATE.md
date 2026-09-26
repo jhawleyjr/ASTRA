@@ -7,18 +7,20 @@ M4 PR 7 (M4 closeout), Tier 0 to 1, docs only: branch `worktree-m4-pr7-closeout`
 duplicate §15 bullet removed, open M4 follow-ups as PLAN.md items. Round 1 (`3b24a0c`, Joe's review): architecture
 §7/§10 stale M4 status wording; moderate hold altitude in the R2 disclosure. Round 2 (Joe's review of `3b24a0c`):
 architecture §10's `Transport` paragraph opening rewritten to the built interface (`transport.hpp`) and ADR-0022's
-ownership split (Joe-authorized, accuracy only); PLAN.md PR 7 sub-item reworded to match. Stage: A1 and the Codex
-delta review recorded below; Joe's review next. Not pushed (stop before push, per Joe). PR 7 is merged once
+ownership split (Joe-authorized, accuracy only); PLAN.md PR 7 sub-item reworded to match. Stage: round 2 done, A1
+and Codex recorded below; Joe's review next. Not pushed (stop before push, per Joe). PR 7 is merged once
 `origin/main` contains it. Plan row: `docs/plans/m4-lockstep.md` PR 7 (A1).
 
 ## Last verified result
 This session. `a2e9215`: A1 exit 0 both; Codex general review, no actionable defects
 (`docs/reviews/evidence/a2e9215-codex-review.log`). `3b24a0c`: A1 exit 0 both; Codex delta review (`6086259..3b24a0c`)
-no actionable defects (`docs/reviews/evidence/3b24a0c-codex-review.log`). Round 2 candidate: A1 and the Codex delta
-review (`0a6313a..HEAD`, focused on transport.hpp, lockstep_exchange.hpp, ADR-0022) are pending until recorded here.
-`docs_check.py` does not scan PLAN.md, STATE.md or architecture.md; `git diff --check` covers whitespace only. No
-product, test, golden, tolerance or ADR file changed, so no gate was run for this PR. M4's acceptance evidence is
-prior-session (PR 6, `4e418e1`): full gate exit 0, `check: OK` (`docs/reviews/evidence/4e418e1-full-gate.log`).
+no actionable defects (`docs/reviews/evidence/3b24a0c-codex-review.log`). `cbf01d0` (round 2): A1 exit 0
+both; Codex adversarial review of the delta only (`--base 0a6313a`, focus: transport.hpp, lockstep_exchange.hpp,
+ADR-0022/0023; thread `01a0dfe2-0c38-7d10-a6a9-463ce0431bfd`): exit 0, verdict approve, "New findings: none"
+(`docs/reviews/evidence/cbf01d0-codex-review.log`; one of its combined `cat` reads exited 1, command truncated in
+the log). Later commits: this record only.
+`docs_check.py` skips PLAN.md, STATE.md, architecture.md. No product/test/golden/tolerance/ADR change, so no gate
+run. M4's acceptance evidence is prior-session: PR 6 `4e418e1` gate `check: OK` (`evidence/4e418e1-full-gate.log`).
 The PR 6 packet's "trace SVGs not rendered" note is superseded: Joe rendered and checked them during his PR 6 review.
 
 ## Next step
