@@ -1,0 +1,42 @@
+HEAD: 95369fe3247a7e7589ad9910d3cc05675477b235  dirty: 4 paths
++ ctest --preset release -R EchoPeerStress --no-tests=error -V
+UpdateCTestConfiguration  from :/home/joe/repos/ASTRA/.claude/worktrees/m4-pr4-shm-transport/DartConfiguration.tcl
+UpdateCTestConfiguration  from :/home/joe/repos/ASTRA/.claude/worktrees/m4-pr4-shm-transport/build/release/DartConfiguration.tcl
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m4-pr4-shm-transport/build/release
+Constructing a list of tests
+Done constructing a list of tests
+Updating test list for fixtures
+Added 0 tests to meet fixture requirements
+Checking test dependency graph...
+Checking test dependency graph end
+test 508
+    Start 508: EchoPeerStress.MillionExchangesEchoPayloadAndReportCost
+
+508: Test command: /home/joe/repos/ASTRA/.claude/worktrees/m4-pr4-shm-transport/build/release/tests/lockstep/astra_echo_peer_stress_test "--gtest_filter=EchoPeerStress.MillionExchangesEchoPayloadAndReportCost" "--gtest_also_run_disabled_tests"
+508: Working Directory: /home/joe/repos/ASTRA/.claude/worktrees/m4-pr4-shm-transport/build/release/tests/lockstep
+508: Test timeout computed to be: 600
+508: Running main() from ./googletest/src/gtest_main.cc
+508: Note: Google Test filter = EchoPeerStress.MillionExchangesEchoPayloadAndReportCost
+508: [==========] Running 1 test from 1 test suite.
+508: [----------] Global test environment set-up.
+508: [----------] 1 test from EchoPeerStress
+508: [ RUN      ] EchoPeerStress.MillionExchangesEchoPayloadAndReportCost
+508: EchoPeerStress: 1000000 exchanges in 3.034 s; per exchange (publish to reply copied): mean 2.86 us, p50 2.73 us, p99 4.53 us, max 133.81 us
+508: [       OK ] EchoPeerStress.MillionExchangesEchoPayloadAndReportCost (3060 ms)
+508: [----------] 1 test from EchoPeerStress (3060 ms total)
+508: 
+508: [----------] Global test environment tear-down
+508: [==========] 1 test from 1 test suite ran. (3060 ms total)
+508: [  PASSED  ] 1 test.
+1/1 Test #508: EchoPeerStress.MillionExchangesEchoPayloadAndReportCost ...   Passed    3.06 sec
+
+The following tests passed:
+	EchoPeerStress.MillionExchangesEchoPayloadAndReportCost
+
+100% tests passed, 0 tests failed out of 1
+
+Label Time Summary:
+stress    =   3.06 sec*proc (1 test)
+
+Total Test time (real) =   3.07 sec
+EXIT=0

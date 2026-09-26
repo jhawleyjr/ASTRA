@@ -1,0 +1,33 @@
+Codex verification of correction round 1: adversarial-review --base d020d57 --wait <focus>; companion 1.0.6; diff d020d57..95369fe; exit 0; thread 01a0dc9f-1e2a-75a3-8fbb-d3f6f8c483d4
+[codex] Starting Codex task thread.
+[codex] Thread ready (01a0dc9f-1e2a-75a3-8fbb-d3f6f8c483d4).
+[codex] Turn started (01a0dc9f-1e7c-7b92-aac2-24214e4cc11a).
+[codex] Assistant message captured: I’ll inspect the correction diff, handshake helpers, and regression wrappers, then trace the ...
+[codex] Running command: /bin/bash -lc 'git status --short; git diff d020d57..HEAD -- embedded/hal/shm/hal_shm.cpp plu...
+[codex] Command completed: /bin/bash -lc 'git status --short; git diff d020d57..HEAD -- embedded/hal/shm/hal_shm.cpp plu... (exit 0)
+[codex] Running command: /bin/bash -lc 'cat docs/plans/m4-pr4-shm-transport.md docs/decisions/0024*'
+[codex] Command completed: /bin/bash -lc 'cat docs/plans/m4-pr4-shm-transport.md docs/decisions/0024*' (exit 0)
+[codex] Running command: /bin/bash -lc 'nl -ba embedded/hal/shm/hal_shm_wait.cpp; nl -ba plugins/sim/transport/shm/shm...
+[codex] Command completed: /bin/bash -lc 'nl -ba embedded/hal/shm/hal_shm_wait.cpp; nl -ba plugins/sim/transport/shm/shm... (exit 0)
+[codex] Running command: /bin/bash -lc "nl -ba plugins/sim/transport/shm/shm.cpp; rg -n 'after_wait|__wrap|offset_of_s...
+[codex] Command completed: /bin/bash -lc "nl -ba plugins/sim/transport/shm/shm.cpp; rg -n 'after_wait|__wrap|offset_of_s... (exit 0)
+[codex] Running command: /bin/bash -lc "nl -ba plugins/sim/transport/shm/shm.cpp | sed -n '65,260p'; rg -n 'after_wait...
+[codex] Command completed: /bin/bash -lc "nl -ba plugins/sim/transport/shm/shm.cpp | sed -n '65,260p'; rg -n 'after_wait... (exit 0)
+[codex] Running command: /bin/bash -lc "cat docs/agents/review.md; cat STATE.md PLAN.md; sed -n '1,180p' docs/architec...
+[codex] Command completed: /bin/bash -lc "cat docs/agents/review.md; cat STATE.md PLAN.md; sed -n '1,180p' docs/architec... (exit 0)
+[codex] Assistant message captured: Both readiness decisions now use the value checked by the wait helper. The HAL also checks CL...
+[codex] Running command: /bin/bash -lc "nl -ba tests/lockstep/wraps.cpp | sed -n '1,210p'; sed -n '160,300p' docs/plan...
+[codex] Command completed: /bin/bash -lc "nl -ba tests/lockstep/wraps.cpp | sed -n '1,210p'; sed -n '160,300p' docs/plan... (exit 0)
+[codex] Assistant message captured: { "verdict": "approve", "summary": "Approve correction d020d57..95369fe: no substantive new d...
+[codex] Turn completed.
+# Codex Adversarial Review
+
+Target: branch diff against d020d57
+Verdict: approve
+
+Approve correction d020d57..95369fe: no substantive new defect found. R-1 fixed: embedded/hal/shm/hal_shm.cpp:115-124 and plugins/sim/transport/shm/shm.cpp:147-157 accept only the helper's checked value; the helpers load before checking the deadline (hal_shm_wait.cpp:86-96; shm_wait.cpp:72-82). R-2 fixed: hal_shm.cpp:117-121 rechecks CLOSED before classifying expiry. A close after that final load remains a concurrent later event, not the reported expiry interleaving. INIT/NONE expectations cannot lose a readiness wake: changed words cause EAGAIN; unchanged returns retry against the same absolute deadline. Spurious wakes and EINTR cannot restart the budget. Unknown peer_state throws at shm.cpp:159-161, reaches release() at :170-174, and unmaps/unlinks at :220-232; descriptor ownership is also covered. All three regressions would fail against d020d57 by source tracing: hal_shm_test.cpp:266-292 and :294-315 would receive OK and publish PEER_READY; :317-336 would receive HANDSHAKE_TIMEOUT instead of PROTOCOL. The wrapper preserves the real helper result while injecting these interleavings (wraps.cpp:69-73). Read-only inspection commands succeeded; no files edited, builds performed, or tests run.
+
+No material findings.
+
+Next steps:
+- Builder should retain focused regression and full-gate evidence for 95369fe; this approval establishes source-review conclusions, not runtime validation.

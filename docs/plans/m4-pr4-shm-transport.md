@@ -613,6 +613,72 @@ New tests for the changes: `HalShm.ClosedDuringHandshakeIsProtocolError`,
 `HalShm.WaitWithReplyPendingIsError`, `HalShm.RequestFrameHighBitsMismatchIsProtocolError` (a request
 whose `frame` agrees with `req_seq` in its low 32 bits only).
 
+## Implementation record (2026-09-25/26)
+
+Candidate `95369fe`, which is `937868c` plus two follow-up commits, all on `worktree-m4-pr4-shm-transport` off `7a349ee`. The human-review
+packet is `docs/reviews/m4-pr4-shm-transport-human.md`. Evidence is under `docs/reviews/evidence/` with the
+`95369fe-`, `d020d57-`, and `937868c-` prefixes.
+
+**Departures from the test list above, all additive or renames within A4's selector:**
+- `SegmentNameMustMatchPattern` and `StaleSegmentIsAnInitErrorAndIsLeftAlone` are in suite
+  `ShmTransport`, not `EchoPeer`. They need no peer process.
+- The handshake-timeout bound is measured on the plugin's `open()` directly, as
+  `ShmTransport.HandshakeTimeoutWithNoPeerIsTheBudgetAndLeavesNoSegment`. Measuring around
+  `from_config` would add init overhead to the bound. The same test also checks the `ConfigError`
+  through `Simulation`.
+- `ShmTransport.WaitUntilLatchesExpiryWhenTheKernelReturnsEarly` and
+  `HalShm.WaitUntilLatchesExpiryWhenTheKernelReturnsEarly` were added after a mutation check. The
+  continuous-wake tests alone could not force F-1's race: they pass with the clock latch removed, as
+  the critique predicted. The new tests call each wait function directly with an already-past
+  deadline, so the kernel returns `EAGAIN` and only the clock comparison can report expiry. To make
+  this possible, `astra_lockstep_tests` compiles `plugins/sim/transport/shm/shm_wait.cpp` in; it is
+  the same source, not a copy.
+- The adversarial review (below) added three HAL handshake regressions.
+- `ShmTransport.OutOfOrderAckHaltsThroughCore`, `BadReplyMagicAndStaleReplyFrameHaltThroughCore`,
+  `LateAckHaltsThroughCoreAsTimeout`, and `ContinuousWakesHaltThroughCoreAsTimeout` drive `Simulation`
+  with a raw scripted peer, so core's classification of the plugin's verbatim reports is exercised on
+  shm.
+
+**Mutation checks.** Each mutation was applied to one protection, built, the targeted tests run, and
+the file restored; logs are in the session scratchpad. Every mutation made its targeted tests fail:
+
+| Mutation | Test that fails |
+|---|---|
+| M1: `close()` without `CLOSE_SEQ` | `HalShm.CloseBetweenPreWaitCheckAndFutexWaitExitsPromptly` (5000 ms instead of prompt) |
+| M2: plugin expiry by `ETIMEDOUT` only | `ShmTransport.AckObservedAfterDeadlineIsExpiry` and `WaitUntilLatchesExpiryWhenTheKernelReturnsEarly` |
+| M2h: the same in the HAL | `HalShm.WaitUntilLatchesExpiryWhenTheKernelReturnsEarly` |
+| M3: HAL accepts a request after expiry | `HalShm.RequestAfterExpiryIsTimeout` |
+| M4: HAL maps a short segment | `HalShm.CreatorPausedBeforeSizingAndBeforeReadyAttachesCleanly` (SIGBUS under ASan) |
+| Pre-fix `d020d57` HAL | all three round-1 regressions |
+
+**Failed integration 1/2.** The full gate on `937868c` failed at clang-tidy on
+`hal_shm_test.cpp:262` (`modernize-avoid-c-arrays`): clang-format had moved a NOLINT comment off
+its line. All four presets' ctest had passed before it. The fix is `d020d57` (`std::array`), and
+the summary is in `937868c-full-gate-failure-summary.log`.
+
+**Codex adversarial review of `d020d57`** (against `7a349ee`; companion 1.0.6, `adversarial-review
+--base origin/main`, exit 0, thread `01a0dc8d-d5a9-76f1-8467-736a77a71a36`; the model is not recorded
+by the companion for review jobs). Verdict: needs-attention, two findings, both accepted. Codex
+reported no further defect in memory ordering, lost wakes, exchange deadlines, exchange
+close-versus-expiry precedence, production cleanup, per-exchange allocation or exceptions, or the
+single-writer and clock-site discipline.
+
+| ID | Sev | Verdict | Evidence and resolution |
+|---|---|---|---|
+| R-1 handshake readiness accepted from an unchecked reload after the deadline | Medium | Accepted, fixed in `95369fe` | In `hal_shm.cpp:108-115` (HAL) and `shm.cpp:144-145` (plugin), each loop reloaded the state word outside the checked wait. A HAL descheduled after an on-time return, or one that attached after its last on-time poll, would accept READY after the handshake budget. This is the handshake form of F-2. Both loops now decide on the wait's own value, loaded before its clock read, with expected INIT or NONE: an already-moved word returns `EAGAIN` at once and is still judged against the deadline. The deadline still arms at the first wait; everything before it is non-blocking syscalls, and ADR-0023 has the deadline computed "when the wait begins". Tests: `HalShm.ReadyFirstObservedAfterHandshakeDeadlineIsTimeout` and `HalShm.ReadyAfterLateAttachIsTimeout`. The plugin side has **no deterministic regression**: its wait is inside a dlopen'd object that `--wrap` cannot reach. It is covered by construction (the same checked-value rule) and by the wait-function unit test. |
+| R-2 CLOSED at handshake expiry classified as `HANDSHAKE_TIMEOUT` | Medium | Accepted, fixed in `95369fe` | The expiry branch returned without rechecking `sim_state`, contrary to Joe's change 1. It now acquire-checks CLOSED on every non-returned result first (PROTOCOL, exit 5). Test: `HalShm.ClosedAtHandshakeExpiryIsProtocolError`. |
+
+**Correction round 1/2.** Codex verified `d020d57..95369fe` (`adversarial-review --base d020d57`,
+exit 0, thread `01a0dc9f-1e2a-75a3-8fbb-d3f6f8c483d4`). Verdict: approve. R-1 and R-2 are fixed, with
+no new defect; from source tracing, each of the three regressions would fail against `d020d57`. I
+also ran all three against `d020d57`'s HAL: all three fail there and pass on `95369fe`.
+
+**Measured exchange cost** (Release, `EchoPeerStress`, one machine, per exchange from publish until
+the reply is copied): mean 2.86 us, p50 2.73 us, p99 4.53 us, max 134 us over 1e6 exchanges in 3.0 s
+on `95369fe`. Earlier runs gave a max of 1.9 to 2.1 ms (a scheduling outlier), with the same mean. The M4 plan's
+unmeasured estimate was 20 to 100 us, so a 100k-frame lockstep run's exchange cost is about 30 ms,
+not 0.2 to 1 s.
+
 ## Done when
 
 A4 passes on the final candidate with retained evidence. PR 3's tests and the M3 regression pass
