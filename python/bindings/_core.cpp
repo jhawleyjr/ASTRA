@@ -495,5 +495,21 @@ NB_MODULE(_core, m) {
            "The first vehicle's own registered write-seam input names (ADR-0017), in "
            "InputRegistry::names()'s registration order -- a copy (docs/plans/"
            "pr7-linearize.md, D14/PR 6's own follow-up). A caller writing through write_input "
-           "should discover names from here rather than hardcoding a literal.");
+           "should discover names from here rather than hardcoding a literal.")
+      // M4 PR 6 (docs/plans/m4-pr6-lockstep-acceptance.md D1, Joe's Q2): a COPY of the serialized
+      // exchange recorder in a new bytes object -- no view and no reference_internal, so holding
+      // it cannot keep the Simulation (and its open transport) alive.
+      .def(
+          "exchange_recorder_bytes",
+          [](const astra::Simulation& s) -> std::optional<nb::bytes> {
+            const astra::ExchangeRecorder* recorder = s.exchange_recorder();
+            if (recorder == nullptr) {
+              return std::nullopt;
+            }
+            const std::vector<std::byte> data = recorder->serialize();
+            return nb::bytes(data.data(), data.size());
+          },
+          "The exchange recorder (ADR-0022) serialized -- the fixed header, then the sim-to-sw, "
+          "sw-to-sim and state streams -- as a new bytes object (a copy), or None without a "
+          "transport block.");
 }

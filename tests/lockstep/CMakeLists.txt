@@ -66,3 +66,26 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
   astra_lockstep_test(astra_echo_peer_stress_test SERIAL LABEL stress
     SOURCES echo_peer_stress_test.cpp)
 endif()
+
+# M4 PR 6 (docs/plans/m4-pr6-lockstep-acceptance.md): the closed loop with the real autopilot, suite
+# ClosedLoopAcceptance (A6's selector). PR 4's Child spawns ASTRA_ECHO_PEER_PATH; here it names the
+# autopilot binary, as tests/embedded does, so the support files stay untouched. One source, two
+# executables: every preset gets the limits test and the shortened runs; the asan preset alone
+# (sanitizers on, plugins not static) also gets the full 10,000-exchange run, label acceptance.
+function(astra_closed_loop_test target label)
+  add_executable(${target} closed_loop_acceptance_test.cpp shm_test_support.cpp wraps.cpp)
+  target_link_libraries(${target} PRIVATE astra_autopilot_lib astra::core astra::hal
+                                          GTest::gtest_main)
+  target_link_options(${target} PRIVATE ${astra_lockstep_wraps})
+  target_compile_definitions(${target} PRIVATE ${ARGN}
+    "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""
+    "ASTRA_SOURCE_DIR=\"${ASTRA_SOURCE_DIR}\""
+    "ASTRA_ECHO_PEER_PATH=\"$<TARGET_FILE:astra_autopilot>\"")
+  add_dependencies(${target} astra_autopilot)
+  gtest_discover_tests(${target} DISCOVERY_MODE PRE_TEST PROPERTIES LABELS ${label} TIMEOUT 600)
+endfunction()
+
+astra_closed_loop_test(astra_closed_loop_tests lockstep)
+if(ASTRA_SANITIZERS AND NOT ASTRA_STATIC_PLUGINS)
+  astra_closed_loop_test(astra_closed_loop_full_test acceptance ASTRA_CLOSED_LOOP_FULL_LENGTH)
+endif()
