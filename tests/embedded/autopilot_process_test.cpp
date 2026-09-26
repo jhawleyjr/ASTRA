@@ -71,7 +71,7 @@ ap::Autopilot reference_autopilot(const std::vector<std::string>& args) {
   std::string error;
   EXPECT_TRUE(ap::parse_arguments(static_cast<int>(argv.size()), argv.data(), options, error))
       << error;
-  return ap::Autopilot(options.setpoints, options.trims);
+  return {options.setpoints, options.trims};
 }
 
 astra_sim_to_sw_v1 request(std::uint64_t frame) {

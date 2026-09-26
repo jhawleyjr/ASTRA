@@ -6,13 +6,15 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <initializer_list>
 #include <limits>
+#include <numbers>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -38,7 +40,7 @@ constexpr double kThrottleTrim = 0.4985979490507746;
 constexpr double kThetaTrim = 0.023586859573503434;
 constexpr double kPeriod = 0.01;  // the exchange period at divisor 10
 constexpr double kTolerance = 1e-14;
-constexpr double kPi = 3.14159265358979323846;
+constexpr double kPi = std::numbers::pi;
 
 Setpoints setpoints() { return {kAltitude, kTas, 0.0}; }
 Trims trims() { return {kElevatorTrim, kThrottleTrim, kThetaTrim}; }
@@ -54,6 +56,12 @@ astra_sim_to_sw_v1 nominal(std::uint64_t frame, double t) {
   in.tas = kTas;
   in.theta = kThetaTrim;
   return in;
+}
+
+// Byte equality of two replies (the struct has no padding; compared as bytes, as the protocol
+// copies it).
+bool same_bytes(const astra_sw_to_sim_v1& a, const astra_sw_to_sim_v1& b) {
+  return std::ranges::equal(std::as_bytes(std::span{&a, 1}), std::as_bytes(std::span{&b, 1}));
 }
 
 astra_sw_to_sim_v1 run_once(Autopilot& autopilot, const astra_sim_to_sw_v1& in) {
@@ -409,7 +417,7 @@ TEST(Autopilot, StatusBitsThatTouchNoReadFieldAreIgnored) {
     clean.status_flags = 0;
     const astra_sw_to_sim_v1 a = run_once(with_bit, in);
     const astra_sw_to_sim_v1 b = run_once(without, clean);
-    EXPECT_EQ(std::memcmp(&a, &b, sizeof a), 0) << "status bit " << bit;
+    EXPECT_TRUE(same_bytes(a, b)) << "status bit " << bit;
     EXPECT_EQ(with_bit.held(), 0U) << "status bit " << bit;
   }
 }
@@ -453,7 +461,7 @@ TEST(Autopilot, HeldFramesLeaveLoopStateAloneAndRecoveryIntegratesOnePeriod) {
   (void)run_once(several, first);
   for (int k = 1; k <= 5; ++k) {
     astra_sim_to_sw_v1 bad = first;
-    bad.frame = static_cast<std::uint64_t>(10 * k);
+    bad.frame = 10ULL * static_cast<std::uint64_t>(k);
     bad.t = k * kPeriod;
     bad.altitude = std::numeric_limits<double>::infinity();
     (void)run_once(several, bad);
@@ -498,7 +506,7 @@ TEST(Autopilot, ReplayingTheSameScriptIsBitIdentical) {
   for (const astra_sim_to_sw_v1& in : script()) {
     const astra_sw_to_sim_v1 out_a = run_once(a, in);
     const astra_sw_to_sim_v1 out_b = run_once(b, in);
-    ASSERT_EQ(std::memcmp(&out_a, &out_b, sizeof out_a), 0) << "frame " << in.frame;
+    ASSERT_TRUE(same_bytes(out_a, out_b)) << "frame " << in.frame;
   }
   EXPECT_EQ(a.held(), b.held());
   EXPECT_GT(a.held(), 0U);  // the script does include held frames
