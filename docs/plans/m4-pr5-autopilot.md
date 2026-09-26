@@ -307,6 +307,25 @@ files are untouched).
   limits) and turbulence are not in it and are PR 6's R2. If the built design cannot meet the floors, the builder stops
   and reports (no fifth loop, no cascade).
 
+## Implementation record (deviations and additions, as built)
+
+- `embedded/autopilot/main.cpp` is its own OBJECT library (`astra_autopilot_main`) that the executable links, so
+  `EmbeddedBoundary_autopilot_reads_no_clock` can scan exactly that object plus the library archive; nothing else changed.
+- `--airspeed-mps`, `--altitude-m`, `--heading-rad` and `--theta-trim` are checked finite only (as planned); a zero or
+  negative airspeed setpoint is not rejected.
+- The R4 `-M` include-closure check was **kept** (`EmbeddedBoundary_autopilot_include_closure`): it was not fiddly.
+- Gains are frozen from the design step; the search, the `kHeadingP` sweep, and the pole/margin results are in
+  `docs/reviews/evidence/m4-pr5-gain-design.md`. `kHeadingP` = 2.0 is the smallest tried value that meets the stricter
+  search targets, not a search bound.
+- The design test's margin machinery is proved live by a weakened elevator loop (a tenth of the gains: stable, phase
+  margin 38 degrees, below 45). Loop-at-a-time margins are meaningful only for a loop that is stable when closed
+  (a sign-flipped elevator loop is unstable yet reports large margins), so the test asserts stability alongside them.
+- Mutation checks run (each fails a named test; results in the packet): dt ignoring timestamps, elevator sign, clamp
+  removed, anti-windup removed, `WIND_INVALID` not held, `ATMOSPHERE_INVALID` also held, `t_prev` frozen on held frames,
+  heading not wrapped, bank command not clamped, `theta` feedback on absolute theta, `mode_flags` zero, exit status
+  remapped, a clock read in the loop, an `astra_core` header in the include closure, and the autopilot linking
+  `astra_core` (the last fails `EmbeddedBoundary_autopilot_links_no_astra_core`).
+
 ## Done when
 
 R1 to R7 proven by the A5 commands and `check-full.sh` on one candidate SHA with the log retained; PR 3/4/M3/PR 8

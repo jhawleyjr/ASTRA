@@ -17,21 +17,27 @@
 
 namespace astra_autopilot {
 
-// PLACEHOLDER values from the D7 feasibility trial; frozen from the design step (plan sequence step
-// 5).
-constexpr double kAltP = 0.00029;
-constexpr double kAltI = 0.00002;
-constexpr double kAltD = 0.00127;
-constexpr double kPitchTheta = 0.23;
-constexpr double kPitchRate = 0.42;
-constexpr double kSpeedP = 0.067;
-constexpr double kSpeedI = 0.0024;
-constexpr double kHeadingP = 1.987;
-constexpr double kHeadingI = 0.0423;
-constexpr double kBankP = 0.124;
-constexpr double kRollRate = 0.468;
-constexpr double kYawRate = 0.22;
-constexpr double kSideslip = 0.528;
+// Provenance (plan D7, evidence docs/reviews/evidence/m4-pr5-gain-design.md): a Nelder-Mead search
+// on the tests/python/autopilot_design.py models against stricter targets than the test asserts
+// (largest real part -0.05 1/s, damping 0.4, phase margin 60 deg, gain margin 10 dB), then rounded
+// to three figures. kHeadingP is NOT at an arbitrary search bound: with the other lateral gains
+// re-optimized, kHeadingP = 1.5 misses those targets (largest real part -0.040) and 2.0 is the
+// smallest tried value that meets them, while a larger value only makes the bank command (clamped
+// at 0.35 rad) saturate at a smaller heading error (0.35 / kHeadingP: 10 degrees at 2.0, 6.7
+// at 3.0).
+constexpr double kAltP = 1.54e-4;
+constexpr double kAltI = 7.97e-6;
+constexpr double kAltD = 2.24e-4;
+constexpr double kPitchTheta = 0.389;
+constexpr double kPitchRate = 0.184;
+constexpr double kSpeedP = 0.0353;
+constexpr double kSpeedI = 7.69e-4;
+constexpr double kHeadingP = 2.0;
+constexpr double kHeadingI = 0.0343;
+constexpr double kBankP = 0.0550;
+constexpr double kRollRate = 0.243;
+constexpr double kYawRate = 0.359;
+constexpr double kSideslip = 0.269;
 
 }  // namespace astra_autopilot
 

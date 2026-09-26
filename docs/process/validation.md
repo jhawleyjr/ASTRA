@@ -7,10 +7,11 @@ exit codes. Invoke them from any working directory by their relative or absolute
 | Command | Existing coverage |
 |---|---|
 | `./scripts/check-fast.sh` | `just test-unit`: configure/build `asan`, CTest label `unit`, fail if no tests match |
-| `./scripts/check-full.sh` | `just check`: debug, release, static-plugins, asan build/tests; Python editable install; compile database links; clang-tidy; format dry run; hook cases; ruff; strict pyright; pytest |
+| `./scripts/check-full.sh` | `just check`: debug, release, static-plugins, asan build/tests; Python editable install; compile database links; clang-tidy; format dry run; `embedded-standalone`; hook cases; ruff; strict pyright; pytest |
 | `just build [preset]` / `just test [preset]` | One CMake preset, default asan |
 | `ctest --preset asan -R <name> --no-tests=error` | Selected existing CTest cases after building |
 | `.venv/bin/pytest tests/python -k <name>` | Selected Python tests after `just python` |
+| `just embedded-standalone` | `embedded/` alone (`cmake -S embedded`, no preset, no Eigen/yaml-cpp/GoogleTest/Python) with clang++-18 and g++, then the autopilot's no-`astra_core` binary check and a no-argument exit-1 smoke run (ADR-0008) |
 | `just hooks-test` | Existing oracle/main/Stop-hook regression cases |
 | `just tidy` / `just format-check` | Static analysis / read-only C++ formatting check |
 | `just format` | Mutating C++/Python formatting; inspect the resulting diff |
