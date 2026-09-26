@@ -23,6 +23,7 @@ import signal
 import subprocess
 import sys
 import time
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -388,14 +389,25 @@ def scenario_lifecycle(args: argparse.Namespace) -> None:
 
     kept: Any = None
     started = time.monotonic()
+    interrupted_stack: list[list[str]] = []
     if case == "interrupt-in-cleanup":
-        # The handshake fails at about 0.3 s; stop()'s 1 s grace wait on the SIGTERM-ignoring peer
-        # then runs until about 1.3 s. The alarm at 0.6 s raises KeyboardInterrupt inside that wait.
-        def on_alarm(_signum: int, _frame: object) -> None:
+        # Review R-002 (round 2): the interrupt is armed from inside stop()'s grace wait itself (the
+        # wait called by stop with the default 1 s grace), 0.1 s into it, and the handler records
+        # the interrupted stack so the test can check where it landed.
+        original_wait = ls.PeerProcess.wait
+
+        def on_alarm(_signum: int, frame: Any) -> None:
+            for entry in traceback.extract_stack(frame):
+                interrupted_stack.append([entry.name, (entry.line or "").strip()])
             raise KeyboardInterrupt
 
-        signal.signal(signal.SIGALRM, on_alarm)
-        signal.setitimer(signal.ITIMER_REAL, 0.6)
+        def wait_arming_interrupt(self: ls.PeerProcess, timeout_s: float) -> int | None:
+            if sys._getframe(1).f_code.co_name == "stop" and timeout_s == 1.0:
+                signal.signal(signal.SIGALRM, on_alarm)
+                signal.setitimer(signal.ITIMER_REAL, 0.1)
+            return original_wait(self, timeout_s)
+
+        ls.PeerProcess.wait = wait_arming_interrupt  # type: ignore[method-assign]
     try:
         with ls.lockstep_session(config, argv, on_peer_launched=launched) as session:
             if case == "normal":
@@ -428,6 +440,7 @@ def scenario_lifecycle(args: argparse.Namespace) -> None:
         context = error.__context__
         facts["context"] = None if context is None else type(context).__name__
     facts["elapsed_s"] = time.monotonic() - started
+    facts["interrupted_stack"] = interrupted_stack
     del kept
     facts["segment_exists"] = (ls.SHM_DIRECTORY / segment).exists()
     facts["peer_launched"] = bool(peers)

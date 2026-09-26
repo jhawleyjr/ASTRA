@@ -26,7 +26,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, NoReturn
@@ -844,33 +844,72 @@ class PeerExitedBeforeKillError(AssertionError):
     """The peer had already exited when the kill was due (review R-003)."""
 
 
-def _kill_while_peer_runs(host: Host, peer_running: Callable[[], bool]) -> int:
-    """Kills the child only if the peer is running right now (a pidfd poll, never a cached status);
-    returns t_kill. The death tests also bound kill-to-exit from below, which closes the window
-    between this check and the kill: an exit that preceded the kill would measure about 0 ms."""
-    if not peer_running():
+def _proc_state(pid: int) -> str:
+    try:
+        with open(f"/proc/{pid}/stat", encoding="ascii", errors="replace") as f:
+            text = f.read()
+    except FileNotFoundError:
+        return "gone"
+    return text[text.rindex(")") + 2]
+
+
+def _pidfd_exited(fd: int) -> bool:
+    ready, _, _ = select.select([fd], [], [], 0.0)
+    return bool(ready)
+
+
+def _hold_peer_stopped(fd: int, pid: int) -> None:
+    """Review R-003 (round 2): proves the peer is alive across the kill. SIGSTOP through its pidfd,
+    then wait until /proc shows it stopped: a stopped process cannot exit by itself (its timeout
+    fires only once it is continued), so it is still alive at the kill that follows. Raises
+    PeerExitedBeforeKillError if it had already exited (pidfd readable, or a zombie), whatever
+    Popen's cached status says."""
+    if _pidfd_exited(fd):
         raise PeerExitedBeforeKillError(
             "the peer exited before the kill: a stalled sim, not a death"
         )
-    return host.kill_child_only()
+    try:
+        signal.pidfd_send_signal(fd, signal.SIGSTOP)
+    except ProcessLookupError as error:
+        raise PeerExitedBeforeKillError("the peer exited before the kill") from error
+    deadline = time.monotonic() + 2.0
+    while True:
+        state = _proc_state(pid)
+        if _pidfd_exited(fd) or state in ("Z", "X", "gone"):
+            raise PeerExitedBeforeKillError(f"the peer exited before the kill (state {state})")
+        if state in ("T", "t"):
+            return
+        if time.monotonic() > deadline:
+            raise PeerExitedBeforeKillError(f"the peer never showed as stopped (state {state})")
+        time.sleep(0.0005)
 
 
-def _pidfd_running(fd: int) -> bool:
-    ready, _, _ = select.select([fd], [], [], 0.0)
-    return not ready
+def _kill_sim_with_peer_stopped(host: Host, fd: int, pid: int) -> int:
+    """Stops the peer, kills the sim host (which must die by this SIGKILL, not by itself), then
+    continues the peer; returns t_kill. The peer's own deadline began at its last reply, before the
+    stop, so its exit after the kill is bounded by peer_timeout_ms from the kill.
+
+    The child's process group is its own session (start_new_session), so its death does not make
+    the stopped peer's group newly orphaned and the kernel sends no SIGHUP/SIGCONT (kernel/exit.c,
+    kill_orphaned_pgrp: the exiting parent must share the session with a parent in another
+    group)."""
+    _hold_peer_stopped(fd, pid)
+    try:
+        t_kill = host.kill_child_only()
+        assert host.proc.returncode == -signal.SIGKILL  # the sim died by this kill
+    finally:
+        with contextlib.suppress(ProcessLookupError):
+            signal.pidfd_send_signal(fd, signal.SIGCONT)
+    return t_kill
 
 
 def _pidfd_exit_ns(fd: int, timeout_s: float) -> int:
-    """monotonic_ns at which the pidfd's process exits (a pidfd wakes on exit); fails on timeout."""
+    """monotonic_ns at which the pidfd's process is seen to exit (a pidfd wakes on exit); an
+    observation, so never earlier than the exit itself. Fails on timeout."""
     ready, _, _ = select.select([fd], [], [], timeout_s)
     if not ready:
         pytest.fail(f"pidfd {fd}: still running after {timeout_s} s")
     return time.monotonic_ns()
-
-
-# The sim exchanges without pause until the kill, so the peer's deadline began within one exchange
-# of it and kill-to-exit is about timeout_ms; an exit before the kill would measure about 0 ms.
-KILL_TO_EXIT_FLOOR_MS = TIMEOUT_MS / 2
 
 
 def test_r4b_sim_death(reaper: Reaper, binaries: dict[str, str], trim: ls.AutopilotTrim) -> None:
@@ -879,6 +918,7 @@ def test_r4b_sim_death(reaper: Reaper, binaries: dict[str, str], trim: ls.Autopi
         LIGHT, segment=segment, timeout_ms=int(TIMEOUT_MS), peer_timeout_ms=int(TIMEOUT_MS)
     )
     autopilot = ls.PeerProcess(ls.autopilot_argv(binaries["--autopilot"], config, SETPOINTS, trim))
+    fd = os.pidfd_open(autopilot.pid)  # this process's own unreaped child: the pid is stable
     try:
         host = Host(
             reaper,
@@ -886,18 +926,15 @@ def test_r4b_sim_death(reaper: Reaper, binaries: dict[str, str], trim: ls.Autopi
             SHORT_RUN_TIMEOUT_S,
         )
         host.expect("READY")
-        assert host.proc.poll() is None
-        t_kill = _kill_while_peer_runs(host, autopilot.running)  # R-003: a real liveness check
-        status = autopilot.wait(TIMEOUT_MS / 1000 + 5.0)
-        assert status is not None
-        assert autopilot.exited_ns is not None
-        kill_to_exit_ms = (autopilot.exited_ns - t_kill) / 1e6
+        t_kill = _kill_sim_with_peer_stopped(host, fd, autopilot.pid)
+        exited = _pidfd_exit_ns(fd, TIMEOUT_MS / 1000 + 5.0)
+        status = autopilot.wait(5.0)
         assert status == 2, autopilot.stderr  # timeout, not 0: no CLOSED was ever written
-        assert KILL_TO_EXIT_FLOOR_MS <= kill_to_exit_ms <= TIMEOUT_MS + ALLOWANCE_MS, (
-            kill_to_exit_ms
-        )
+        kill_to_exit_ms = (exited - t_kill) / 1e6
+        assert kill_to_exit_ms <= TIMEOUT_MS + ALLOWANCE_MS, kill_to_exit_ms
         assert not (ls.SHM_DIRECTORY / segment).exists()  # unlinked at the handshake
     finally:
+        os.close(fd)
         autopilot.stop()
         with contextlib.suppress(FileNotFoundError):
             os.unlink(ls.SHM_DIRECTORY / segment)
@@ -907,12 +944,14 @@ def test_death_check_rejects_a_peer_that_exited_first(
     reaper: Reaper, binaries: dict[str, str], trim: ls.AutopilotTrim
 ) -> None:
     """R-003's negative control: a sim that stalls after READY for longer than peer_timeout_ms lets
-    the autopilot time out first; the death tests' check must refuse to count that as a kill."""
+    the autopilot time out first. The peer is exited but NOT reaped, so Popen's cached status still
+    says running; the death tests' check must refuse the kill all the same."""
     segment = ls.new_segment_name()
     config = ls.load_config(
         LIGHT, segment=segment, timeout_ms=int(TIMEOUT_MS), peer_timeout_ms=int(TIMEOUT_MS)
     )
     autopilot = ls.PeerProcess(ls.autopilot_argv(binaries["--autopilot"], config, SETPOINTS, trim))
+    fd = os.pidfd_open(autopilot.pid)
     try:
         host = Host(
             reaper,
@@ -920,11 +959,16 @@ def test_death_check_rejects_a_peer_that_exited_first(
             SHORT_RUN_TIMEOUT_S,
         )
         host.expect("READY")
-        assert autopilot.wait(TIMEOUT_MS / 1000 + 5.0) == 2  # it timed out during the stall
+        ready, _, _ = select.select([fd], [], [], TIMEOUT_MS / 1000 + 5.0)  # exits in the stall
+        assert ready
+        assert autopilot.returncode is None  # stale: a cached-status check would call it running
         with pytest.raises(PeerExitedBeforeKillError):
-            _kill_while_peer_runs(host, autopilot.running)
+            _kill_sim_with_peer_stopped(host, fd, autopilot.pid)
+        assert host.proc.poll() is None  # refused before any kill
         host.kill_child_only()
+        assert autopilot.wait(5.0) == 2
     finally:
+        os.close(fd)
         autopilot.stop()
 
 
@@ -1012,14 +1056,15 @@ def test_session_keyboard_interrupt(
 def test_session_interrupt_in_cleanup(
     reaper: Reaper, binaries: dict[str, str], tmp_path: Path
 ) -> None:
-    """R-002: a KeyboardInterrupt inside stop()'s grace wait still kills and reaps the peer."""
+    """R-002: a KeyboardInterrupt inside stop()'s grace wait still kills and reaps the peer. The
+    child arms the interrupt from that very call and records the interrupted stack (round 2)."""
     facts = _lifecycle(reaper, binaries, "interrupt-in-cleanup", tmp_path)
     assert facts["exception"] == "KeyboardInterrupt"
     assert facts["context"] == "ConfigError"  # chained to the failed handshake, not replacing it
     assert facts["peer_returncode"] == -signal.SIGKILL  # it ignores SIGTERM
-    # Well before the uninterrupted path's end (about 1.3 s: handshake plus the 1 s grace), so the
-    # kill came from the interrupt path, not from the grace expiring.
-    assert facts["elapsed_s"] < 1.0, facts["elapsed_s"]
+    stack = [tuple(frame) for frame in facts["interrupted_stack"]]
+    assert ("stop", "status = self.wait(grace_s)") in stack, stack  # inside the grace wait
+    assert stack[-1][0] == "wait", stack  # innermost: PeerProcess.wait's own select
 
 
 def test_session_rejects_an_unsafe_segment(tmp_path: Path) -> None:
@@ -1064,7 +1109,7 @@ def test_driver_death_after_handshake(reaper: Reaper, binaries: dict[str, str]) 
     fd = os.pidfd_open(autopilot)
     try:
         # The child only: its autopilot must end by its own timeout.
-        t_kill = _kill_while_peer_runs(host, lambda: _pidfd_running(fd))
+        t_kill = _kill_sim_with_peer_stopped(host, fd, autopilot)
         exited = _pidfd_exit_ns(fd, TIMEOUT_MS / 1000 + 5.0)
     finally:
         os.close(fd)
@@ -1072,7 +1117,7 @@ def test_driver_death_after_handshake(reaper: Reaper, binaries: dict[str, str]) 
     assert status is not None, "the orphaned autopilot was not reparented to the subreaper"
     assert os.waitstatus_to_exitcode(status) == 2
     kill_to_exit_ms = (exited - t_kill) / 1e6
-    assert KILL_TO_EXIT_FLOOR_MS <= kill_to_exit_ms <= TIMEOUT_MS + ALLOWANCE_MS, kill_to_exit_ms
+    assert kill_to_exit_ms <= TIMEOUT_MS + ALLOWANCE_MS, kill_to_exit_ms
     assert not (ls.SHM_DIRECTORY / segment).exists()
 
 
