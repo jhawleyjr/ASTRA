@@ -31,6 +31,10 @@ foreach(compiler IN ITEMS "gcc;${ASTRA_GCC}" "clang;${ASTRA_CLANG_C}")
   set_tests_properties(icd_static_asserts_${label}_c11 PROPERTIES LABELS unit)
 endforeach()
 
+# M4 PR 4's shm transport, HAL, and echo-peer tests; after ASTRA_GCC/ASTRA_CLANG_C, which its C11
+# layout checks reuse.
+add_subdirectory(lockstep)
+
 # The static-plugins build must not reference dlopen at all; the shared build must, so the check is known
 # to be able to fire.
 if(ASTRA_STATIC_PLUGINS)

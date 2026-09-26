@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
@@ -13,6 +14,7 @@
 
 #include "astra/config/config.hpp"
 #include "astra/kernel/simulation.hpp"
+#include "tests/lockstep/shm_test_support.hpp"
 #include "tests/support/alloc_counter.hpp"
 
 namespace {
@@ -269,6 +271,36 @@ TEST(NoAlloc, ZeroHeapAllocationsOnTransportFaultsAndStickyHalts) {
     EXPECT_EQ(again.frame, halt.frame);
     EXPECT_EQ(after, before) << "zero allocations on the failure path and on sticky re-steps";
   }
+}
+
+// M4 PR 4 (docs/plans/m4-pr4-shm-transport.md, R6): the same 100-exchange path over the REAL shm
+// transport and a separate echo-peer process -- publish (payload copy, release store, FUTEX_WAKE),
+// the bounded wait with its clock reads, and the reply copy must not allocate either. The peer is
+// spawned and the handshake done before the window.
+TEST(NoAlloc, ZeroHeapAllocationsOverOneThousandFramesWithShmEchoPeer) {
+  shm_test::sweep_dead_creators();
+  shm_test::SimSpec spec;
+  spec.segment = shm_test::unique_segment();
+  spec.frames = 1000;
+  shm_test::Child peer(shm_test::peer_args(spec.segment, 5000, 5000, shm_test::kHold), false);
+  {
+    astra::Simulation sim = shm_test::build_sim(spec);
+    ASSERT_EQ(sim.frames(), 1000U);
+
+    const std::size_t before = astra_test::allocation_count();
+    const astra::HaltReason halt = sim.run();
+    const std::size_t after = astra_test::allocation_count();
+
+    EXPECT_FALSE(halt) << "halted on check " << static_cast<int>(halt.check) << " at frame "
+                       << halt.frame;
+    EXPECT_EQ(sim.clock().frame(), 1000U);
+    const double* exchanges = sim.registry().find("transport.exchanges");
+    ASSERT_NE(exchanges, nullptr);
+    EXPECT_EQ(*exchanges, 100.0) << "every exchange ran, so the count below covers all 100";
+    EXPECT_EQ(after, before) << "zero allocations over 1000 frames and 100 shm exchanges";
+  }
+  EXPECT_EQ(peer.wait_exit(std::chrono::milliseconds{5000}), 0) << "normal close, exit 0";
+  EXPECT_TRUE(shm_test::own_segments().empty()) << "no orphaned segment";
 }
 
 }  // namespace
