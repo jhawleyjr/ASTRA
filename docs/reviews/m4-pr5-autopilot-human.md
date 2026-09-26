@@ -209,16 +209,26 @@ Claude built; Codex reviewed (companion 1.0.6).
   mode); R3's jitter is injected by the driver (SIGSTOP/SIGCONT or similar); the autopilot has no timing hook.
 - **Throttle activity from `tas` gusts is to be inspected in the traces**, and **`kHeadingP` and the bank limit are the
   first knobs if heading misses under moderate turbulence.** If sideslip is large in lateral gusts, add a stiffening
-  `kSideslip <= 0` term (its sign is asserted by the design test).
+  `kSideslip <= 0` term (its sign is asserted by the design test; see the follow-up below about the helper's optional
+  `kSideslip` support).
+- **If altitude misses +/-30 m under moderate turbulence, the first things to adjust are `kAltP` and `kAltI`, then the
+  pitch inner-loop gains (`kPitchTheta`, `kPitchRate`), keeping the 3x pitch/outer separation.** Any retuning in PR 6
+  touches `embedded/autopilot/gains.hpp` and **must rerun `tests/python/test_autopilot_design.py`** (the design test reads
+  that file).
 - Exit statuses (D6) and the exit-summary line are the driver's independent counters (R1).
 
 ## Decision record
 
-State: changes-required (round 0, Joe on `56ea2ec`), resubmitted with correction round 1 (`fc22cc8`); decision pending
-Human decision/date/reference: round 0: Joe's review of `56ea2ec`, findings F1, F2 and the airspeed point (recorded as H-1
-to H-3); round 1: pending
-Approved candidate/scope: pending
-Merge observed: not merged
+State: **approved**
+Human decision/date/reference: **APPROVED by Joe, 2026-09-26**, on the round-1 candidate; the round-0 review of `56ea2ec`
+(changes-required: F1, F2, airspeed point, recorded as H-1 to H-3) is closed by `fc22cc8`.
+- The inner-loop criteria are confirmed as ASTRA's provisional thresholds: bank loop alone time constant <= 2 s, >= 3x
+  separation from the outer loop (bank versus heading, pitch versus altitude/speed), and >= 40 percent aileron headroom at
+  a full-scale bank error.
+- Documents-only additions before the push (no change to `fc22cc8`'s product files): the PR 6 altitude handoff bullet and
+  the design-helper follow-up above, and this record.
+Approved candidate/scope: `fc22cc8` (product and tests), base `34eec2d`, Tier 2. The pushed head adds documents only.
+Merge observed: not merged (pushed as a draft PR; Joe squash-merges)
 Release authorization: not requested
 
 Significant tradeoff rationale: the design model is deliberately conservative (thresholds above the specification lower
@@ -229,5 +239,7 @@ Accepted risks: the loops may need retuning under moderate turbulence (owner: PR
 limit, and a stiffening sideslip term); the Python model and the C++ law are separate transcriptions (owner: this PR's
 tests pin the C++, including the rudder sign through `cn_rudder`; a numerical cross-link could be added if PR 6 finds a
 mismatch).
-Nonblocking follow-ups: none tracked beyond the PR 6 handoff above.
+Nonblocking follow-ups (Joe, 2026-09-26): remove `OPTIONAL_GAIN_NAMES` and the `kSideslip` support from
+`tests/python/autopilot_design.py` (and the effective-`cn_beta` test's `gains.get("kSideslip", 0.0)`), so the design
+model can only analyze the law the C++ implements. Owner: whoever next touches the gains. Also in the PR 6 handoff above.
 Architectural decisions: none (ADR-0008 followed; no new ADR).
