@@ -121,7 +121,8 @@ bool assign(Key key, const char* value, Options& options) {
     case kAltitude:
       return parse_finite(value, options.setpoints.altitude_m);
     case kAirspeed:
-      return parse_finite(value, options.setpoints.airspeed_mps);
+      return parse_finite(value, options.setpoints.airspeed_mps) &&
+             options.setpoints.airspeed_mps > 0.0;
     case kHeading:
       return parse_finite(value, options.setpoints.heading_rad);
     case kThetaTrim:

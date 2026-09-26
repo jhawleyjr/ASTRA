@@ -30,10 +30,12 @@ from pathlib import Path
 
 import numpy as np
 import scipy.linalg
+import yaml
 
 from astra import _core, linearize
 
 GAINS_HPP = Path("embedded/autopilot/gains.hpp")
+LIMITS_HPP = Path("embedded/autopilot/limits.hpp")
 GAIN_NAMES = (
     "kAltP",
     "kAltI",
@@ -47,8 +49,11 @@ GAIN_NAMES = (
     "kBankP",
     "kRollRate",
     "kYawRate",
-    "kSideslip",
 )
+# Not shipped. If gains.hpp ever defines kSideslip (a beta term in the rudder law, delta_r +=
+# kSideslip beta) the design model analyzes it, and the effective-Cn_beta check in the test decides
+# whether its sign is acceptable; the C++ law must then implement the same term.
+OPTIONAL_GAIN_NAMES = ("kSideslip",)
 _GAIN_LINE = re.compile(
     r"^constexpr double (k\w+) = ([-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?);\s*$"
 )
@@ -80,12 +85,26 @@ def read_gains(path: Path = GAINS_HPP) -> dict[str, float]:
         if name in gains:
             raise ValueError(f"{path}: {name} defined twice")
         gains[name] = float(match.group(2))
-    if set(gains) != set(GAIN_NAMES):
+    allowed = set(GAIN_NAMES) | set(OPTIONAL_GAIN_NAMES)
+    if not set(GAIN_NAMES) <= set(gains) or not set(gains) <= allowed:
         raise ValueError(
             f"{path}: gain names differ: missing {sorted(set(GAIN_NAMES) - set(gains))}, "
-            f"extra {sorted(set(gains) - set(GAIN_NAMES))}"
+            f"extra {sorted(set(gains) - allowed)}"
         )
     return gains
+
+
+_RANGE_LINE = re.compile(r"^inline constexpr Range (k\w+)\{([-+]?[0-9.]+), ([-+]?[0-9.]+)\};\s*$")
+
+
+def read_limits(path: Path = LIMITS_HPP) -> dict[str, tuple[float, float]]:
+    """The `inline constexpr Range kName{lo, hi};` lines of limits.hpp (output and bank limits)."""
+    limits: dict[str, tuple[float, float]] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        match = _RANGE_LINE.match(line)
+        if match is not None:
+            limits[match.group(1)] = (float(match.group(2)), float(match.group(3)))
+    return limits
 
 
 @dataclass(frozen=True)
@@ -185,7 +204,7 @@ def longitudinal_loop(plants: Plants, gains: dict[str, float]) -> Loop:
 
 def lateral_loop(plants: Plants, gains: dict[str, float]) -> Loop:
     """phi_c = kHeadingP e_psi + kHeadingI int e_psi (e_psi = -psi), aileron = kBankP (phi_c - phi)
-    - kRollRate p; rudder = kYawRate r + kSideslip beta, beta = v / V (small angle)."""
+    - kRollRate p; rudder = kYawRate r (a pure yaw-rate damper; no sideslip term, see gains.hpp)."""
     az = np.zeros((6, 6))
     az[:5, :5] = plants.a_lat
     az[5, 4] = -1.0  # int e_psi' = e_psi = -psi
@@ -197,7 +216,7 @@ def lateral_loop(plants: Plants, gains: dict[str, float]) -> Loop:
     cc[0, 3] = -gains["kBankP"]
     cc[0, 1] = -gains["kRollRate"]
     cc[1, 2] = gains["kYawRate"]
-    cc[1, 0] = gains["kSideslip"] / plants.true_airspeed_mps
+    cc[1, 0] = gains.get("kSideslip", 0.0) / plants.true_airspeed_mps  # beta = v / V
     return Loop(az, bz, cc, 5, ("aileron", "rudder"))
 
 
@@ -312,3 +331,61 @@ def open_loop_phugoid(a_lon: np.ndarray) -> Phugoid:
         raise ValueError(f"unexpected 5x5 eigenvalues {eigenvalues!r}")
     phugoid = oscillatory[0]
     return Phugoid(2.0 * math.pi / phugoid.imag, -phugoid.real / abs(phugoid))
+
+
+# --- Inner-loop separation and the yaw-damper sign (M4 PR 5 correction round 1) ---
+
+
+def aero_yaw_coefficients(config_path: str) -> tuple[float, float]:
+    """(cn_beta, cn_rudder) per rad from the aero model's own config, the coefficients of
+    aero_math.hpp's yaw moment N = q S b (cn_beta beta + cn_rudder delta_r + ...). Positive rudder
+    is trailing-edge-left (nose-left), so cn_rudder is negative; positive beta is wind from the
+    right, so a stiffening rudder gives a POSITIVE yaw moment for positive beta."""
+    data = yaml.safe_load(Path(config_path).read_text(encoding="utf-8"))
+    for model in data["vehicle"]["models"]:
+        if str(model.get("plugin", "")).endswith("physical/aero"):
+            return float(model["cn_beta_per_rad"]), float(model["cn_rudder_per_rad"])
+    raise ValueError(f"{config_path}: no physical/aero model in vehicle.models")
+
+
+def effective_cn_beta(cn_beta: float, cn_rudder: float, k_sideslip: float = 0.0) -> float:
+    """cn_beta seen through a rudder law delta_r = kYawRate r + k_sideslip beta: the
+    beta-proportional part of the yaw moment is (cn_beta + cn_rudder k_sideslip) beta. The shipped
+    law has NO sideslip term (k_sideslip = 0, so this is cn_beta); the default states that.
+    cn_rudder is negative, so a positive k_sideslip (the defect found in round 1: 0.269 took 0.26
+    down to 0.206) weakens the weathervane stability and only k_sideslip <= 0 stiffens it."""
+    return cn_beta + cn_rudder * k_sideslip
+
+
+def bank_loop_poles(plants: Plants, gains: dict[str, float]) -> np.ndarray:
+    """Poles of the bank-attitude inner loop alone (heading loop open): [v, p, r, phi] with
+    aileron = -kBankP phi - kRollRate p (phi command held at 0) and the rudder yaw damper closed."""
+    a, b = plants.a_lat[:4, :4], plants.b_lat[:4]
+    c = np.zeros((2, 4))
+    c[0, 3] = -gains["kBankP"]
+    c[0, 1] = -gains["kRollRate"]
+    c[1, 2] = gains["kYawRate"]
+    c[1, 0] = gains.get("kSideslip", 0.0) / plants.true_airspeed_mps
+    return np.linalg.eigvals(a + b @ c)
+
+
+def pitch_loop_poles(plants: Plants, gains: dict[str, float]) -> np.ndarray:
+    """Poles of the pitch-attitude inner loop alone (altitude and speed loops open): [u, w, q,
+    theta] with elevator = kPitchTheta theta + kPitchRate q and the throttle held."""
+    a, b = plants.a_lon[:4, :4], plants.b_lon[:4, 0:1]
+    c = np.zeros((1, 4))
+    c[0, 3] = gains["kPitchTheta"]
+    c[0, 2] = gains["kPitchRate"]
+    return np.linalg.eigvals(a + b @ c)
+
+
+def fastest_oscillatory_pair(poles: np.ndarray) -> complex:
+    pairs = [complex(p) for p in poles if p.imag > 1e-6]
+    if not pairs:
+        raise ValueError(f"no oscillatory pole in {poles!r}")
+    return max(pairs, key=abs)
+
+
+def slowest_poles(poles: np.ndarray, count: int) -> list[complex]:
+    """The `count` poles of smallest magnitude (heading-loop poles in the lateral system)."""
+    return sorted((complex(p) for p in poles), key=abs)[:count]

@@ -30,12 +30,11 @@ struct Options {
 
 // Parses argv[1..argc). On failure returns false and sets `error` to one sentence naming the
 // argument; the caller prints it with usage() and exits 1 without touching the HAL. Rules: the nine
-// named arguments are required and each appears once; timeouts are positive uint32; setpoints and
-// trims are finite;
+// named arguments are required and each appears once; timeouts are positive uint32; the altitude,
+// heading and theta-trim values are finite and the airspeed setpoint is finite and positive;
 // --elevator-trim lies inside the elevator limit and --throttle-trim inside [0, 1] (the trim is
 // itself the frame-0 and held reply, so it must satisfy the output limits); --notify-fd goes with
-// exactly one of
-// --stop-after / --abort-after (positive), and those two never together.
+// exactly one of --stop-after / --abort-after (positive), and those two never together.
 [[nodiscard]] bool parse_arguments(int argc, const char* const* argv, Options& options,
                                    std::string& error);
 

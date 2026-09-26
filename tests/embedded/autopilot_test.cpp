@@ -188,14 +188,41 @@ TEST(Autopilot, BankCommandIsClampedBeforeTheBankLoop) {
   EXPECT_NEAR(out.aileron, ap::kBankP * ap::kBankCommandLimit.hi, kTolerance);
 }
 
-TEST(Autopilot, RudderYawDamperOpposesYawRateAndSideslip) {
+// The rudder's yaw moment. aero_math.hpp's yaw equation is N = q S b (cn_beta beta + cn_rudder
+// delta_r
+// + ...), and cruise.yaml has cn_beta = +0.26 (weathervane: positive beta, wind from the right,
+// gives a positive, nose-right moment) and cn_rudder = -0.20 (positive rudder is
+// trailing-edge-left, a nose-left, NEGATIVE moment). A positive yaw rate is damped by a negative
+// moment, and a rudder that stiffens the weathervane adds a POSITIVE moment for positive beta. The
+// sign is asserted through that physical moment, not through the sign of the rudder angle.
+constexpr double kCnRudder = -0.20;
+double rudder_yaw_moment(double rudder) { return kCnRudder * rudder; }
+
+TEST(Autopilot, RudderYawDamperOpposesYawRate) {
   Autopilot autopilot(setpoints(), trims());
   astra_sim_to_sw_v1 in = nominal(0, 0.0);
-  in.r = 0.1;
-  in.beta = 0.05;
+  in.r = 0.1;  // nose-right yaw rate: the damping moment is nose-left (negative)
   const astra_sw_to_sim_v1 out = run_once(autopilot, in);
-  EXPECT_NEAR(out.rudder, ap::kYawRate * 0.1 + ap::kSideslip * 0.05, kTolerance);
-  EXPECT_GT(out.rudder, 0.0);
+  EXPECT_NEAR(out.rudder, ap::kYawRate * 0.1, kTolerance);
+  EXPECT_LT(rudder_yaw_moment(out.rudder), 0.0);
+  Autopilot other(setpoints(), trims());
+  in.r = -0.1;
+  EXPECT_GT(rudder_yaw_moment(run_once(other, in).rudder), 0.0);
+}
+
+TEST(Autopilot, RudderNeverWeakensTheWeathervaneStability) {
+  // For either sign of beta the rudder's moment must not oppose the weathervane moment cn_beta *
+  // beta (positive for positive beta): the rudder moment times beta is never negative. The shipped
+  // law has no sideslip term, so it is exactly zero; a beta term with the destabilizing sign fails
+  // this.
+  for (const double beta : {0.05, -0.05, 0.2, -0.2}) {
+    Autopilot autopilot(setpoints(), trims());
+    astra_sim_to_sw_v1 in = nominal(0, 0.0);
+    in.beta = beta;
+    const astra_sw_to_sim_v1 out = run_once(autopilot, in);
+    EXPECT_GE(rudder_yaw_moment(out.rudder) * beta, 0.0) << "beta " << beta;
+    EXPECT_EQ(out.rudder, 0.0) << "beta " << beta;  // and today the rudder ignores beta entirely
+  }
 }
 
 TEST(Autopilot, HeadingErrorWrapsTheShortWay) {
@@ -353,12 +380,12 @@ TEST(Autopilot, EveryOutputStaysInsideItsLimitUnderViolentInput) {
 using Field = double astra_sim_to_sw_v1::*;
 
 TEST(Autopilot, EachReadFieldHoldsThePreviousCommandWhenNonFinite) {
-  const std::array<Field, 10> read = {
+  const std::array<Field, 9> read = {
       &astra_sim_to_sw_v1::altitude, &astra_sim_to_sw_v1::vertical_speed,
       &astra_sim_to_sw_v1::theta,    &astra_sim_to_sw_v1::q,
       &astra_sim_to_sw_v1::psi,      &astra_sim_to_sw_v1::phi,
       &astra_sim_to_sw_v1::p,        &astra_sim_to_sw_v1::tas,
-      &astra_sim_to_sw_v1::r,        &astra_sim_to_sw_v1::beta};
+      &astra_sim_to_sw_v1::r};
   const std::array<double, 3> bad = {std::numeric_limits<double>::quiet_NaN(),
                                      std::numeric_limits<double>::infinity(),
                                      -std::numeric_limits<double>::infinity()};
@@ -385,6 +412,15 @@ TEST(Autopilot, EachReadFieldHoldsThePreviousCommandWhenNonFinite) {
       EXPECT_EQ(autopilot.handled(), 2U);
     }
   }
+}
+
+TEST(Autopilot, BetaIsNotReadSoANonFiniteBetaDoesNotHold) {
+  Autopilot autopilot(setpoints(), trims());
+  astra_sim_to_sw_v1 in = nominal(0, 0.0);
+  in.beta = std::numeric_limits<double>::quiet_NaN();
+  const astra_sw_to_sim_v1 out = run_once(autopilot, in);
+  EXPECT_EQ(autopilot.held(), 0U);
+  EXPECT_EQ(out.rudder, 0.0);
 }
 
 TEST(Autopilot, WindInvalidHoldsEvenWithFiniteFields) {
@@ -607,6 +643,9 @@ TEST(AutopilotCli, RejectsBadNumbers) {
       {"--altitude-m", "1e999"},
       {"--altitude-m", ""},
       {"--airspeed-mps", "abc"},
+      {"--airspeed-mps", "0"},
+      {"--airspeed-mps", "-230"},
+      {"--airspeed-mps", "-0.0"},
       {"--heading-rad", "-inf"},
       {"--theta-trim", "nan"},
       {"--segment", ""}};

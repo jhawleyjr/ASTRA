@@ -72,7 +72,7 @@ the shm layout, `icd/`, `astra.linearize`, PR 8's test, or any golden/ADR.
 
 - The nine named arguments are required; each `--key value` once. Timeouts are positive `uint32` (the HAL enforces
   `> 0`; `peer_timeout_ms >= sim timeout_ms` is the driver's contract, ADR-0022, not re-checked here). The three setpoints
-  and three trims must be finite; `--elevator-trim` inside the elevator limit [-0.3, +0.3] rad and `--throttle-trim` in [0, 1] (D4: a trim outside the
+  and three trims must be finite, and `--airspeed-mps` must also be positive; `--elevator-trim` inside the elevator limit [-0.3, +0.3] rad and `--throttle-trim` in [0, 1] (D4: a trim outside the
   autopilot's own output range is rejected, since the frame-0 or held reply is the trim itself); the segment non-empty. Anything else (unknown key, missing,
   repeated, malformed, non-finite): usage on stderr and **exit 1** (the HAL reserves 1 for argument errors). Bad
   arguments never reach `hal_init`.
@@ -111,7 +111,7 @@ measured signal's sign.
 | elevator | PID on `e_h = altitude_cmd - altitude`; D on measurement uses **`vertical_speed`** (measured, not differenced) | `+K_theta * theta_err + K_q * q` (pitch attitude and pitch rate; `theta_err = theta - theta_trim`, see below) | `altitude`, `vertical_speed`, `theta`, `q` |
 | aileron | PI on `e_psi = wrap(heading_cmd - psi)` (to [-pi, pi]) producing a **bank command** `phi_c`, clamped to +/-0.35 rad | `K_phi * (phi_c - phi) - K_p * p` on the aileron | `psi`, `phi`, `p` |
 | throttle | PI on `e_v = airspeed_cmd - tas` | none | `tas` |
-| rudder | none (pure yaw damper) | `+K_r * r + K_beta * beta` | `r`, `beta` |
+| rudder | none (pure yaw-rate damper) | `+K_r * r` | `r` |
 
 - **Bank limit +/-0.35 rad (20 degrees):** it keeps a heading correction inside the small-angle regime the linear
   design assumes (the outer gain reaches it at about a 10-degree heading error) and inside a comfortable transport
@@ -121,11 +121,16 @@ measured signal's sign.
   PR 6 as `TrimResult.alpha_rad` from the same `astra.trim` call as the elevator bias (0.0236 rad at this cruise; theta = alpha at gamma = 0, and `TrimResult` has no theta field): latching it from the first
   frame would be the hidden setpoint D2 rejects, and omitting it would bias the elevator by `K_theta * 0.0236` and pull
   altitude off.
-- **Yaw damper without a washout, and why:** the task is wings-level heading hold, whose steady state has `r = 0` and
-  `beta = 0` (trim has aileron = rudder = 0), so a steady-state-blocking washout has nothing to unblock; it would add a
-  filter state, another `dt`-dependent update, and a time constant to design. The trial shows the plain `r + beta`
-  feedback meets the floors. A steady turn would need a washout (or turn-coordination); a turn is out of scope, and
-  the plan says so rather than leaving it implicit.
+- **Yaw damper: a pure yaw-rate damper, no sideslip term, no washout (revised in correction round 1).**
+  Positive rudder is trailing-edge-left, a nose-left (negative) yaw moment (`cn_rudder = -0.20`, `aero_math.hpp`'s
+  `N = q S b (cn_beta beta + cn_rudder delta_r + ...)`), and `cn_beta = +0.26` is the weathervane. A `+K beta` term
+  (rudder nose-left for beta > 0, which is what `K_beta = +0.269` gave) has effective `cn_beta = 0.26 - 0.2 K`, so it
+  weakens the weathervane stability (0.26 to 0.206); only `K <= 0` stiffens it. The search showed the floors and
+  the inner-loop criterion are met with no sideslip term at all, so it was dropped rather than kept with the
+  stiffening sign: fewer gains, no sensor dependence, and no sign to get wrong. If PR 6's lateral-gust runs show large
+  sideslip, a stiffening (`K <= 0`) term is the first thing to add. No washout: wings-level flight has `r = 0`, so a
+  washout has nothing to unblock and would add a filter state and another `dt`-dependent update; a steady turn
+  would need one and is out of scope.
 - Every quantity the design test differentiates is the one the C++ reads (the loops above are the design model,
   one to one).
 - **`dt` from frame-derived time, no clock in the autopilot:** the only place `dt` enters is the integrators (D
@@ -139,7 +144,7 @@ measured signal's sign.
   gap. No `<chrono>`, `time`, `clock_gettime` in `embedded/autopilot` (R4 scans each of its objects; the HAL's own
   ADR-0023 site is inside `astra_hal`, allowed there only).
 - **Invalid input holds the last command.** Hold mask, exactly: any field a loop reads (`altitude`, `vertical_speed`,
-  `theta`, `q`, `psi`, `phi`, `p`, `tas`, `r`, `beta`) non-finite, **or `status_flags & WIND_INVALID`**, which the ICD
+  `theta`, `q`, `psi`, `phi`, `p`, `tas`, `r`) non-finite, **or `status_flags & WIND_INVALID`**, which the ICD
   says zeroes `tas`, `alpha`, `beta`, `mach`, `cas` (`icd/astra_icd.h`); a zero `tas` would command full throttle. The
   other bits are **ignored on purpose** because they touch no field a loop reads: `ATMOSPHERE_INVALID` (zeroes `mach`,
   `cas` only), `CAS_SUPERSONIC` (`cas` only), `ACCEL_INVALID`, `LATLON_NOT_MODELED`. A held frame's reply repeats the
@@ -219,15 +224,23 @@ not a test) builds the closed-loop models; `tests/python/test_autopilot_design.p
     is the heading integrator's, about -0.063 1/s, and the throttle/altitude slow pair about -0.096 1/s; -0.03 keeps a
     factor of two). To be finalized against the frozen gains.
   - The design model is not the acceptance oracle; the nonlinear closed-loop runs with turbulence (PR 6, R2) are.
-- **Feasibility trial (session scratchpad, not in the repo; numbers are not pinned).** The revised structure meets
-  every floor above on the linear models, at gains bounded to sane actuator use (below). Longitudinal: poles all
-  `Re <= -0.096`, min damping 0.66, phase margin 94 degrees (elevator) and 74 degrees (throttle), gain margin unlimited
-  upward (57 dB downward on the elevator), discrete `max |z| = 0.99900`. Lateral: poles `Re <= -0.063`, min damping
-  0.35, phase margin 133 degrees (aileron) and 56 degrees (rudder), discrete `max |z| = 0.99936`. Optimizer gains, for
-  scale only: `K_h ~ 2.9e-4 rad/m`, `K_theta ~ 0.23`, `K_q ~ 0.42`, throttle `K_v ~ 0.067 /(m/s)`, heading `K_psi ~
-  2.0 rad/rad` (at the trial's search bound: **the build must not freeze `gains.hpp` with `K_psi` at an arbitrary bound; widen the search or record why the bound is right**), `K_phi ~ 0.12`, `K_p ~ 0.47`, `K_r ~ 0.22`, `K_beta ~ 0.53`. The trial's own
-  0.999 discrete-pole target was tighter than `|z| < 1`; the lateral search flagged it as its only unmet term, which
-  is not a requirement. If the built design cannot meet the floors, stop and report (no fifth loop, no cascade).
+- **Feasibility trial (session scratchpad, not in the repo): superseded.** The first search and its results are
+  kept in `docs/reviews/evidence/m4-pr5-gain-design.md` with the correction-round-1 re-search that replaced its
+  lateral half. If the built design cannot meet the floors, stop and report (no fifth loop, no cascade).
+- **Correction round 1 (Joe's human review of `56ea2ec`): two design defects and one CLI point.**
+  - **F1, the yaw-damper sign:** see D3. `kSideslip` is removed; the design test asserts the closed-loop effective
+    `cn_beta` is not below the open-loop value (reading `cn_beta = +0.26`, `cn_rudder = -0.20` from `cruise.yaml`),
+    and the C++ test asserts the rudder's yaw moment (through `cn_rudder`'s sign) opposes `r` and never opposes the
+    weathervane for either sign of `beta`.
+  - **F2, inner-loop speed:** the first search's small-gain preference and slowest-pole-only floor gave a bank loop
+    (`kBankP = 0.055`) about as slow as the heading loop. The lateral gains were re-searched with the small-gain
+    preference removed for the inner loop and an inner-loop criterion added: **the bank-attitude loop alone (heading
+    loop open) has every pole at Re <= -0.5 1/s (time constant <= 2 s) and a bandwidth at least 3x the heading loop's**,
+    asserted in the design test; `kBankP` is capped at 0.6 so a full-scale (0.35 rad) bank error asks for at most 60
+    percent of the aileron limit (asserted, read from `limits.hpp`). The same 3x separation is asserted for the pitch
+    loop against the altitude and speed loops; it already held (pitch short period 1.27 rad/s against a fastest outer
+    pole of 0.15 rad/s, 8.4x), so the longitudinal gains are unchanged.
+  - **Minor:** `--airspeed-mps <= 0` is rejected at parse time (exit 1), with a CLI test and a process test.
 
 ## Requirements and mapping
 
@@ -242,7 +255,7 @@ not a test) builds the closed-loop models; `tests/python/test_autopilot_design.p
 | R7 | D7: `tests/python/autopilot_design.py`, `tests/python/test_autopilot_design.py`, `embedded/autopilot/gains.hpp` | pytest |
 
 R5 scripted-frame cases (each asserts the exact reply bytes where the arithmetic is closed-form): frame-0 reply is
-trim with the measurement at setpoint (R2/Q12); each channel's response to a single-signal step (altitude, `theta`, `q`, heading, `phi`, `p`, tas, `r`, `beta`) has the D3 sign and magnitude, the bank command clamps at 0.35 rad, and `theta` feedback acts on `theta - theta_trim`; the integrator
+trim with the measurement at setpoint (R2/Q12); each channel's response to a single-signal step (altitude, `theta`, `q`, heading, `phi`, `p`, tas, `r`) has the D3 sign and magnitude, the bank command clamps at 0.35 rad, and `theta` feedback acts on `theta - theta_trim`; the integrator
 advances by `Ki * e * dt` with `dt` from the `t` sequence; frame 0 and a repeated `t` do not integrate; `divisor`
 independence (frames 10 ms apart and 20 ms apart give the corresponding integral, no assumed period); anti-windup
 holds the integral at saturation and unwinds without overshoot; every output inside the D4 limits under a violent
@@ -311,12 +324,13 @@ files are untouched).
 
 - `embedded/autopilot/main.cpp` is its own OBJECT library (`astra_autopilot_main`) that the executable links, so
   `EmbeddedBoundary_autopilot_reads_no_clock` can scan exactly that object plus the library archive; nothing else changed.
-- `--airspeed-mps`, `--altitude-m`, `--heading-rad` and `--theta-trim` are checked finite only (as planned); a zero or
-  negative airspeed setpoint is not rejected.
+- `--altitude-m`, `--heading-rad` and `--theta-trim` are checked finite; `--airspeed-mps` is checked finite and
+  positive (correction round 1; the first build accepted a zero or negative airspeed setpoint).
 - The R4 `-M` include-closure check was **kept** (`EmbeddedBoundary_autopilot_include_closure`): it was not fiddly.
-- Gains are frozen from the design step; the search, the `kHeadingP` sweep, and the pole/margin results are in
-  `docs/reviews/evidence/m4-pr5-gain-design.md`. `kHeadingP` = 2.0 is the smallest tried value that meets the stricter
-  search targets, not a search bound.
+- Gains are frozen from the design step; the searches, the `kHeadingP` sweeps and the pole/margin results are in
+  `docs/reviews/evidence/m4-pr5-gain-design.md`. After correction round 1 `kHeadingP` = 2.5 is the smallest tried value
+  (1.5, 2.0, 2.5, 3.0, 4.0) that meets the stricter search targets with the inner-loop criterion (2.0 misses the
+  real-part target at -0.043), not a search bound; `kBankP` (0.394) is interior to its 0.6 cap.
 - The design test's margin machinery is proved live by a weakened elevator loop (a tenth of the gains: stable, phase
   margin 38 degrees, below 45). Loop-at-a-time margins are meaningful only for a loop that is stable when closed
   (a sign-flipped elevator loop is unstable yet reports large margins), so the test asserts stability alongside them.

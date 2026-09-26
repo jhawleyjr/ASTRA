@@ -248,6 +248,15 @@ TEST_F(AutopilotProcess, BadCommandLinesExitOneWithoutTouchingTheHalOrPrintingAS
     bad.push_back(out_of_range);
   }
   {
+    std::vector<std::string> no_airspeed = good;  // a zero airspeed setpoint is rejected
+    for (std::size_t i = 0; i + 1 < no_airspeed.size(); ++i) {
+      if (no_airspeed[i] == "--airspeed-mps") {
+        no_airspeed[i + 1] = "0";
+      }
+    }
+    bad.push_back(no_airspeed);
+  }
+  {
     std::vector<std::string> duplicate = good;
     duplicate.emplace_back("--segment");
     duplicate.push_back(segment);

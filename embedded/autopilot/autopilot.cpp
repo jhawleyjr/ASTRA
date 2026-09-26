@@ -32,8 +32,8 @@ bool Autopilot::usable(const astra_sim_to_sw_v1& in) {
   if ((in.status_flags & ASTRA_ICD_STATUS_WIND_INVALID) != 0U) {
     return false;
   }
-  const std::array<double, 10> read = {
-      in.altitude, in.vertical_speed, in.theta, in.q, in.psi, in.phi, in.p, in.tas, in.r, in.beta};
+  const std::array<double, 9> read = {
+      in.altitude, in.vertical_speed, in.theta, in.q, in.psi, in.phi, in.p, in.tas, in.r};
   return std::all_of(read.begin(), read.end(), [](double value) { return std::isfinite(value); });
 }
 
@@ -70,8 +70,9 @@ void Autopilot::update(const astra_sim_to_sw_v1& in, double now, astra_sw_to_sim
     const double bank_command = heading_.update(wrap_pi(setpoints_.heading_rad - in.psi), 0.0, dt,
                                                 0.0, 1.0, kBankCommandLimit);
     last_aileron_ = Pid::clamp(kBankP * (bank_command - in.phi) - kRollRate * in.p, kAileronLimit);
-    // Rudder: yaw damper, no integrator.
-    last_rudder_ = Pid::clamp(kYawRate * in.r + kSideslip * in.beta, kRudderLimit);
+    // Rudder: a pure yaw-rate damper, no integrator and no sideslip term (gains.hpp: a beta term
+    // with the wrong sign would erode the weathervane stability).
+    last_rudder_ = Pid::clamp(kYawRate * in.r, kRudderLimit);
   } else {
     ++held_;
   }
