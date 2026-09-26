@@ -1,0 +1,59 @@
+Codex adversarial review: node codex-companion.mjs adversarial-review --base origin/main --wait <focus>; companion 1.0.6; candidate d020d57 vs 7a349ee; exit 0; thread 01a0dc8d-d5a9-76f1-8467-736a77a71a36
+[codex] Starting Codex task thread.
+[codex] Thread ready (01a0dc8d-d5a9-76f1-8467-736a77a71a36).
+[codex] Turn started (01a0dc8d-d5fb-77a1-ab22-0861c03aecd9).
+[codex] Assistant message captured: I’ll inspect the committed diff and required contracts, then trace failure interleavings and ...
+[codex] Running command: /bin/bash -lc 'git status --short; git rev-parse HEAD origin/main; cat AGENTS.md docs/agents/...
+[codex] Command completed: /bin/bash -lc 'git status --short; git rev-parse HEAD origin/main; cat AGENTS.md docs/agents/... (exit 0)
+[codex] Running command: /bin/bash -lc 'cat docs/plans/m4-pr4-shm-transport.md; cat docs/decisions/002{2,3,4}*'
+[codex] Command completed: /bin/bash -lc 'cat docs/plans/m4-pr4-shm-transport.md; cat docs/decisions/002{2,3,4}*' (exit 0)
+[codex] Running command: /bin/bash -lc 'cat plugins/sim/transport/shm/shm{.cpp,_transport.hpp,_wait.cpp}; cat embedded...
+[codex] Command completed: /bin/bash -lc 'cat plugins/sim/transport/shm/shm{.cpp,_transport.hpp,_wait.cpp}; cat embedded... (exit 0)
+[codex] Running command: /bin/bash -lc "git diff origin/main -- CMakeLists.txt cmake/AstraPlugin.cmake embedded/hal/CM...
+[codex] Command completed: /bin/bash -lc "git diff origin/main -- CMakeLists.txt cmake/AstraPlugin.cmake embedded/hal/CM... (exit 0)
+[codex] Running command: /bin/bash -lc "sed -n '310,620p' docs/plans/m4-pr4-shm-transport.md"
+[codex] Command completed: /bin/bash -lc "sed -n '310,620p' docs/plans/m4-pr4-shm-transport.md" (exit 0)
+[codex] Assistant message captured: The exchange paths appear to use the required acquire/release pairs and deadline latches. I’m...
+[codex] Running command: /bin/bash -lc 'cat tests/lockstep/shm_transport_test.cpp'
+[codex] Command completed: /bin/bash -lc 'cat tests/lockstep/shm_transport_test.cpp' (exit 0)
+[codex] Running command: /bin/bash -lc 'cat docs/architecture.md STATE.md PLAN.md docs/lessons.md docs/agents/README.m...
+[codex] Command completed: /bin/bash -lc 'cat docs/architecture.md STATE.md PLAN.md docs/lessons.md docs/agents/README.m... (exit 0)
+[codex] Running command: /bin/bash -lc 'cat tests/lockstep/hal_shm_test.cpp'
+[codex] Command completed: /bin/bash -lc 'cat tests/lockstep/hal_shm_test.cpp' (exit 0)
+[codex] Running command: /bin/bash -lc 'cat tests/lockstep/shm_transport_test.cpp'
+[codex] Command completed: /bin/bash -lc 'cat tests/lockstep/shm_transport_test.cpp' (exit 0)
+[codex] Running command: /bin/bash -lc 'cat tests/lockstep/shm_test_support.cpp'
+[codex] Command completed: /bin/bash -lc 'cat tests/lockstep/shm_test_support.cpp' (exit 0)
+[codex] Running command: /bin/bash -lc 'cat tests/lockstep/shm_test_support.hpp tests/lockstep/wraps.cpp'
+[codex] Command completed: /bin/bash -lc 'cat tests/lockstep/shm_test_support.hpp tests/lockstep/wraps.cpp' (exit 0)
+[codex] Running command: /bin/bash -lc 'cat tests/lockstep/timing_test.cpp tests/lockstep/echo_peer_test.cpp'
+[codex] Command completed: /bin/bash -lc 'cat tests/lockstep/timing_test.cpp tests/lockstep/echo_peer_test.cpp' (exit 0)
+[codex] Running command: /bin/bash -lc 'cat tests/lockstep/echo_peer.cpp tests/lockstep/echo_peer_stress_test.cpp test...
+[codex] Command completed: /bin/bash -lc 'cat tests/lockstep/echo_peer.cpp tests/lockstep/echo_peer_stress_test.cpp test... (exit 0)
+[codex] Running command: /bin/bash -lc "nl -ba embedded/hal/shm/hal_shm.cpp | sed -n '65,215p'; nl -ba plugins/sim/tra...
+[codex] Command completed: /bin/bash -lc "nl -ba embedded/hal/shm/hal_shm.cpp | sed -n '65,215p'; nl -ba plugins/sim/tra... (exit 0)
+[codex] Assistant message captured: I found a handshake deadline bypass: both sides can discard the wait helper’s deadline-checke...
+[codex] Running command: /bin/bash -lc "git diff origin/main -- embedded/hal/shm/hal_shm.cpp plugins/sim/transport/shm...
+[codex] Command completed: /bin/bash -lc "git diff origin/main -- embedded/hal/shm/hal_shm.cpp plugins/sim/transport/shm... (exit 0)
+[codex] Running command: /bin/bash -lc "head -n 8 docs/reviews/evidence/d020d57-full-gate.log; tail -n 9 docs/reviews/...
+[codex] Command completed: /bin/bash -lc "head -n 8 docs/reviews/evidence/d020d57-full-gate.log; tail -n 9 docs/reviews/... (exit 0)
+[codex] Assistant message captured: { "verdict": "needs-attention", "summary": "Do not ship d020d57 yet: handshake deadline enfor...
+[codex] Turn completed.
+# Codex Adversarial Review
+
+Target: branch diff against origin/main
+Verdict: needs-attention
+
+Do not ship d020d57 yet: handshake deadline enforcement and CLOSED classification have uncovered races. No additional material defect found in memory ordering, lost wakes, exchange deadlines, exchange close precedence, production cleanup, per-exchange allocations/exceptions, or single-writer/clock-site discipline. Reviewed against 7a349ee; retained validation logs report success. No files edited, builds performed, or tests run.
+
+Findings:
+- [medium] Handshake readiness can bypass an expired deadline (embedded/hal/shm/hal_shm.cpp:108-115)
+  The handshake reloads sim_state outside the deadline-checking helper and accepts READY immediately. Concrete interleaving: a wait returns kReturned with INIT before the deadline; the HAL is descheduled; the creator publishes READY after the deadline; the HAL resumes, reloads READY, and returns OK. The attach loop also permits this after a successful polling sleep. plugins/sim/transport/shm/shm.cpp:144-145 has the equivalent PEER_READY reload. Thus both sides can accept readiness first observed after their handshake budget, contrary to ADR-0024. Existing timeout and paused-creator tests do not force this gap.
+  Recommendation: Arm the HAL's handshake deadline before attachment and route readiness acceptance through a deadline-checked observation, retaining clock reads inside the existing clock helper. Consume the helper's checked value rather than an unchecked reload on both sides. Add deterministic tests that pause after a pre-deadline return and publish readiness after expiry, including the attach-to-ready path.
+- [medium] Handshake expiry skips the required CLOSED recheck (embedded/hal/shm/hal_shm.cpp:115-120)
+  If CLOSED is published while the HAL waits on sim_state, the helper can acquire-load CLOSED and then observe deadline expiry—for example, after being descheduled following the wake. This branch returns HANDSHAKE_TIMEOUT (exit 3) without inspecting that value or reloading sim_state. Joe's approved decision requires CLOSED during handshake to produce PROTOCOL (exit 5), with CLOSED rechecked after every wait return. The current ClosedDuringHandshakeIsProtocolError test covers an early wake, not the expiry boundary, so it misses this misclassification.
+  Recommendation: Acquire-check sim_state for CLOSED after every handshake wait return before classifying expiry or fault, returning PROTOCOL when observed. Add a wrapper-driven test that publishes CLOSED at a real handshake expiry and asserts status 5.
+
+Next steps:
+- Have the builder fix both handshake races and add deterministic regressions.
+- Rerun A4 and the full gate on the corrected candidate, then request focused independent review.

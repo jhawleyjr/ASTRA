@@ -1,0 +1,126 @@
+HEAD: d020d5722de247f1ad1b3cceba6a13fa0c4a828d  dirty: 0 paths
++ ctest --preset asan -R '(ShmTransport|HalShm|EchoPeer)' --no-tests=error
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m4-pr4-shm-transport/build/asan
+      Start 440: physics.NoAlloc.ZeroHeapAllocationsOverOneThousandFramesWithShmEchoPeer
+ 1/57 Test #440: physics.NoAlloc.ZeroHeapAllocationsOverOneThousandFramesWithShmEchoPeer .....   Passed    0.17 sec
+      Start 452: ShmTransport.HandshakeReturnsSentinelInitializesHeaderAndUnlinksName
+ 2/57 Test #452: ShmTransport.HandshakeReturnsSentinelInitializesHeaderAndUnlinksName ........   Passed    0.01 sec
+      Start 453: ShmTransport.PublishStoresPayloadThenSequence
+ 3/57 Test #453: ShmTransport.PublishStoresPayloadThenSequence ...............................   Passed    0.01 sec
+      Start 454: ShmTransport.EchoedAckIsObservedAndReplyCopiedWhole
+ 4/57 Test #454: ShmTransport.EchoedAckIsObservedAndReplyCopiedWhole .........................   Passed    0.01 sec
+      Start 455: ShmTransport.UnchangedAckIsReportedNotClassified
+ 5/57 Test #455: ShmTransport.UnchangedAckIsReportedNotClassified ............................   Passed    0.01 sec
+      Start 456: ShmTransport.OutOfOrderAckIsReportedVerbatim
+ 6/57 Test #456: ShmTransport.OutOfOrderAckIsReportedVerbatim ................................   Passed    0.01 sec
+      Start 457: ShmTransport.OutOfOrderAckHaltsThroughCore
+ 7/57 Test #457: ShmTransport.OutOfOrderAckHaltsThroughCore ..................................   Passed    0.02 sec
+      Start 458: ShmTransport.BadReplyMagicAndStaleReplyFrameHaltThroughCore
+ 8/57 Test #458: ShmTransport.BadReplyMagicAndStaleReplyFrameHaltThroughCore .................   Passed    0.02 sec
+      Start 459: ShmTransport.AckObservedAfterDeadlineIsExpiry
+ 9/57 Test #459: ShmTransport.AckObservedAfterDeadlineIsExpiry ...............................   Passed    1.21 sec
+      Start 460: ShmTransport.LateAckHaltsThroughCoreAsTimeout
+10/57 Test #460: ShmTransport.LateAckHaltsThroughCoreAsTimeout ...............................   Passed    0.72 sec
+      Start 461: ShmTransport.ExpiredDeadlineStaysExpiredUnderContinuousWakes
+11/57 Test #461: ShmTransport.ExpiredDeadlineStaysExpiredUnderContinuousWakes ................   Passed    0.51 sec
+      Start 462: ShmTransport.WaitUntilLatchesExpiryWhenTheKernelReturnsEarly
+12/57 Test #462: ShmTransport.WaitUntilLatchesExpiryWhenTheKernelReturnsEarly ................   Passed    0.01 sec
+      Start 463: ShmTransport.ContinuousWakesHaltThroughCoreAsTimeout
+13/57 Test #463: ShmTransport.ContinuousWakesHaltThroughCoreAsTimeout ........................   Passed    0.51 sec
+      Start 464: ShmTransport.OpenFailureReleasesDescriptorAndName
+14/57 Test #464: ShmTransport.OpenFailureReleasesDescriptorAndName ...........................   Passed    0.01 sec
+      Start 465: ShmTransport.HandshakeFailureReleasesMappingDescriptorAndName
+15/57 Test #465: ShmTransport.HandshakeFailureReleasesMappingDescriptorAndName ...............   Passed    0.21 sec
+      Start 466: ShmTransport.CloseNormalWritesClosedThenCloseSeqAndIsIdempotent
+16/57 Test #466: ShmTransport.CloseNormalWritesClosedThenCloseSeqAndIsIdempotent .............   Passed    0.01 sec
+      Start 467: ShmTransport.CloseAfterFailureWritesNothing
+17/57 Test #467: ShmTransport.CloseAfterFailureWritesNothing .................................   Passed    0.01 sec
+      Start 468: ShmTransport.SegmentNameMustMatchPattern
+18/57 Test #468: ShmTransport.SegmentNameMustMatchPattern ....................................   Passed    0.02 sec
+      Start 469: ShmTransport.StaleSegmentIsAnInitErrorAndIsLeftAlone
+19/57 Test #469: ShmTransport.StaleSegmentIsAnInitErrorAndIsLeftAlone ........................   Passed    0.01 sec
+      Start 470: HalShm.NowIsFrameDerivedAndSendPublishesTheRequestsSequence
+20/57 Test #470: HalShm.NowIsFrameDerivedAndSendPublishesTheRequestsSequence .................   Passed    0.01 sec
+      Start 471: HalShm.SendWithoutPendingFrameIsError
+21/57 Test #471: HalShm.SendWithoutPendingFrameIsError .......................................   Passed    0.01 sec
+      Start 472: HalShm.WaitWithReplyPendingIsError
+22/57 Test #472: HalShm.WaitWithReplyPendingIsError ..........................................   Passed    0.01 sec
+      Start 473: HalShm.UninitializedAndDoubleInitAreErrors
+23/57 Test #473: HalShm.UninitializedAndDoubleInitAreErrors ..................................   Passed    0.01 sec
+      Start 474: HalShm.InitCloseInitCycle
+24/57 Test #474: HalShm.InitCloseInitCycle ...................................................   Passed    0.01 sec
+      Start 475: HalShm.ExitStatusTable
+25/57 Test #475: HalShm.ExitStatusTable ......................................................   Passed    0.01 sec
+      Start 476: HalShm.RequestFrameMismatchIsProtocolError
+26/57 Test #476: HalShm.RequestFrameMismatchIsProtocolError ..................................   Passed    0.01 sec
+      Start 477: HalShm.RequestFrameHighBitsMismatchIsProtocolError
+27/57 Test #477: HalShm.RequestFrameHighBitsMismatchIsProtocolError ..........................   Passed    0.01 sec
+      Start 478: HalShm.RequestBadMagicIsProtocolError
+28/57 Test #478: HalShm.RequestBadMagicIsProtocolError .......................................   Passed    0.01 sec
+      Start 479: HalShm.StaleSegmentWithPublishedRequestIsProtocolError
+29/57 Test #479: HalShm.StaleSegmentWithPublishedRequestIsProtocolError ......................   Passed    0.01 sec
+      Start 480: HalShm.ClosedDuringHandshakeIsProtocolError
+30/57 Test #480: HalShm.ClosedDuringHandshakeIsProtocolError .................................   Passed    0.01 sec
+      Start 481: HalShm.BadHeaderIsImmediateBadLayout
+31/57 Test #481: HalShm.BadHeaderIsImmediateBadLayout ........................................   Passed    0.01 sec
+      Start 482: HalShm.CloseBeatsExpiry
+32/57 Test #482: HalShm.CloseBeatsExpiry .....................................................   Passed    0.21 sec
+      Start 483: HalShm.RequestAfterExpiryIsTimeout
+33/57 Test #483: HalShm.RequestAfterExpiryIsTimeout ..........................................   Passed    0.21 sec
+      Start 484: HalShm.WaitUntilLatchesExpiryWhenTheKernelReturnsEarly
+34/57 Test #484: HalShm.WaitUntilLatchesExpiryWhenTheKernelReturnsEarly ......................   Passed    0.01 sec
+      Start 485: HalShm.OrdinaryExpiryIsTimeout
+35/57 Test #485: HalShm.OrdinaryExpiryIsTimeout ..............................................   Passed    0.21 sec
+      Start 486: HalShm.CloseBetweenPreWaitCheckAndFutexWaitExitsPromptly
+36/57 Test #486: HalShm.CloseBetweenPreWaitCheckAndFutexWaitExitsPromptly ....................   Passed    0.01 sec
+      Start 487: HalShm.CreatorPausedBeforeSizingAndBeforeReadyAttachesCleanly
+37/57 Test #487: HalShm.CreatorPausedBeforeSizingAndBeforeReadyAttachesCleanly ...............   Passed    0.01 sec
+      Start 488: HalShm.WaitAndSendAllocateNothing
+38/57 Test #488: HalShm.WaitAndSendAllocateNothing ...........................................   Passed    0.01 sec
+      Start 489: EchoPeer.PeerStartedFirstCompletesHandshake
+39/57 Test #489: EchoPeer.PeerStartedFirstCompletesHandshake .................................   Passed    0.03 sec
+      Start 490: EchoPeer.SimStartedFirstCompletesHandshake
+40/57 Test #490: EchoPeer.SimStartedFirstCompletesHandshake ..................................   Passed    0.33 sec
+      Start 491: EchoPeer.NormalCompletionExitsPeerZeroPromptly
+41/57 Test #491: EchoPeer.NormalCompletionExitsPeerZeroPromptly ..............................   Passed    0.03 sec
+      Start 492: EchoPeer.SimulationCompletesTenThousandExchanges
+42/57 Test #492: EchoPeer.SimulationCompletesTenThousandExchanges ............................   Passed    1.50 sec
+      Start 493: EchoPeer.FailureCloseDoesNotReportCleanExit
+43/57 Test #493: EchoPeer.FailureCloseDoesNotReportCleanExit .................................   Passed    0.82 sec
+      Start 494: ShmTransport.SilentPeerWaitDurationIsTheTimeout
+44/57 Test #494: ShmTransport.SilentPeerWaitDurationIsTheTimeout .............................   Passed    0.51 sec
+      Start 495: ShmTransport.RepeatedWakeWithoutStoreDoesNotRestartDeadline
+45/57 Test #495: ShmTransport.RepeatedWakeWithoutStoreDoesNotRestartDeadline .................   Passed    0.51 sec
+      Start 496: ShmTransport.SignalsDuringWaitDoNotRestartDeadline
+46/57 Test #496: ShmTransport.SignalsDuringWaitDoNotRestartDeadline ..........................   Passed    0.51 sec
+      Start 497: ShmTransport.EachPublicationGetsItsOwnDeadline
+47/57 Test #497: ShmTransport.EachPublicationGetsItsOwnDeadline ..............................   Passed    0.91 sec
+      Start 498: ShmTransport.HandshakeTimeoutWithNoPeerIsTheBudgetAndLeavesNoSegment
+48/57 Test #498: ShmTransport.HandshakeTimeoutWithNoPeerIsTheBudgetAndLeavesNoSegment ........   Passed    1.02 sec
+      Start 499: EchoPeer.KillToHaltWithinOneTimeout
+49/57 Test #499: EchoPeer.KillToHaltWithinOneTimeout .........................................   Passed    0.55 sec
+      Start 500: EchoPeer.AbortToHaltWithinOneTimeout
+50/57 Test #500: EchoPeer.AbortToHaltWithinOneTimeout ........................................   Passed    0.55 sec
+      Start 501: EchoPeer.SimPauseLongerThanPeerTimeoutEndsPeerNonzeroAndHaltsNextExchange
+51/57 Test #501: EchoPeer.SimPauseLongerThanPeerTimeoutEndsPeerNonzeroAndHaltsNextExchange ...   Passed    1.23 sec
+      Start 502: HalShm.WaitReportsTimeoutAtPeerDeadline
+52/57 Test #502: HalShm.WaitReportsTimeoutAtPeerDeadline .....................................   Passed    0.51 sec
+      Start 503: HalShm.RepeatedWakeWithoutStoreDoesNotRestartPeerDeadline
+53/57 Test #503: HalShm.RepeatedWakeWithoutStoreDoesNotRestartPeerDeadline ...................   Passed    0.51 sec
+      Start 504: HalShm.NoSegmentIsHandshakeTimeout
+54/57 Test #504: HalShm.NoSegmentIsHandshakeTimeout ..........................................   Passed    0.51 sec
+      Start 505: EchoPeer_links_no_astra_core
+55/57 Test #505: EchoPeer_links_no_astra_core ................................................   Passed    0.02 sec
+      Start 506: HalShm_layout_c11_gcc
+56/57 Test #506: HalShm_layout_c11_gcc .......................................................   Passed    0.00 sec
+      Start 507: HalShm_layout_c11_clang
+57/57 Test #507: HalShm_layout_c11_clang .....................................................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 57
+
+Label Time Summary:
+lockstep    =  14.10 sec*proc (56 tests)
+physics     =   0.17 sec*proc (1 test)
+
+Total Test time (real) =  14.29 sec
+EXIT=0

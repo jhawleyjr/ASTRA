@@ -1,0 +1,8 @@
+Candidate: 937868c (superseded by d020d57); full gate FAILED at clang-tidy (hal_shm_test.cpp:262 modernize-avoid-c-arrays); all four presets' ctest passed before it.
+1390:100% tests passed, 0 tests failed out of 507
+2430:100% tests passed, 0 tests failed out of 508
+3634:100% tests passed, 0 tests failed out of 507
+4673:100% tests passed, 0 tests failed out of 507
+4853:/home/joe/repos/ASTRA/.claude/worktrees/m4-pr4-shm-transport/tests/lockstep/hal_shm_test.cpp:262:9: error: do not declare C-style arrays, use std::array<> instead [modernize-avoid-c-arrays,-warnings-as-errors]
+4956:error: Recipe `tidy` failed on line 59 with exit code 1
+4957:GATE_EXIT=1

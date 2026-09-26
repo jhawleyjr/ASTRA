@@ -44,6 +44,9 @@ find_package(yaml-cpp 0.8 REQUIRED CONFIG)
 
 include(AstraPlugin)
 add_subdirectory(icd)
+# The HAL, in-tree only until M4 PR 5 replaces this line with add_subdirectory(embedded) (ADR-0008;
+# docs/plans/m4-pr4-shm-transport.md Q-1).
+add_subdirectory(embedded/hal)
 add_subdirectory(core)
 if(SKBUILD OR ASTRA_BUILD_PYTHON)
   add_subdirectory(python)

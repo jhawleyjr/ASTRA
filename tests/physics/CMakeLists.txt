@@ -40,6 +40,12 @@ target_compile_definitions(astra_physics_tests PRIVATE
 # nesc/nesc_cases_test.cpp includes tests/golden/nesc/*.hpp (human-owned) as "golden/nesc/*.hpp", the
 # astra_frames_test pattern.
 target_include_directories(astra_physics_tests PRIVATE "${ASTRA_SOURCE_DIR}/tests")
+# M4 PR 4 (docs/plans/m4-pr4-shm-transport.md, R6): NoAlloc.*WithShmEchoPeer spawns the echo peer
+# through tests/lockstep's support code (tests/lockstep/CMakeLists.txt builds astra_echo_peer).
+target_sources(astra_physics_tests PRIVATE ../lockstep/shm_test_support.cpp)
+target_compile_definitions(astra_physics_tests PRIVATE
+  "ASTRA_ECHO_PEER_PATH=\"$<TARGET_FILE:astra_echo_peer>\"")
+add_dependencies(astra_physics_tests astra_echo_peer)
 gtest_discover_tests(astra_physics_tests TEST_PREFIX "physics." DISCOVERY_MODE PRE_TEST
                      PROPERTIES LABELS physics)
 
