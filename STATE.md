@@ -3,8 +3,8 @@
 ## In flight
 M4 PR 5 (`embedded/autopilot`, standalone embedded build, Q13 gain design), Tier 2: **approved by Joe 2026-09-26**, product
 and test candidate `fc22cc8` on branch `worktree-m4-pr5-autopilot` off `origin/main` `34eec2d`; later commits are documents
-only. Pushed as a draft PR whose body is the packet; stays draft, Joe squash-merges. PR 5 is merged once `origin/main`
-contains it. Plan: `docs/plans/m4-pr5-autopilot.md`. Packet: `docs/reviews/m4-pr5-autopilot-human.md` (approved). Findings:
+only. [Draft PR #56](https://github.com/jhawleyjr/ASTRA/pull/56), body = the packet (verified with `gh pr view --json
+body`); stays draft, Joe squash-merges. PR 5 is merged once `origin/main` contains it (open at `c612657`). Plan: `docs/plans/m4-pr5-autopilot.md`. Packet: `docs/reviews/m4-pr5-autopilot-human.md` (approved). Findings:
 `docs/reviews/m4-pr5-autopilot-review.md` (H-1 to H-3, verified).
 
 ## Last verified result
