@@ -1,11 +1,11 @@
 # STATE (rewritten each session, never appended; ≤ 40 lines; true at handoff)
 
 ## In flight
-M4 PR 6 (turbulence configs, `astra.lockstep`, M4 acceptance R1 to R4b, R12b), Tier 3: **at Joe's human review**.
-Candidate `4e418e1` (product and tests) on branch `worktree-m4-pr6-lockstep-acceptance` off `origin/main` `f4de27d`;
-later commits (head `2da6abc`) are evidence and records only. **Not pushed, no PR** (stop before push, as instructed).
-Plan: `docs/plans/m4-pr6-lockstep-acceptance.md` (revision 3, approved by Joe 2026-09-26). Packet:
-`docs/reviews/m4-pr6-lockstep-acceptance-human.md` (decision pending). Findings: `docs/reviews/m4-pr6-lockstep-acceptance-review.md`.
+M4 PR 6 (turbulence configs, `astra.lockstep`, M4 acceptance R1 to R4b, R12b), Tier 3: **approved by Joe 2026-09-26**
+on candidate `4e418e1` (product and tests), branch `worktree-m4-pr6-lockstep-acceptance` off `origin/main` `f4de27d`;
+later commits are documents only. Pushed as a draft PR whose body is the packet (verified with `gh pr view --json body`);
+Joe squash-merges. PR 6 is merged once `origin/main` contains it. Plan: `docs/plans/m4-pr6-lockstep-acceptance.md`.
+Packet (approved): `docs/reviews/m4-pr6-lockstep-acceptance-human.md`. Findings: `docs/reviews/m4-pr6-lockstep-acceptance-review.md`.
 
 ## Last verified result
 This session, on `4e418e1` with no edits during the gate: `./scripts/check-full.sh` exit 0, `check: OK` (debug 558,
@@ -17,15 +17,14 @@ round-2 verification (thread `01a0df61-8094-7690-b094-c1594d502d23`): approve, R
 none. The `dff89af` gate log is marked CONTAMINATED (edits during its pytest stage): not evidence.
 
 ## Next step
-1. Joe reviews the packet and decides on `4e418e1`. If approved: Joe (or Claude, if authorized) pushes the branch and
-   opens a draft PR with the packet as body; Joe squash-merges. PR 6 is merged once `origin/main` contains it.
-2. Then M4 PR 7 from a fresh worktree off it: PLAN.md M4 check-off, remove the duplicate §15 envelope-monitor bullet,
-   follow-ups, STATE.
-3. Nonblocking follow-up (owner: whoever next touches the gains): remove `OPTIONAL_GAIN_NAMES`/`kSideslip` support from
-   `tests/python/autopilot_design.py`.
-4. Follow-ups A (PR 2 CAS comment nits), B (frames citations; Joe arms the guard), C (recorder sizing for an absurd
-   `sim.frames`), and the wall-clock symbol scan remain as in the PR 5 handoff.
-PLAN.md untouched (M4 check-off is PR 7). Joe-owned: the stale `tests/golden/dynamics/capture_r1_golden.cpp`.
+1. After Joe's squash-merge is observed on `origin/main`: M4 PR 7 from a fresh worktree off it (PLAN.md M4 check-off,
+   remove the duplicate §15 envelope-monitor bullet, follow-ups, STATE).
+2. Nonblocking follow-ups (Joe, 2026-09-26): moderate throttle jitter from airspeed gusts through the speed loop (up
+   to 0.019 per exchange, no limit reached), revisit when a sensor or actuator model lands; the "trim 0.4986" label
+   overlaps the trace in `docs/reviews/evidence/7c7725d-throttle-moderate.svg` (cosmetic, file left as is).
+3. Carried: remove `OPTIONAL_GAIN_NAMES`/`kSideslip` from `tests/python/autopilot_design.py` (whoever next touches the
+   gains); follow-ups A (PR 2 CAS nits), B (frames citations; Joe arms the guard), C (recorder sizing), the wall-clock
+   symbol scan. PLAN.md untouched (PR 7). Joe-owned: the stale `tests/golden/dynamics/capture_r1_golden.cpp`.
 
 ## Tried / failed
 Correction rounds: 2/2 (Codex R-001 to R-003 on `7c7725d`; round 1 `dff89af`; round 2 `4e418e1`, tests only); failed

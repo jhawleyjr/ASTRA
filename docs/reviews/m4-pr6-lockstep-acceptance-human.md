@@ -9,13 +9,14 @@ unmoved). **Candidate `4e418e1`** (product and tests) on branch `worktree-m4-pr6
 - `dff89af` correction round 1 (R-001 to R-003); `4e418e1` **correction round 2** (tests only);
 - `9a1e761` evidence for `4e418e1` and the review record.
 
-The tree is clean. **Not pushed and no PR opened** (stop before push, as instructed).
+The tree is clean. After Joe's approval (Decision record) the branch is pushed as a draft PR whose body is this
+packet; Joe squash-merges.
 
 Spec/plan/task: [PR 6 plan, revision 3](../plans/m4-pr6-lockstep-acceptance.md), **approved by Joe 2026-09-26**, under
 the [M4 plan](../plans/m4-lockstep.md) PR 6 row, R1 to R4b, R12b, Q3, Q5, Q7, Q15, Q19, A6.
 Risk: Tier 3 (transport lifecycle and cleanup; acceptance of the milestone). No `core/`, `icd/`, `embedded/`, HAL,
 shm-layout, golden, tolerance-file or ADR change.
-Decision requested: approve behavior for this PR (the M4 acceptance evidence and the driver); then you push as a draft
+Decision requested (now decided, see Decision record): approve behavior for this PR (the M4 acceptance evidence and the driver); then you push as a draft
 PR and squash-merge. No release requested. PLAN.md's M4 check-off is PR 7.
 
 ## What changes and why
@@ -201,23 +202,29 @@ CMake/doc edits.
 
 ## Decision record
 
-State: pending
-Human decision/date/reference: pending
-Approved candidate/scope: pending (requested: `4e418e1`, product and tests; base `f4de27d`; Tier 3)
-Merge observed: not merged (not pushed; you push and squash-merge)
+State: **approved**
+Human decision/date/reference: **APPROVED by Joe, 2026-09-26**, on candidate `4e418e1`. Keep R2d. The four deviations
+in "What changes and why" are accepted. The accepted risks below are accepted as proposed.
+Approved candidate/scope: `4e418e1` (product and tests), base `f4de27d`, Tier 3. Later commits add documents only
+(evidence, records, this decision, STATE).
+Merge observed: pushed as a draft PR for Joe's squash-merge; the merge is observed once `origin/main` contains it
 Release authorization: not requested
 
 Significant tradeoff rationale: every lockstep run in pytest is a child process. That costs process start-up
 (about 20 s for the whole module) and a support script, and buys a real hard timeout (a GIL-holding `run()` cannot
 hang pytest), fresh-process R3, and a free pytest process to act as killer. The alternative, releasing the GIL on
 `run()`, was not needed.
-Accepted risks (proposed, yours to accept):
+Accepted risks (Joe, 2026-09-26):
 - timing flakiness under another session's machine load (owner: whoever sees it; trigger: an R4/R4b failure with
   another gate running);
-- R2 bands non-discriminating at seed 42 (owner: you, M4 acceptance wording).
+- R2 bands non-discriminating at seed 42; the M4 acceptance wording is unchanged (owner: Joe).
 Nonblocking follow-ups:
 - (carried from PR 5) remove `OPTIONAL_GAIN_NAMES`/`kSideslip` support from `tests/python/autopilot_design.py`
   (owner: whoever next touches the gains; PR 6 did not);
 - PLAN.md: the M4 check-off and the duplicate §15 bullet (PR 7);
-- the `astra_finalize_plugins()` hardcoded test-target list grew by two (the existing PLAN.md item covers it).
+- the `astra_finalize_plugins()` hardcoded test-target list grew by two (the existing PLAN.md item covers it);
+- (Joe, 2026-09-26) moderate throttle jitter from airspeed gusts through the speed loop, up to 0.019 per exchange,
+  no limit reached; revisit when a sensor or actuator model lands (no product change in this PR);
+- (Joe, 2026-09-26) the "trim 0.4986" label overlaps the trace in `evidence/7c7725d-throttle-moderate.svg`
+  (cosmetic; the file is left as is).
 Architectural decisions: none (ADR-0022, ADR-0023 and ADR-0024 followed; no new ADR).
