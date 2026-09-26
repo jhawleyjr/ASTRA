@@ -2,11 +2,11 @@
 
 ## In flight
 M4 PR 4 (shm transport `plugins/sim/transport/shm`, `embedded/hal` shm backend, shared layout header
-`embedded/hal/astra_shm_layout.h`, echo peer, `tests/lockstep`), Tier 3, at the **human-review checkpoint**. Product
+`embedded/hal/astra_shm_layout.h`, echo peer, `tests/lockstep`), Tier 3, **approved by Joe 2026-09-26**: product
 candidate `95369fe` on branch `worktree-m4-pr4-shm-transport` off `origin/main` `7a349ee` (#54; PR 3 is #53, merged).
-Later commits are documents only (packet, evidence, plan record, this file, lessons). Not pushed; no PR yet (a push
-and draft PR need Joe's go-ahead). Plan: `docs/plans/m4-pr4-shm-transport.md` (approved by Joe 2026-09-25, Q-1 to
-Q-8 plus three changes and four nits). Packet: `docs/reviews/m4-pr4-shm-transport-human.md` (decision pending).
+Later commits are documents only. Pushed; draft PR opened with the packet as its body (stays draft; Joe merges;
+`gh pr list --head worktree-m4-pr4-shm-transport`). PR 4 is merged once `origin/main` contains it. Plan:
+`docs/plans/m4-pr4-shm-transport.md`. Packet: `docs/reviews/m4-pr4-shm-transport-human.md` (decision recorded).
 
 ## Last verified result
 On `95369fe`, this session: full gate `./scripts/check-full.sh` exit 0, `check: OK`, presets 510/511/510/510,
@@ -17,8 +17,8 @@ needs-attention, R-1/R-2 accepted and fixed; round-1 verification on `d020d57..9
 (`d020d57-codex-adversarial.log`, `95369fe-codex-verify.log`). Mutation checks recorded in the plan.
 
 ## Next step
-1. Joe reviews the packet and decides; on his go-ahead Claude pushes and opens the draft PR; Joe squash-merges.
-   PR 4 is merged once `origin/main` contains it. Then M4 PR 5: `embedded/autopilot` (C++17, four PID loops),
+1. Joe squash-merges the PR 4 draft PR (approved candidate `95369fe`). Next task, from a fresh worktree off the
+   merged `origin/main`: M4 PR 5, `embedded/autopilot` (C++17, four PID loops),
    `embedded/CMakeLists.txt` + standalone `just embedded-standalone` (replace the top-level
    `add_subdirectory(embedded/hal)` line), autopilot `nm` boundary test, Q13 gain design (Tier 2).
 2. Follow-up A (comment-only PR): PR 2's CAS table test comment nits (`docs/reviews/m4-pr2-icd-pack-human.md`).

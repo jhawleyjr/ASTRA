@@ -7,7 +7,9 @@ Product candidate `95369fe` on branch `worktree-m4-pr4-shm-transport`, three com
 - `95369fe` correction round 1, Codex R-1 and R-2.
 
 The tree is clean at `95369fe` apart from untracked evidence logs. The commit that adds this packet, the
-evidence, and the plan's implementation record contains documents only. Not pushed; no PR opened.
+evidence, and the plan's implementation record (`f073be9`) contains documents only, as does the commit
+recording Joe's decision. Pushed on Joe's authorization (2026-09-26) and opened as a draft PR whose body is this
+packet.
 
 Spec/plan/task: [PR 4 plan](../plans/m4-pr4-shm-transport.md), approved by Joe on 2026-09-25 with Q-1 to Q-8
 as recommended plus three changes and four nits. It sits under the [M4 plan](../plans/m4-lockstep.md) PR 4 row
@@ -15,8 +17,8 @@ as recommended plus three changes and four nits. It sits under the [M4 plan](../
 
 Risk: Tier 3 (cross-process concurrency, futex memory ordering, a transport, health/halt behavior).
 
-Decision requested: approve behavior for this PR, and its squash-merge after I push and open the draft PR. The
-push needs your go-ahead. No release requested.
+Decision requested: approve behavior for this PR and its squash-merge. **Approved by Joe on 2026-09-26** (see the
+Decision record); the push and draft PR are authorized. No release requested.
 
 ## What changes and why
 
@@ -155,10 +157,15 @@ interface, API version, or dependency changed.
 
 ## Decision record
 
-State: pending
-Human decision/date/reference: pending
-Approved candidate/scope: pending
-Merge observed: not merged
+State: approved
+Human decision/date/reference: Joe, 2026-09-26, in session: "Approved: candidate 95369fe (docs f073be9),
+behavior as in the packet, with the unrecorded Codex model and low effort accepted as disclosed." He authorized
+the push of `worktree-m4-pr4-shm-transport` and a draft PR with this packet as its body; not to be merged or
+marked ready by Claude.
+Approved candidate/scope: product `95369fe`; documents `f073be9` plus the commit recording this decision
+(documents only). Behavior as described above. The unrecorded Codex review model, and the plan critique's
+`low` reasoning effort, are accepted as disclosed.
+Merge observed: none; Joe squash-merges
 Release authorization: not requested
 
 Significant tradeoff rationale: close after failure is silent (Q-3). CLOSED stays proof of normal completion; the
