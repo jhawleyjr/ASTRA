@@ -3,8 +3,10 @@
 Provider-specific procedures; shared rules remain in [AGENTS.md](../../AGENTS.md).
 
 - Work in a worktree: sessions start with `claude --worktree <name>`. A PreToolUse hook (`.claude/hooks/no-main.sh`)
-  blocks `git push` to `main` and any commit/merge/rebase while `main` is checked out. Push the branch, open the PR
-  yourself when those actions are authorized; Joe squash-merges. Keep exact candidate revisions in evidence; link that evidence from handoffs.
+  blocks `git push` to `main` and any commit/merge/rebase while `main` is checked out. Under the standing
+  authorization (AGENTS.md), commit as you go, push the task branch after each meaningful commit and open the draft PR
+  at the first commit; Joe squash-merges. A push after the PR opens does not re-run CI's `check`: see the
+  `gh pr ready --undo` / `gh pr ready` rerun in [workflow](../process/workflow.md#human-approval-and-mergerelease-gates). Keep exact candidate revisions in evidence; link that evidence from handoffs.
 - Model and effort are pinned in `.claude/settings.json` (`opusplan` at `high`, subagents on Sonnet); never change
   them. Escalation is Joe's (../process/workflow.md §Model and effort); physics diffs are checked by Joe reading them, not by effort.
 - Prefer the existing clangd/pyright LSP tools for symbol navigation; diagnostics are feedback, not the gate.
@@ -19,5 +21,5 @@ Provider-specific procedures; shared rules remain in [AGENTS.md](../../AGENTS.md
   explicitly. A dirty candidate plus earlier commits needs combined coverage. Codex is read-only;
   the built-in Claude reviewer and automatic stop-time model reviews do not replace it.
 - Use the revised [`/wrap`](../../.claude/skills/wrap/SKILL.md) when pausing or finishing meaningful work,
-  including local-only or blocked tasks. It records the current gate, validation/review evidence, and
-  next action; it does not require a push/open PR or advance unfinished work to the next milestone.
+  including blocked tasks. It records the current gate, validation/review evidence, and next action, pushes the
+  task branch and opens or updates the draft PR; it does not advance unfinished work to the next milestone.

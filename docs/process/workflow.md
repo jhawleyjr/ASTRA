@@ -3,7 +3,7 @@
 Baseline requested by Joe, September 2026. Replaces v2's prohibition on feature artifacts with
 optional templates and risk-based depth. Preserves `just check`, human-owned oracles, oracle/main protection
 hooks, model settings, draft PRs, and Joe's squash-merge authority. `/wrap` is revised for stage-aware
-handoff; its old mandatory push/open-PR closeout no longer applies. Git retains the v2 rationale.
+handoff; its push and draft-PR steps are governed by the standing authorization under Git and worktrees. Git retains the v2 rationale.
 
 ## Sources of truth and lightweight state
 
@@ -96,9 +96,14 @@ build, test, or policy behavior changes; record the scope and checks instead of 
 - Parallel builders are optional, only for independent owned paths with stable contracts and an
   explicit assignment. Prefer dependency waves; one integrator combines completed packages and runs
   full validation on the combined tree. Resolve semantic conflicts with the spec owner.
-- Use coherent, descriptive commits. Open draft PRs; push only the task branch. Joe squash-merges.
-  No agent merges, force-pushes shared history, changes branch protection, or publishes a release
-  without explicit authorization. Permission to implement locally is not permission to send messages.
+- Standing authorization (Joe, 2026-09-26): commit coherent, descriptively worded work as it lands, push the task
+  branch (only the task branch) after each meaningful commit, and open a draft PR as soon as the branch has its
+  first commit; keep its body current with the packet or brief. Nothing is held only locally. Joe squash-merges.
+  No agent commits or pushes to `main`, merges, force-pushes shared history, marks a PR ready as a merge signal,
+  changes branch protection, or publishes a release without explicit authorization. Permission to implement
+  and push is not permission to send messages (email, chat, issue or PR comments to other people).
+  A push after the PR opens does not re-run CI's `check`; see the `gh pr ready --undo` / `gh pr ready` rerun under
+  [Human approval and merge/release gates](#human-approval-and-mergerelease-gates) before merge. That rerun re-triggers `check` and is not itself a merge signal.
 
 ## Verification
 
@@ -299,11 +304,11 @@ current decision and checks (his own squash-merge may record that decision); onl
 
 Use [task status](../templates/task-status.md) for multiple packages; otherwise STATE/PR suffice.
 Use the revised [`/wrap`](../../.claude/skills/wrap/SKILL.md) when Claude pauses or finishes meaningful
-work at any stage, including a local-only handoff or blocked validation. It records the first unfinished
+work at any stage, including a blocked-validation handoff. It records the first unfinished
 gate, actual evidence, Codex findings/retry counts, human decisions and next action; it prepares the
-human packet when appropriate. It does not force commit/push/PR creation, infer approval from tests,
-or move to the next milestone while the current task is unfinished. Previously authorized Git actions
-remain authorized; handoff alone does not authorize them. Append lessons only when something actually
+human packet when appropriate. It pushes the task branch and opens or updates the draft PR under the
+standing authorization in Git and worktrees (never merging or marking ready as a merge signal); it does not
+infer approval from tests or move to the next milestone while the current task is unfinished. Append lessons only when something actually
 bit. Review process cost when useful from existing evidence; the obsolete retrospective skill is
 removed and no retro ceremony blocks a milestone. Add automation only for demonstrated repetitive work.
 
