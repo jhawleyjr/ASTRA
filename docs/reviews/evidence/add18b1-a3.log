@@ -1,0 +1,136 @@
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m4-pr3-core-seam/build/asan
+      Start 403: notional_transport_cruise_regression.NotionalTransportCruiseRegression.TwoRunsFromTheSameConfigAreBitwiseIdentical
+      Start 402: notional_transport_cruise_regression.NotionalTransportCruiseRegression.MatchesTheFrozenTrajectoryBitwise
+      Start 436: physics.NoAlloc.ZeroHeapAllocationsOverOneThousandFramesWithTheNotionalTransportCruiseConfig
+      Start 138: NotionalTransportCruiseConfig.LoadsAndStepsWithNoHalt
+      Start 439: physics.NoAlloc.ZeroHeapAllocationsOnTransportFaultsAndStickyHalts
+      Start 220: SimulationTransport.ConstantTrimRepliesMatchNoTransportRunBitForBit
+      Start 201: SimulationTransport.RecorderBytesAreIdenticalAcrossTwoRunsAndDifferWithTheSeed
+      Start 432: physics.NoAlloc.ZeroHeapAllocationsOverOneThousandFramesWithTheDomainCheckActive
+      Start 433: physics.NoAlloc.ZeroHeapAllocationsOverOneThousandFramesWithSubstageWrenchAndAtmosphere
+      Start 205: SimulationTransport.NonFiniteCommandHaltsNamingTheFieldUnderEveryInputAction
+      Start 435: physics.NoAlloc.ZeroHeapAllocationsOverOneThousandFramesWithAeroAndPropulsionModels
+      Start 431: physics.NoAlloc.ZeroHeapAllocationsOverOneThousandFramesWithDrydenWind
+      Start 430: physics.NoAlloc.ZeroHeapAllocationsOverOneThousandFrames
+      Start 437: physics.NoAlloc.ZeroHeapAllocationsOverOneThousandFramesWithAStateOwningModel
+      Start 438: physics.NoAlloc.ZeroHeapAllocationsOverOneThousandFramesWithLoopbackExchanges
+      Start 434: physics.NoAlloc.ZeroHeapAllocationsOverOneThousandFramesWithAWriteSeamInputConfigured
+ 1/63 Test #430: physics.NoAlloc.ZeroHeapAllocationsOverOneThousandFrames .............................................................   Passed    0.15 sec
+      Start 203: SimulationTransport.EachProtocolFaultHaltsNamingThePluginAtItsFrame
+ 2/63 Test #434: physics.NoAlloc.ZeroHeapAllocationsOverOneThousandFramesWithAWriteSeamInputConfigured ................................   Passed    0.15 sec
+      Start 219: SimulationTransport.RequestUsesThisFramesEnvironmentSample
+ 3/63 Test #437: physics.NoAlloc.ZeroHeapAllocationsOverOneThousandFramesWithAStateOwningModel ........................................   Passed    0.15 sec
+      Start 198: SimulationTransport.LoopbackExchangesAtEveryDivisorFrameAndCountsThem
+ 4/63 Test #438: physics.NoAlloc.ZeroHeapAllocationsOverOneThousandFramesWithLoopbackExchanges ........................................   Passed    0.16 sec
+      Start 204: SimulationTransport.UnchangedAckObservationsKeepWaitingAndNeverFail
+ 5/63 Test #198: SimulationTransport.LoopbackExchangesAtEveryDivisorFrameAndCountsThem ................................................   Passed    0.03 sec
+      Start 221: SimulationTransport.ConfigErrorsNameTheirPath
+ 6/63 Test #204: SimulationTransport.UnchangedAckObservationsKeepWaitingAndNeverFail ..................................................   Passed    0.03 sec
+      Start 222: SimulationTransport.TimeoutsOutsideTheUint32RangeAreRejected
+ 7/63 Test #203: SimulationTransport.EachProtocolFaultHaltsNamingThePluginAtItsFrame ..................................................   Passed    0.05 sec
+      Start 211: SimulationTransport.ATransportHaltIsStickyAndNeverRepublishes
+ 8/63 Test #222: SimulationTransport.TimeoutsOutsideTheUint32RangeAreRejected .........................................................   Passed    0.02 sec
+      Start 200: SimulationTransport.RecorderSerializesAFixedHeaderThenTheStreams
+ 9/63 Test #219: SimulationTransport.RequestUsesThisFramesEnvironmentSample ...........................................................   Passed    0.06 sec
+      Start 212: SimulationTransport.NonTransportHaltOnExchangeFrameIsSticky
+10/63 Test #221: SimulationTransport.ConfigErrorsNameTheirPath ........................................................................   Passed    0.03 sec
+      Start 213: SimulationTransport.WithoutATransportHaltsAreNotSticky
+11/63 Test #433: physics.NoAlloc.ZeroHeapAllocationsOverOneThousandFramesWithSubstageWrenchAndAtmosphere ..............................   Passed    0.22 sec
+      Start 202: SimulationTransport.ZeroOrderHoldHoldsBetweenExchangesAndCommitsOnTheArrivalFrame
+12/63 Test #435: physics.NoAlloc.ZeroHeapAllocationsOverOneThousandFramesWithAeroAndPropulsionModels ..................................   Passed    0.22 sec
+      Start 216: SimulationTransport.RecorderCapacityHaltsAtTheFirstFrameBeyondSimFrames
+13/63 Test #211: SimulationTransport.ATransportHaltIsStickyAndNeverRepublishes ........................................................   Passed    0.02 sec
+      Start 209: SimulationTransport.ValidationFollowsTheAdrOrder
+14/63 Test #431: physics.NoAlloc.ZeroHeapAllocationsOverOneThousandFramesWithDrydenWind ...............................................   Passed    0.23 sec
+      Start 207: SimulationTransport.CommandLimitsAreInclusiveAndAViolationHaltsWithoutClamping
+15/63 Test #200: SimulationTransport.RecorderSerializesAFixedHeaderThenTheStreams .....................................................   Passed    0.02 sec
+      Start 210: SimulationTransport.AFailedReplyStagesNoInputAtAll
+16/63 Test #212: SimulationTransport.NonTransportHaltOnExchangeFrameIsSticky ..........................................................   Passed    0.02 sec
+      Start 215: SimulationTransport.AFrameCounterDiscontinuityHalts
+17/63 Test #213: SimulationTransport.WithoutATransportHaltsAreNotSticky ...............................................................   Passed    0.02 sec
+      Start 214: SimulationTransport.SequenceRangeHaltsAtTheReservedValueIncludingOnRepeatedSteps
+18/63 Test #202: SimulationTransport.ZeroOrderHoldHoldsBetweenExchangesAndCommitsOnTheArrivalFrame ....................................   Passed    0.02 sec
+      Start 217: SimulationTransport.RequestCarriesThePreviousFramesPublishedWrench
+19/63 Test #216: SimulationTransport.RecorderCapacityHaltsAtTheFirstFrameBeyondSimFrames ..............................................   Passed    0.02 sec
+      Start 218: SimulationTransport.PreviousFrameIsInvalidWithoutACompletedFrameEvenAfterAProbe
+20/63 Test #209: SimulationTransport.ValidationFollowsTheAdrOrder .....................................................................   Passed    0.02 sec
+      Start 224: SimulationTransport.APluginThatIsNotATransportOrSpeaksAnotherIcdVersionIsRejected
+21/63 Test #207: SimulationTransport.CommandLimitsAreInclusiveAndAViolationHaltsWithoutClamping .......................................   Passed    0.02 sec
+      Start 208: SimulationTransport.AnUnmappedFieldOutsideItsLimitStillHalts
+22/63 Test #210: SimulationTransport.AFailedReplyStagesNoInputAtAll ...................................................................   Passed    0.02 sec
+      Start 199: SimulationTransport.NoTransportBlockRegistersNoTransportSignals
+23/63 Test #205: SimulationTransport.NonFiniteCommandHaltsNamingTheFieldUnderEveryInputAction .........................................   Passed    0.25 sec
+      Start 206: SimulationTransport.ThrottleMismatchHaltsNamingThrottle
+24/63 Test #215: SimulationTransport.AFrameCounterDiscontinuityHalts ..................................................................   Passed    0.02 sec
+      Start 129: LoopbackTransport.SpuriousWakeupsReturnTheUnchangedValueBeforeTheAck
+25/63 Test #214: SimulationTransport.SequenceRangeHaltsAtTheReservedValueIncludingOnRepeatedSteps .....................................   Passed    0.02 sec
+      Start 130: LoopbackTransport.ScriptedFaultsShapeTheObservationOrThePayload
+26/63 Test #432: physics.NoAlloc.ZeroHeapAllocationsOverOneThousandFramesWithTheDomainCheckActive .....................................   Passed    0.26 sec
+      Start 127: LoopbackTransport.IsATransportSpeakingThisIcdVersionAndStartsAtTheSentinel
+27/63 Test #217: SimulationTransport.RequestCarriesThePreviousFramesPublishedWrench ...................................................   Passed    0.02 sec
+      Start 133: LoopbackTransport.MalformedPeerConfigIsAConfigErrorNamingTheKey
+28/63 Test #218: SimulationTransport.PreviousFrameIsInvalidWithoutACompletedFrameEvenAfterAProbe ......................................   Passed    0.02 sec
+      Start 223: SimulationTransport.ATransportWithoutPhysicsIsAConfigErrorAtTransport
+29/63 Test #224: SimulationTransport.APluginThatIsNotATransportOrSpeaksAnotherIcdVersionIsRejected ....................................   Passed    0.02 sec
+      Start 132: LoopbackTransport.AScriptedHandshakeFailureThrowsFromOpen
+30/63 Test #129: LoopbackTransport.SpuriousWakeupsReturnTheUnchangedValueBeforeTheAck .................................................   Passed    0.01 sec
+      Start 131: LoopbackTransport.ScheduleChangesTakeEffectFromTheirFrame
+31/63 Test #208: SimulationTransport.AnUnmappedFieldOutsideItsLimitStillHalts .........................................................   Passed    0.02 sec
+      Start 128: LoopbackTransport.EchoesTheFrameWithItsCommandsInAZeroedReply
+32/63 Test #130: LoopbackTransport.ScriptedFaultsShapeTheObservationOrThePayload ......................................................   Passed    0.01 sec
+      Start 448: notional_transport_turbofan_wrench.NotionalTransportTurbofanWrench.ConditionOCatchesADensityWiringBug
+33/63 Test #199: SimulationTransport.NoTransportBlockRegistersNoTransportSignals ......................................................   Passed    0.02 sec
+      Start 449: notional_transport_turbofan_wrench.NotionalTransportTurbofanWrench.ConditionZIsFiniteAndUnaffectedByTrueAirspeed
+34/63 Test #127: LoopbackTransport.IsATransportSpeakingThisIcdVersionAndStartsAtTheSentinel ...........................................   Passed    0.01 sec
+      Start 443: notional_transport_aero_wrench.NotionalTransportAeroWrench.ConditionNReproducesThePureMathAnswer
+35/63 Test #206: SimulationTransport.ThrottleMismatchHaltsNamingThrottle ..............................................................   Passed    0.02 sec
+      Start 450: notional_transport_turbofan_wrench.NotionalTransportTurbofanWrench.SymmetricEqualThrottleNetYawMomentIsExactlyZero
+36/63 Test #133: LoopbackTransport.MalformedPeerConfigIsAConfigErrorNamingTheKey ......................................................   Passed    0.01 sec
+      Start 445: notional_transport_aero_wrench.NotionalTransportAeroWrench.ConditionZIsExactlyZeroAtZeroTrueAirspeed
+37/63 Test #223: SimulationTransport.ATransportWithoutPhysicsIsAConfigErrorAtTransport ................................................   Passed    0.01 sec
+      Start 447: notional_transport_turbofan_wrench.NotionalTransportTurbofanWrench.ConditionNReproducesThePureMathAnswer
+38/63 Test #132: LoopbackTransport.AScriptedHandshakeFailureThrowsFromOpen ............................................................   Passed    0.01 sec
+      Start 446: notional_transport_aero_wrench.NotionalTransportAeroWrench.InfiniteDensityReturnsTheNonFiniteSentinel
+39/63 Test #439: physics.NoAlloc.ZeroHeapAllocationsOnTransportFaultsAndStickyHalts ...................................................   Passed    0.28 sec
+      Start 399: notional_transport_mass.NotionalTransportMass.MassAndDiagonalInertiaMatchTheTranscribedSource
+40/63 Test #449: notional_transport_turbofan_wrench.NotionalTransportTurbofanWrench.ConditionZIsFiniteAndUnaffectedByTrueAirspeed .....   Passed    0.01 sec
+      Start 444: notional_transport_aero_wrench.NotionalTransportAeroWrench.ConditionOReproducesThePureMathAnswer
+41/63 Test #448: notional_transport_turbofan_wrench.NotionalTransportTurbofanWrench.ConditionOCatchesADensityWiringBug ................   Passed    0.01 sec
+      Start 401: notional_transport_mass.NotionalTransportMass.PrincipalAxisTiltMatchesTheTranscribedSourceNotAnAssumedValue
+42/63 Test #443: notional_transport_aero_wrench.NotionalTransportAeroWrench.ConditionNReproducesThePureMathAnswer .....................   Passed    0.01 sec
+      Start 400: notional_transport_mass.NotionalTransportMass.ConfigIxzIsTheNegatedTensorEntry
+43/63 Test #131: LoopbackTransport.ScheduleChangesTakeEffectFromTheirFrame ............................................................   Passed    0.01 sec
+      Start 406: notional_transport_aero_math.NotionalTransportAeroMath.ConditionOOffNominalAllTermsNonzero
+44/63 Test #128: LoopbackTransport.EchoesTheFrameWithItsCommandsInAZeroedReply ........................................................   Passed    0.01 sec
+      Start 408: notional_transport_turbofan_math.NotionalTransportTurbofanMath.ConditionOOffNominalThrottleAndDensity
+45/63 Test #450: notional_transport_turbofan_wrench.NotionalTransportTurbofanWrench.SymmetricEqualThrottleNetYawMomentIsExactlyZero ...   Passed    0.01 sec
+      Start 409: notional_transport_turbofan_math.NotionalTransportTurbofanMath.SymmetricEqualThrottleNetYawMomentIsExactlyZero
+46/63 Test #447: notional_transport_turbofan_wrench.NotionalTransportTurbofanWrench.ConditionNReproducesThePureMathAnswer .............   Passed    0.01 sec
+      Start 407: notional_transport_turbofan_math.NotionalTransportTurbofanMath.ConditionNNominalHalfThrottle
+47/63 Test #446: notional_transport_aero_wrench.NotionalTransportAeroWrench.InfiniteDensityReturnsTheNonFiniteSentinel ................   Passed    0.01 sec
+      Start 405: notional_transport_aero_math.NotionalTransportAeroMath.ConditionNNominalWingsLevel
+48/63 Test #445: notional_transport_aero_wrench.NotionalTransportAeroWrench.ConditionZIsExactlyZeroAtZeroTrueAirspeed .................   Passed    0.01 sec
+49/63 Test #399: notional_transport_mass.NotionalTransportMass.MassAndDiagonalInertiaMatchTheTranscribedSource ........................   Passed    0.01 sec
+50/63 Test #406: notional_transport_aero_math.NotionalTransportAeroMath.ConditionOOffNominalAllTermsNonzero ...........................   Passed    0.01 sec
+51/63 Test #409: notional_transport_turbofan_math.NotionalTransportTurbofanMath.SymmetricEqualThrottleNetYawMomentIsExactlyZero .......   Passed    0.01 sec
+52/63 Test #408: notional_transport_turbofan_math.NotionalTransportTurbofanMath.ConditionOOffNominalThrottleAndDensity ................   Passed    0.01 sec
+53/63 Test #400: notional_transport_mass.NotionalTransportMass.ConfigIxzIsTheNegatedTensorEntry .......................................   Passed    0.01 sec
+54/63 Test #444: notional_transport_aero_wrench.NotionalTransportAeroWrench.ConditionOReproducesThePureMathAnswer .....................   Passed    0.01 sec
+55/63 Test #401: notional_transport_mass.NotionalTransportMass.PrincipalAxisTiltMatchesTheTranscribedSourceNotAnAssumedValue ..........   Passed    0.01 sec
+56/63 Test #407: notional_transport_turbofan_math.NotionalTransportTurbofanMath.ConditionNNominalHalfThrottle .........................   Passed    0.01 sec
+57/63 Test #405: notional_transport_aero_math.NotionalTransportAeroMath.ConditionNNominalWingsLevel ...................................   Passed    0.01 sec
+58/63 Test #220: SimulationTransport.ConstantTrimRepliesMatchNoTransportRunBitForBit ..................................................   Passed    0.42 sec
+59/63 Test #201: SimulationTransport.RecorderBytesAreIdenticalAcrossTwoRunsAndDifferWithTheSeed .......................................   Passed    0.43 sec
+60/63 Test #138: NotionalTransportCruiseConfig.LoadsAndStepsWithNoHalt ................................................................   Passed    0.64 sec
+61/63 Test #436: physics.NoAlloc.ZeroHeapAllocationsOverOneThousandFramesWithTheNotionalTransportCruiseConfig .........................   Passed    0.64 sec
+62/63 Test #402: notional_transport_cruise_regression.NotionalTransportCruiseRegression.MatchesTheFrozenTrajectoryBitwise .............   Passed  171.39 sec
+63/63 Test #403: notional_transport_cruise_regression.NotionalTransportCruiseRegression.TwoRunsFromTheSameConfigAreBitwiseIdentical ...   Passed  341.51 sec
+
+100% tests passed, 0 tests failed out of 63
+
+Label Time Summary:
+physics    = 515.45 sec*proc (20 tests)
+unit       =   2.45 sec*proc (43 tests)
+
+Total Test time (real) = 341.51 sec
+exit=0
