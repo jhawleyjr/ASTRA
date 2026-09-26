@@ -13,7 +13,9 @@ merged once `origin/main` contains it. Plan row: `docs/plans/m4-lockstep.md` PR 
 ## Last verified result
 This session, first candidate `a2e9215`: A1 exit 0 both; Codex general review (`0fcae33..a2e9215`, thread
 `01a0dfbe-f9f8-7fa0-83ea-ded2ec63602d`) no actionable defects (`docs/reviews/evidence/a2e9215-codex-review.log`).
-Round 1 candidate: A1 and the Codex delta review (`6086259..HEAD`) are pending until recorded here.
+Round 1 candidate `3b24a0c`: A1 exit 0 both; Codex review of the delta only (`--base 6086259`, `6086259..3b24a0c`,
+thread `01a0dfc2-d21d-75f3-a9f4-5f17edebdf67`): exit 0, no actionable defects, matches the evidence and transport
+ADRs (`docs/reviews/evidence/3b24a0c-codex-review.log`). Later commits: this record only.
 `docs_check.py` does not scan PLAN.md, STATE.md or architecture.md; `git diff --check` covers whitespace only.
 No product, test, golden, tolerance or ADR file changed, so no gate was run for this PR. M4's acceptance evidence is
 prior-session (PR 6, `4e418e1`): full gate exit 0, `check: OK` (`docs/reviews/evidence/4e418e1-full-gate.log`); A6
