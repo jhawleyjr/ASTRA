@@ -29,6 +29,9 @@ ASTRA is a vehicle-agnostic 6-DoF framework: C++23 core, Python bindings, real e
   Claude's guard is described in the workflow; other agents must honor the same boundary without relying on a hook.
 - Use a task branch, never commit/merge/rebase on `main` or push to it. One writer per checkout; separate worktrees
   for concurrent builders. Preserve an explicitly assigned branch. Joe squash-merges; PRs start as drafts.
+- Standing authorization (Joe): commit coherent work as you go, push the task branch after each meaningful commit, and
+  open the draft PR at the first commit; hold nothing only locally. Integrate `main` by merging it into the task
+  branch; never rebase or force-push a pushed branch. Never merge a PR, mark ready as a merge signal, or release.
 - Codex reviews Claude's candidate in fresh context; Codex does not implement review fixes. Treat findings as
   claims to verify; follow the bounded fix loop.
 - Report commands actually run, exit results, and gaps. A started job or plausible trace is not verified evidence.

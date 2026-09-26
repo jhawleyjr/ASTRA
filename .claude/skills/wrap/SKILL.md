@@ -62,11 +62,14 @@ to wrap. If later changes invalidate evidence, mark the affected gate pending an
 
 ## Git and next action
 
-A local or dirty-tree handoff is valid. Do not demand a clean tree or create commits, push, open a PR,
-mark ready, merge or release merely because `/wrap` ran. Complete commit/push/draft-PR actions only
-when already authorized by the task; preserve unrelated changes. Missing authorization is a pending
-handoff action, not a reason to interrupt for permission. Inspect and record the result of any action;
-never replace an existing PR body with a claim that unrun checks passed.
+Under the standing authorization ([workflow](../../../docs/process/workflow.md#git-and-worktrees)), commit
+the coherent work, push the task branch, and open the draft PR if none exists, or update its body with the
+handoff/packet if one does; nothing is held only locally. Preserve unrelated changes and never sweep them into
+the commit. Do not merge, mark ready as a merge signal, push to `main` or release. A push after the PR opens
+does not re-run CI's `check`; note the `gh pr ready --undo` / `gh pr ready` rerun as a pre-merge step, per the
+workflow. Inspect and record the result of every action (`gh pr view --json body`); never replace a PR body
+with a claim that unrun checks passed. A blocked or dirty-tree handoff is still valid: push what is coherent
+and say what is not.
 
 End with a short handoff: actual stage, completed work, evidence/gaps, unresolved findings and the
 next action/owner. Provide a 3–10 line continuation prompt with artifact paths and acceptance commands.

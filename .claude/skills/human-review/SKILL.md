@@ -28,5 +28,6 @@ base/head and dirty-tree scope) first; update it in place rather than writing a 
   Changed candidates require the workflow's renewed validation/review. Never invent approval.
 - For release preparation, cover the workflow's merged-tree checks, version/provenance, artifact checksums
   if any, smoke checks, rollback and observation owner. Keep release permission separate from merge.
-- Save locally unless updating the PR is already authorized. Packet preparation itself does not push,
-  publish, merge or release. Return the packet location and the exact remaining decision/next action.
+- Push the task branch and update the draft PR body with the packet by default (standing authorization,
+  [workflow](../../../docs/process/workflow.md#git-and-worktrees)); verify the body with `gh pr view --json body`.
+  Packet preparation itself does not merge, mark ready as a merge signal, or release. Return the packet location and the exact remaining decision/next action.
