@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -259,13 +260,12 @@ TEST_F(HalShm, BadHeaderIsImmediateBadLayout) {
     const char* name;
     std::function<void(astra_shm_header_v1&)> corrupt;
   };
-  const Case cases[] = {
-      // NOLINT(modernize-avoid-c-arrays): a local table
+  const std::array<Case, 4> cases = {{
       {"magic", [](astra_shm_header_v1& h) { h.magic ^= 1U; }},
       {"layout version", [](astra_shm_header_v1& h) { h.layout_version += 1U; }},
       {"layout size", [](astra_shm_header_v1& h) { h.layout_size += 8U; }},
       {"icd version", [](astra_shm_header_v1& h) { h.icd_version += 1U; }},
-  };
+  }};
   for (const Case& c : cases) {
     SCOPED_TRACE(c.name);
     const std::string segment = shm_test::unique_segment();
