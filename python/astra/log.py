@@ -112,7 +112,15 @@ def load(path: str | Path, *, allow_incomplete: bool = False) -> RunLog:
     except OSError as error:
         raise LogFormatError(f"{path}: not a readable HDF5 file ({error})") from error
     with file:
-        return _read(path, file, allow_incomplete)
+        try:
+            return _read(path, file, allow_incomplete)
+        except (KeyError, OSError) as error:
+            # h5py's errors for an object it cannot open or read. A failed close_log() leaves
+            # such a file (a real RLIMIT_FSIZE failure opens but has no readable root object), so
+            # it is refused as incomplete; allow_incomplete cannot read what is not there.
+            raise IncompleteLogError(
+                f"{path}: an HDF5 object cannot be read ({error}); the file was not closed cleanly"
+            ) from error
 
 
 def replay(path: str | Path, out: str | Path, *, plugin_dir: str | Path | None = None) -> bool:

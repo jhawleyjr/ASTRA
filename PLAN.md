@@ -130,6 +130,9 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
     sticky `kLog`, drain/`flush_log`/`close_log`, provenance, `/plugins`, `/writes`, `/summary`,
     `/final_state`; bindings and `astra.lockstep.Session`. Plan: [plan](docs/plans/m5-tooling.md). Packet: in
     the PR body.
+  - PR 5 (#67): `astra.log`: `load` (pandas per rate group; refuses a log without `complete = 1` or inconsistent
+    with its `/summary`), `replay` (byte identity; refuses transport and `LOG`-halted logs); h5py and pandas
+    pinned. Plan: [plan](docs/plans/m5-tooling.md). Packet: in the PR body.
 
 ## Open items
 
@@ -229,6 +232,12 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
 - [ ] Evaluate Jev (TypeSafe AI) for workflow routing: model/effort selection at session launch and context
       selection, advisory with today's fixed settings as the fallback and file-path rules for Tier 3 kept
       (origin: Joe, 2026-09-26; owner: Joe, starting with console.typesafe.ai signup).
+- [ ] Record how a run log was finalized (origin: M5 PR 5; Joe 2026-09-27, Tier 3, scheduling is Joe's call):
+      `close_log()` versus the `Simulation` destructor, so `astra.log.load` can flag, not refuse, a
+      destructor-finalized log (`Session` relies on the destructor path). A driver that raises mid-run leaves its
+      `Simulation` to GC and the destructor writes a consistent file with `complete = 1`, which `load`'s checks
+      cannot tell apart. Changes ADR-0025's Finalization, so it needs a superseding ADR. Until then, the PR 6 and
+      PR 7 consumers assert `frames_run == duration/dt` and no unexpected halt. Not started.
 
 ## Recorded only here
 
