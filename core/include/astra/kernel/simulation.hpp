@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "astra/config/config.hpp"
+#include "astra/kernel/derived_signals.hpp"
 #include "astra/kernel/exchange_recorder.hpp"
 #include "astra/kernel/health_monitor.hpp"
 #include "astra/kernel/lockstep_exchange.hpp"
@@ -238,6 +239,9 @@ class Simulation {
   // registers &counter_ pointers into registry_, so the monitor's address must survive every move
   // this Simulation goes through (a by-value member would dangle those pointers on the first move).
   std::unique_ptr<HealthMonitor> health_;
+  // M5 PR 3 (ADR-0026): the v<i>.derived.* stage, null when no vehicle has physics. unique_ptr for
+  // the same reason as health_: the registry holds pointers into it across every move.
+  std::unique_ptr<DerivedSignals> derived_;
   // M4 PR 3 (ADR-0022): null without a "transport" block. unique_ptr for the same reason as
   // health_ (its transport.* signals and HaltReason sources must keep their addresses across
   // moves). Declared last, so it is destroyed first: its destructor closes the transport while

@@ -209,6 +209,9 @@ class Vehicle {
 
   [[nodiscard]] std::uint32_t index() const noexcept { return index_; }
   [[nodiscard]] const std::string& name() const noexcept { return name_; }
+  // Whether physics is configured (a rigid-body block and its EOM); ADR-0026 publishes derived
+  // signals only for such a vehicle.
+  [[nodiscard]] bool has_physics() const noexcept { return rigid_body_.has_value(); }
   // The rigid-body block: the combined state buffer's own first 13 doubles, by value (a small
   // Eigen::Map, not an owning copy -- ADR-0021's own retype, matching VehicleState's). The mutable
   // overload is how Simulation::from_config/for_testing write the parsed "initial.state" into the

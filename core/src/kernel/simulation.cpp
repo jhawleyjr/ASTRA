@@ -1,6 +1,7 @@
 #include "astra/kernel/simulation.hpp"
 
 #include <Eigen/Core>
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -315,6 +316,17 @@ HaltReason latch_vehicle_inputs(Vehicle& vehicle, HealthMonitor& health,
   return health.check_input(bad_input, ctx, vehicle.index());
 }
 
+// ADR-0026: the derived-signal stage when any vehicle has physics, else null (a config without a
+// "physical" block publishes no v<i>.derived.* signals). Init-time: before registry freeze.
+std::unique_ptr<DerivedSignals> make_derived_signals(std::span<const Vehicle> vehicles,
+                                                     SignalRegistry& registry) {
+  if (std::ranges::none_of(vehicles,
+                           [](const Vehicle& vehicle) { return vehicle.has_physics(); })) {
+    return nullptr;
+  }
+  return std::make_unique<DerivedSignals>(vehicles, registry);
+}
+
 }  // namespace
 
 Simulation Simulation::from_config(const Config& config, std::filesystem::path plugin_dir) {
@@ -446,6 +458,10 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
   // check_wind_shareable's own comment for how it is actually exercised (Simulation::for_testing).
   check_wind_shareable(wind, sim.vehicles_.size(), wind_plugin_path, config.origin());
 
+  // M5 PR 3 (ADR-0026): after every vehicle is initialized (has_physics() is known), before the
+  // transport's signals and registry freeze.
+  sim.derived_ = make_derived_signals(sim.vehicles_, sim.registry_);
+
   // M4 PR 3 (ADR-0022): after every bind_inputs() (vehicle.init above), so the command map resolves
   // with no load-order dependency; before registry freeze and the unknown-key check, so its signals
   // register and its keys count as consumed. The handshake itself runs last, below.
@@ -573,6 +589,9 @@ Simulation Simulation::for_testing(const PluginLoader& loader,
   // this is the only way it is exercised today.
   check_wind_shareable(wind, sim.vehicles_.size(), "for_testing's wind", "Simulation::for_testing");
 
+  // Same stage, same point in init, as from_config (ADR-0026).
+  sim.derived_ = make_derived_signals(sim.vehicles_, sim.registry_);
+
   sim.health_ = std::make_unique<HealthMonitor>();
   sim.health_->init(Config::from_string("{}\n", "Simulation::for_testing"), sim.registry_);
   sim.registry_.freeze();
@@ -643,6 +662,13 @@ HaltReason Simulation::step_frame(const StepContext& ctx) noexcept {
   for (Vehicle& vehicle : vehicles_) {
     const EnvironmentSample sample = sample_environment(ctx, vehicle);
     vehicle.set_environment(sample);
+    // M5 PR 3 (ADR-0026): the derived signals at this vehicle's frame-start state, after its
+    // environment sample and before the exchange and its step(); a separate pack_sim_to_sw call,
+    // so the exchange's own request is untouched. earth_ is non-null whenever a vehicle has
+    // physics.
+    if (derived_ != nullptr && vehicle.has_physics()) {
+      derived_->pack(ctx, vehicle, sample, *earth_);
+    }
     // M4 PR 3 (ADR-0022, architecture §5): the lockstep exchange, after this frame's environment
     // sample and before this vehicle's step(), so latch() below commits its commands this frame.
     // earth_ is non-null whenever exchange_ is (from_config requires "physical" for a transport).
@@ -691,6 +717,9 @@ HaltReason Simulation::step_frame(const StepContext& ctx) noexcept {
         }
       }
     }
+  }
+  if (derived_ != nullptr) {
+    derived_->note_completed(ctx.frame);  // ADR-0026: frame k+1's ax ay az may now be valid
   }
   clock_.advance();
   return {};
