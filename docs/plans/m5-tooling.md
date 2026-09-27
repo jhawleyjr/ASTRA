@@ -1,13 +1,15 @@
 # M5 Tooling: spec, plan and PR decomposition
 
-Status: draft, pending Joe's decisions on the open questions (Q1 to Q24) and approval of the spec/plan
+Status: **approved by Joe (spec and plan), 2026-09-26**, with Q1 to Q24 decided as recommended and the notes
+under "Joe's decisions"
 Owner: Joe
 Risk: 3 overall. PR 3 and PR 4 change `core/kernel/` (per-frame order, health behavior); the rest are Tier 2
 or lower. Each PR's own tier is in the decomposition table.
 Intent/approval: Joe's M5 planning request (2026-09-26): planning only, spec/plan/PR decomposition with
 acceptance commands and binding ADRs, unpinned decisions listed as questions with a recommendation each,
-HDF5 is the only dependency already approved, one Codex plan critique before Joe sees it. **No spec, plan or
-question is approved yet.**
+HDF5 is the only dependency already approved, one Codex plan critique before Joe sees it. Spec and plan
+approved by Joe, 2026-09-26 (see "Joe's decisions"). Approval of the plan does not approve any later PR's
+diff; each PR still goes through its tier's review and Joe's merge.
 Base: `origin/main` = `d3e82e3`.
 Architecture/ADRs: [architecture](../architecture.md) §2 (principles 1 to 3), §5 (per-frame order), §9
 (signals, logger, replay), §12 (`astra.log`, `astra.montecarlo`, `astra.scenario`, `astra.fgbridge`), §13
@@ -380,7 +382,7 @@ merge. Every code PR runs `./scripts/check-full.sh` (exit 0 and `check: OK`) and
 
 | PR | Scope | Tier | Binding ADRs | Depends | Acceptance commands (beyond the full gate) |
 |---|---|---|---|---|---|
-| 1 | ADR-0025, ADR-0026, architecture rev 9 (§5, §9, §12 incl. the bridge rate, §15 summary, §16 note), PLAN.md M5 PR lines | 2 | 0005, 0010, 0011, 0022, 0023 | Q1, Q3 to Q13, Q23 decided | `python3 scripts/docs_check.py`; `git diff --check`; one Codex review; no full gate (docs only) |
+| 1 | ADR-0025, ADR-0026, architecture rev 9 (§5, §9, §12 incl. the bridge rate, §15 summary, §16 note), AGENTS.md's wall-clock wording narrowed to `core/`, `plugins/`, `aircraft/` (Q23), PLAN.md M5 PR lines | 2 | 0005, 0010, 0011, 0022, 0023 | Q1, Q3 to Q13, Q23 decided | `python3 scripts/docs_check.py`; `git diff --check`; one Codex review; no full gate (docs only) |
 | 2 | `find_package(HDF5 COMPONENTS C)`, RAII wrapper in `core/signals/` (file, group, dataset append, attribute; errors to typed exceptions; time tracking off, version bounds fixed); unit tests with temp files; ASan/LSan behavior with the uninstrumented libhdf5 settled | 2 | 0005 | PR 1 | `ctest --preset asan -R Hdf5 --no-tests=error` (PR 2's new suite); same under `static-plugins`; a byte-identity test of two identical writes (Q7) |
 | 3 | Derived signals: a separate frame-start `pack_sim_to_sw` per vehicle (exchange untouched), previous-frame validity, `v<i>.derived.*` | 3 | 0001, 0002, 0010, 0022, 0026 | PR 1 | `ctest --preset asan -R 'Derived\|IcdPack\|LoopbackTransport\|SimulationTransport\|NoAlloc\|NotionalTransportCruiseRegression' --no-tests=error` (R1, R5, R10; `Derived` is PR 3's new suite); `git diff d3e82e3 -- core/src/kernel/lockstep_exchange.cpp` empty; the base-vs-candidate recorder SHA-256 comparison (R10) |
 | 4 | Logger stage in `Simulation`: `log` config, rings reserved before side effects, drain in `run()`/`flush_log()`/`close_log()`, sticky `kLog`, provenance, `/summary`, `/final_state`, `/writes`; bindings for `flush_log`, `close_log`, `kLog`; `astra.lockstep.Session` drain, `flush_log`, `close_log` | 3 | 0005, 0010, 0011, 0016, 0017, 0022, 0025 | PR 2, PR 3 | `ctest --preset asan -R 'RunLog\|Hdf5\|NoAlloc\|Health\|SimulationTransport' --no-tests=error` (R2, R4 to R7, R6b; `RunLog` is PR 4's new suite); `.venv/bin/pytest tests/python -k 'lockstep and log'` (R6b through `Session`); `ctest --preset release -R NotionalTransportCruiseRegression --no-tests=error` (R1) |
@@ -435,7 +437,19 @@ above. None was rejected.
 | C11 | minor | `pip install --no-binary h5py` consumed `h5py` as the option value | Command corrected, to be confirmed in PR 5 before use |
 | C12 | minor | Findings said numpy is pinned; it is `numpy>=2` | Corrected |
 
-Joe's decisions: none yet. Q1 to Q24 are open.
+Joe's decisions (2026-09-26): **spec and plan approved; Q1 to Q24 approved as recommended**, with these notes:
+
+- **Q2:** h5py, pandas and pyarrow approved, pinned as stated. PR 5 must prove that the two libhdf5 runtimes
+  coexist in one process (R8) before anything depends on it; a from-source h5py fallback comes back to Joe.
+- **Q7:** if byte identity fails in PR 2, the dataset-equality fallback is recorded in ADR-0025 and in every
+  test that uses it.
+- **Q15, Q19:** the shapes are approved. The scenario bands (in PR 6's packet) and the 64-run duration (PR 7,
+  measured, inside `just check`) come back to Joe with evidence.
+- **Q23:** approved. PR 1 also narrows AGENTS.md's wall-clock wording to `core/`, `plugins/`, `aircraft/`,
+  matching ADR-0010 and ADR-0023.
+
+Next owner: Joe launches PR 1 (ADR-0025, ADR-0026, architecture rev 9, the AGENTS.md wording) in a new
+session with the `docs/decisions/` guard armed.
 
 ## Done when
 
