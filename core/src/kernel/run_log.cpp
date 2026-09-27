@@ -374,15 +374,20 @@ void RunLog::close(const RunLogEnd& end) {
     writing_ = "/final_state";
     check_injected(Fault::kFinalState);
     write_final_state(end);
-    // Everything else is on disk before complete is set, so a file that carries complete = 1
-    // holds the whole run.
+    // Codex review round 1, F1: every object but the file is closed, and everything is flushed,
+    // before the marker, so complete = 1 is the last write and certifies only data already on
+    // disk. It reaches the disk inside the file's own close; if that close fails, close_log()
+    // throws and whether the marker landed is undetermined (the one window a single HDF5 file
+    // leaves; see the PR 4 description).
+    writing_ = "the close of the rate groups";
+    close_ring_handles();
     writing_ = "the flush before complete";
     open_handle(file_, path_).flush();
     writing_ = "complete";
     check_injected(Fault::kComplete);
     open_handle(file_, path_).set_attribute("complete", std::int64_t{1});
     writing_ = "the file's close";
-    close_handles();
+    open_handle(file_, path_).close();
   } catch (const std::exception& error) {
     note_failure(error.what());
     abandon();
@@ -460,13 +465,12 @@ void RunLog::write_final_state(const RunLogEnd& end) {
   final_state.close();
 }
 
-void RunLog::close_handles() {
+void RunLog::close_ring_handles() {
   for (Ring& ring : rings_) {
     open_handle(ring.frame_dataset, path_).close();
     open_handle(ring.values_dataset, path_).close();
     open_handle(ring.group, path_).close();
   }
-  open_handle(file_, path_).close();
 }
 
 void RunLog::abandon() noexcept {

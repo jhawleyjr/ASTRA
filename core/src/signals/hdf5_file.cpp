@@ -44,21 +44,32 @@ void close_library_at_exit() {
   }
 }
 
-// HDF5 prints its error stack to stderr on every failure by default; the wrapper reports failures
-// as Hdf5Error instead. Called before any file is created or opened, so H5dont_atexit() precedes
-// every other HDF5 call, as it must.
+// Runs when libastra_core is loaded, before any HDF5 call of this library. H5dont_atexit() must
+// precede every other HDF5 call in the process; with libhdf5 1.10.10 it returns a failure once the
+// library has been initialized (or once anyone has called it), and then HDF5's own exit hook, which
+// crashes after a failed close, stays installed and is not this library's to remove (Codex review
+// round 1, F2). kOwnsTeardown records which case this process is in; File::create refuses to write
+// a file when it is false, since a write failure could then crash the process at exit.
 //
 // LeakSanitizer and the uninstrumented libhdf5 (plan m5-tooling.md, PR 2) need no suppression: the
-// handler above is registered with atexit() at first use, after ASan registered its exit-time leak
-// check at startup, so atexit's reverse order runs H5close() before the leak scan.
-// Hdf5LsanProbe (tests/unit/signals/CMakeLists.txt) shows both halves: a clean process passes LSan,
-// a deliberately leaking one is reported.
+// handler above is registered with atexit() at load, after ASan registered its exit-time leak check
+// at startup, so atexit's reverse order runs H5close() before the leak scan. Hdf5LsanProbe
+// (tests/unit/signals/CMakeLists.txt) shows both halves: a clean process passes LSan, a
+// deliberately leaking one is reported.
+bool take_library_teardown() noexcept {
+  if (H5dont_atexit() < 0) {
+    return false;
+  }
+  static_cast<void>(std::atexit(close_library_at_exit));
+  return true;
+}
+
+const bool kOwnsTeardown = take_library_teardown();
+
+// HDF5 prints its error stack to stderr on every failure by default; the wrapper reports failures
+// as Hdf5Error instead. Called before any file is created or opened.
 void silence_error_printing() {
-  static const bool kSilenced = [] {
-    static_cast<void>(H5dont_atexit());
-    static_cast<void>(std::atexit(close_library_at_exit));
-    return H5Eset_auto2(H5E_DEFAULT, nullptr, nullptr) >= 0;
-  }();
+  static const bool kSilenced = H5Eset_auto2(H5E_DEFAULT, nullptr, nullptr) >= 0;
   static_cast<void>(kSilenced);
 }
 
@@ -945,8 +956,14 @@ std::vector<std::uint64_t> Dataset::read_uint64() const {
 // --- File ---------------------------------------------------------------------------------------
 
 File File::create(const std::filesystem::path& path) {
-  silence_error_printing();
   std::string file = path.string();
+  if (!kOwnsTeardown) {
+    fail(file, "",
+         "refusing to write: libhdf5 was initialized before libastra_core was loaded, so its own "
+         "exit hook stays installed and a failed write could crash this process at exit "
+         "(libhdf5 1.10.10; see core/src/signals/hdf5_file.cpp)");
+  }
+  silence_error_printing();
   const Handle access{H5Pcreate(H5P_FILE_ACCESS), &H5Pclose};
   const Handle creation{H5Pcreate(H5P_FILE_CREATE), &H5Pclose};
   if (!access.valid() || !creation.valid() ||

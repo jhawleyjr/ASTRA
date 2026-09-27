@@ -4,6 +4,9 @@ for_testing deliberately not bound (R1c), and D2 (no trampolines in M3 -- Model 
 no constructor at all)."""
 
 import gc
+import json
+import subprocess
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -173,6 +176,43 @@ def test_without_a_log_block_the_log_calls_do_nothing() -> None:
     assert not sim.flush_log()
     sim.close_log()
     assert not sim.step()
+
+
+_PREINITIALIZED_HDF5 = """
+import ctypes, json, sys
+hdf5 = ctypes.CDLL("libhdf5_serial.so.103")
+assert hdf5.H5open() == 0
+from astra import _core
+physical = json.loads(sys.argv[2])
+d = {"sim": {"dt": 0.001, "frames": 3}, "vehicle": {"models": []}, "physical": physical,
+     "log": {"path": sys.argv[1]}}
+try:
+    _core.Simulation.from_config(_core.Config.from_dict(d), _core.default_plugin_dir())
+except _core.ConfigError as error:
+    print("ConfigError", str(error))
+else:
+    print("built")
+"""
+
+
+def test_a_log_is_refused_when_libhdf5_was_initialized_before_astra(tmp_path: Path) -> None:
+    # M5 PR 4 (Codex review round 1, F2): once libhdf5 1.10.10 is initialized, H5dont_atexit()
+    # fails and HDF5's own exit hook, which crashes after a failed close, stays installed. The
+    # wrapper then refuses to write any file: a log is a ConfigError naming log.path. A child
+    # process, because this one loaded astra._core long ago.
+    path = tmp_path / "run.h5"
+    child = subprocess.run(
+        [sys.executable, "-c", _PREINITIALIZED_HDF5, str(path), json.dumps(PHYSICAL)],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert child.returncode == 0, child.stderr
+    assert child.stdout.startswith("ConfigError"), child.stdout
+    assert "log.path" in child.stdout
+    assert "initialized before libastra_core" in child.stdout
+    assert not path.exists()
 
 
 def test_an_existing_log_path_is_a_config_error_naming_log_path(tmp_path: Path) -> None:

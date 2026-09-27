@@ -173,7 +173,7 @@ class RunLog {
   void write_writes();
   void write_summary(const RunLogEnd& end);
   void write_final_state(const RunLogEnd& end);
-  void close_handles();
+  void close_ring_handles();
   // Drops every handle (their destructors close best effort) without writing anything more.
   void abandon() noexcept;
   // Records the first failure: what was being written (writing_) and why.
