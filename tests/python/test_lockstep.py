@@ -1000,6 +1000,42 @@ def test_session_normal_completion(
     assert facts["peer_summary"]["handled"] == 100
 
 
+def test_session_log_drains_at_its_own_calls_and_closes(
+    reaper: Reaper, binaries: dict[str, str], tmp_path: Path
+) -> None:
+    """M5 PR 4 (ADR-0025): Session.step/run drain the run log (a 64-row ring never fills over
+    1000 frames), close_log() completes it, and a second close_log() changes nothing."""
+    facts = _lifecycle(reaper, binaries, "log-normal", tmp_path)
+    assert "exception" not in facts, facts
+    assert facts["step_halts"] == 300
+    assert facts["halt"] is None
+    assert facts["flush"] is None
+    assert facts["frame"] == 1000
+    assert facts["log_complete_marker"]
+    assert facts["second_close_unchanged"]
+    assert facts["peer_returncode"] == 0  # a normal end: the transport closed CLOSED
+
+
+def test_session_log_write_failure_halts_and_close_log_raises(
+    reaper: Reaper, binaries: dict[str, str], tmp_path: Path
+) -> None:
+    """Plan R6b through astra.lockstep (the core half is tests/unit/kernel/run_log_test.cpp; the
+    "load then refuses the file" half is PR 5's astra.log): a real write failure (RLIMIT_FSIZE in
+    the child) is a sticky LOG halt from Session.run, close_log() raises LogError naming the write
+    both times, complete is never set, and the child process still exits cleanly."""
+    facts = _lifecycle(reaper, binaries, "log-close-failure", tmp_path)
+    assert "exception" not in facts, facts
+    assert facts["halt"] is not None
+    assert facts["halt"]["check"] == "LOG"
+    assert facts["halt"]["source"] == "log"
+    first, second = facts["close_errors"]
+    assert first is not None
+    assert "the rows of /rate_1 failed" in first
+    assert "File too large" in first
+    assert second == first
+    assert not facts["log_complete_marker"]
+
+
 def test_session_missing_executable(
     reaper: Reaper, binaries: dict[str, str], tmp_path: Path
 ) -> None:

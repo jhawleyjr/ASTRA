@@ -42,9 +42,17 @@ enum class HealthCheck : std::uint8_t {
   // action key, so HealthMonitor never produces it: LockstepExchange builds the HaltReason itself
   // (core/include/astra/kernel/lockstep_exchange.hpp names the failure kinds). Appended last so
   // every existing value keeps its integer.
-  kTransport
+  kTransport,
+  // ADR-0025 (M5 PR 4): the run log could not take this frame's row (a full ring) or failed to
+  // write a drain. Unconditionally a halt, sticky with or without a transport, with no sim.health
+  // key: Simulation builds the HaltReason itself (source "log"). Appended last, as kTransport was.
+  kLog
 };
 enum class HealthAction : std::uint8_t { kOff, kWarn, kHalt };
+
+// The check's name as the Python enum spells it ("NON_FINITE_STATE", "LOG"): what the run log's
+// /summary records (ADR-0025), so a reader maps it back with astra._core.HealthCheck[name].
+[[nodiscard]] std::string_view health_check_name(HealthCheck check) noexcept;
 
 // Names for the four ADR-0003 state segments, built once at init by whoever calls check_state
 // (Vehicle, from its own name_) so a halt names "v0.state.q_nb" for vehicle "v0" without a "v0"

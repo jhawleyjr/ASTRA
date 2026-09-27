@@ -274,6 +274,16 @@ class Vehicle {
     }
     return {combined_->data(), combined_->size()};
   }
+  // ADR-0025 (M5 PR 4): the stage buffer's address range, which every "<name>.state.*" rigid-body
+  // signal and every model-owned state signal points into. Those signals are end-of-frame once a
+  // frame completes; the run log tells them apart by address and logs the frame-start combined
+  // state (combined_state(), same offsets) in their place.
+  [[nodiscard]] std::span<const double> published_state() const noexcept {
+    if (!stage_.has_value()) {
+      return {};
+    }
+    return {stage_->data(), stage_->size()};
+  }
   // Test-only introspection (ADR-0021): the stage buffer's own current contents, for
   // tests/unit/kernel/vehicle_state_coupling_test.cpp's stage-buffer-invariant checks (outside any
   // derivative call, the stage buffer equals the combined buffer). Public on the shipped Vehicle

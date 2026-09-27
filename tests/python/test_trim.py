@@ -165,6 +165,28 @@ def test_still_air_config_has_no_wind_configured() -> None:
     trim._residual6(sim, state)  # raises on failure; no assertion needed
 
 
+def test_trim_of_a_logged_config_creates_no_log_file(tmp_path: Path) -> None:
+    # M5 PR 4 (Codex review round 1, F3): a config carrying a log block is trimmed without it, so
+    # the analysis Simulation never creates (or finalizes) the run's own log file, and a run built
+    # from the same config afterwards still finds its path free.
+    data = yaml.safe_load(Path(CRUISE_CONFIG).read_text(encoding="utf-8"))
+    log_path = tmp_path / "run.h5"
+    data["log"] = {"path": str(log_path), "buffer_frames": 64}
+    logged = tmp_path / "cruise_logged.yaml"
+    logged.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+
+    result = trim.trim_straight_and_level(logged, TRUE_AIRSPEED_MPS, ALTITUDE_M)
+    assert np.max(np.abs(result.residual)) < 1e-6
+    assert not log_path.exists()
+    sim = _core.Simulation.from_config(
+        _core.Config.from_dict(data, origin=str(logged)), _core.default_plugin_dir()
+    )
+    assert sim.has_log
+    assert not sim.run(5)
+    sim.close_log()
+    assert log_path.exists()
+
+
 def test_refuses_a_flat_earth_config(tmp_path: Path) -> None:
     # p_n[-1] = altitude_m (trim.py) assumes a geodetic (round/wgs84_rotating) position
     # representation; under earth/flat, p_n[2] is NED down, so the same assignment would place

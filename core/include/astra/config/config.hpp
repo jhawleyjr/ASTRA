@@ -62,6 +62,12 @@ class Config {
   // errors). Meaningful only once every model that will read this document has had its init.
   [[nodiscard]] std::vector<std::string> unknown_keys() const;
 
+  // The whole document as YAML text (yaml-cpp's emitter) with the root map's `key` entry left out:
+  // ADR-0025 stores a run's config without its "log" block. Scalars keep their source spelling
+  // (yaml-cpp holds them as text), so the text loads back to the same values; comments are not
+  // kept. Marks nothing as read, wherever this Config sits in the tree. Init-time only.
+  [[nodiscard]] std::string emit_without(std::string_view key) const;
+
  private:
   struct Document;
 

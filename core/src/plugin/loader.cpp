@@ -125,11 +125,24 @@ LoadedPlugin PluginLoader::load(std::string_view plugin_path) const {
         plugin_path, "invalid plugin path: expected segments of [A-Za-z0-9_] separated by '/'");
   }
 #if defined(ASTRA_STATIC_PLUGINS)
-  return check_and_create(plugin_path, resolve_entry(plugin_path));
+  LoadedPlugin loaded = check_and_create(plugin_path, resolve_entry(plugin_path));
+  record(plugin_path, loaded.descriptor, {});
 #else
-  return check_and_create(plugin_path,
-                          resolve_entry(plugin_path, plugin_dir_ / library_name(plugin_path)));
+  std::filesystem::path library = plugin_dir_ / library_name(plugin_path);
+  LoadedPlugin loaded = check_and_create(plugin_path, resolve_entry(plugin_path, library));
+  record(plugin_path, loaded.descriptor, std::move(library));
 #endif
+  return loaded;
+}
+
+void PluginLoader::record(std::string_view plugin_path, const PluginDescriptor* descriptor,
+                          std::filesystem::path library) const {
+  for (const PluginLoadRecord& existing : loaded_) {
+    if (existing.plugin_path == plugin_path) {
+      return;
+    }
+  }
+  loaded_.push_back(PluginLoadRecord{std::string{plugin_path}, descriptor, std::move(library)});
 }
 
 }  // namespace astra

@@ -126,6 +126,10 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
   - PR 3 (#65): derived flight-condition signals `v<i>.derived.*` (ADR-0026), a separate frame-start
     `pack_sim_to_sw` per physics vehicle; exchange untouched (R10). Plan: [plan](docs/plans/m5-tooling.md).
     Packet: in the PR body.
+  - PR 4 (#66): run log stage in `Simulation` (ADR-0025): `log` block, rings reserved before side effects,
+    sticky `kLog`, drain/`flush_log`/`close_log`, provenance, `/plugins`, `/writes`, `/summary`,
+    `/final_state`; bindings and `astra.lockstep.Session`. Plan: [plan](docs/plans/m5-tooling.md). Packet: in
+    the PR body.
 
 ## Open items
 

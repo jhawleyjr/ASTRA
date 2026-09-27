@@ -2,10 +2,16 @@
 
 #include <hdf5.h>
 
+#include <algorithm>
 #include <array>
+#include <atomic>
+#include <cstdlib>
+#include <cstring>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "astra/errors.hpp"
@@ -17,14 +23,51 @@ static_assert(std::is_same_v<herr_t, int>, "Handle::CloseFunction is herr_t (*)(
 
 namespace {
 
+// Set by every HDF5 failure the wrapper sees (fail_hdf5, a failed close). Single-threaded use;
+// atomic only so the exit handler's read is well defined whatever thread exits.
+std::atomic<bool> g_hdf5_failed{false};
+
+void note_hdf5_failure() noexcept { g_hdf5_failed.store(true); }
+
+// M5 PR 4: libhdf5 1.10.10 segfaults in its own exit-time teardown (H5_term_library ->
+// H5F__close_cb) once a file close has failed, or when the teardown's own close of a still-open
+// file cannot flush (a full disk, EFBIG): a run whose log hit an I/O error would otherwise crash
+// at exit after reporting the error cleanly. So the library's atexit hook is turned off and this
+// one closes the library only when no HDF5 call failed in this process. After a failure, the
+// library is left to the process's end: an open file's handle is released by the kernel, unflushed
+// (such a file never has complete = 1), and LeakSanitizer reports nothing because HDF5's global
+// allocations are still reachable. tests/unit/kernel/run_log_test.cpp's
+// RunLogFailure.ARealWriteErrorHaltsKLog... exits through this path.
+void close_library_at_exit() {
+  if (!g_hdf5_failed.load()) {
+    static_cast<void>(H5close());
+  }
+}
+
+// Runs when libastra_core is loaded, before any HDF5 call of this library. H5dont_atexit() must
+// precede every other HDF5 call in the process; with libhdf5 1.10.10 it returns a failure once the
+// library has been initialized (or once anyone has called it), and then HDF5's own exit hook, which
+// crashes after a failed close, stays installed and is not this library's to remove (Codex review
+// round 1, F2). kOwnsTeardown records which case this process is in; File::create refuses to write
+// a file when it is false, since a write failure could then crash the process at exit.
+//
+// LeakSanitizer and the uninstrumented libhdf5 (plan m5-tooling.md, PR 2) need no suppression: the
+// handler above is registered with atexit() at load, after ASan registered its exit-time leak check
+// at startup, so atexit's reverse order runs H5close() before the leak scan. Hdf5LsanProbe
+// (tests/unit/signals/CMakeLists.txt) shows both halves: a clean process passes LSan, a
+// deliberately leaking one is reported.
+bool take_library_teardown() noexcept {
+  if (H5dont_atexit() < 0) {
+    return false;
+  }
+  static_cast<void>(std::atexit(close_library_at_exit));
+  return true;
+}
+
+const bool kOwnsTeardown = take_library_teardown();
+
 // HDF5 prints its error stack to stderr on every failure by default; the wrapper reports failures
 // as Hdf5Error instead. Called before any file is created or opened.
-//
-// LeakSanitizer and the uninstrumented libhdf5 (plan m5-tooling.md, PR 2) need no suppression and
-// no explicit H5close(): the library registers its own teardown with atexit() at first use, after
-// ASan registered its exit-time leak check at startup, so atexit's reverse order frees HDF5's
-// global allocations before the leak scan. Hdf5LsanProbe (tests/unit/signals/CMakeLists.txt)
-// shows both halves: a clean process passes LSan, a deliberately leaking one is reported.
 void silence_error_printing() {
   static const bool kSilenced = H5Eset_auto2(H5E_DEFAULT, nullptr, nullptr) >= 0;
   static_cast<void>(kSilenced);
@@ -69,6 +112,7 @@ std::string take_error_stack() {
 
 [[noreturn]] void fail_hdf5(const std::string& file, const std::string& object,
                             std::string_view message) {
+  note_hdf5_failure();
   std::string text{message};
   text += " (";
   text += take_error_stack();
@@ -291,6 +335,9 @@ bool Handle::close() noexcept {
   const bool closed = close_(id_) >= 0;
   id_ = -1;
   close_ = nullptr;
+  if (!closed) {
+    note_hdf5_failure();
+  }
   return closed;
 }
 
@@ -441,6 +488,288 @@ Group Location::open_group(std::string_view name) const {
   return Group{std::move(group), file_path(), std::move(path)};
 }
 
+// --- Compound record tables ---------------------------------------------------------------------
+
+std::size_t RecordField::rows() const noexcept {
+  if (const auto* numbers = std::get_if<std::vector<double>>(&values)) {
+    return numbers->size();
+  }
+  if (const auto* counts = std::get_if<std::vector<std::uint64_t>>(&values)) {
+    return counts->size();
+  }
+  const auto* strings = std::get_if<std::vector<std::string>>(&values);
+  return strings != nullptr ? strings->size() : 0;
+}
+
+namespace {
+
+// Every member is eight bytes in memory: a double, a uint64 or a char* (a variable-length string).
+constexpr std::size_t kRecordMemberBytes = 8;
+static_assert(sizeof(double) == kRecordMemberBytes && sizeof(std::uint64_t) == kRecordMemberBytes &&
+              sizeof(char*) == kRecordMemberBytes);
+
+enum class MemberKind : std::uint8_t { kFloat64, kUint64, kString };
+
+MemberKind member_kind(const RecordField& field) noexcept {
+  if (std::holds_alternative<std::vector<double>>(field.values)) {
+    return MemberKind::kFloat64;
+  }
+  if (std::holds_alternative<std::vector<std::uint64_t>>(field.values)) {
+    return MemberKind::kUint64;
+  }
+  return MemberKind::kString;
+}
+
+// The compound type for these member kinds: `file` picks the little-endian stored types, else the
+// native memory types; the string member is the same variable-length UTF-8 type either way.
+Handle compound_type(const Where& at, std::span<const MemberKind> kinds,
+                     std::span<const std::string> names, bool file) {
+  Handle type{H5Tcreate(H5T_COMPOUND, kinds.size() * kRecordMemberBytes), &H5Tclose};
+  if (!type.valid()) {
+    at.fail_hdf5("cannot build the record type");
+  }
+  const Handle string_type = variable_string_type(at);
+  for (std::size_t i = 0; i < kinds.size(); ++i) {
+    hid_t member = string_type.id();
+    if (kinds[i] == MemberKind::kFloat64) {
+      member = file ? H5T_IEEE_F64LE : H5T_NATIVE_DOUBLE;
+    } else if (kinds[i] == MemberKind::kUint64) {
+      member = file ? H5T_STD_U64LE : H5T_NATIVE_UINT64;
+    }
+    if (H5Tinsert(type.id(), names[i].c_str(), i * kRecordMemberBytes, member) < 0) {
+      at.fail_hdf5("cannot add record member '" + names[i] + "'");
+    }
+  }
+  return type;
+}
+
+// Frees the strings a variable-length read allocated inside a compound buffer: release() reports
+// HDF5's result; the destructor frees best effort if release() was not reached.
+class ReclaimRecords {
+ public:
+  ReclaimRecords(hid_t type, hid_t space, std::vector<std::byte>& buffer) noexcept
+      : type_(type), space_(space), buffer_(buffer) {}
+  ~ReclaimRecords() { static_cast<void>(release()); }
+  ReclaimRecords(const ReclaimRecords&) = delete;
+  ReclaimRecords& operator=(const ReclaimRecords&) = delete;
+  ReclaimRecords(ReclaimRecords&&) = delete;
+  ReclaimRecords& operator=(ReclaimRecords&&) = delete;
+
+  [[nodiscard]] bool release() noexcept {
+    if (released_) {
+      return true;
+    }
+    released_ = true;
+    return H5Dvlen_reclaim(type_, space_, H5P_DEFAULT, buffer_.data()) >= 0;
+  }
+
+ private:
+  hid_t type_;
+  hid_t space_;
+  std::vector<std::byte>& buffer_;
+  bool released_ = false;
+};
+
+// A record table's layout: each member's kind and name, and the row count.
+struct RecordLayout {
+  std::vector<MemberKind> kinds;
+  std::vector<std::string> names;
+  std::size_t rows = 0;
+};
+
+// The layout of fields about to be written, checked (see write_records' contract).
+RecordLayout checked_layout(const Where& target, std::span<const RecordField> fields) {
+  if (fields.empty()) {
+    target.fail("a record table needs at least one field");
+  }
+  RecordLayout layout;
+  layout.rows = fields.front().rows();
+  for (const RecordField& field : fields) {
+    if (field.name.empty() ||
+        std::find(layout.names.begin(), layout.names.end(), field.name) != layout.names.end()) {
+      target.fail("record field names must be non-empty and distinct ('" + field.name + "')");
+    }
+    if (field.rows() != layout.rows) {
+      target.fail("record field '" + field.name + "' has " + std::to_string(field.rows()) +
+                  " rows, not " + std::to_string(layout.rows));
+    }
+    if (const auto* strings = std::get_if<std::vector<std::string>>(&field.values)) {
+      for (const std::string& value : *strings) {
+        check_no_nul(target, field.name, value);
+      }
+    }
+    layout.kinds.push_back(member_kind(field));
+    layout.names.push_back(field.name);
+  }
+  return layout;
+}
+
+// Row-major, one eight-byte slot per member; a string member holds a pointer into `fields`, so
+// the buffer is valid only while they are.
+std::vector<std::byte> pack_records(std::span<const RecordField> fields, std::size_t rows) {
+  const std::size_t row_bytes = fields.size() * kRecordMemberBytes;
+  std::vector<std::byte> buffer(rows * row_bytes);
+  for (std::size_t f = 0; f < fields.size(); ++f) {
+    const std::size_t offset = f * kRecordMemberBytes;
+    std::visit(
+        [&buffer, row_bytes, offset](const auto& column) {
+          for (std::size_t r = 0; r < column.size(); ++r) {
+            std::byte* slot = buffer.data() + (r * row_bytes) + offset;
+            if constexpr (std::is_same_v<std::decay_t<decltype(column)>,
+                                         std::vector<std::string>>) {
+              const char* text = column[r].c_str();
+              std::memcpy(slot, string_buffer(&text), kRecordMemberBytes);
+            } else {
+              std::memcpy(slot, &column[r], kRecordMemberBytes);
+            }
+          }
+        },
+        fields[f].values);
+  }
+  return buffer;
+}
+
+MemberKind stored_member_kind(const Where& target, hid_t stored, unsigned index,
+                              const std::string& name) {
+  switch (H5Tget_member_class(stored, index)) {
+    case H5T_FLOAT:
+      return MemberKind::kFloat64;
+    case H5T_INTEGER:
+      return MemberKind::kUint64;
+    case H5T_STRING:
+      return MemberKind::kString;
+    default:
+      target.fail("record member '" + name + "' is not float64, uint64 or string");
+  }
+}
+
+// The layout of a stored compound dataset, which must be one-dimensional.
+RecordLayout stored_layout(const Where& target, hid_t stored, hid_t space) {
+  if (H5Tget_class(stored) != H5T_COMPOUND || H5Sget_simple_extent_ndims(space) != 1) {
+    target.fail("is not a one-dimensional compound dataset");
+  }
+  const int members = H5Tget_nmembers(stored);
+  const hssize_t points = H5Sget_simple_extent_npoints(space);
+  if (members <= 0 || points < 0) {
+    target.fail_hdf5("cannot size the record table");
+  }
+  RecordLayout layout;
+  layout.rows = static_cast<std::size_t>(points);
+  for (unsigned index = 0; index < static_cast<unsigned>(members); ++index) {
+    char* member_name = H5Tget_member_name(stored, index);
+    if (member_name == nullptr) {
+      target.fail_hdf5("cannot read a record member name");
+    }
+    layout.names.emplace_back(member_name);
+    static_cast<void>(H5free_memory(member_name));
+    layout.kinds.push_back(stored_member_kind(target, stored, index, layout.names.back()));
+  }
+  return layout;
+}
+
+// One member's column out of a buffer H5Dread filled.
+template <typename T>
+std::vector<T> unpack_numbers(const std::vector<std::byte>& buffer, std::size_t rows,
+                              std::size_t row_bytes, std::size_t offset) {
+  std::vector<T> column(rows);
+  for (std::size_t r = 0; r < rows; ++r) {
+    std::memcpy(&column[r], buffer.data() + (r * row_bytes) + offset, kRecordMemberBytes);
+  }
+  return column;
+}
+
+std::vector<std::string> unpack_strings(const std::vector<std::byte>& buffer, std::size_t rows,
+                                        std::size_t row_bytes, std::size_t offset) {
+  std::vector<std::string> column(rows);
+  for (std::size_t r = 0; r < rows; ++r) {
+    char* text = nullptr;
+    std::memcpy(string_buffer(&text), buffer.data() + (r * row_bytes) + offset, kRecordMemberBytes);
+    column[r] = text != nullptr ? text : "";
+  }
+  return column;
+}
+
+RecordField unpack_field(const RecordLayout& layout, std::size_t f,
+                         const std::vector<std::byte>& buffer) {
+  const std::size_t row_bytes = layout.kinds.size() * kRecordMemberBytes;
+  const std::size_t offset = f * kRecordMemberBytes;
+  RecordField field{layout.names[f], std::vector<double>{}};
+  if (layout.kinds[f] == MemberKind::kFloat64) {
+    field.values = unpack_numbers<double>(buffer, layout.rows, row_bytes, offset);
+  } else if (layout.kinds[f] == MemberKind::kUint64) {
+    field.values = unpack_numbers<std::uint64_t>(buffer, layout.rows, row_bytes, offset);
+  } else {
+    field.values = unpack_strings(buffer, layout.rows, row_bytes, offset);
+  }
+  return field;
+}
+
+}  // namespace
+
+void Location::write_records(std::string_view name, std::span<const RecordField> fields) {
+  const Where at{id(), file_path(), object_path()};
+  const std::string key{name};
+  const std::string path = child_path(name);
+  const Where target{at.id, file_path(), path};
+  const RecordLayout layout = checked_layout(target, fields);
+  const std::vector<std::byte> buffer = pack_records(fields, layout.rows);
+  const Handle file_type = compound_type(target, layout.kinds, layout.names, true);
+  const Handle memory_type = compound_type(target, layout.kinds, layout.names, false);
+  const std::array<hsize_t, 1> dims{layout.rows};
+  const Handle space{H5Screate_simple(1, dims.data(), nullptr), &H5Sclose};
+  const Handle properties{H5Pcreate(H5P_DATASET_CREATE), &H5Pclose};
+  if (!space.valid() || !properties.valid() || H5Pset_obj_track_times(properties.id(), false) < 0) {
+    target.fail_hdf5("cannot build the record table's dataspace and creation properties");
+  }
+  const Handle dataset{H5Dcreate2(at.id, key.c_str(), file_type.id(), space.id(), H5P_DEFAULT,
+                                  properties.id(), H5P_DEFAULT),
+                       &H5Dclose};
+  if (!dataset.valid()) {
+    target.fail_hdf5("cannot create the record table");
+  }
+  if (layout.rows != 0 &&
+      H5Dwrite(dataset.id(), memory_type.id(), H5S_ALL, H5S_ALL, H5P_DEFAULT, buffer.data()) < 0) {
+    target.fail_hdf5("cannot write the record table");
+  }
+}
+
+std::vector<RecordField> Location::read_records(std::string_view name) const {
+  const Where at{id(), file_path(), object_path()};
+  const std::string key{name};
+  const std::string path = child_path(name);
+  const Where target{at.id, file_path(), path};
+  const Handle dataset{H5Dopen2(at.id, key.c_str(), H5P_DEFAULT), &H5Dclose};
+  if (!dataset.valid()) {
+    target.fail_hdf5("cannot open the record table");
+  }
+  const Handle stored{H5Dget_type(dataset.id()), &H5Tclose};
+  const Handle space{H5Dget_space(dataset.id()), &H5Sclose};
+  if (!stored.valid() || !space.valid()) {
+    target.fail_hdf5("cannot inspect the record table");
+  }
+  const RecordLayout layout = stored_layout(target, stored.id(), space.id());
+  const Handle memory_type = compound_type(target, layout.kinds, layout.names, false);
+  std::vector<std::byte> buffer(
+      std::max<std::size_t>(layout.rows * layout.kinds.size() * kRecordMemberBytes, 1));
+  // Armed before the read, so the strings HDF5 allocates are freed on every exit path.
+  std::optional<ReclaimRecords> reclaim;
+  if (layout.rows != 0) {
+    reclaim.emplace(memory_type.id(), space.id(), buffer);
+    if (H5Dread(dataset.id(), memory_type.id(), H5S_ALL, H5S_ALL, H5P_DEFAULT, buffer.data()) < 0) {
+      target.fail_hdf5("cannot read the record table");
+    }
+  }
+  std::vector<RecordField> fields;
+  fields.reserve(layout.kinds.size());
+  for (std::size_t f = 0; f < layout.kinds.size(); ++f) {
+    fields.push_back(unpack_field(layout, f, buffer));
+  }
+  if (reclaim.has_value() && !reclaim->release()) {
+    target.fail_hdf5("cannot release the strings read from the record table");
+  }
+  return fields;
+}
+
 namespace {
 
 // An empty, chunked, unlimited-row dataset of rank 1 (columns must be 1) or 2.
@@ -570,6 +899,7 @@ void Dataset::append_rows(const void* values, std::size_t count, ElementType typ
   }
   // From here a failure shrinks the extent back, so a refused append leaves no fill rows.
   const auto undo_and_fail = [&at, before, added, this](std::string_view message) {
+    note_hdf5_failure();
     std::string text{message};
     text += " (";
     text += take_error_stack();
@@ -626,8 +956,14 @@ std::vector<std::uint64_t> Dataset::read_uint64() const {
 // --- File ---------------------------------------------------------------------------------------
 
 File File::create(const std::filesystem::path& path) {
-  silence_error_printing();
   std::string file = path.string();
+  if (!kOwnsTeardown) {
+    fail(file, "",
+         "refusing to write: libhdf5 was initialized before libastra_core was loaded, so its own "
+         "exit hook stays installed and a failed write could crash this process at exit "
+         "(libhdf5 1.10.10; see core/src/signals/hdf5_file.cpp)");
+  }
+  silence_error_printing();
   const Handle access{H5Pcreate(H5P_FILE_ACCESS), &H5Pclose};
   const Handle creation{H5Pcreate(H5P_FILE_CREATE), &H5Pclose};
   if (!access.valid() || !creation.valid() ||

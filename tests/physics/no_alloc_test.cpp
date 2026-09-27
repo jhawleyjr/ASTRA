@@ -2,11 +2,13 @@
 // allocation in the per-frame path fails the test suite (tests/physics/test_no_alloc)." No warm-up:
 // a frame-0 allocation is a real finding to fix, not one to paper over by skipping past it.
 #include <gtest/gtest.h>
+#include <unistd.h>
 
 #include <array>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -327,6 +329,112 @@ TEST(NoAlloc, ZeroHeapAllocationsOverOneThousandFramesWithShmEchoPeer) {
   }
   EXPECT_EQ(peer.wait_exit(std::chrono::milliseconds{5000}), 0) << "normal close, exit 0";
   EXPECT_TRUE(shm_test::own_segments().empty()) << "no orphaned segment";
+}
+
+// M5 PR 4 (ADR-0025): a per-test run-log path, removed first and by the caller afterwards.
+std::filesystem::path log_path(std::string_view name) {
+  const auto* info = ::testing::UnitTest::GetInstance()->current_test_info();
+  std::filesystem::path path = std::filesystem::temp_directory_path() /
+                               ("astra_no_alloc_log_" + std::to_string(::getpid()) + "_" +
+                                info->name() + "_" + std::string{name} + ".h5");
+  std::filesystem::remove(path);
+  return path;
+}
+
+std::string read_config(const std::string& path) {
+  std::ifstream in(path);
+  std::ostringstream text;
+  text << in.rdbuf();
+  return text.str();
+}
+
+std::string logged(std::string text, const std::filesystem::path& path,
+                   std::uint64_t buffer_frames) {
+  text += "\nlog:\n  path: " + path.string() +
+          "\n  buffer_frames: " + std::to_string(buffer_frames) + "\n";
+  return text;
+}
+
+// M5 PR 4 (plan R5): the logger's per-frame stage -- the reservation at the top of step() with its
+// frame-start state copy, and the frame-end fill through registry pointers -- allocates nothing:
+// 1000 step() calls with a ring larger than 1000 rows, on the richest config (aero, propulsion,
+// Dryden, WGS-84, derived signals), and run(1000) kept below the high-water mark (no drain).
+TEST(NoAlloc, ZeroHeapAllocationsOverOneThousandLoggedFrames) {
+  const std::string cruise =
+      read_config(std::string{ASTRA_AIRCRAFT_DIR} + "/notional_transport/configs/cruise.yaml");
+  for (const bool use_run : {false, true}) {
+    SCOPED_TRACE(use_run ? "run(1000), buffer 4096" : "1000 x step(), buffer 1001");
+    const std::filesystem::path path = log_path(use_run ? "run" : "step");
+    {
+      astra::Simulation sim = astra::Simulation::from_config(
+          astra::Config::from_string(logged(cruise, path, use_run ? 4096 : 1001), "logged cruise"),
+          ASTRA_TEST_PLUGIN_DIR);
+      ASSERT_TRUE(sim.has_log());
+
+      const std::size_t before = astra_test::allocation_count();
+      astra::HaltReason halt;
+      if (use_run) {
+        halt = sim.run(1000);
+      } else {
+        for (int k = 0; k < 1000 && !halt; ++k) {
+          halt = sim.step();
+        }
+      }
+      const std::size_t after = astra_test::allocation_count();
+
+      EXPECT_FALSE(halt) << "halted on check " << static_cast<int>(halt.check) << " at frame "
+                         << halt.frame;
+      EXPECT_EQ(sim.clock().frame(), 1000U);
+      EXPECT_EQ(after, before) << "zero allocations over 1000 logged frames (ADR-0025)";
+      sim.close_log();
+    }
+    std::filesystem::remove(path);
+  }
+}
+
+// M5 PR 4 (plan R6): a full ring's kLog halt, and step(), run() and flush_log() repeated on it,
+// allocate nothing -- without a transport and with one (where the exchange stage stores the halt
+// too). The window covers the frames that fill the ring as well.
+TEST(NoAlloc, ZeroHeapAllocationsOnALogHaltAndItsStickyRepeats) {
+  const std::string plain =
+      read_config(std::string{ASTRA_TEST_CONFIG_DIR} + "/no_alloc_dryden.yaml");
+  const std::string transport =
+      read_config(std::string{ASTRA_TEST_CONFIG_DIR} + "/no_alloc_transport.yaml");
+  for (const bool with_transport : {false, true}) {
+    SCOPED_TRACE(with_transport ? "loopback transport" : "no transport");
+    const std::filesystem::path path = log_path(with_transport ? "transport" : "plain");
+    {
+      astra::Simulation sim = astra::Simulation::from_config(
+          astra::Config::from_string(logged(with_transport ? transport : plain, path, 50),
+                                     "logged no_alloc"),
+          ASTRA_TEST_PLUGIN_DIR);
+
+      const std::size_t before = astra_test::allocation_count();
+      astra::HaltReason filled;
+      for (int k = 0; k < 50 && !filled; ++k) {
+        filled = sim.step();
+      }
+      const astra::HaltReason halt = sim.step();
+      std::array<astra::HaltReason, 3> again{};
+      for (int i = 0; i < 10; ++i) {
+        again[0] = sim.step();
+        again[1] = sim.run(10);
+        again[2] = sim.flush_log();
+      }
+      const std::size_t after = astra_test::allocation_count();
+
+      EXPECT_FALSE(filled);
+      EXPECT_EQ(halt.check, astra::HealthCheck::kLog);
+      EXPECT_EQ(halt.frame, 50U);
+      for (const astra::HaltReason& repeat : again) {
+        EXPECT_EQ(repeat.check, astra::HealthCheck::kLog);
+        EXPECT_EQ(repeat.frame, 50U);
+      }
+      EXPECT_EQ(sim.clock().frame(), 50U);
+      EXPECT_EQ(after, before) << "zero allocations filling the ring, halting and re-stepping";
+    }
+    std::filesystem::remove(path);
+  }
 }
 
 }  // namespace

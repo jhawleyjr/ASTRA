@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import resource
 import select
 import signal
 import subprocess
@@ -355,6 +356,44 @@ def proc_state(pid: int) -> str:
     return text[text.rindex(")") + 2]
 
 
+def log_case(case: str, session: ls.Session, log_path: Path) -> dict[str, Any]:
+    """M5 PR 4 (ADR-0025, plan R6b through Session): the run log through ``astra.lockstep``.
+    Reading the file is PR 5's (``astra.log``); "complete" in its bytes is the root attribute's
+    name, present exactly when close_log() finished."""
+    facts: dict[str, Any] = {}
+    if case == "log-normal":
+        # Session.step() drains at each call, so a 64-row ring never fills over 300 steps.
+        facts["step_halts"] = [halt_dict(session.step()) for _ in range(300)].count(None)
+        facts["halt"] = halt_dict(session.run(700))
+        facts["flush"] = halt_dict(session.flush_log())
+        facts["frame"] = session.frame
+        session.close_log()
+        first = log_path.read_bytes()
+        session.close_log()  # a no-op after a success
+        facts["second_close_unchanged"] = log_path.read_bytes() == first
+        facts["log_complete_marker"] = b"complete" in first
+    elif case == "log-close-failure":
+        # A real write failure: the file may not grow past its size plus 4 KiB (this process
+        # only; the peer was launched before the limit).
+        signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
+        saved = resource.getrlimit(resource.RLIMIT_FSIZE)
+        resource.setrlimit(resource.RLIMIT_FSIZE, (log_path.stat().st_size + 4096, saved[1]))
+        try:
+            facts["halt"] = halt_dict(session.run(3000))
+            errors: list[str | None] = []
+            for _ in range(2):
+                try:
+                    session.close_log()
+                    errors.append(None)
+                except _core.LogError as error:
+                    errors.append(str(error))
+            facts["close_errors"] = errors
+        finally:
+            resource.setrlimit(resource.RLIMIT_FSIZE, saved)
+        facts["log_complete_marker"] = b"complete" in log_path.read_bytes()
+    return facts
+
+
 def scenario_lifecycle(args: argparse.Namespace) -> None:
     """The driver's cleanup on each exit path (plan, "Driver" row): facts reported here, asserted
     by pytest."""
@@ -362,6 +401,9 @@ def scenario_lifecycle(args: argparse.Namespace) -> None:
     segment = ls.new_segment_name()
     handshake = 300 if case in ("bad-args", "term-ignoring-peer", "interrupt-in-cleanup") else None
     config = ls.load_config(args.config, segment=segment, handshake_timeout_ms=handshake)
+    log_path = Path(args.out) / "run.h5"
+    if case.startswith("log-"):
+        config["log"] = {"path": str(log_path), "buffer_frames": 64}
     trim = ls.trim_for(args.config, SETPOINTS)
     argv = ls.autopilot_argv(args.autopilot, config, SETPOINTS, trim)
     if case == "missing-exe":
@@ -410,7 +452,9 @@ def scenario_lifecycle(args: argparse.Namespace) -> None:
         ls.PeerProcess.wait = wait_arming_interrupt  # type: ignore[method-assign]
     try:
         with ls.lockstep_session(config, argv, on_peer_launched=launched) as session:
-            if case == "normal":
+            if case.startswith("log-"):
+                facts.update(log_case(case, session, log_path))
+            elif case == "normal":
                 facts["halt"] = halt_dict(session.run(1000))
                 # Held past the session's end: a copy, so it must not trip the refcount check
                 # (Joe's Q2); the retained-registry case shows that check is live.

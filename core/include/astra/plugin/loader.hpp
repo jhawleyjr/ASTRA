@@ -3,8 +3,10 @@
 
 #include <filesystem>
 #include <memory>
+#include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "astra/interfaces/model.hpp"
 #include "astra/plugin/descriptor.hpp"
@@ -14,6 +16,14 @@ namespace astra {
 struct LoadedPlugin {
   const PluginDescriptor* descriptor;
   std::unique_ptr<Model> model;
+};
+
+// One plugin a loader has loaded (ADR-0025's /plugins provenance): the config's plugin path, its
+// descriptor, and the library file it came from (empty under ASTRA_STATIC_PLUGINS).
+struct PluginLoadRecord {
+  std::string plugin_path;
+  const PluginDescriptor* descriptor;
+  std::filesystem::path library;
 };
 
 // Resolves a plugin path from the configuration ("plugins/physical/atmosphere/isa1976") to a
@@ -48,8 +58,17 @@ class PluginLoader {
 
   [[nodiscard]] const std::filesystem::path& plugin_dir() const noexcept { return plugin_dir_; }
 
+  // Every plugin path this loader has loaded successfully, once each, in first-load order (a path
+  // loaded twice, such as two engines of one turbofan, is one record). Init-time bookkeeping for
+  // the run log's /plugins table (ADR-0025); load() stays const for its callers, hence mutable.
+  [[nodiscard]] std::span<const PluginLoadRecord> loaded() const noexcept { return loaded_; }
+
  private:
+  void record(std::string_view plugin_path, const PluginDescriptor* descriptor,
+              std::filesystem::path library) const;
+
   std::filesystem::path plugin_dir_;
+  mutable std::vector<PluginLoadRecord> loaded_;
 };
 
 }  // namespace astra

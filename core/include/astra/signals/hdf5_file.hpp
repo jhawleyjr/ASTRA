@@ -22,6 +22,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace astra::hdf5 {
@@ -50,6 +51,11 @@ class Handle {
   // Closes now and reports whether HDF5 accepted the close. The handle is empty afterwards
   // either way; closing an empty handle succeeds.
   [[nodiscard]] bool close() noexcept;
+  // Forgets the identifier without closing it (see Object::abandon()).
+  void release() noexcept {
+    id_ = -1;
+    close_ = nullptr;
+  }
 
  private:
   std::int64_t id_ = -1;
@@ -79,6 +85,12 @@ class Object {
   // nothing. Every other call on a closed object throws.
   void close();
   [[nodiscard]] bool is_open() const noexcept { return handle_.valid(); }
+  // Forgets the identifier without closing it; the object is closed afterwards. For a file after
+  // an I/O failure (a full disk): libhdf5 1.10.10 corrupts its own state when such a file's close
+  // fails, and later crashes in its exit-time teardown or leaks (M5 PR 4, the run log's organic
+  // write-error test). An abandoned identifier stays open, and reachable, until the process ends;
+  // the wrapper's exit handler then skips H5close() because a failure was seen.
+  void abandon() noexcept { handle_.release(); }
 
   // For error messages: the file on disk and the object's absolute path inside it ("/rate_1").
   [[nodiscard]] const std::string& file_path() const noexcept { return file_path_; }
@@ -100,12 +112,30 @@ class Object {
 class Group;
 class Dataset;
 
+// One member of a compound record table (ADR-0025's /plugins and /writes): a name and one value
+// per row. Every field of one table holds the same number of rows.
+struct RecordField {
+  std::string name;
+  std::variant<std::vector<double>, std::vector<std::uint64_t>, std::vector<std::string>> values;
+
+  [[nodiscard]] std::size_t rows() const noexcept;
+};
+
 // A file's root group or a group: creates and opens groups and datasets by name.
 class Location : public Object {
  public:
   // Throws Hdf5Error if the name exists.
   Group create_group(std::string_view name);
   [[nodiscard]] Group open_group(std::string_view name) const;
+
+  // A one-dimensional compound dataset, one row per record and one member per field, in order:
+  // IEEE float64, unsigned 64-bit or variable-length UTF-8 string, all little-endian. Written
+  // whole, once, and never extended (contiguous, zero rows allowed). Throws Hdf5Error on no
+  // fields, an empty or repeated field name, fields of unequal length, a string holding a NUL, or
+  // an HDF5 failure.
+  void write_records(std::string_view name, std::span<const RecordField> fields);
+  // A compound dataset of those three member kinds, read back in member order.
+  [[nodiscard]] std::vector<RecordField> read_records(std::string_view name) const;
 
   // Appendable chunked datasets, empty at creation, uncompressed. A series is one-dimensional
   // (one value per row: /rate_<d>/frame); a table is rows x columns (/rate_<d>/values).

@@ -89,4 +89,22 @@ Hdf5Error::Hdf5Error(std::string_view file_path, std::string_view object_path,
       file_path_(file_path),
       object_path_(object_path) {}
 
+namespace {
+
+std::string describe_log(std::string_view file_path, std::string_view write,
+                         std::string_view message) {
+  std::string text = "run log '";
+  text += file_path;
+  text += "': ";
+  text += write;
+  text += " failed: ";
+  text += message;
+  return text;
+}
+
+}  // namespace
+
+LogError::LogError(std::string_view file_path, std::string_view write, std::string_view message)
+    : Error(describe_log(file_path, write, message)), file_path_(file_path), write_(write) {}
+
 }  // namespace astra

@@ -72,9 +72,13 @@ def _earth_plugin_path(data: dict[str, Any]) -> str | None:
 
 def _load_still_air_config(config_path: str | os.PathLike[str]) -> _core.Config:
     """Loads `config_path` as YAML and drops `physical.wind` if present -- still air only (PR 6's
-    own scope; see the module docstring). Every other key is passed through unchanged, so the
-    config file itself stays the single source of truth for models/coefficients/initial state."""
+    own scope; see the module docstring) -- and the top-level `log` block (M5 PR 4, ADR-0025: an
+    analysis Simulation must not create, or finalize, the run's own log file, whose path a later
+    run then finds taken). Every other key is passed through unchanged, so the config file itself
+    stays the single source of truth for models/coefficients/initial state. `astra.linearize` and
+    `astra.lockstep.trim_for` build through this too."""
     data = _read_yaml_dict(config_path)
+    data.pop("log", None)
     physical = data.get("physical")
     if isinstance(physical, dict):
         cast(dict[str, Any], physical).pop("wind", None)

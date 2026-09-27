@@ -31,7 +31,20 @@ if(ASTRA_STATIC_PLUGINS)
   target_compile_definitions(astra_core_headers INTERFACE ASTRA_STATIC_PLUGINS=1)
 endif()
 
+# ADR-0025 Q10: git describe and the project version for the run log's provenance, in a source
+# generated at every build and rewritten only when its text changes (cmake/astra_build_info.cmake).
+find_package(Git QUIET)
+set(astra_build_info_source "${CMAKE_BINARY_DIR}/generated/src/build_info.cpp")
+add_custom_target(astra_build_info
+  COMMAND "${CMAKE_COMMAND}" "-DGIT_EXECUTABLE=${GIT_EXECUTABLE}" "-DSOURCE_DIR=${ASTRA_SOURCE_DIR}"
+          "-DVERSION=${PROJECT_VERSION}" "-DOUTPUT=${astra_build_info_source}"
+          -P "${ASTRA_SOURCE_DIR}/cmake/astra_build_info.cmake"
+  BYPRODUCTS "${astra_build_info_source}"
+  COMMENT "Checking the source tree's describe string for build_info.cpp"
+  VERBATIM)
+
 add_library(astra_core SHARED
+  "${astra_build_info_source}"
   src/config/config.cpp
   src/core_api.cpp
   src/errors.cpp
@@ -51,13 +64,16 @@ add_library(astra_core SHARED
   src/kernel/health_monitor.cpp
   src/kernel/lockstep_exchange.cpp
   src/kernel/rigid_body_6dof_dynamics.cpp
+  src/kernel/run_log.cpp
   src/kernel/simulation.cpp
   src/kernel/vehicle.cpp
   src/plugin/loader.cpp
   src/signals/hdf5_file.cpp
   src/signals/input_registry.cpp
-  src/signals/signal_registry.cpp)
+  src/signals/signal_registry.cpp
+  src/util/sha256.cpp)
 add_library(astra::core ALIAS astra_core)
+add_dependencies(astra_core astra_build_info)
 target_link_libraries(astra_core PUBLIC astra_core_headers)
 # Private: Config's yaml-cpp usage is behind a pimpl (core/include/astra/config/config.hpp), so no
 # plugin ever needs the yaml-cpp headers.

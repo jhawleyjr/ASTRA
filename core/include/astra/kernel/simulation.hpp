@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -19,6 +20,7 @@
 #include "astra/kernel/exchange_recorder.hpp"
 #include "astra/kernel/health_monitor.hpp"
 #include "astra/kernel/lockstep_exchange.hpp"
+#include "astra/kernel/run_log.hpp"
 #include "astra/kernel/scheduler.hpp"
 #include "astra/kernel/vehicle.hpp"
 #include "astra/kernel/virtual_clock.hpp"
@@ -128,7 +130,7 @@ class Simulation {
   // vehicle models, then (when physics is configured) each vehicle's wrench accumulation, EOM
   // derivative, integrator step, and post-step renormalize, health-checked throughout (PLAN.md M1
   // PR 4). Returns the first vehicle's halt, if any; the clock does not advance on a halt, so
-  // halt.frame == clock().frame() afterwards. The logger joins this in M5.
+  // halt.frame == clock().frame() afterwards.
   //
   // M4 PR 3 (ADR-0022, docs/plans/m4-pr3-core-seam.md): with a "transport" block, the lockstep
   // exchange runs for the bound vehicle (v1: index 0) at frame % transport.divisor == 0, after that
@@ -140,11 +142,50 @@ class Simulation {
   // a kFrameDiscontinuity), clock unchanged -- and teardown closes the transport with
   // CloseReason::kAfterFailure. Without a transport, halts are not sticky: a repeated step()
   // re-runs the halted frame, exactly as before M4 (R8).
+  //
+  // M5 PR 4 (ADR-0025): with a "log" block, step() first reserves this frame's row in every due
+  // ring, before any environment, exchange, model, integrator or RNG side effect, and fills it at
+  // the end of a completed frame (run_log.hpp). A ring with no free row halts HealthCheck::kLog
+  // (source "log") before any side effect, so the clock, state and RNG do not advance. A kLog halt
+  // is sticky with or without a transport: every later step(), run() and flush_log() returns it
+  // (with a transport it is also stored by the exchange stage, so teardown closes the transport
+  // with kAfterFailure). step() after close_log() halts kLog too: the log is final. step() never
+  // calls HDF5.
   [[nodiscard]] HaltReason step() noexcept;
   // Steps `frames` major frames, or until one halts. Returns the halt that stopped the run, if any.
+  // With a log, drains it between frames whenever a ring passes its high-water mark (half its
+  // rows); a failed drain write is the same sticky kLog halt.
   [[nodiscard]] HaltReason run(std::uint64_t frames) noexcept;
   // Steps the frame count read from "sim.frames" at from_config time.
   [[nodiscard]] HaltReason run() noexcept { return run(frames_); }
+
+  // ADR-0025: drains every ring (for a step()-driven caller such as astra.lockstep.Session). No
+  // log: does nothing. After a kLog halt: returns it and drains nothing. A failed drain write
+  // halts kLog, sticky. Not on the per-frame path; never throws.
+  [[nodiscard]] HaltReason flush_log() noexcept;
+  // ADR-0025: drains the rings, writes /summary (frames run, the last call's halt, health counters,
+  // per-signal min/max) and /final_state (the combined state after the last call, its frame, and
+  // whether that call halted), sets the root attribute complete = 1 and closes the file. Throws
+  // LogError naming the write that failed (complete is then never set). Idempotent: a second call
+  // does nothing after a success and throws the same LogError after a failure. No log: does
+  // nothing. The destructor closes an open log the same way, best effort.
+  void close_log();
+  // Whether a "log" block configured a run log.
+  [[nodiscard]] bool has_log() const noexcept { return log_ != nullptr; }
+  // Test-only (M5 PR 4): makes one run-log write fail as if HDF5 had. Same public-but-named posture
+  // as for_testing; does nothing without a log.
+  void inject_log_fault_for_testing(RunLog::Fault fault) noexcept {
+    if (log_ != nullptr) {
+      log_->inject_fault_for_testing(fault);
+    }
+  }
+
+  ~Simulation();
+  Simulation(Simulation&&) noexcept = default;
+  // Deleted: assigning over a Simulation would drop its open log without finalizing it.
+  Simulation& operator=(Simulation&&) = delete;
+  Simulation(const Simulation&) = delete;
+  Simulation& operator=(const Simulation&) = delete;
 
   [[nodiscard]] const VirtualClock& clock() const noexcept { return clock_; }
   [[nodiscard]] const SignalRegistry& registry() const noexcept { return registry_; }
@@ -182,7 +223,9 @@ class Simulation {
   // would ever call latch() for it. Throws Error naming name if it is not a registered input
   // (InputRegistry::write()'s own existing contract) or if the just-written value was itself
   // non-finite (ADR-0017's own explicit requirement: "must check latch()'s returned name and raise
-  // rather than continue"). Not on the per-frame path: may allocate, may throw.
+  // rather than continue"). Not on the per-frame path: may allocate, may throw. With a log, every
+  // call that reaches a registered input is recorded for /writes (ADR-0025), the non-finite one
+  // included: its pending value is what the next frame's latch() sees.
   void write_input(std::string_view name, double value);
 
   // M3 PR 5 (ADR-0021 R4, docs/plans/pr5-nanobind-bindings.md): evaluates the first vehicle's own
@@ -208,6 +251,18 @@ class Simulation {
   // Earth-derived altitude); step_frame's former inline block, unchanged.
   [[nodiscard]] EnvironmentSample sample_environment(const StepContext& ctx,
                                                      const Vehicle& vehicle) noexcept;
+  // from_config's last step: the run log's file, then the transport's handshake (whose failure
+  // removes the file again).
+  void open_log_and_transport(const Config& config,
+                              const std::optional<RunLogSettings>& log_settings, double dt,
+                              const PluginLoader& loader);
+  // step() without the log stage: the exchange's pre_frame()/post_step()/note_halt() around
+  // step_frame().
+  [[nodiscard]] HaltReason step_exchange(const StepContext& ctx) noexcept;
+  // Stores and returns the sticky kLog halt at `frame` (ADR-0025), telling the exchange stage too.
+  [[nodiscard]] HaltReason halt_log(std::uint64_t frame) noexcept;
+  // What the destructor and close_log() hand the log.
+  [[nodiscard]] RunLogEnd log_end() const noexcept;
 
   VirtualClock clock_;
   SignalRegistry registry_;
@@ -243,6 +298,14 @@ class Simulation {
   // nothing without physics). unique_ptr for the same reason as health_: the registry holds
   // pointers into it across every move.
   std::unique_ptr<DerivedSignals> derived_;
+  // M5 PR 4 (ADR-0025): null without a "log" block. unique_ptr: its rings hold pointers into the
+  // registry's signals and the vehicles' combined state, and it must keep its own address.
+  std::unique_ptr<RunLog> log_;
+  // The sticky kLog halt, once there is one.
+  HaltReason log_halt_;
+  // What the last step() (or run()'s failed drain) returned: /summary's halt and /final_state's
+  // after_halt.
+  HaltReason last_halt_;
   // M4 PR 3 (ADR-0022): null without a "transport" block. unique_ptr for the same reason as
   // health_ (its transport.* signals and HaltReason sources must keep their addresses across
   // moves). Declared last, so it is destroyed first: its destructor closes the transport while

@@ -12,6 +12,7 @@ add_executable(astra_unit_tests
   kernel/aero_propulsion_seam_test.cpp
   kernel/clock_test.cpp
   kernel/derived_signals_test.cpp
+  kernel/run_log_test.cpp
   kernel/loopback_transport_test.cpp
   kernel/scheduler_test.cpp
   kernel/notional_transport_cruise_config_test.cpp
@@ -34,6 +35,7 @@ add_executable(astra_unit_tests
   util/air_data_test.cpp
   util/geodesy_test.cpp
   util/random_test.cpp
+  util/sha256_test.cpp
   util/units_test.cpp
   wind/dryden_filter_test.cpp
   wind/dryden_test.cpp

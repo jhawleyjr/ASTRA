@@ -1,0 +1,31 @@
+date: 2026-09-27T18:25:47Z
+command: ./scripts/check-full.sh
+base: 6efd1b12cdb98b4ae6e3ac62717cde5486824555
+head: 3f74e37856dbf9098689cea2c9a1caf2d9327820
+exit: 0
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 144 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr4-logger/build/debug
+100% tests passed, 0 tests failed out of 621
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr4-logger/build/release
+100% tests passed, 0 tests failed out of 622
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr4-logger/build/static-plugins
+100% tests passed, 0 tests failed out of 623
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr4-logger/build/asan
+100% tests passed, 0 tests failed out of 624
+0 errors, 0 warnings, 0 informations
+184 passed in 34.17s
+check: OK
+
+acceptance (plan PR 4 row), head 3f74e37856dbf9098689cea2c9a1caf2d9327820
+ctest --preset asan -R 'RunLog|Hdf5|NoAlloc|Health|SimulationTransport' --no-tests=error: exit 0
+100% tests passed, 0 tests failed out of 119
+.venv/bin/pytest tests/python -k 'lockstep and log': exit 0
+====================== 2 passed, 182 deselected in 2.64s =======================
+ctest --preset release -R NotionalTransportCruiseRegression --no-tests=error: exit 0
+100% tests passed, 0 tests failed out of 2
+R4 (RunLogDeterminism.TwoRunsOfTheDrydenCruiseToDifferentPathsAreByteIdentical, asan): exit 0
+R4 cruise.yaml 3000 frames, run log SHA-256: 8e7770c9c5cc9eae68720c863a1d71af65774acb2bc57bbf7f3a21032ef09e52 (1711864 bytes)
