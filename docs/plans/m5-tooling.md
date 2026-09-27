@@ -141,7 +141,8 @@ completed, the halt (if any), and every external input write (`Simulation::write
 `astra.log.replay(path, out)` rebuilds the `Simulation` from the stored config plus a `log` block naming `out`,
 applies the stored writes at their frames, runs the completed frame count, and, for a halted log, makes the
 one further `step()` that must reproduce the same halt; it returns whether `out` is byte-identical to `path`
-(Q11). A log from a run with a `transport` block is refused with an error naming the reason.
+(Q11). A log from a run with a `transport` block, or one whose halt is `kLog`, is refused with an error naming
+the reason (Joe, 2026-09-27).
 
 **Derived signals (PR 3, ADR-0026).** Per vehicle with physics, whether or not a transport is configured,
 `v<i>.derived.<field>` for each `astra_sim_to_sw_v1` truth field (`phi theta psi p q r u v w alpha beta tas
@@ -201,7 +202,7 @@ units come from the transcribed oracle table, Q21), and sends to UDP (default `1
 | R6b | Finalization failures reach the caller | An injected write failure during `close_log()` raises naming the write and leaves `complete` unset; `load` then refuses the file; `close_log()` twice is a no-op; `Session.close_log()` does the same through `astra.lockstep` |
 | R7 | Provenance and summary | Attributes hold config text, git describe, core version and API, `dt`, plugin table with SHA-256 (Q9); `/summary` holds frames, halt, health counters, min/max; `/writes` holds external writes; `complete = 1` |
 | R8 | `astra.log.load` | pandas frame per rate group indexed by `frame`, `t` column exactly `frame * dt`, units exposed; runs in the same process as `astra._core` (two HDF5 runtimes, see risks) |
-| R9 | Replay | `astra.log.replay` writes a byte-identical file (different path) for a Dryden cruise, for a run with mid-run `write_input` events, and for a run that halts (for example a NaN wrench, `tests/configs/health_nan_wrench.yaml`), reproducing the halt; a lockstep log is refused with a named reason |
+| R9 | Replay | `astra.log.replay` writes a byte-identical file (different path) for a Dryden cruise, for a run with mid-run `write_input` events, and for a run that halts (for example a NaN wrench, `tests/configs/health_nan_wrench.yaml`), reproducing the halt; a lockstep log and a `kLog`-halted log are each refused with a named reason |
 | R10 | Derived signals are the ICD truth; the exchange is unchanged | With the loopback transport, `v0.derived.*` at frame k equal the recorder's `sim_to_sw` fields for frame k bitwise (`ax ay az` included, so the previous-frame rule matches). `lockstep_exchange.cpp` has no diff. Base-vs-candidate: the SHA-256 of a loopback run's serialized recorder, built at `d3e82e3` and at the PR 3 head, is equal (recorded in PR 3's evidence) |
 | R11 | Harness collects every scenario | `pytest tests/scenarios` collects exactly the `*.yaml` files present (count asserted by a meta-test) |
 | R12 | Harness fails when it should | Negative fixtures in `tests/python/`: a violated check fails naming the signal and frame; an unexpected halt fails; a nonzero warn counter fails; a missed `expect_halt` fails; a non-multiple-of-`dt` time, an unknown key or signal is a collection error |
@@ -447,6 +448,9 @@ Joe's decisions (2026-09-26): **spec and plan approved; Q1 to Q24 approved as re
   measured, inside `just check`) come back to Joe with evidence.
 - **Q23:** approved. PR 1 also narrows AGENTS.md's wall-clock wording to `core/`, `plugins/`, `aircraft/`,
   matching ADR-0010 and ADR-0023.
+- **Q11 (2026-09-27, PR 1 Codex review finding F1):** a log whose halt is `kLog` is refused by replay with a
+  named reason. The halt depends on `buffer_frames` and the drain calls, which the stored config omits, or on an
+  I/O failure, so no replay could reproduce it. Every other halt still replays and must reproduce.
 
 Next owner: Joe launches PR 1 (ADR-0025, ADR-0026, architecture rev 9, the AGENTS.md wording) in a new
 session with the `docs/decisions/` guard armed.
