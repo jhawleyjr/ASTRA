@@ -1,6 +1,6 @@
 # ADR-0026: Derived flight-condition signals from the ICD truth packer
 
-Status: proposed
+Status: **accepted**, 2026-09-27
 Date: 2026-09-26
 Owner: Joe
 Related/supersedes: elaborates ADR-0001 (frames, 3-2-1 Euler as derived outputs), ADR-0002 (SI, unit metadata),
@@ -76,4 +76,4 @@ review.
 
 ## Approval
 
-Pending Joe's explicit decision.
+Accepted by Joe, 2026-09-27.

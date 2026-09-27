@@ -1,6 +1,6 @@
 # ADR-0025: HDF5 run log and replay
 
-Status: proposed
+Status: **accepted**, 2026-09-27
 Date: 2026-09-26
 Owner: Joe
 Related/supersedes: elaborates ADR-0005 (HDF5 through the C API), ADR-0010 (frame counter), ADR-0011 (vehicle
@@ -153,4 +153,4 @@ cross-machine identity, readers other than h5py, and a RealTime writer thread.
 
 ## Approval
 
-Pending Joe's explicit decision.
+Accepted by Joe, 2026-09-27.
