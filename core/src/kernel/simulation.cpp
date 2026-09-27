@@ -446,6 +446,10 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
   // check_wind_shareable's own comment for how it is actually exercised (Simulation::for_testing).
   check_wind_shareable(wind, sim.vehicles_.size(), wind_plugin_path, config.origin());
 
+  // M5 PR 3 (ADR-0026): after every vehicle is initialized (has_physics() is known), before the
+  // transport's signals and registry freeze. A config without "physical" registers nothing.
+  sim.derived_ = std::make_unique<DerivedSignals>(sim.vehicles_, sim.earth_, sim.registry_);
+
   // M4 PR 3 (ADR-0022): after every bind_inputs() (vehicle.init above), so the command map resolves
   // with no load-order dependency; before registry freeze and the unknown-key check, so its signals
   // register and its keys count as consumed. The handshake itself runs last, below.
@@ -573,6 +577,9 @@ Simulation Simulation::for_testing(const PluginLoader& loader,
   // this is the only way it is exercised today.
   check_wind_shareable(wind, sim.vehicles_.size(), "for_testing's wind", "Simulation::for_testing");
 
+  // Same stage, same point in init, as from_config (ADR-0026).
+  sim.derived_ = std::make_unique<DerivedSignals>(sim.vehicles_, sim.earth_, sim.registry_);
+
   sim.health_ = std::make_unique<HealthMonitor>();
   sim.health_->init(Config::from_string("{}\n", "Simulation::for_testing"), sim.registry_);
   sim.registry_.freeze();
@@ -643,6 +650,10 @@ HaltReason Simulation::step_frame(const StepContext& ctx) noexcept {
   for (Vehicle& vehicle : vehicles_) {
     const EnvironmentSample sample = sample_environment(ctx, vehicle);
     vehicle.set_environment(sample);
+    // M5 PR 3 (ADR-0026): the derived signals at this vehicle's frame-start state, after its
+    // environment sample and before the exchange and its step(); a separate pack_sim_to_sw call,
+    // so the exchange's own request is untouched. A no-op for a vehicle without physics.
+    derived_->pack(ctx, vehicle, sample);
     // M4 PR 3 (ADR-0022, architecture §5): the lockstep exchange, after this frame's environment
     // sample and before this vehicle's step(), so latch() below commits its commands this frame.
     // earth_ is non-null whenever exchange_ is (from_config requires "physical" for a transport).
@@ -692,6 +703,7 @@ HaltReason Simulation::step_frame(const StepContext& ctx) noexcept {
       }
     }
   }
+  derived_->note_completed(vehicles_, ctx.frame);  // ADR-0026: frame k+1's ax ay az
   clock_.advance();
   return {};
 }

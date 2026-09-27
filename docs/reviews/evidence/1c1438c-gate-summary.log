@@ -1,0 +1,34 @@
+date: 2026-09-27T10:06:09Z
+command: ./scripts/check-full.sh
+base: 82686ec (origin/main)
+head: 1c1438c
+exit: 0
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 144 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr3-derived-signals/build/debug
+100% tests passed, 0 tests failed out of 589
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr3-derived-signals/build/release
+100% tests passed, 0 tests failed out of 590
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr3-derived-signals/build/static-plugins
+100% tests passed, 0 tests failed out of 591
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr3-derived-signals/build/asan
+100% tests passed, 0 tests failed out of 592
+0 errors, 0 warnings, 0 informations
+177 passed in 31.51s
+check: OK
+
+acceptance (same head):
+ctest --preset asan -R 'Derived|IcdPack|LoopbackTransport|SimulationTransport|NoAlloc|NotionalTransportCruiseRegression' --no-tests=error: exit 0, 100% tests passed, 0 tests failed out of 87
+git diff --exit-code d3e82e3 -- core/src/kernel/lockstep_exchange.cpp: exit 0, empty
+
+R10 base-vs-candidate (release builds of d3e82e3 and 1c1438c; one driver calling Simulation::from_config,
+run(1000), ExchangeRecorder::serialize(); the same config text for both):
+cruise.yaml + loopback divisor 1:   3ddd47d9019f8d5206b5e6c44b6e79c097dbf7b6b5f7b8eec30dc31aa617af4f both (1000 requests; 45 vs 70 signals)
+cruise.yaml + loopback divisor 10:  a8934c974b22d28a48b33229169dfc071377aa7dc46005b13dc479a081a2f553 both (100 requests; 45 vs 70 signals)
+flat fixture + loopback divisor 10: 067329e06dd908f7aab74d4ff2b64219f0ef679bb02e61f732301a8afefb4ec2 both (100 requests; 34 vs 59 signals)
+
+previous candidate 7cf5a47: full gate exit 1, tidy only
+(core/src/kernel/simulation.cpp:660: 'step_frame' has cognitive complexity of 26 (threshold 25)); fixed in 1c1438c.

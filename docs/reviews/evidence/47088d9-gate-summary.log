@@ -1,0 +1,25 @@
+date: 2026-09-27T17:08:14Z
+command: ./scripts/check-full.sh
+base: 82686ec (origin/main)
+head: 47088d9 (1c1438c plus a comment-only edit to derived_signals.hpp and the review record)
+exit: 0
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 144 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr3-derived-signals/build/debug
+100% tests passed, 0 tests failed out of 589
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr3-derived-signals/build/release
+100% tests passed, 0 tests failed out of 590
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr3-derived-signals/build/static-plugins
+100% tests passed, 0 tests failed out of 591
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr3-derived-signals/build/asan
+100% tests passed, 0 tests failed out of 592
+0 errors, 0 warnings, 0 informations
+177 passed in 31.57s
+check: OK
+
+also at 47088d9: git diff --check exit 0; python3 scripts/docs_check.py exit 0.
+Acceptance selectors and R10 were not rerun: 1c1438c..47088d9 changes one comment block and a Markdown file
+(see 1c1438c-gate-summary.log for those results).
