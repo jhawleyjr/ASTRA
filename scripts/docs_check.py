@@ -43,7 +43,8 @@ WORKFLOW_DOC_ROOTS = [
 ]
 
 # Checked for links/anchors only: PLAN.md links every PR's plan and packet, but as a plan it may
-# name a future command (the reason the design docs above are excluded), so its command names are not.
+# name a future command (the reason the design docs above are excluded), so its command names
+# are not checked.
 LINK_ONLY_DOC_FILES = ["PLAN.md"]
 
 
