@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -27,6 +28,9 @@
 namespace astra {
 
 namespace {
+
+// ADR-0025: what a kLog halt names.
+constexpr std::string_view kLogHaltSource = "log";
 
 // A signed config value cast straight to an unsigned field wraps instead of erroring on a negative
 // input (Codex review, PR M1-2): "sim.frames: -1" became UINT64_MAX, turning a typo'd config into
@@ -318,6 +322,9 @@ HaltReason latch_vehicle_inputs(Vehicle& vehicle, HealthMonitor& health,
 }  // namespace
 
 Simulation Simulation::from_config(const Config& config, std::filesystem::path plugin_dir) {
+  // M5 PR 4 (ADR-0025): first, so a bad or existing log path fails before any plugin loads. The
+  // file itself is created only after the unknown-key check below.
+  const std::optional<RunLogSettings> log_settings = RunLog::read_settings(config);
   Simulation sim;
   const double dt = config.number("sim.dt");
   sim.frames_ = checked_frame_count(config, config.integer("sim.frames"));
@@ -476,10 +483,24 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
     throw ConfigError(config.origin(), unknown.front(),
                       "unknown config key (docs/architecture.md §15: unknown keys are errors)");
   }
+  // M5 PR 4 (ADR-0025): after every check that can reject the config, so a rejected config never
+  // creates a file; before the handshake, because a file that cannot be created is a config error
+  // too, and a config error never starts a handshake. The stored config omits the "log" block.
+  if (log_settings.has_value()) {
+    const RunLogProvenance provenance{config.emit_without("log"), dt, loader.loaded()};
+    sim.log_ = std::make_unique<RunLog>(*log_settings, sim.registry_, sim.vehicles_, provenance);
+  }
   // Last, so a config error never starts a handshake (ADR-0024: the shm transport creates its
   // segment here). Records the initial state as the recorder's frame-0 state first.
   if (sim.exchange_ != nullptr) {
-    sim.exchange_->open(sim.vehicles_.front(), sim.clock_.frame(), config.origin());
+    try {
+      sim.exchange_->open(sim.vehicles_.front(), sim.clock_.frame(), config.origin());
+    } catch (...) {
+      if (sim.log_ != nullptr) {
+        sim.log_->discard();  // this call created it; no run ever wrote to it
+      }
+      throw;
+    }
   }
   return sim;
 }
@@ -586,8 +607,33 @@ Simulation Simulation::for_testing(const PluginLoader& loader,
   return sim;
 }
 
+Simulation::~Simulation() {
+  if (log_ != nullptr && !log_->closed()) {
+    log_->close_best_effort(log_end());
+  }
+}
+
 HaltReason Simulation::step() noexcept {
   const StepContext ctx = clock_.context();
+  if (log_ != nullptr) {
+    // ADR-0025: the log's own stage comes first, before any side effect of this frame.
+    if (log_halt_) {
+      last_halt_ = log_halt_;
+      return log_halt_;
+    }
+    if (!log_->reserve(ctx.frame)) {  // a full ring, or a closed log
+      return halt_log(ctx.frame);
+    }
+  }
+  const HaltReason halt = step_exchange(ctx);
+  if (log_ != nullptr && !halt) {
+    log_->commit(ctx.frame);  // frame end: every other column's frame-k value
+  }
+  last_halt_ = halt;
+  return halt;
+}
+
+HaltReason Simulation::step_exchange(const StepContext& ctx) noexcept {
   if (exchange_ == nullptr) {
     return step_frame(ctx);
   }
@@ -602,6 +648,38 @@ HaltReason Simulation::step() noexcept {
     exchange_->post_step(vehicles_[exchange_->vehicle_index()], clock_.frame());
   }
   return halt;
+}
+
+HaltReason Simulation::halt_log(std::uint64_t frame) noexcept {
+  log_halt_ = HaltReason{HealthCheck::kLog, kLogHaltSource, frame, 0};
+  if (exchange_ != nullptr) {
+    exchange_->note_halt(log_halt_);  // with a transport, teardown then closes kAfterFailure
+  }
+  last_halt_ = log_halt_;
+  return log_halt_;
+}
+
+RunLogEnd Simulation::log_end() const noexcept {
+  return RunLogEnd{clock_.frame(), last_halt_, vehicles_};
+}
+
+HaltReason Simulation::flush_log() noexcept {
+  if (log_ == nullptr) {
+    return {};
+  }
+  if (log_halt_) {
+    return log_halt_;
+  }
+  if (!log_->drain()) {
+    return halt_log(clock_.frame());
+  }
+  return {};
+}
+
+void Simulation::close_log() {
+  if (log_ != nullptr) {
+    log_->close(log_end());
+  }
 }
 
 // This frame's environment sample (docs/architecture.md §5, environment_sample.hpp), latched
@@ -713,6 +791,10 @@ HaltReason Simulation::run(std::uint64_t frames) noexcept {
     if (const HaltReason halt = step(); halt) {
       return halt;
     }
+    // ADR-0025: between frames, never inside step().
+    if (log_ != nullptr && log_->past_high_water() && !log_->drain()) {
+      return halt_log(clock_.frame());
+    }
   }
   return {};
 }
@@ -724,6 +806,9 @@ void Simulation::write_input(std::string_view name, double value) {
   }
   InputRegistry& inputs = vehicles_.front().inputs();
   inputs.write(name, value);
+  if (log_ != nullptr) {
+    log_->record_write(clock_.frame(), name, value);  // ADR-0025: /writes, for replay
+  }
   if (const std::string_view fault = inputs.latch(); !fault.empty()) {
     throw Error("Simulation::write_input: " + std::string(fault) + " is non-finite after latch()");
   }

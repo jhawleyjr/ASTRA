@@ -2,10 +2,13 @@
 
 #include <hdf5.h>
 
+#include <algorithm>
 #include <array>
+#include <cstring>
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "astra/errors.hpp"
@@ -439,6 +442,254 @@ Group Location::open_group(std::string_view name) const {
     fail_hdf5(file_path(), path, "cannot open the group");
   }
   return Group{std::move(group), file_path(), std::move(path)};
+}
+
+// --- Compound record tables ---------------------------------------------------------------------
+
+std::size_t RecordField::rows() const noexcept {
+  return std::visit([](const auto& column) { return column.size(); }, values);
+}
+
+namespace {
+
+// Every member is eight bytes in memory: a double, a uint64 or a char* (a variable-length string).
+constexpr std::size_t kRecordMemberBytes = 8;
+static_assert(sizeof(double) == kRecordMemberBytes && sizeof(std::uint64_t) == kRecordMemberBytes &&
+              sizeof(char*) == kRecordMemberBytes);
+
+enum class MemberKind : std::uint8_t { kFloat64, kUint64, kString };
+
+MemberKind member_kind(const RecordField& field) noexcept {
+  if (std::holds_alternative<std::vector<double>>(field.values)) {
+    return MemberKind::kFloat64;
+  }
+  if (std::holds_alternative<std::vector<std::uint64_t>>(field.values)) {
+    return MemberKind::kUint64;
+  }
+  return MemberKind::kString;
+}
+
+// The compound type for these member kinds: `file` picks the little-endian stored types, else the
+// native memory types; the string member is the same variable-length UTF-8 type either way.
+Handle compound_type(const Where& at, std::span<const MemberKind> kinds,
+                     std::span<const std::string> names, bool file) {
+  Handle type{H5Tcreate(H5T_COMPOUND, kinds.size() * kRecordMemberBytes), &H5Tclose};
+  if (!type.valid()) {
+    at.fail_hdf5("cannot build the record type");
+  }
+  const Handle string_type = variable_string_type(at);
+  for (std::size_t i = 0; i < kinds.size(); ++i) {
+    hid_t member = string_type.id();
+    if (kinds[i] == MemberKind::kFloat64) {
+      member = file ? H5T_IEEE_F64LE : H5T_NATIVE_DOUBLE;
+    } else if (kinds[i] == MemberKind::kUint64) {
+      member = file ? H5T_STD_U64LE : H5T_NATIVE_UINT64;
+    }
+    if (H5Tinsert(type.id(), names[i].c_str(), i * kRecordMemberBytes, member) < 0) {
+      at.fail_hdf5("cannot add record member '" + names[i] + "'");
+    }
+  }
+  return type;
+}
+
+// Frees the strings a variable-length read allocated inside a compound buffer: release() reports
+// HDF5's result; the destructor frees best effort if release() was not reached.
+class ReclaimRecords {
+ public:
+  ReclaimRecords(hid_t type, hid_t space, std::vector<std::byte>& buffer) noexcept
+      : type_(type), space_(space), buffer_(buffer) {}
+  ~ReclaimRecords() { static_cast<void>(release()); }
+  ReclaimRecords(const ReclaimRecords&) = delete;
+  ReclaimRecords& operator=(const ReclaimRecords&) = delete;
+  ReclaimRecords(ReclaimRecords&&) = delete;
+  ReclaimRecords& operator=(ReclaimRecords&&) = delete;
+
+  [[nodiscard]] bool release() noexcept {
+    if (released_) {
+      return true;
+    }
+    released_ = true;
+    return H5Dvlen_reclaim(type_, space_, H5P_DEFAULT, buffer_.data()) >= 0;
+  }
+
+ private:
+  hid_t type_;
+  hid_t space_;
+  std::vector<std::byte>& buffer_;
+  bool released_ = false;
+};
+
+}  // namespace
+
+void Location::write_records(std::string_view name, std::span<const RecordField> fields) {
+  const Where at{id(), file_path(), object_path()};
+  const std::string key{name};
+  const std::string path = child_path(name);
+  const Where target{at.id, file_path(), path};
+  if (fields.empty()) {
+    target.fail("a record table needs at least one field");
+  }
+  const std::size_t rows = fields.front().rows();
+  std::vector<MemberKind> kinds;
+  std::vector<std::string> names;
+  kinds.reserve(fields.size());
+  names.reserve(fields.size());
+  for (const RecordField& field : fields) {
+    if (field.name.empty() || std::find(names.begin(), names.end(), field.name) != names.end()) {
+      target.fail("record field names must be non-empty and distinct ('" + field.name + "')");
+    }
+    if (field.rows() != rows) {
+      target.fail("record field '" + field.name + "' has " + std::to_string(field.rows()) +
+                  " rows, not " + std::to_string(rows));
+    }
+    if (const auto* strings = std::get_if<std::vector<std::string>>(&field.values)) {
+      for (const std::string& value : *strings) {
+        check_no_nul(target, field.name, value);
+      }
+    }
+    kinds.push_back(member_kind(field));
+    names.push_back(field.name);
+  }
+  const std::size_t row_bytes = fields.size() * kRecordMemberBytes;
+  std::vector<std::byte> buffer(rows * row_bytes);
+  for (std::size_t f = 0; f < fields.size(); ++f) {
+    const std::size_t offset = f * kRecordMemberBytes;
+    std::visit(
+        [&buffer, row_bytes, offset](const auto& column) {
+          for (std::size_t r = 0; r < column.size(); ++r) {
+            std::byte* slot = buffer.data() + (r * row_bytes) + offset;
+            if constexpr (std::is_same_v<std::decay_t<decltype(column)>,
+                                         std::vector<std::string>>) {
+              const char* text = column[r].c_str();
+              std::memcpy(slot, static_cast<const void*>(&text), kRecordMemberBytes);
+            } else {
+              std::memcpy(slot, &column[r], kRecordMemberBytes);
+            }
+          }
+        },
+        fields[f].values);
+  }
+  const Handle file_type = compound_type(target, kinds, names, true);
+  const Handle memory_type = compound_type(target, kinds, names, false);
+  const std::array<hsize_t, 1> dims{rows};
+  const Handle space{H5Screate_simple(1, dims.data(), nullptr), &H5Sclose};
+  const Handle properties{H5Pcreate(H5P_DATASET_CREATE), &H5Pclose};
+  if (!space.valid() || !properties.valid() || H5Pset_obj_track_times(properties.id(), false) < 0) {
+    target.fail_hdf5("cannot build the record table's dataspace and creation properties");
+  }
+  const Handle dataset{H5Dcreate2(at.id, key.c_str(), file_type.id(), space.id(), H5P_DEFAULT,
+                                  properties.id(), H5P_DEFAULT),
+                       &H5Dclose};
+  if (!dataset.valid()) {
+    target.fail_hdf5("cannot create the record table");
+  }
+  if (rows != 0 &&
+      H5Dwrite(dataset.id(), memory_type.id(), H5S_ALL, H5S_ALL, H5P_DEFAULT, buffer.data()) < 0) {
+    target.fail_hdf5("cannot write the record table");
+  }
+}
+
+std::vector<RecordField> Location::read_records(std::string_view name) const {
+  const Where at{id(), file_path(), object_path()};
+  const std::string key{name};
+  const std::string path = child_path(name);
+  const Where target{at.id, file_path(), path};
+  const Handle dataset{H5Dopen2(at.id, key.c_str(), H5P_DEFAULT), &H5Dclose};
+  if (!dataset.valid()) {
+    target.fail_hdf5("cannot open the record table");
+  }
+  const Handle stored{H5Dget_type(dataset.id()), &H5Tclose};
+  const Handle space{H5Dget_space(dataset.id()), &H5Sclose};
+  if (!stored.valid() || !space.valid()) {
+    target.fail_hdf5("cannot inspect the record table");
+  }
+  if (H5Tget_class(stored.id()) != H5T_COMPOUND || H5Sget_simple_extent_ndims(space.id()) != 1) {
+    target.fail("is not a one-dimensional compound dataset");
+  }
+  const int members = H5Tget_nmembers(stored.id());
+  if (members <= 0) {
+    target.fail_hdf5("cannot count the record table's members");
+  }
+  std::vector<MemberKind> kinds;
+  std::vector<std::string> names;
+  for (int i = 0; i < members; ++i) {
+    const auto index = static_cast<unsigned>(i);
+    char* member_name = H5Tget_member_name(stored.id(), index);
+    if (member_name == nullptr) {
+      target.fail_hdf5("cannot read a record member name");
+    }
+    names.emplace_back(member_name);
+    static_cast<void>(H5free_memory(member_name));
+    const H5T_class_t member_class = H5Tget_member_class(stored.id(), index);
+    if (member_class == H5T_FLOAT) {
+      kinds.push_back(MemberKind::kFloat64);
+    } else if (member_class == H5T_INTEGER) {
+      kinds.push_back(MemberKind::kUint64);
+    } else if (member_class == H5T_STRING) {
+      kinds.push_back(MemberKind::kString);
+    } else {
+      target.fail("record member '" + names.back() + "' is not float64, uint64 or string");
+    }
+  }
+  const hssize_t points = H5Sget_simple_extent_npoints(space.id());
+  if (points < 0) {
+    target.fail_hdf5("cannot size the record table");
+  }
+  const auto rows = static_cast<std::size_t>(points);
+  const Handle memory_type = compound_type(target, kinds, names, false);
+  const std::size_t row_bytes = kinds.size() * kRecordMemberBytes;
+  std::vector<std::byte> buffer(std::max<std::size_t>(rows * row_bytes, 1));
+  std::vector<RecordField> fields(kinds.size());
+  if (rows == 0) {
+    for (std::size_t f = 0; f < kinds.size(); ++f) {
+      fields[f].name = names[f];
+      if (kinds[f] == MemberKind::kFloat64) {
+        fields[f].values = std::vector<double>{};
+      } else if (kinds[f] == MemberKind::kUint64) {
+        fields[f].values = std::vector<std::uint64_t>{};
+      } else {
+        fields[f].values = std::vector<std::string>{};
+      }
+    }
+    return fields;
+  }
+  // Armed before the read, so the strings HDF5 allocates are freed on every exit path.
+  ReclaimRecords reclaim{memory_type.id(), space.id(), buffer};
+  if (H5Dread(dataset.id(), memory_type.id(), H5S_ALL, H5S_ALL, H5P_DEFAULT, buffer.data()) < 0) {
+    target.fail_hdf5("cannot read the record table");
+  }
+  for (std::size_t f = 0; f < kinds.size(); ++f) {
+    fields[f].name = names[f];
+    const std::size_t offset = f * kRecordMemberBytes;
+    const auto slot = [&buffer, row_bytes, offset](std::size_t r) {
+      return buffer.data() + (r * row_bytes) + offset;
+    };
+    if (kinds[f] == MemberKind::kFloat64) {
+      std::vector<double> column(rows);
+      for (std::size_t r = 0; r < rows; ++r) {
+        std::memcpy(&column[r], slot(r), kRecordMemberBytes);
+      }
+      fields[f].values = std::move(column);
+    } else if (kinds[f] == MemberKind::kUint64) {
+      std::vector<std::uint64_t> column(rows);
+      for (std::size_t r = 0; r < rows; ++r) {
+        std::memcpy(&column[r], slot(r), kRecordMemberBytes);
+      }
+      fields[f].values = std::move(column);
+    } else {
+      std::vector<std::string> column(rows);
+      for (std::size_t r = 0; r < rows; ++r) {
+        const char* text = nullptr;
+        std::memcpy(static_cast<void*>(&text), slot(r), kRecordMemberBytes);
+        column[r] = text != nullptr ? text : "";
+      }
+      fields[f].values = std::move(column);
+    }
+  }
+  if (!reclaim.release()) {
+    target.fail_hdf5("cannot release the strings read from the record table");
+  }
+  return fields;
 }
 
 namespace {

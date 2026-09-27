@@ -101,4 +101,19 @@ class Hdf5Error : public Error {
   std::string object_path_;
 };
 
+// A run-log finalization failure (ADR-0025): Simulation::close_log() could not complete the file.
+// what() names the file and the write that failed ("/summary", "drain of /rate_1", "complete"), and
+// carries the underlying HDF5 message. A file whose close_log() threw never has complete = 1.
+class LogError : public Error {
+ public:
+  LogError(std::string_view file_path, std::string_view write, std::string_view message);
+
+  [[nodiscard]] const std::string& file_path() const noexcept { return file_path_; }
+  [[nodiscard]] const std::string& write() const noexcept { return write_; }
+
+ private:
+  std::string file_path_;
+  std::string write_;
+};
+
 }  // namespace astra

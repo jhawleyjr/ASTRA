@@ -57,6 +57,30 @@ HealthAction parse_action(const Config& health_config, std::string_view key) {
 
 }  // namespace
 
+std::string_view health_check_name(HealthCheck check) noexcept {
+  switch (check) {
+    case HealthCheck::kNone:
+      return "NONE";
+    case HealthCheck::kNonFiniteState:
+      return "NON_FINITE_STATE";
+    case HealthCheck::kNonFiniteWrench:
+      return "NON_FINITE_WRENCH";
+    case HealthCheck::kQuaternionNorm:
+      return "QUATERNION_NORM";
+    case HealthCheck::kOutOfDomain:
+      return "OUT_OF_DOMAIN";
+    case HealthCheck::kNonFiniteInput:
+      return "NON_FINITE_INPUT";
+    case HealthCheck::kNonFiniteEnvironment:
+      return "NON_FINITE_ENVIRONMENT";
+    case HealthCheck::kTransport:
+      return "TRANSPORT";
+    case HealthCheck::kLog:
+      return "LOG";
+  }
+  return "UNKNOWN";
+}
+
 void HealthMonitor::init(const Config& config, SignalRegistry& registry) {
   if (config.has("sim.health")) {
     const Config health_config = config.at("sim.health");

@@ -312,4 +312,24 @@ std::vector<std::string> Config::unknown_keys() const {
   return unknown;
 }
 
+std::string Config::emit_without(std::string_view key) const {
+  const YAML::Node& root = document_->root;
+  YAML::Emitter out;
+  if (root.IsMap()) {
+    out << YAML::BeginMap;
+    for (const auto& entry : root) {
+      if (entry.first.IsScalar() && entry.first.Scalar() == key) {
+        continue;
+      }
+      out << YAML::Key << entry.first << YAML::Value << entry.second;
+    }
+    out << YAML::EndMap;
+  } else {
+    out << root;
+  }
+  std::string text{out.c_str()};
+  text += '\n';
+  return text;
+}
+
 }  // namespace astra

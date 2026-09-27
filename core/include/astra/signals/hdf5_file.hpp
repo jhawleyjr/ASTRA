@@ -22,6 +22,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace astra::hdf5 {
@@ -100,12 +101,30 @@ class Object {
 class Group;
 class Dataset;
 
+// One member of a compound record table (ADR-0025's /plugins and /writes): a name and one value
+// per row. Every field of one table holds the same number of rows.
+struct RecordField {
+  std::string name;
+  std::variant<std::vector<double>, std::vector<std::uint64_t>, std::vector<std::string>> values;
+
+  [[nodiscard]] std::size_t rows() const noexcept;
+};
+
 // A file's root group or a group: creates and opens groups and datasets by name.
 class Location : public Object {
  public:
   // Throws Hdf5Error if the name exists.
   Group create_group(std::string_view name);
   [[nodiscard]] Group open_group(std::string_view name) const;
+
+  // A one-dimensional compound dataset, one row per record and one member per field, in order:
+  // IEEE float64, unsigned 64-bit or variable-length UTF-8 string, all little-endian. Written
+  // whole, once, and never extended (contiguous, zero rows allowed). Throws Hdf5Error on no
+  // fields, an empty or repeated field name, fields of unequal length, a string holding a NUL, or
+  // an HDF5 failure.
+  void write_records(std::string_view name, std::span<const RecordField> fields);
+  // A compound dataset of those three member kinds, read back in member order.
+  [[nodiscard]] std::vector<RecordField> read_records(std::string_view name) const;
 
   // Appendable chunked datasets, empty at creation, uncompressed. A series is one-dimensional
   // (one value per row: /rate_<d>/frame); a table is rows x columns (/rate_<d>/values).
