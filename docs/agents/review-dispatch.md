@@ -1,6 +1,6 @@
 # Dispatching Codex review from Claude
 
-Claude owns execution and fixes; Codex reviews. Use the installed Codex companion, not a second
+Roles are in [AGENTS.md](../../AGENTS.md). Use the installed Codex companion, not a second
 Claude reviewer. The native plugin commands are user-facing wrappers; Claude calls their companion
 script with the Bash tool. Locate the enabled plugin installation (plugin context or Claude's installed
 plugin registry), confirm its `scripts/codex-companion.mjs` exists, and assign its absolute path to
@@ -79,9 +79,8 @@ its output, and never by putting the dispatch at a non-final stage of a pipe —
 reports `tail`'s exit status, not the dispatch's, so a successful `tail` can mask a launch
 that never happened. The example above does this: redirect to a log, read `$?` right after,
 then `tail` the log, then report the saved status. A nonzero status, an interrupted launch,
-or output with no completed review result is pending review, never clean review — the
-existing rule at line 40 above and `review-cycle/SKILL.md` step 3 both already say so; the
-addition here is the concrete failure mode and the concrete way to detect it.
+or output with no completed review result is pending review (AGENTS.md), never clean review;
+this section adds the concrete failure mode and the concrete way to detect it.
 
 ## Fix verification
 

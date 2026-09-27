@@ -24,8 +24,8 @@ These are portable procedures, not a new agent framework or automatic dispatch c
 - Claude Code: [provider procedures](claude-code.md), existing hooks and the revised
   [`/wrap` handoff skill](../../.claude/skills/wrap/SKILL.md) for any workflow stage.
 
-For a normal feature use one Claude builder plus a fresh Codex reviewer. Claude owns all execution
-roles; Codex owns review and adversarial review (including consequential-plan critiques). Roles
+For a normal feature use one Claude builder plus a fresh Codex reviewer, with the roles in
+[AGENTS.md](../../AGENTS.md) (Codex's review includes consequential-plan critiques). Roles
 can be performed sequentially; no parallel agents are required. Each handoff contains repository
 artifacts, scope, acceptance commands, and evidence, so it survives the loss of chat context.
 

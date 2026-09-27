@@ -24,9 +24,9 @@ Find the first unfinished gate, using the workflow's risk tier and already recor
 - Codex review/adversarial review missing: record the required pass and candidate as pending.
   Open findings go back to Claude for fixes, then validation and Codex verification.
 - Fix/integration budget exhausted or requirement disagreement: record attempts, owner and decision
-  needed from Joe. Preserve retry counts across sessions; a new context does not reset them.
-- Gates satisfied for human review: prepare Joe's packet. Only Joe's actual current-candidate decision
-  establishes approval; his own squash-merge may record it. No separate GitHub approval badge is needed.
+  needed from Joe. Preserve retry counts across sessions.
+- Gates satisfied for human review: prepare Joe's packet. Approval (AGENTS.md) applies to the current
+  candidate only; no separate GitHub approval badge is needed.
 - Merge/release: record only what actually happened. Release authorization/validation is separate;
   a merged PR does not prove a release occurred or authorize one.
 
@@ -74,4 +74,4 @@ and say what is not.
 End with a short handoff: actual stage, completed work, evidence/gaps, unresolved findings and the
 next action/owner. Provide a 3–10 line continuation prompt with artifact paths and acceptance commands.
 Resume the same task/worktree while its gates are unfinished; suggest a new `claude --worktree ...`
-only for a genuinely new task. Claude owns continuation; Codex owns review. Joe decides merge/release.
+only for a genuinely new task.
