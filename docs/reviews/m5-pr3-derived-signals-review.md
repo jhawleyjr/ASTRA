@@ -35,8 +35,13 @@ frame 4's force over mass bitwise both times. With `pack()` reading the live wre
 the test fails on the second attempt. The later-vehicle halt Codex also names takes the same path (the snapshot
 is taken only once every vehicle integrated) but has no test of its own: `for_testing` has no atmosphere, so no
 frame-varying wrench is available there.
-Verification: pending Codex fix verification.
-History: round 1, open, Codex adversarial review; fix 1, fixed-unverified.
+Verification: Codex adversarial fix verification at `7cf5a47`, thread `01a0e228-4022-7970-9f4b-5716c8149c68`:
+approve; F1 holds, including the later-vehicle halt by source inspection; new findings: none.
+History: round 1, open, Codex adversarial review; fix 1, fixed-unverified; verified at `7cf5a47`. The full gate at
+`7cf5a47` then failed only on clang-tidy (`step_frame` cognitive complexity 26, threshold 25). The next commit
+builds the stage unconditionally (it registers nothing without physics) and gives it the Earth model at init, so
+`step_frame` calls `pack()` and `note_completed()` with no added branch. It is a refactor with no behavior change
+(R10 rerun identical).
 Human exception if needed: none.
 
 ## Completion

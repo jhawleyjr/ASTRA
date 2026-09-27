@@ -46,14 +46,17 @@ class DerivedSignals {
   static constexpr std::size_t kFieldCount = 25;
 
   // Init-time: registers v<i>.derived.* for every vehicle with physics, in the ICD's field order
-  // then v_n_0..2. Throws what SignalRegistry::add throws (a duplicate name, a frozen registry).
-  DerivedSignals(std::span<const Vehicle> vehicles, SignalRegistry& registry);
+  // then v_n_0..2; with no physics vehicle it registers nothing and every call below is a no-op.
+  // `earth` is the Simulation's Earth model, kept for pack(); it may be null only when no vehicle
+  // has physics (Error otherwise). Also throws what SignalRegistry::add throws (a duplicate name, a
+  // frozen registry).
+  DerivedSignals(std::span<const Vehicle> vehicles, const EarthModel* earth,
+                 SignalRegistry& registry);
 
   // Packs `vehicle`'s frame-start truth and publishes it; a no-op for a vehicle without physics.
-  // `sample` is this frame's environment sample for `vehicle`, `earth` the Simulation's Earth
-  // model.
-  void pack(const StepContext& ctx, const Vehicle& vehicle, const EnvironmentSample& sample,
-            const EarthModel& earth) noexcept;
+  // `sample` is this frame's environment sample for `vehicle`.
+  void pack(const StepContext& ctx, const Vehicle& vehicle,
+            const EnvironmentSample& sample) noexcept;
 
   // Records that this Simulation completed `frame` (every vehicle integrated, clock about to
   // advance), the only thing that makes the next frame's PreviousFrame valid, and snapshots each
@@ -72,6 +75,7 @@ class DerivedSignals {
   // resized, so the registered pointers into `values` stay valid (Simulation holds this stage by
   // unique_ptr for the same reason across its own moves).
   std::vector<Slot> slots_;
+  const EarthModel* earth_ = nullptr;  // non-null whenever any slot is active
   std::uint64_t last_completed_frame_ = 0;
   bool completed_any_ = false;
 };

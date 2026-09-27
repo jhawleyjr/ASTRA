@@ -7,6 +7,7 @@
 #include <string>
 #include <string_view>
 
+#include "astra/errors.hpp"
 #include "astra/kernel/vehicle_state.hpp"
 #include "astra/util/frames.hpp"
 #include "astra/util/icd_pack.hpp"
@@ -35,7 +36,9 @@ constexpr std::array<Field, DerivedSignals::kFieldCount> kFields = {{
 
 }  // namespace
 
-DerivedSignals::DerivedSignals(std::span<const Vehicle> vehicles, SignalRegistry& registry) {
+DerivedSignals::DerivedSignals(std::span<const Vehicle> vehicles, const EarthModel* earth,
+                               SignalRegistry& registry)
+    : earth_(earth) {
   std::size_t slot_count = 0;
   for (const Vehicle& vehicle : vehicles) {
     slot_count = std::max<std::size_t>(slot_count, std::size_t{vehicle.index()} + 1);
@@ -44,6 +47,10 @@ DerivedSignals::DerivedSignals(std::span<const Vehicle> vehicles, SignalRegistry
   for (const Vehicle& vehicle : vehicles) {
     if (!vehicle.has_physics()) {
       continue;
+    }
+    if (earth_ == nullptr) {
+      throw Error("DerivedSignals: " + vehicle.name() +
+                  " has physics but no Earth model was given");
     }
     Slot& slot = slots_[vehicle.index()];
     slot.active = true;
@@ -55,7 +62,7 @@ DerivedSignals::DerivedSignals(std::span<const Vehicle> vehicles, SignalRegistry
 }
 
 void DerivedSignals::pack(const StepContext& ctx, const Vehicle& vehicle,
-                          const EnvironmentSample& sample, const EarthModel& earth) noexcept {
+                          const EnvironmentSample& sample) noexcept {
   if (vehicle.index() >= slots_.size() || !slots_[vehicle.index()].active) {
     return;
   }
@@ -68,7 +75,7 @@ void DerivedSignals::pack(const StepContext& ctx, const Vehicle& vehicle,
   // .data(), not VehicleState{vehicle.state()}: see Simulation::sample_environment's comment on the
   // dangling temporary an Eigen::Map-to-StateVector conversion would create.
   const VehicleState vs{vehicle.state().data()};
-  icd_pack::pack_sim_to_sw(slot.packed, ctx, vs, sample, earth,
+  icd_pack::pack_sim_to_sw(slot.packed, ctx, vs, sample, *earth_,
                            previous_valid ? &slot.previous : nullptr);
 
   // The same product the packer's vertical_speed negates: vertical_speed == -v_n_2 bitwise.

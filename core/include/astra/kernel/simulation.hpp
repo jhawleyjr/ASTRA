@@ -239,8 +239,9 @@ class Simulation {
   // registers &counter_ pointers into registry_, so the monitor's address must survive every move
   // this Simulation goes through (a by-value member would dangle those pointers on the first move).
   std::unique_ptr<HealthMonitor> health_;
-  // M5 PR 3 (ADR-0026): the v<i>.derived.* stage, null when no vehicle has physics. unique_ptr for
-  // the same reason as health_: the registry holds pointers into it across every move.
+  // M5 PR 3 (ADR-0026): the v<i>.derived.* stage, set by from_config and for_testing (it registers
+  // nothing without physics). unique_ptr for the same reason as health_: the registry holds
+  // pointers into it across every move.
   std::unique_ptr<DerivedSignals> derived_;
   // M4 PR 3 (ADR-0022): null without a "transport" block. unique_ptr for the same reason as
   // health_ (its transport.* signals and HaltReason sources must keep their addresses across
