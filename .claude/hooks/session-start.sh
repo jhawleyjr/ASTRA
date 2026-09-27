@@ -26,12 +26,12 @@ echo; echo "--- git log -10 ---"; g log --oneline -10
 echo; echo "--- STATE.md ---"; cat STATE.md 2>/dev/null || echo "(no STATE.md)"
 echo; echo "--- PLAN.md: unchecked items ---"; grep -E '^\s*- \[ \]' PLAN.md 2>/dev/null || echo "(none)"
 echo; echo "--- gate ---"
-if [ -f justfile ]; then echo "Fast: scripts/check-fast.sh. Full: scripts/check-full.sh (just check), after implementation and substantive fixes/integration; retain candidate evidence."
+if [ -f justfile ]; then echo "Fast: scripts/check-fast.sh. Full: scripts/check-full.sh (just check), after implementation and substantive fixes/integration; commit the trimmed gate summary and put results in the PR body (AGENTS.md)."
 else echo "No justfile found: validation unavailable; diagnose checkout/tooling before claiming completion."; fi
 # The marker cannot be checked here: the SessionStart hook that deletes it runs in this same event.
 [ "${ASTRA_TOUCH_GOLDENS:-0}" = "1" ] && echo "Oracle guard LIFTED for this session (ASTRA_TOUCH_GOLDENS=1)."
 echo "Read AGENTS.md and CLAUDE.md; architecture and accepted ADRs bind the task."
 echo "Claude plans/builds/validates/fixes/integrates; Codex reviews/adversarially reviews; Joe approves/merges."
 echo "Use /plan-feature, /review-cycle, /human-review and /wrap as appropriate. Read STATE's linked artifacts and resume the first unfinished gate."
-echo "A stopped turn or green local-mode CI is not a passed full gate; blocked handoff must retain failures and retry counts."
+echo "A stopped turn or green local-mode CI is not a passed full gate; a blocked handoff states its failures; correction/integration counts live in the PR body (AGENTS.md)."
 exit 0

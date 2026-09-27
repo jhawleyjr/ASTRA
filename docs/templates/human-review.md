@@ -35,7 +35,7 @@ rollback/revert plan. For release: merged-tree validation, version/provenance, s
 State: pending | approved | changes-required
 Human decision/date/reference: pending
 Approved candidate/scope: pending
-Merge observed: not merged
+Merge: recorded by git and the PR, not here (a committed packet would go stale at merge)
 Release authorization: pending / not requested
 
 Significant tradeoff rationale: [what was accepted and why, tied to the evidence above, e.g. a
