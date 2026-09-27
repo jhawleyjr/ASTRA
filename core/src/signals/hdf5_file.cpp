@@ -480,7 +480,14 @@ Group Location::open_group(std::string_view name) const {
 // --- Compound record tables ---------------------------------------------------------------------
 
 std::size_t RecordField::rows() const noexcept {
-  return std::visit([](const auto& column) { return column.size(); }, values);
+  if (const auto* numbers = std::get_if<std::vector<double>>(&values)) {
+    return numbers->size();
+  }
+  if (const auto* counts = std::get_if<std::vector<std::uint64_t>>(&values)) {
+    return counts->size();
+  }
+  const auto* strings = std::get_if<std::vector<std::string>>(&values);
+  return strings != nullptr ? strings->size() : 0;
 }
 
 namespace {
@@ -600,7 +607,7 @@ std::vector<std::byte> pack_records(std::span<const RecordField> fields, std::si
             if constexpr (std::is_same_v<std::decay_t<decltype(column)>,
                                          std::vector<std::string>>) {
               const char* text = column[r].c_str();
-              std::memcpy(slot, static_cast<const void*>(&text), kRecordMemberBytes);
+              std::memcpy(slot, string_buffer(&text), kRecordMemberBytes);
             } else {
               std::memcpy(slot, &column[r], kRecordMemberBytes);
             }
@@ -664,9 +671,8 @@ std::vector<std::string> unpack_strings(const std::vector<std::byte>& buffer, st
                                         std::size_t row_bytes, std::size_t offset) {
   std::vector<std::string> column(rows);
   for (std::size_t r = 0; r < rows; ++r) {
-    const char* text = nullptr;
-    std::memcpy(static_cast<void*>(&text), buffer.data() + (r * row_bytes) + offset,
-                kRecordMemberBytes);
+    char* text = nullptr;
+    std::memcpy(string_buffer(&text), buffer.data() + (r * row_bytes) + offset, kRecordMemberBytes);
     column[r] = text != nullptr ? text : "";
   }
   return column;

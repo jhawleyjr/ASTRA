@@ -483,26 +483,33 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
     throw ConfigError(config.origin(), unknown.front(),
                       "unknown config key (docs/architecture.md §15: unknown keys are errors)");
   }
+  sim.open_log_and_transport(config, log_settings, dt, loader);
+  return sim;
+}
+
+void Simulation::open_log_and_transport(const Config& config,
+                                        const std::optional<RunLogSettings>& log_settings,
+                                        double dt, const PluginLoader& loader) {
   // M5 PR 4 (ADR-0025): after every check that can reject the config, so a rejected config never
   // creates a file; before the handshake, because a file that cannot be created is a config error
   // too, and a config error never starts a handshake. The stored config omits the "log" block.
   if (log_settings.has_value()) {
     const RunLogProvenance provenance{config.emit_without("log"), dt, loader.loaded()};
-    sim.log_ = std::make_unique<RunLog>(*log_settings, sim.registry_, sim.vehicles_, provenance);
+    log_ = std::make_unique<RunLog>(*log_settings, registry_, vehicles_, provenance);
   }
   // Last, so a config error never starts a handshake (ADR-0024: the shm transport creates its
   // segment here). Records the initial state as the recorder's frame-0 state first.
-  if (sim.exchange_ != nullptr) {
-    try {
-      sim.exchange_->open(sim.vehicles_.front(), sim.clock_.frame(), config.origin());
-    } catch (...) {
-      if (sim.log_ != nullptr) {
-        sim.log_->discard();  // this call created it; no run ever wrote to it
-      }
-      throw;
-    }
+  if (exchange_ == nullptr) {
+    return;
   }
-  return sim;
+  try {
+    exchange_->open(vehicles_.front(), clock_.frame(), config.origin());
+  } catch (...) {
+    if (log_ != nullptr) {
+      log_->discard();  // this call created it; no run ever wrote to it
+    }
+    throw;
+  }
 }
 
 Simulation Simulation::for_testing(const PluginLoader& loader,

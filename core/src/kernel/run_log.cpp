@@ -39,6 +39,17 @@ std::optional<std::size_t> stage_offset(const Vehicle& vehicle, const double* va
   return static_cast<std::size_t>(value - stage.data());
 }
 
+// The HDF5 object `handle` holds. The log writes only while its handles are open (abandon() and
+// close() empty them only on the way out), so an empty one is a logic error, reported as a write
+// failure rather than undefined behavior.
+template <typename T>
+T& open_handle(std::optional<T>& handle, const std::filesystem::path& path) {
+  if (!handle.has_value()) {
+    throw Hdf5Error(path.string(), "", "the run log's HDF5 object is not open");
+  }
+  return *handle;
+}
+
 void update_extremes(double value, double& minimum, double& maximum) noexcept {
   if (std::isnan(value)) {
     return;
@@ -136,7 +147,7 @@ RunLog::RunLog(const RunLogSettings& settings, const SignalRegistry& registry,
   }
   try {
     write_provenance(provenance);
-    file_->write_records("plugins", plugins);
+    open_handle(file_, path_).write_records("plugins", plugins);
   } catch (const Hdf5Error& error) {
     note_failure(error.what());
     discard();
@@ -205,7 +216,7 @@ void RunLog::build_rings(const SignalRegistry& registry, std::span<const Vehicle
 }
 
 void RunLog::write_provenance(const RunLogProvenance& provenance) {
-  hdf5::File& file = *file_;
+  hdf5::File& file = open_handle(file_, path_);
   file.set_attribute("log_format_version", kFormatVersion);
   file.set_attribute("config", std::string_view{provenance.config_text});
   file.set_attribute("git_describe", std::string_view{git_describe()});
@@ -214,10 +225,11 @@ void RunLog::write_provenance(const RunLogProvenance& provenance) {
   file.set_attribute("dt", provenance.dt);
   for (Ring& ring : rings_) {
     ring.group.emplace(file.create_group(rate_group_name(ring.divisor)));
-    ring.frame_dataset.emplace(
-        ring.group->create_series("frame", hdf5::ElementType::kUint64, kBlockRows));
+    ring.frame_dataset.emplace(open_handle(ring.group, path_)
+                                   .create_series("frame", hdf5::ElementType::kUint64, kBlockRows));
     ring.values_dataset.emplace(
-        ring.group->create_table("values", hdf5::ElementType::kFloat64, ring.columns, kBlockRows));
+        open_handle(ring.group, path_)
+            .create_table("values", hdf5::ElementType::kFloat64, ring.columns, kBlockRows));
     std::vector<std::string> names;
     std::vector<std::string> units;
     names.reserve(ring.columns);
@@ -226,8 +238,8 @@ void RunLog::write_provenance(const RunLogProvenance& provenance) {
       names.push_back(signal_names_[index]);
       units.push_back(signal_units_[index]);
     }
-    ring.values_dataset->set_attribute("names", names);
-    ring.values_dataset->set_attribute("units", units);
+    open_handle(ring.values_dataset, path_).set_attribute("names", names);
+    open_handle(ring.values_dataset, path_).set_attribute("units", units);
   }
 }
 
@@ -322,10 +334,10 @@ void RunLog::move_rows_to_blocks() {
 void RunLog::write_block(Ring& ring) {
   writing_ = ring.write_label;
   check_injected(Fault::kDrainWrite);
-  ring.values_dataset->append(
-      std::span<const double>{ring.block_values.data(), ring.block_count * ring.columns});
-  ring.frame_dataset->append(
-      std::span<const std::uint64_t>{ring.block_frames.data(), ring.block_count});
+  open_handle(ring.values_dataset, path_)
+      .append(std::span<const double>{ring.block_values.data(), ring.block_count * ring.columns});
+  open_handle(ring.frame_dataset, path_)
+      .append(std::span<const std::uint64_t>{ring.block_frames.data(), ring.block_count});
   ring.block_count = 0;
 }
 
@@ -365,10 +377,10 @@ void RunLog::close(const RunLogEnd& end) {
     // Everything else is on disk before complete is set, so a file that carries complete = 1
     // holds the whole run.
     writing_ = "the flush before complete";
-    file_->flush();
+    open_handle(file_, path_).flush();
     writing_ = "complete";
     check_injected(Fault::kComplete);
-    file_->set_attribute("complete", std::int64_t{1});
+    open_handle(file_, path_).set_attribute("complete", std::int64_t{1});
     writing_ = "the file's close";
     close_handles();
   } catch (const std::exception& error) {
@@ -379,10 +391,14 @@ void RunLog::close(const RunLogEnd& end) {
 }
 
 void RunLog::close_best_effort(const RunLogEnd& end) noexcept {
+  // Best effort by contract (Simulation's destructor): close() has already recorded the failure
+  // in failure() and never set complete; there is no caller to tell.
   try {
     close(end);
-  } catch (
-      ...) {  // NOLINT(bugprone-empty-catch): the destructor's close is best effort by contract
+  } catch (const std::exception& error) {
+    note_failure(error.what());
+  } catch (...) {
+    note_failure("unknown exception");
   }
 }
 
@@ -398,11 +414,11 @@ void RunLog::write_writes() {
   fields.push_back({"frame", write_frames_});
   fields.push_back({"name", write_names_});
   fields.push_back({"value", write_values_});
-  file_->write_records("writes", fields);
+  open_handle(file_, path_).write_records("writes", fields);
 }
 
 void RunLog::write_summary(const RunLogEnd& end) {
-  hdf5::Group summary = file_->create_group("summary");
+  hdf5::Group summary = open_handle(file_, path_).create_group("summary");
   summary.set_attribute("frames_run", end.frame);
   summary.set_attribute("halt_check", health_check_name(end.halt.check));
   summary.set_attribute("halt_source", end.halt.source);
@@ -424,7 +440,7 @@ void RunLog::write_summary(const RunLogEnd& end) {
 }
 
 void RunLog::write_final_state(const RunLogEnd& end) {
-  hdf5::Group final_state = file_->create_group("final_state");
+  hdf5::Group final_state = open_handle(file_, path_).create_group("final_state");
   final_state.set_attribute("frame", end.frame);
   final_state.set_attribute("after_halt", std::int64_t{end.halt ? 1 : 0});
   for (const Vehicle& vehicle : end.vehicles) {
@@ -446,11 +462,11 @@ void RunLog::write_final_state(const RunLogEnd& end) {
 
 void RunLog::close_handles() {
   for (Ring& ring : rings_) {
-    ring.frame_dataset->close();
-    ring.values_dataset->close();
-    ring.group->close();
+    open_handle(ring.frame_dataset, path_).close();
+    open_handle(ring.values_dataset, path_).close();
+    open_handle(ring.group, path_).close();
   }
-  file_->close();
+  open_handle(file_, path_).close();
 }
 
 void RunLog::abandon() noexcept {
@@ -473,6 +489,9 @@ void RunLog::abandon() noexcept {
 }
 
 void RunLog::note_failure(std::string_view message) noexcept {
+  if (failed()) {
+    return;  // the first failure is the one every later call reports
+  }
   try {
     failed_write_ = writing_;
     failure_ = message;

@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -250,6 +251,11 @@ class Simulation {
   // Earth-derived altitude); step_frame's former inline block, unchanged.
   [[nodiscard]] EnvironmentSample sample_environment(const StepContext& ctx,
                                                      const Vehicle& vehicle) noexcept;
+  // from_config's last step: the run log's file, then the transport's handshake (whose failure
+  // removes the file again).
+  void open_log_and_transport(const Config& config,
+                              const std::optional<RunLogSettings>& log_settings, double dt,
+                              const PluginLoader& loader);
   // step() without the log stage: the exchange's pre_frame()/post_step()/note_halt() around
   // step_frame().
   [[nodiscard]] HaltReason step_exchange(const StepContext& ctx) noexcept;
