@@ -1,0 +1,21 @@
+date: 2026-09-27T05:58:11Z
+command: ./scripts/check-full.sh
+base: d3e82e32cd67f794bcf734ff7ddd355ba9b179a1
+head: 48872a7f0b0aeeb9c25577b718236fc0b29720ff
+exit: 0
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 144 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/cleanup-pr60-followups/build/debug
+100% tests passed, 0 tests failed out of 558
+Test project /home/joe/repos/ASTRA/.claude/worktrees/cleanup-pr60-followups/build/release
+100% tests passed, 0 tests failed out of 559
+Test project /home/joe/repos/ASTRA/.claude/worktrees/cleanup-pr60-followups/build/static-plugins
+100% tests passed, 0 tests failed out of 558
+Test project /home/joe/repos/ASTRA/.claude/worktrees/cleanup-pr60-followups/build/asan
+100% tests passed, 0 tests failed out of 559
+0 errors, 0 warnings, 0 informations
+177 passed in 31.41s
+check: OK
