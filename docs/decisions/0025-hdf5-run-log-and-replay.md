@@ -36,8 +36,12 @@ The mechanism (for example an allocation-free frame-start snapshot) is PR 4's.
 
 **Buffering and drain (Q4).** One preallocated ring per rate group, `buffer_frames` rows each. `step()` first
 reserves the frame's row in every due ring, before any environment, exchange, model, integrator or RNG side
-effect, and fills it at frame end by copying through registry pointers with no allocation. `step()` never calls
-HDF5. Rows are drained whole, outside `step()`, only at three points: `run()` between frames once a ring passes
+effect. At frame end it fills the row with t_k values, with no allocation:
+- **Rigid-body and model-owned state:** from an allocation-free frame-start snapshot. The published
+  `v<i>.state.*` are end-of-frame (see Context).
+- **Every other signal:** through its registry pointer, which already holds the frame-k value at frame end.
+
+The mechanism detail stays PR 4's, checked by R3. `step()` never calls HDF5. Rows are drained whole, outside `step()`, only at three points: `run()` between frames once a ring passes
 its high-water mark, an explicit `Simulation::flush_log()`, and `close_log()`. `astra.lockstep.Session`, which
 hides its `Simulation`, drains at its own step and run calls and exposes `flush_log()`/`close_log()`.
 
