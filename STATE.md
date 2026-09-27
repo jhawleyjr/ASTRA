@@ -1,39 +1,36 @@
 # STATE (rewritten once, at /wrap, never appended; ≤ 40 lines; says nothing that changes at merge)
 
 ## In flight
-M5 PR 2 (Tier 2): PR #64, branch `worktree-m5-pr2-hdf5-wrapper` off `origin/main` `19d535a`, plan
-`docs/plans/m5-tooling.md` PR 2 row, binding ADR-0005 and ADR-0025 (Q7). Stage: human review; the PR body is
-the description Joe reviews. Code candidate `587ef23`; later commits change no code. The wrapper is
-`core/include/astra/signals/hdf5_file.hpp` and `core/src/signals/hdf5_file.cpp`, plus `astra::Hdf5Error`.
-Settings: time tracking off; bounds (V18, V110), because V110 gives superblock v3 and a crashed file then
-will not reopen. No LSan suppression; Q7 byte identity holds, so there is no fallback.
-Also in this PR, at Joe's request (2026-09-27), commit `1c44f02`: `docs/templates/pr-description.md` (a plain
-PR description, no title line, no decision block) replaces `docs/templates/human-review.md`. The
-`human-review` and `wrap` skills, `workflow.md`, the templates and reviews READMEs and the agent docs point at
-it. PLAN.md's `Packet:` field is unchanged; renaming it is Joe's call.
+M5 PR 3 (Tier 3): PR #65, branch `worktree-m5-pr3-derived-signals` off `origin/main` `82686ec`, plan
+`docs/plans/m5-tooling.md` PR 3 row (Q13; R1, R5, R10), binding ADR-0026. Stage: human review; the PR body is
+the description Joe reviews. Code candidate `1c1438c`; later commits change no code. The stage is
+`core/include/astra/kernel/derived_signals.hpp` and `core/src/kernel/derived_signals.cpp`, wired into
+`Simulation::step_frame` (a `pack()` after each vehicle's environment sample, a `note_completed()` before
+`clock_.advance()`), plus `Vehicle::has_physics()`. `ax ay az` come from a wrench and mass snapshot taken at
+frame completion (Codex F1). `lockstep_exchange.cpp` is untouched. Tests: `tests/unit/kernel/derived_signals_test.cpp`
+(the `DerivedSignals` suite) and one NoAlloc case. Review record: `docs/reviews/m5-pr3-derived-signals-review.md`.
 
 ## Last verified result
-This session, at `587ef23`: `./scripts/check-full.sh` exit 0 with `check: OK`
-(`docs/reviews/evidence/587ef23-gate-summary.log`). `ctest --preset asan -R Hdf5 --no-tests=error` and the
-same under `static-plugins` each exit 0, 21/21. At `1c44f02`: `python3 scripts/docs_check.py` and
-`git diff --check` exit 0. Codex: round 1 needs-attention (F1, F2), fix verification approve. The workflow
-commit has no Codex review. Thread ids and CI's `check` result are in the PR body.
+This session, at `1c1438c`: `./scripts/check-full.sh` exit 0 with `check: OK`
+(`docs/reviews/evidence/1c1438c-gate-summary.log`). The plan's acceptance regex under `asan` exits 0, 87/87;
+`git diff --exit-code d3e82e3 -- core/src/kernel/lockstep_exchange.cpp` exits 0. R10: the recorder SHA-256 of
+release builds of `d3e82e3` and `1c1438c` is identical on three loopback configs; the hashes are in the gate
+summary. Codex: general review clean; adversarial needs-attention (F1), then fix verification and refactor
+verification both approve. Thread ids are in the PR body.
 
 ## Next step
-1. Joe: decide on PR #64. Its "Needs Joe's decision" section lists merge approval, the two untested failure
-   paths, whether `1c44f02` needs a Codex pass, and two optional items. After any later push, rerun CI's
-   `check` with `gh pr ready --undo` then `gh pr ready`.
-2. M5 PR 3 (Tier 3): the derived signals per ADR-0026. `lockstep_exchange.cpp` stays untouched, and R10
-   compares the recorder SHA-256 of base and candidate. It depends only on PR 1.
-3. M5 PR 4 (Tier 3): the logger stage, on PR 2 and PR 3. It builds on `astra::hdf5`, adding compound tables
-   for `/plugins` and `/writes` itself. PR 5 must check h5py's bundled libhdf5 alongside ours in one process.
-4. Before PR 8: Joe places FlightGear's `net_fdm.hxx` (version 24) in `docs/refs/` (Q21).
+1. Joe: decide on PR #65. Its "Needs Joe's decision" section asks for approval of `1c1438c` and a ruling on
+   `pack()` sitting inside the per-vehicle loop for multi-vehicle `for_testing`. After any later push, rerun
+   CI's `check` with `gh pr ready --undo` then `gh pr ready`.
+2. M5 PR 4 (Tier 3): the logger stage, on PR 2 and PR 3. It logs `v<i>.derived.*` with ADR-0026's
+   previous-frame `ax ay az` disclosed. PR 5 must check h5py's bundled libhdf5 alongside ours in one process.
+3. Before PR 8: Joe places FlightGear's `net_fdm.hxx` (version 24) in `docs/refs/` (Q21).
 
 ## Tried / failed
-Correction and integration counts: PR #64's body holds them. The first gate ran at `4693cf7` before round 1;
-it passed but is superseded. Untestable here: F1's rollback-after-write-failure and F2's `bad_alloc` reclaim,
-because there is no HDF5 or allocator fault injection. The worktree guard again refused inline Python whose
-text named git; the edit ran from a scratchpad script (lessons 2026-09-27).
+Correction and integration counts: PR #65's body holds them. The gate at `7cf5a47` failed only on clang-tidy
+(`step_frame` cognitive complexity 26 > 25); `1c1438c` builds the stage unconditionally instead of adding
+branches. The R10 driver and configs stayed in the session scratchpad; the method is in the PR body. The
+worktree guard refused `bash <script>`; scripts run by their path (lessons 2026-09-27).
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.

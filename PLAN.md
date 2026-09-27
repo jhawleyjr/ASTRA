@@ -123,6 +123,9 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
     wall-clock scope. Plan: [plan](docs/plans/m5-tooling.md). Packet: in the PR body.
   - PR 2: HDF5 RAII wrapper in `core/signals/` (`Hdf5Error`, time tracking off, version bounds fixed at 1.8 to
     1.10), byte-identity and LSan tests. Plan: [plan](docs/plans/m5-tooling.md). Packet: in the PR body.
+  - PR 3 (#65): derived flight-condition signals `v<i>.derived.*` (ADR-0026), a separate frame-start
+    `pack_sim_to_sw` per physics vehicle; exchange untouched (R10). Plan: [plan](docs/plans/m5-tooling.md).
+    Packet: in the PR body.
 
 ## Open items
 
