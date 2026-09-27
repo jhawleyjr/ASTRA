@@ -12,7 +12,7 @@ Spec/plan decisions: [Joe's authorization references or pending]
 | [linked package] | [one writer] | [assigned workspace] | [none or package] | [disjoint scope] | [pending] |
 
 Integration order: [dependency waves, or sequential]
-Required checks: [full gate + acceptance commands; results live in linked evidence]
+Required checks: [full gate + acceptance commands; results live in the PR body and the summary log]
 Review: [Codex model, link, critical/major still open, last verified fix round]
 Correction rounds: [0/2]; failed integrations: [0/2]
 Human decision: [pending or actual decision reference]

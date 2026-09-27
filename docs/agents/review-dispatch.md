@@ -1,6 +1,6 @@
 # Dispatching Codex review from Claude
 
-Claude owns execution and fixes; Codex reviews. Use the installed Codex companion, not a second
+Roles are in [AGENTS.md](../../AGENTS.md). Use the installed Codex companion, not a second
 Claude reviewer. The native plugin commands are user-facing wrappers; Claude calls their companion
 script with the Bash tool. Locate the enabled plugin installation (plugin context or Claude's installed
 plugin registry), confirm its `scripts/codex-companion.mjs` exists, and assign its absolute path to
@@ -36,7 +36,8 @@ node "$CODEX_COMPANION" adversarial-review --scope working-tree --wait   "Read t
 ```
 
 Replace that focus with the actual task's artifacts and failure modes. Native `review` takes no custom
-focus text; adversarial review does. Preserve raw output, actual model/job identity, scope and findings.
+focus text; adversarial review does. Record the scope, actual model, job or thread id, verdict and findings in
+the PR body; raw output stays outside git.
 Use a real completed tool process handle; interrupted dispatch or empty output is not clean review.
 Read [review-cycle](../../.claude/skills/review-cycle/SKILL.md) for the bounded fix/retest loop.
 
@@ -78,9 +79,8 @@ its output, and never by putting the dispatch at a non-final stage of a pipe —
 reports `tail`'s exit status, not the dispatch's, so a successful `tail` can mask a launch
 that never happened. The example above does this: redirect to a log, read `$?` right after,
 then `tail` the log, then report the saved status. A nonzero status, an interrupted launch,
-or output with no completed review result is pending review, never clean review — the
-existing rule at line 40 above and `review-cycle/SKILL.md` step 3 both already say so; the
-addition here is the concrete failure mode and the concrete way to detect it.
+or output with no completed review result is pending review (AGENTS.md), never clean review;
+this section adds the concrete failure mode and the concrete way to detect it.
 
 ## Fix verification
 
@@ -93,7 +93,8 @@ an unsupported inference.
 To verify a fix batch: first record each finding's ID, severity, status and builder
 disposition in `docs/reviews/<feature>-review.md` (the [findings template](../templates/review-findings.md);
 `templates/README.md` already names this destination), including the concrete fix (file/line,
-what changed) for anything marked fixed. Then dispatch a normal `adversarial-review` (never
+what changed) for anything marked fixed. Update that file only in the commit that carries the fix batch it
+describes, never in a record-only commit. Then dispatch a normal `adversarial-review` (never
 `review`, which takes no focus text) with a compact focus, built per the rules above, naming
 that file's path, the base/head revisions under verification, and the specific finding IDs to
 check. The focus must require the reviewer to:
@@ -128,9 +129,8 @@ printf 'exit=%s\n' "$status"
 
 Require an explicit per-finding verdict and the new-findings report described above; silence
 about a finding is unverified, never agreement, and a verification pass with no new-findings
-result is incomplete, not clean. Record the reviewer's verdicts back into the findings file's
-`Verification:` field, its new-findings result in the review file's `Completion` section, and
-update each finding's status and round history. This is still the same bounded fix-verification
+result is incomplete, not clean. Record the reviewer's verdicts, its new-findings result, and each finding's
+status and round history in the PR body; the findings file picks them up with the next fix commit, if any. This is still the same bounded fix-verification
 dispatch, not an additional review pass or approval gate: it replaces one unfocused re-review
 with one focused one that also covers the fix delta's own blast radius.
 

@@ -18,12 +18,14 @@ record Claude as builder and Codex as reviewer. Output: [findings](../templates/
    as nonblocking; do not invent defects to meet a quota or rewrite requirements.
 5. Verify builder fixes/rejections against the actual delta and surrounding invariants; demand fresh
    validation where behavior changed. Track each finding's history, not just the latest severity count.
-6. State reviewed scope, remaining risks and whether critical/major items remain. A self-review,
-   unavailable provider, interrupted check, or unverified fix cannot count as independent approval.
+6. State reviewed scope, remaining risks and whether critical/major items remain. An interrupted check
+   or unverified fix cannot count as independent approval (nor can self-review; AGENTS.md).
 
 For expensive unpinned designs, use one plan critique before implementation. For physics changes,
 include the adversarial pass and Joe's inspection required by the [workflow](../process/workflow.md).
-Stop after two fix rounds or a requirements disagreement; report attempts and the decision Joe needs.
+On Tier 0 and Tier 1, one pass on the final diff; report a finding that is not a factual error or defect as a
+follow-up. Stop at the correction budget (AGENTS.md) or a requirements disagreement; report attempts and the
+decision Joe needs.
 
 Claude dispatches via [review-cycle](../../.claude/skills/review-cycle/SKILL.md);
 [scope selection](review-dispatch.md) must cover both committed and uncommitted parts of a mixed candidate.

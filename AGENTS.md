@@ -7,23 +7,35 @@ ASTRA is a vehicle-agnostic 6-DoF framework: C++23 core, Python bindings, real e
 ## Read first
 
 - [Architecture](docs/architecture.md) and accepted [ADRs](docs/decisions/): authoritative engineering decisions.
-- [Workflow](docs/process/workflow.md): risk, review, approval, Git, and release rules.
-- [STATE.md](STATE.md) / [PLAN.md](PLAN.md): session handoff / milestone checklist; inspect Git before trusting status.
+- [Workflow](docs/process/workflow.md): risk tiers with each tier's minimum process, then procedures and rationale.
+- [PLAN.md](PLAN.md): milestone checklist, open items, one line per PR. [STATE.md](STATE.md): session handoff,
+  rewritten once, at `/wrap`. Neither records a fact that only becomes true at merge (merge hashes, merge or
+  approval dates, round counts, review narratives) or changes when the PR merges: git log and the PR hold those.
+  Inspect Git before trusting either.
 - [Lessons](docs/lessons.md): append-only gotchas. [References](docs/refs/README.md): human-placed, gitignored sources.
 - The assigned spec/plan/task, if any; [agent procedures](docs/agents/README.md) and [templates](docs/templates/README.md).
 
 ## Commands and boundaries
 
 - `./scripts/check-fast.sh` wraps `just test-unit`: ASan build and unit tests for iteration.
-- `./scripts/check-full.sh` wraps `just check`: the definition of done; never substitute a fast pass for it.
+- `./scripts/check-full.sh` wraps `just check`: the definition of done; never substitute a fast pass for it. It
+  passes only on exit 0 plus its `check: OK` line. The only exceptions are in the [tier table](docs/process/workflow.md#risk-tiers).
 - `just build [preset]`, `just test [preset]`, `ctest --preset asan -R <name>` for focused work.
 - [Validation](docs/process/validation.md) describes Python, formatting, static analysis, logs, and CI limitations.
+- Evidence: commit a trimmed gate log, `docs/reviews/evidence/<head>-gate-summary.log` ([how](docs/process/validation.md#evidence)).
+  Full logs stay outside git; commit one, as `<head>-full-gate.log`, only when the run fails or Joe asks.
+- Check and review results (command, exit code, summary counts, the Codex verdict and thread id) go in the PR
+  body, never in a record-only commit.
 - Ubuntu 24.04, apt toolchain: clang-18, CMake 3.28+, Eigen 3.4, HDF5 C API, yaml-cpp, GoogleTest;
   Python 3.12+ and the dev group in `pyproject.toml`. No vcpkg/Conan, HighFive, or mp-units.
 - Inspect the repository, Git status, and existing patterns first. Preserve unrelated work; stay within assigned scope.
+- Read code directly: no recon or exploration subagents (cost and fidelity, `docs/lessons.md` 2026-09-14). The
+  Codex review and plan-critique dispatch is the only subagent route.
 - Reversible implementation, tests, and fixes within authorized scope do not need repeated approval.
-- Joe owns requirements, architecture changes, new dependencies/toolchains, merges, releases, and credentials.
-  Escalate a conflict or required scope expansion; never weaken acceptance to make a check pass.
+- Joe owns requirements, architecture changes, new dependencies/toolchains, model/effort settings
+  (`.claude/settings.json`), merges, releases, and credentials. Approval is Joe's explicit decision or his
+  squash-merge, never inferred from a check, review, or label. Escalate a conflict or required scope expansion;
+  never weaken acceptance to make a check pass.
 - **The oracle is human-owned:** `tests/golden/**`, tolerance files, and accepted ADRs require Joe's explicit
   authorization. Never widen tolerances, narrow comparisons, regenerate goldens, or weaken tests to hide failure.
   Claude's guard is described in the workflow; other agents must honor the same boundary without relying on a hook.
@@ -32,11 +44,13 @@ ASTRA is a vehicle-agnostic 6-DoF framework: C++23 core, Python bindings, real e
 - Standing authorization (Joe): commit coherent work as you go, push the task branch after each meaningful commit, and
   open the draft PR at the first commit; hold nothing only locally. Integrate `main` by merging it into the task
   branch; never rebase or force-push a pushed branch. Never merge a PR, mark ready as a merge signal, or release.
+  Pushing is not permission to message people (email, chat, issue or PR comments to others).
 - Codex reviews Claude's candidate in fresh context; Codex does not implement review fixes. Treat findings as
-  claims to verify; follow the bounded fix loop.
+  claims to verify. Self-review, or Codex being unavailable, leaves review pending. At most two autonomous
+  correction rounds and two failed integrations per task, then escalate to Joe; a new context does not reset them.
 - Report commands actually run, exit results, and gaps. A started job or plausible trace is not verified evidence.
 - Accepted ADRs are immutable: propose a superseding record. Lessons are append-only. Keep standing rules free
-  of transient SHAs; retain exact candidate revisions in evidence and link them from task/session handoffs. Keep this file plus `CLAUDE.md` under 100 lines.
+  of transient SHAs; exact candidate revisions belong in evidence and the PR body. Keep this file plus `CLAUDE.md` under 100 lines.
 
 ## Non-standard conventions (the things an agent will silently get wrong)
 

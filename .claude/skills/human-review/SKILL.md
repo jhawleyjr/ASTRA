@@ -16,18 +16,19 @@ base/head and dirty-tree scope) first; update it in place rather than writing a 
   behavior. Summarize changed files and point Joe to consequential code, tests, assumptions, and the
   end-to-end path a significant change actually traverses (see [Joe's engineering
   review](../../../docs/process/workflow.md#joes-engineering-review)).
-- Link completed local validation/logs, relevant numerical/performance evidence (actual
-  thresholds/measurements, not a pass/fail label) and any available plot/trajectory output, and
-  independent Codex findings/fix verification. Record exact commands, results and missing/stale
+- Put completed check results in the PR body (command, exit code, summary counts, a link to the
+  [gate summary log](../../../docs/process/validation.md#evidence)), with relevant numerical/performance
+  evidence (actual thresholds/measurements, not a pass/fail label), any available plot/trajectory output,
+  and the independent Codex results (verdict, thread id, findings, fix verification). Record missing/stale
   checks. A green local-mode GitHub check is not full validation. Do not rerun a current gate just
   to format a packet.
 - State open findings, accepted risks and owner, compatibility/dependency/oracle decisions and rollback.
   Required validation or review missing means a draft with blockers, not ready for approval.
-- Record the decision being requested and Joe's actual decision if already given. His explicit decision
-  or own squash-merge is sufficient; no second human or GitHub approving-review badge is required.
-  Changed candidates require the workflow's renewed validation/review. Never invent approval.
+- Record the decision being requested and Joe's actual decision if already given (what counts as
+  approval: AGENTS.md); no second human or GitHub approving-review badge is required.
+  Changed candidates require the workflow's renewed validation/review.
 - For release preparation, cover the workflow's merged-tree checks, version/provenance, artifact checksums
   if any, smoke checks, rollback and observation owner. Keep release permission separate from merge.
-- Push the task branch and update the draft PR body with the packet by default (standing authorization,
-  [workflow](../../../docs/process/workflow.md#git-and-worktrees)); verify the body with `gh pr view --json body`.
-  Packet preparation itself does not merge, mark ready as a merge signal, or release. Return the packet location and the exact remaining decision/next action.
+- Push the task branch and update the draft PR body with the packet
+  ([AGENTS.md](../../../AGENTS.md#commands-and-boundaries)); verify the body with `gh pr view --json body`.
+  Return the packet location and the exact remaining decision/next action.

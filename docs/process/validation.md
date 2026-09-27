@@ -56,10 +56,28 @@ Keep the exit status even when redirecting output; a tail command's success says
 gate. In an agent tool, wait on the returned process handle until it completes. Do not background a
 second wrapper or guess a PID with global `pgrep`. Only report full success after exit 0 and `check: OK`.
 
-In the PR or review evidence, record date, command, result, duration, toolchain, exact base/head,
-working-tree changes if uncommitted, log location/attachment, and acceptance criteria exercised.
-Ignored logs are not durable shared evidence: attach them to the PR or supply a retained artifact
-before handoff. Approval and check evidence must identify the candidate they evaluated.
+The full log stays outside git. Commit a trimmed log as `docs/reviews/evidence/<head>-gate-summary.log`:
+a header (date, command line, base and head revisions, exit code), the summary lines (per-preset CTest
+counts, pytest, pyright, hooks, the `: OK` steps, `check: OK`), and any failure output in full:
+
+```sh
+base=$(git merge-base origin/main HEAD)
+head=$(git rev-parse --short HEAD)
+{
+  printf 'date: %s\ncommand: ./scripts/check-full.sh\nbase: %s\nhead: %s\nexit: %s\n\n' \
+    "$(date -u +%FT%TZ)" "$base" "$(git rev-parse HEAD)" "$result"
+  grep -E '^(Test project |[0-9]+% tests passed|[A-Za-z-]+: OK|hooks: |All checks passed|[0-9]+ errors?, |[0-9]+ passed|error: Recipe|check: OK)' \
+    build/validation/full.log
+} > "docs/reviews/evidence/${head}-gate-summary.log"
+```
+
+If the run failed, append the failing step's output in full to that summary. A full log is committed, as
+`docs/reviews/evidence/<head>-full-gate.log`, only for a failed run or when Joe asks; that name means nothing
+else. Existing evidence files keep their names. Name any uncommitted working-tree changes in the header.
+
+The PR body carries the result: date, command, exit code, duration, toolchain, the summary counts, a link to
+the summary log, and the acceptance criteria exercised. Approval and check evidence must identify the
+candidate they evaluated.
 
 For workflow edits, run `just docs-check` (`scripts/docs_check.py`): Markdown links/anchors across
 `docs/process/`, `docs/agents/`, `docs/templates/`, `.claude/skills/` and the root instruction files;
@@ -111,8 +129,8 @@ Non-standard conventions.
 4. Run the targeted command first (`ctest --preset asan -R <name>`), then the full gate before
    review (`./scripts/check-full.sh`); read the actual exit status and `check: OK` per this
    document's Evidence section above, never a background wrapper's status.
-5. Record in the handoff/review artifact: candidate scope (base/head), the commands run and their
-   actual results, each reference dataset's provenance, the tolerance applied and its source, gaps
+5. Record in the PR body: candidate scope (base/head), the commands run and their actual results
+   (the summary log per the Evidence section above), each reference dataset's provenance, the tolerance applied and its source, gaps
    (untested boundary, deferred case, environment limitation), and unresolved findings.
 6. Escalate to Joe instead of resolving unilaterally when the spec/ADR states no acceptance value or
    tolerance for the behavior under test, an existing tolerance or golden looks wrong or inconsistent
