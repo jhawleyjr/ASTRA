@@ -119,6 +119,8 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
       FlightGear packets verified by a decoder test. Spec and plan: [plan](docs/plans/m5-tooling.md).
   - Planning (#62): M5 spec, plan and nine-PR decomposition; Q1 to Q24 decided by Joe. Plan:
     [plan](docs/plans/m5-tooling.md). Packet: none.
+  - PR 1 (#63): ADR-0025 (run log and replay), ADR-0026 (derived signals), architecture rev 9, AGENTS.md
+    wall-clock scope. Plan: [plan](docs/plans/m5-tooling.md). Packet: in the PR body.
 
 ## Open items
 
