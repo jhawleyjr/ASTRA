@@ -32,6 +32,10 @@ include(AstraBuildFlags)
 
 find_package(Eigen3 3.4 REQUIRED CONFIG)
 find_package(yaml-cpp 0.8 REQUIRED CONFIG)
+# The run log's file format (ADR-0005): the C library only, through CMake's FindHDF5 module (Ubuntu's
+# libhdf5-dev ships no CMake config). Linked privately by astra_core; only core/signals/hdf5_file.cpp
+# includes <hdf5.h>.
+find_package(HDF5 1.10 REQUIRED COMPONENTS C)
 
 include(AstraPlugin)
 add_subdirectory(icd)

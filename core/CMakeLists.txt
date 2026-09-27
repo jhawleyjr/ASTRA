@@ -53,6 +53,7 @@ add_library(astra_core SHARED
   src/kernel/simulation.cpp
   src/kernel/vehicle.cpp
   src/plugin/loader.cpp
+  src/signals/hdf5_file.cpp
   src/signals/input_registry.cpp
   src/signals/signal_registry.cpp)
 add_library(astra::core ALIAS astra_core)
@@ -60,6 +61,9 @@ target_link_libraries(astra_core PUBLIC astra_core_headers)
 # Private: Config's yaml-cpp usage is behind a pimpl (core/include/astra/config/config.hpp), so no
 # plugin ever needs the yaml-cpp headers.
 target_link_libraries(astra_core PRIVATE yaml-cpp::yaml-cpp)
+# Private for the same reason: the HDF5 wrapper's header (core/include/astra/signals/hdf5_file.hpp)
+# keeps <hdf5.h> out, so no plugin or test sees the C API (ADR-0005).
+target_link_libraries(astra_core PRIVATE hdf5::hdf5)
 if(NOT ASTRA_STATIC_PLUGINS)
   target_link_libraries(astra_core PRIVATE ${CMAKE_DL_LIBS})
 endif()
