@@ -138,9 +138,12 @@ class Dataset : public Object {
   [[nodiscard]] std::size_t columns() const noexcept { return columns_; }
   [[nodiscard]] std::size_t rows() const;
 
-  // Appends values.size() / columns() whole rows, row-major. Throws Hdf5Error, leaving the
-  // dataset's extent as it was, on a type that is not this dataset's, a size that is not a
-  // whole number of rows, or a failed HDF5 write. An empty span appends nothing.
+  // Appends values.size() / columns() whole rows, row-major. An empty span appends nothing.
+  // Throws Hdf5Error, leaving the dataset's extent as it was, on a type that is not this
+  // dataset's, a size that is not a whole number of rows, or a failed extend. After a failed
+  // write the extent is shrunk back; if HDF5 refuses that too, the error says so, and the
+  // dataset may end in unwritten fill rows (ADR-0025 treats any failed drain as a terminal halt,
+  // and the file never gets complete = 1).
   void append(std::span<const double> values);
   void append(std::span<const std::uint64_t> values);
 

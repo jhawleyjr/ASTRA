@@ -187,6 +187,34 @@ void read_scalar_attribute(const Where& at, std::string_view name, hid_t expecte
   }
 }
 
+// Owns the strings a variable-length read allocated into pointers: release() frees them and
+// reports HDF5's result; the destructor frees them best effort if release() was not reached.
+// Freeing a null entry is a no-op, so a partial or failed read is safe to release.
+class VariableStrings {
+ public:
+  VariableStrings(hid_t type, hid_t space, std::vector<char*>& pointers) noexcept
+      : type_(type), space_(space), pointers_(pointers) {}
+  ~VariableStrings() { static_cast<void>(release()); }
+  VariableStrings(const VariableStrings&) = delete;
+  VariableStrings& operator=(const VariableStrings&) = delete;
+  VariableStrings(VariableStrings&&) = delete;
+  VariableStrings& operator=(VariableStrings&&) = delete;
+
+  [[nodiscard]] bool release() noexcept {
+    if (released_) {
+      return true;
+    }
+    released_ = true;
+    return H5Dvlen_reclaim(type_, space_, H5P_DEFAULT, string_buffer(pointers_.data())) >= 0;
+  }
+
+ private:
+  hid_t type_;
+  hid_t space_;
+  std::vector<char*>& pointers_;
+  bool released_ = false;
+};
+
 // Reads a variable-length string attribute: a scalar when want_scalar, else a one-dimensional
 // array.
 std::vector<std::string> read_string_attribute(const Where& at, std::string_view name,
@@ -216,6 +244,9 @@ std::vector<std::string> read_string_attribute(const Where& at, std::string_view
   }
   const Handle string_type = variable_string_type(at);
   std::vector<char*> pointers(static_cast<std::size_t>(points), nullptr);
+  // Armed before the read, so the strings HDF5 allocates are freed on every exit path, including
+  // a std::bad_alloc from the copies below (Codex review F2).
+  VariableStrings reclaim{string_type.id(), space.id(), pointers};
   if (H5Aread(attribute.id(), string_type.id(), string_buffer(pointers.data())) < 0) {
     at.fail_hdf5("cannot read attribute '" + key + "'");
   }
@@ -223,8 +254,7 @@ std::vector<std::string> read_string_attribute(const Where& at, std::string_view
   for (const char* pointer : pointers) {
     values.emplace_back(pointer != nullptr ? pointer : "");
   }
-  if (H5Dvlen_reclaim(string_type.id(), space.id(), H5P_DEFAULT, string_buffer(pointers.data())) <
-      0) {
+  if (!reclaim.release()) {
     at.fail_hdf5("cannot release the strings read from attribute '" + key + "'");
   }
   return values;
@@ -539,14 +569,18 @@ void Dataset::append_rows(const void* values, std::size_t count, ElementType typ
     at.fail_hdf5("cannot extend the dataset");
   }
   // From here a failure shrinks the extent back, so a refused append leaves no fill rows.
-  const auto undo_and_fail = [&at, before, this](std::string_view message) {
+  const auto undo_and_fail = [&at, before, added, this](std::string_view message) {
     std::string text{message};
     text += " (";
     text += take_error_stack();
     text += ")";
     const std::array<hsize_t, 2> restored{before, columns_};
-    static_cast<void>(H5Dset_extent(at.id, restored.data()));
-    static_cast<void>(H5Eclear2(H5E_DEFAULT));
+    if (H5Dset_extent(at.id, restored.data()) < 0) {
+      // Codex review F1: the rollback is checked, and its failure is reported, never hidden.
+      text += "; restoring the extent to " + std::to_string(before) +
+              " rows also failed, so the dataset may now end in " + std::to_string(added) +
+              " unwritten fill rows (" + take_error_stack() + ")";
+    }
     at.fail(text);
   };
   const Handle file_space{H5Dget_space(at.id), &H5Sclose};

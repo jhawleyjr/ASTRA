@@ -254,6 +254,22 @@ TEST_F(Hdf5Dataset, AppendRefusesAPartialRowOrTheWrongTypeAndLeavesTheDatasetUnc
   EXPECT_EQ(values.read_float64(), row);
 }
 
+// A refused extend (the file is read-only) leaves the rows as they were. The rollback after a
+// failed write (Codex review F1) has no test: nothing short of an HDF5 fault-injection shim makes
+// H5Dwrite fail after H5Dset_extent succeeded.
+TEST_F(Hdf5Dataset, AppendToAReadOnlyFileThrowsAndLeavesTheRowsAsTheyWere) {
+  {
+    File file = File::create(path("run.h5"));
+    Dataset values = file.create_table("values", ElementType::kFloat64, 2, 4);
+    values.append(std::vector<double>{1.0, 2.0});
+  }
+  const File file = File::open_read_only(path("run.h5"));
+  Dataset values = file.open_dataset("values");
+  EXPECT_THROW(values.append(std::vector<double>{3.0, 4.0}), Hdf5Error);
+  EXPECT_EQ(values.rows(), 1U);
+  EXPECT_EQ(values.read_float64(), (std::vector<double>{1.0, 2.0}));
+}
+
 TEST_F(Hdf5Dataset, CreateRefusesZeroColumnsZeroChunkRowsOrADuplicateName) {
   File file = File::create(path("run.h5"));
   EXPECT_THROW(static_cast<void>(file.create_table("values", ElementType::kFloat64, 0, 4)),
