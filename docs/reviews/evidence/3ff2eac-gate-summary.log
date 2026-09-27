@@ -1,0 +1,26 @@
+date: 2026-09-27T21:16:33Z
+command: ./scripts/check-full.sh
+base: 3324d1e83ac1506a1146cc8fc62391037543f4e9
+head: 3ff2eac293517e0f471d646031d5ea0cf570715c
+exit: 0
+working tree: 0 uncommitted paths
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 144 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr5-log/build/debug
+100% tests passed, 0 tests failed out of 621
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr5-log/build/release
+100% tests passed, 0 tests failed out of 622
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr5-log/build/static-plugins
+100% tests passed, 0 tests failed out of 623
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr5-log/build/asan
+100% tests passed, 0 tests failed out of 624
+0 errors, 0 warnings, 0 informations
+211 passed in 34.78s
+check: OK
+
+acceptance (plan PR 5 row, at head above): .venv/bin/pytest tests/python -k 'log or replay'
+exit: 0
+34 passed, 177 deselected in 3.32s
