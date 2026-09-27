@@ -116,7 +116,9 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
   - PR 7 (#58): M4 closeout (check-off, duplicate §15 bullet removed, M4 follow-ups, architecture §7/§10 status
     and `Transport` sketch). Plan: [plan](docs/plans/m4-lockstep.md). Packet: none.
 - [ ] **M5 Tooling** — HDF5 logging + replay, scenario harness over `tests/scenarios/`, Monte Carlo of 64 runs,
-      FlightGear packets verified by a decoder test.
+      FlightGear packets verified by a decoder test. Spec and plan: [plan](docs/plans/m5-tooling.md).
+  - Planning (#62): M5 spec, plan and nine-PR decomposition; Q1 to Q24 decided by Joe. Plan:
+    [plan](docs/plans/m5-tooling.md). Packet: none.
 
 ## Open items
 
