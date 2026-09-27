@@ -215,6 +215,9 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
       not linked into any plugin" is prose only; a scan must allowlist the two ADR-0023 deadline sites (one
       function in the shm transport, `plugins/sim/transport/shm/shm_wait.cpp`, one in the HAL's shm backend,
       `embedded/hal/shm/hal_shm_wait.cpp`). Not started.
+- [ ] Evaluate Jev (TypeSafe AI) for workflow routing: model/effort selection at session launch and context
+      selection, advisory with today's fixed settings as the fallback and file-path rules for Tier 3 kept
+      (origin: Joe, 2026-09-26; owner: Joe, starting with console.typesafe.ai signup).
 
 ## Recorded only here
 

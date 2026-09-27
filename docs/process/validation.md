@@ -80,7 +80,8 @@ the summary log, and the acceptance criteria exercised. Approval and check evide
 candidate they evaluated.
 
 For workflow edits, run `just docs-check` (`scripts/docs_check.py`): Markdown links/anchors across
-`docs/process/`, `docs/agents/`, `docs/templates/`, `.claude/skills/` and the root instruction files;
+`docs/process/`, `docs/agents/`, `docs/templates/`, `.claude/skills/`, the root instruction files and
+`PLAN.md` (links only);
 `.claude/skills/*/SKILL.md` frontmatter and name-matches-directory; the AGENTS.md+CLAUDE.md line
 budget; `just`/`./scripts/` command names referenced from those docs; `bash -n` on each wrapper
 separately (`bash -n a b` only parses `a`; `b` becomes an unused positional argument, not a second
