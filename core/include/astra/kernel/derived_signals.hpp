@@ -18,8 +18,11 @@
 // Its wrench and mass are a snapshot taken when frame k-1 completed, not the vehicle's live
 // published_wrench(): a halted attempt at frame k has already overwritten that with frame k's k1
 // wrench (Vehicle::integrate publishes at k1, before a later stage or vehicle can halt), and a
-// non-transport retry of frame k would otherwise pack it as frame k-1's (Codex review F1). On every
-// completed frame the two are equal, so the exchange's request is unaffected.
+// non-transport retry of frame k would otherwise pack it as frame k-1's (Codex review F1). After a
+// completed frame the two are equal, so the exchange's request is unaffected, unless
+// Simulation::derivative() is called between frames: it latches a new mass (Vehicle::derivative()
+// runs begin_frame without integrating), and the snapshot then still holds frame k-1's mass, the
+// correct value, while the exchange reads the probe's.
 //
 // Per-frame methods are noexcept and allocation-free; construction may allocate/throw.
 #pragma once

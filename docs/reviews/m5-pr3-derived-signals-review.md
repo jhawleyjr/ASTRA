@@ -15,7 +15,7 @@ Round: initial, then fix 1.
 ## Finding [F1]
 
 Severity: major (reported as high)
-Status: fixed-unverified
+Status: verified
 Location: `core/src/kernel/derived_signals.cpp:65-72` at `5f67fe8`
 Requirement/ADR: [ADR-0026](../decisions/0026-derived-flight-condition-signals.md) (ax ay az are frame k-1's
 k1-stage `wrench_total` force over frame k-1's mass)
@@ -46,5 +46,10 @@ Human exception if needed: none.
 
 ## Completion
 
-Codex general review at `5f67fe8`: no actionable defects. Adversarial review at `5f67fe8`: needs-attention, F1
-only. Critical/major open: F1 pending verification. Reviewer recommendation is not Joe's approval.
+Codex general review at `5f67fe8`, thread `01a0e21b-826e-7890-9f48-ce9ce7cbc6db`: no actionable defects.
+Adversarial review at `5f67fe8`, thread `01a0e21b-8248-7703-9c94-3b0a5c933abf`: needs-attention, F1 only.
+Fix verification at `7cf5a47`, thread `01a0e228-4022-7970-9f4b-5716c8149c68`: approve; F1 verified; new
+findings: none. Verification of the `1c1438c` refactor (the clang-tidy complexity fix, 7cf5a47..1c1438c), thread
+`01a0e247-28ba-70f0-9478-1bf41f26f3ba`: approve; F1's fix still holds; no behavior change for configs without
+physics; new findings: none. Critical/major open: none. One correction round used (F1); the refactor was a
+gate fix, not a correction round. Reviewer recommendation is not Joe's approval.
