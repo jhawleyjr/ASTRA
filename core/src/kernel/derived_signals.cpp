@@ -61,15 +61,15 @@ void DerivedSignals::pack(const StepContext& ctx, const Vehicle& vehicle,
   }
   Slot& slot = slots_[vehicle.index()];
 
-  // The exchange stage's rule (lockstep_exchange.cpp, critique F-6), not a second one.
+  // The exchange stage's rule (lockstep_exchange.cpp, critique F-6), not a second one; the
+  // wrench and mass are note_completed()'s snapshot of that frame (header comment, Codex F1).
   const bool previous_valid =
       ctx.frame > 0 && completed_any_ && last_completed_frame_ + 1 == ctx.frame;
-  const icd_pack::PreviousFrame previous{vehicle.published_wrench(), vehicle.latched_mass()};
   // .data(), not VehicleState{vehicle.state()}: see Simulation::sample_environment's comment on the
   // dangling temporary an Eigen::Map-to-StateVector conversion would create.
   const VehicleState vs{vehicle.state().data()};
   icd_pack::pack_sim_to_sw(slot.packed, ctx, vs, sample, earth,
-                           previous_valid ? &previous : nullptr);
+                           previous_valid ? &slot.previous : nullptr);
 
   // The same product the packer's vertical_speed negates: vertical_speed == -v_n_2 bitwise.
   const Eigen::Vector3d v_n = frames::rotate_b_to_n(vs.q_nb(), vs.v_b());
@@ -87,6 +87,17 @@ void DerivedSignals::pack(const StepContext& ctx, const Vehicle& vehicle,
                  s.az,       static_cast<double>(s.status_flags),
                  v_n(0),     v_n(1),
                  v_n(2)};
+}
+
+void DerivedSignals::note_completed(std::span<const Vehicle> vehicles,
+                                    std::uint64_t frame) noexcept {
+  for (const Vehicle& vehicle : vehicles) {
+    if (vehicle.index() < slots_.size() && slots_[vehicle.index()].active) {
+      slots_[vehicle.index()].previous = {vehicle.published_wrench(), vehicle.latched_mass()};
+    }
+  }
+  last_completed_frame_ = frame;
+  completed_any_ = true;
 }
 
 }  // namespace astra

@@ -719,7 +719,7 @@ HaltReason Simulation::step_frame(const StepContext& ctx) noexcept {
     }
   }
   if (derived_ != nullptr) {
-    derived_->note_completed(ctx.frame);  // ADR-0026: frame k+1's ax ay az may now be valid
+    derived_->note_completed(vehicles_, ctx.frame);  // ADR-0026: frame k+1's ax ay az
   }
   clock_.advance();
   return {};

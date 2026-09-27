@@ -306,6 +306,42 @@ TEST(DerivedSignals, AccelIsInvalidAfterAFrameJumpAndValidAgainOneFrameLater) {
   EXPECT_EQ(status(sim) & ASTRA_ICD_STATUS_ACCEL_INVALID, 0U);
 }
 
+// Codex review F1: without a transport a halted frame is retried, and a halt at k2 comes after k1
+// already overwrote the live wrench_total with frame k's wrench. The retry's ax must still be frame
+// k-1's k1 force over mass. nesc_aero's drag changes every frame, so the two wrenches differ.
+TEST(DerivedSignals, ARetriedFrameAfterAMidIntegrationHaltKeepsThePreviousFrameWrench) {
+  Simulation sim = Simulation::from_config(
+      Config::from_string(
+          "sim:\n  dt: 0.001\n  frames: 100\n"
+          "vehicle:\n  models:\n"
+          "    - { plugin: tests/plugins/nesc_aero, s: 0.1, cd: 0.1 }\n"
+          "    - { plugin: tests/plugins/nan_wrench, nan_frame: 5, nan_after_calls: 1 }\n"
+          "physical:\n"
+          "  earth: plugins/physical/earth/flat\n"
+          "  gravity: plugins/physical/gravity/constant\n"
+          "  atmosphere: plugins/physical/atmosphere/isa1976\n"
+          "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, "
+          "izz: 1.0 }\n"
+          "initial:\n  state: { p_n: [0.0, 0.0, -100.0], v_b: [60.0, 0.0, 0.0] }\n",
+          "k2 halt"),
+      ASTRA_TEST_PLUGIN_DIR);
+  ASSERT_FALSE(sim.run(5));  // frames 0..4 complete
+  const double* force_x = sim.registry().find("v0.wrench_total.force_b_x");
+  ASSERT_NE(force_x, nullptr);
+  const double frame_4_ax = *force_x / sim.vehicles()[0].latched_mass();
+
+  for (int attempt = 0; attempt < 2; ++attempt) {
+    const astra::HaltReason halt = sim.step();
+    ASSERT_TRUE(halt) << "frame 5 halts at its k2 stage, attempt " << attempt;
+    ASSERT_EQ(halt.frame, 5U);
+    EXPECT_EQ(status(sim) & ASTRA_ICD_STATUS_ACCEL_INVALID, 0U) << "attempt " << attempt;
+    EXPECT_EQ(bits(derived(sim, "ax")), bits(frame_4_ax)) << "attempt " << attempt;
+  }
+  // The live signal now holds the failed attempt's frame-5 k1 wrench, which differs: the check
+  // above would fail if pack() read it.
+  EXPECT_NE(bits(*force_x / sim.vehicles()[0].latched_mass()), bits(frame_4_ax));
+}
+
 // ---------------------------------------------------------------------------------------------
 // ADR-0011: one set per physics vehicle, each from its own state.
 

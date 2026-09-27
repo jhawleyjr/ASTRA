@@ -15,6 +15,11 @@
 // PreviousFrame is supplied only when this Simulation completed frame k-1 itself, the exchange
 // stage's own rule (Vehicle::derivative() latches a mass without integrating, so the mass alone
 // proves nothing); otherwise the packer sets ASTRA_ICD_STATUS_ACCEL_INVALID, as at every frame 0.
+// Its wrench and mass are a snapshot taken when frame k-1 completed, not the vehicle's live
+// published_wrench(): a halted attempt at frame k has already overwritten that with frame k's k1
+// wrench (Vehicle::integrate publishes at k1, before a later stage or vehicle can halt), and a
+// non-transport retry of frame k would otherwise pack it as frame k-1's (Codex review F1). On every
+// completed frame the two are equal, so the exchange's request is unaffected.
 //
 // Per-frame methods are noexcept and allocation-free; construction may allocate/throw.
 #pragma once
@@ -30,6 +35,7 @@
 #include "astra/kernel/environment_sample.hpp"
 #include "astra/kernel/vehicle.hpp"
 #include "astra/signals/signal_registry.hpp"
+#include "astra/util/icd_pack.hpp"
 #include "icd/astra_icd.h"
 
 namespace astra {
@@ -50,16 +56,15 @@ class DerivedSignals {
             const EarthModel& earth) noexcept;
 
   // Records that this Simulation completed `frame` (every vehicle integrated, clock about to
-  // advance): the only thing that makes the next frame's PreviousFrame valid.
-  void note_completed(std::uint64_t frame) noexcept {
-    last_completed_frame_ = frame;
-    completed_any_ = true;
-  }
+  // advance), the only thing that makes the next frame's PreviousFrame valid, and snapshots each
+  // physics vehicle's k1 wrench_total and mass of that frame for it.
+  void note_completed(std::span<const Vehicle> vehicles, std::uint64_t frame) noexcept;
 
  private:
   struct Slot {
     bool active = false;  // the vehicle has physics, so its signals are registered
     astra_sim_to_sw_v1 packed{};
+    icd_pack::PreviousFrame previous{};  // as of the last completed frame
     std::array<double, kFieldCount> values{};
   };
 
