@@ -4,6 +4,7 @@ for_testing deliberately not bound (R1c), and D2 (no trampolines in M3 -- Model 
 no constructor at all)."""
 
 import gc
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -116,3 +117,68 @@ def test_health_check_binds_transport_after_the_existing_values() -> None:
     # M4 PR 3 (ADR-0022): kTransport is appended last, so every earlier value keeps its integer.
     assert _core.HealthCheck.NON_FINITE_ENVIRONMENT.value == 6
     assert _core.HealthCheck.TRANSPORT.value == 7
+
+
+def test_health_check_binds_log_after_transport() -> None:
+    # M5 PR 4 (ADR-0025): kLog is appended after kTransport.
+    assert _core.HealthCheck.TRANSPORT.value == 7
+    assert _core.HealthCheck.LOG.value == 8
+
+
+def _logged_sim(path: Path, buffer_frames: int = 16) -> "_core.Simulation":
+    d = {
+        "sim": {"dt": 0.001, "frames": 3},
+        "vehicle": {"models": []},
+        "physical": PHYSICAL,
+        "log": {"path": str(path), "buffer_frames": buffer_frames},
+    }
+    return _core.Simulation.from_config(_core.Config.from_dict(d), _core.default_plugin_dir())
+
+
+def test_run_log_calls_through_the_binding(tmp_path: Path) -> None:
+    # M5 PR 4 (ADR-0025): flush_log/close_log/has_log. Reading the file is PR 5's (astra.log);
+    # here only that close_log finished it (the complete attribute's name is in the file's bytes)
+    # and that the calls behave as the C++ contract says.
+    path = tmp_path / "run.h5"
+    sim = _logged_sim(path)
+    assert sim.has_log
+    assert not sim.run(40)
+    assert not sim.flush_log()
+    sim.close_log()
+    data = path.read_bytes()
+    assert b"complete" in data
+    sim.close_log()  # idempotent
+    assert path.read_bytes() == data
+    halt = sim.step()  # the log is final
+    assert halt.check == _core.HealthCheck.LOG
+    assert halt.source == "log"
+    assert halt.frame == 40
+    assert sim.flush_log().check == _core.HealthCheck.LOG
+
+
+def test_a_full_ring_halts_log_and_is_sticky(tmp_path: Path) -> None:
+    sim = _logged_sim(tmp_path / "run.h5", buffer_frames=4)
+    for _ in range(4):
+        assert not sim.step()
+    halt = sim.step()
+    assert halt.check == _core.HealthCheck.LOG
+    assert halt.frame == 4
+    assert sim.run(3).check == _core.HealthCheck.LOG
+    assert sim.clock.frame == 4
+
+
+def test_without_a_log_block_the_log_calls_do_nothing() -> None:
+    sim = _sim()
+    assert not sim.has_log
+    assert not sim.flush_log()
+    sim.close_log()
+    assert not sim.step()
+
+
+def test_an_existing_log_path_is_a_config_error_naming_log_path(tmp_path: Path) -> None:
+    path = tmp_path / "run.h5"
+    path.write_bytes(b"kept")
+    with pytest.raises(_core.ConfigError, match=r"log\.path"):
+        _logged_sim(path)
+    assert path.read_bytes() == b"kept"
+    assert issubclass(_core.LogError, _core.Error)

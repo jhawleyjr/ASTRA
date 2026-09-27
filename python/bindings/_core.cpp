@@ -240,6 +240,8 @@ NB_MODULE(_core, m) {
   // (Config's getters, Simulation.from_config, ...).
   [[maybe_unused]] const nb::exception<astra::ConfigError> config_error(m, "ConfigError",
                                                                         error.ptr());
+  // M5 PR 4 (ADR-0025): Simulation.close_log()'s failure, naming the write that failed.
+  [[maybe_unused]] const nb::exception<astra::LogError> log_error(m, "LogError", error.ptr());
 
   nb::class_<astra::StepContext>(
       m, "StepContext",
@@ -350,7 +352,8 @@ NB_MODULE(_core, m) {
       .value("OUT_OF_DOMAIN", astra::HealthCheck::kOutOfDomain)
       .value("NON_FINITE_INPUT", astra::HealthCheck::kNonFiniteInput)
       .value("NON_FINITE_ENVIRONMENT", astra::HealthCheck::kNonFiniteEnvironment)
-      .value("TRANSPORT", astra::HealthCheck::kTransport);  // M4 PR 3, ADR-0022
+      .value("TRANSPORT", astra::HealthCheck::kTransport)  // M4 PR 3, ADR-0022
+      .value("LOG", astra::HealthCheck::kLog);             // M5 PR 4, ADR-0025
 
   nb::class_<PyHaltReason>(
       m, "HaltReason",
@@ -455,6 +458,19 @@ NB_MODULE(_core, m) {
           "Steps the frame count read from \"sim.frames\" at from_config time -- an overload of "
           "run(frames) above, not a separate method (nanobind resolves by call signature, like "
           "pybind11).")
+      // M5 PR 4 (ADR-0025): the run log's two calls. The per-frame reservation is inside step().
+      .def(
+          "flush_log", [](astra::Simulation& s) { return PyHaltReason(s.flush_log()); },
+          "Drains the run log's rings (a step()-driven caller's drain point). Returns the sticky "
+          "LOG halt once there is one (a full ring, or a failed drain write, which this call "
+          "itself can cause); falsy otherwise, and always without a log block.")
+      .def("close_log", &astra::Simulation::close_log,
+           "Finalizes the run log: drains it, writes /summary and /final_state, sets complete = 1 "
+           "and closes the file. Raises LogError naming the write that failed (complete is then "
+           "never set). A second call does nothing after a success and raises the same LogError "
+           "after a failure; without a log block it does nothing. A step() after it halts LOG.")
+      .def_prop_ro("has_log", &astra::Simulation::has_log,
+                   "Whether a log block configured a run log.")
       .def_prop_ro(
           "clock", [](astra::Simulation& s) -> const astra::VirtualClock& { return s.clock(); },
           nb::rv_policy::reference_internal)

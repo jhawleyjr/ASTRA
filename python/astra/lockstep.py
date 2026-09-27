@@ -544,11 +544,31 @@ class Session:
         return self._sim
 
     def run(self, frames: int | None = None) -> Halt | None:
+        """``Simulation.run``, then a drain of the run log (ADR-0025: the ``Simulation`` is hidden,
+        so the session drains at its own calls). Returns the run's halt, else the drain's."""
         sim = self._live()
-        return _halt(sim.run() if frames is None else sim.run(frames))
+        halt = sim.run() if frames is None else sim.run(frames)
+        drained = sim.flush_log()
+        return _halt(halt if halt else drained)
 
     def step(self) -> Halt | None:
-        return _halt(self._live().step())
+        """``Simulation.step``, then a drain of the run log, as ``run`` does."""
+        sim = self._live()
+        halt = sim.step()
+        drained = sim.flush_log()
+        return _halt(halt if halt else drained)
+
+    def flush_log(self) -> Halt | None:
+        """Drains the run log; the sticky ``LOG`` halt once there is one. Nothing without a
+        ``log`` block."""
+        return _halt(self._live().flush_log())
+
+    def close_log(self) -> None:
+        """Finalizes the run log (``Simulation.close_log``): raises ``astra._core.LogError`` naming
+        the write that failed, never setting ``complete``; a second call does nothing after a
+        success and raises the same error after a failure. Without it, the ``Simulation``'s
+        destructor completes the log best effort when the session ends."""
+        self._live().close_log()
 
     @property
     def frame(self) -> int:
