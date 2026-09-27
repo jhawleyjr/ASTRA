@@ -42,6 +42,11 @@ WORKFLOW_DOC_ROOTS = [
     ".claude/skills",
 ]
 
+# Checked for links/anchors only: PLAN.md links every PR's plan and packet, but as a plan it may
+# name a future command (the reason the design docs above are excluded), so its command names
+# are not checked.
+LINK_ONLY_DOC_FILES = ["PLAN.md"]
+
 
 def iter_workflow_doc_files(root: Path) -> list[Path]:
     out = []
@@ -183,8 +188,9 @@ def main() -> int:
     root = Path(args.root).resolve()
 
     md_files = iter_workflow_doc_files(root)
+    link_only = [root / rel for rel in LINK_ONLY_DOC_FILES if (root / rel).is_file()]
     problems: list[str] = []
-    check_links(md_files, root, problems)
+    check_links(md_files + link_only, root, problems)
     check_skills(root, problems)
     check_root_instruction_budget(root, problems)
     check_command_names(md_files, root, problems)
@@ -194,7 +200,7 @@ def main() -> int:
         for p in problems:
             print(f"  {p}", file=sys.stderr)
         return 1
-    print(f"docs-check: OK ({len(md_files)} Markdown files checked)")
+    print(f"docs-check: OK ({len(md_files) + len(link_only)} Markdown files checked)")
     return 0
 
 
