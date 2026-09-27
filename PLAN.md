@@ -121,6 +121,8 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
     [plan](docs/plans/m5-tooling.md). Packet: none.
   - PR 1 (#63): ADR-0025 (run log and replay), ADR-0026 (derived signals), architecture rev 9, AGENTS.md
     wall-clock scope. Plan: [plan](docs/plans/m5-tooling.md). Packet: in the PR body.
+  - PR 2: HDF5 RAII wrapper in `core/signals/` (`Hdf5Error`, time tracking off, version bounds fixed at 1.8 to
+    1.10), byte-identity and LSan tests. Plan: [plan](docs/plans/m5-tooling.md). Packet: in the PR body.
 
 ## Open items
 
