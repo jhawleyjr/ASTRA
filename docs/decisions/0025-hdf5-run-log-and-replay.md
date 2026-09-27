@@ -96,8 +96,14 @@ then the summary carries min/max of every logged signal.
 3. For a halted log, makes one more `step()`, which must reproduce the recorded halt.
 4. Reports whether `out` meets the determinism criterion against `path`.
 
-A log from a run with a `transport` block is refused with an error naming the reason: replaying commands
-without the peer is a different feature. Sending a log to FlightGear is a bridge source (ADR-0026), not replay.
+Two kinds of log are refused, each with an error naming the reason:
+- **A run with a `transport` block.** Replaying commands without the peer is a different feature.
+- **A log whose recorded halt is `kLog`** (Joe, 2026-09-27, Codex review finding F1). That halt is an
+  output-side event, not part of the run: it depends on `buffer_frames` and on when the caller drained, which
+  the stored config deliberately omits, or on an I/O failure. A replay could not reproduce it.
+
+Every other halt (state, wrench, input, environment, domain) replays and must reproduce. Sending a log to
+FlightGear is a bridge source (ADR-0026), not replay.
 
 **The M4 recorder (Q12).** `ExchangeRecorder` stays through M5, because M4's byte-identity acceptance tests read
 it. It is retired by a follow-up once a lockstep test compares HDF5 logs instead. The run log already carries
@@ -117,6 +123,8 @@ it. It is retired by a follow-up once a lockstep test compares HDF5 logs instead
 - **A plugin version field:** a descriptor ABI change for information the `.so` hash already pins.
 - **Replay as only "same config, same seed"** (§9 before this record): misses mid-run writes and halts.
 - **`warn`/`off` for `kLog`:** a silently truncated log is not a log (ADR-0005).
+- **Recording `buffer_frames` and every drain call so a `kLog` halt replays:** more format and work for a
+  halt that describes the output, not the run; a failed drain write still could not be reproduced.
 - **Retiring the recorder in M5:** removes the oracle M4's acceptance tests read before a replacement exists.
 
 ## Consequences and validation
@@ -132,8 +140,8 @@ Costs:
 Whether any of this changes `kCoreApiVersion` is PR 4's decision under ADR-0009's version check. Validation is
 the plan's:
 - R2 (columns, units, frames), R3 (row coherence), R4 (byte identity), R5 (no allocation), R6/R6b (loud,
-  state-preserving failures), R7 (provenance and summary), R8 (`load`) and R9 (replay, including a halted run
-  and a refused lockstep log);
+  state-preserving failures), R7 (provenance and summary), R8 (`load`) and R9 (replay, including a halted run,
+  a refused lockstep log and a refused `kLog`-halted log);
 - run in PR 2 (wrapper, byte identity), PR 4 (logger) and PR 5 (`astra.log`).
 
 This record's own check: `python3 scripts/docs_check.py`, `git diff --check` and one Codex review. Not covered:
