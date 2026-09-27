@@ -25,7 +25,7 @@ Find the first unfinished gate, using the workflow's risk tier and already recor
   Open findings go back to Claude for fixes, then validation and Codex verification.
 - Fix/integration budget exhausted or requirement disagreement: record attempts, owner and decision
   needed from Joe. Preserve retry counts across sessions.
-- Gates satisfied for human review: prepare Joe's packet. Approval (AGENTS.md) applies to the current
+- Gates satisfied for human review: write the PR description for Joe. Approval (AGENTS.md) applies to the current
   candidate only; no separate GitHub approval badge is needed.
 - Merge/release: record only what actually happened. Release authorization/validation is separate;
   a merged PR does not prove a release occurred or authorize one.
@@ -36,13 +36,14 @@ to wrap. If later changes invalidate evidence, mark the affected gate pending an
 
 ## Update the handoff artifacts
 
-1. **Review evidence/packet:** when requesting human review, use
-   [`/human-review`](../human-review/SKILL.md) to prepare the packet in the PR body (or a review file).
-   The PR body carries scope/requirements, check results (command, exit code, summary counts, a link to the
-   [gate summary log](../../../docs/process/validation.md#evidence)), Codex results (verdict, thread id,
-   findings), unresolved findings, assumptions/risks, critical files and rollback, plus the exact candidate
-   revisions and dirty-tree details. A packet can be drafted earlier, but label missing gates; do not call it
-   ready for approval. Link existing evidence rather than copy it.
+1. **PR description:** when requesting human review, use [`/human-review`](../human-review/SKILL.md) to
+   write the PR body from the [PR description template](../../../docs/templates/pr-description.md) (no title
+   line, no decision block). It carries scope/requirements, check results (command, exit code, summary counts,
+   a link to the [gate summary log](../../../docs/process/validation.md#evidence)), Codex results (verdict,
+   thread id, findings), unresolved findings, assumptions/risks, critical files and rollback, what needs
+   Joe's decision, plus the exact candidate revisions and dirty-tree details. A description can be drafted
+   earlier, but label missing gates; do not call it ready for approval. Link existing evidence rather than
+   copy it.
 2. **Task status, if present:** update packages, dependencies, workflow stage, findings, retry counts,
    blocker/owner and next action using the [manifest fields](../../../docs/templates/task-status.md).
    Do not create a manifest for a simple task or mark an integrated feature complete from one package.
@@ -64,7 +65,7 @@ to wrap. If later changes invalidate evidence, mark the affected gate pending an
 
 Under the standing authorization ([AGENTS.md](../../../AGENTS.md#commands-and-boundaries)), commit
 the coherent work, push the task branch, and open the draft PR if none exists, or update its body with the
-handoff/packet and results if one does. Results go in the body, not in a record-only commit. Preserve
+handoff, description and results if one does. Results go in the body, not in a record-only commit. Preserve
 unrelated changes and never sweep them into the commit. A push after the PR opens
 does not re-run CI's `check`; note the `gh pr ready --undo` / `gh pr ready` rerun as a pre-merge step, per the
 workflow. Inspect and record the result of every action (`gh pr view --json body`); never replace a PR body
