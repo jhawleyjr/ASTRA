@@ -7,7 +7,8 @@ description: Prepare an ASTRA feature specification, repository-aware plan and b
 
 Claude owns planning. Read [shared rules](../../../AGENTS.md), the
 [risk tiers](../../../docs/process/workflow.md#risk-tiers), architecture/ADRs and the assigned intent.
-Inspect actual Git state, relevant implementation/callers/tests, tooling and constraints before planning.
+Inspect actual Git state, relevant implementation/callers/tests, tooling and constraints before planning,
+directly ([AGENTS.md](../../../AGENTS.md#commands-and-boundaries)).
 
 1. Establish outcome, non-goals, invariants and risk. Reuse Joe's existing authorization and approved
    decisions; identify only consequential missing decisions. This pass writes the assigned spec/plan/

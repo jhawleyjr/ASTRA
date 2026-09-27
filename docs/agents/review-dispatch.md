@@ -36,7 +36,8 @@ node "$CODEX_COMPANION" adversarial-review --scope working-tree --wait   "Read t
 ```
 
 Replace that focus with the actual task's artifacts and failure modes. Native `review` takes no custom
-focus text; adversarial review does. Preserve raw output, actual model/job identity, scope and findings.
+focus text; adversarial review does. Record the scope, actual model, job or thread id, verdict and findings in
+the PR body; raw output stays outside git.
 Use a real completed tool process handle; interrupted dispatch or empty output is not clean review.
 Read [review-cycle](../../.claude/skills/review-cycle/SKILL.md) for the bounded fix/retest loop.
 
@@ -93,7 +94,8 @@ an unsupported inference.
 To verify a fix batch: first record each finding's ID, severity, status and builder
 disposition in `docs/reviews/<feature>-review.md` (the [findings template](../templates/review-findings.md);
 `templates/README.md` already names this destination), including the concrete fix (file/line,
-what changed) for anything marked fixed. Then dispatch a normal `adversarial-review` (never
+what changed) for anything marked fixed. Update that file only in the commit that carries the fix batch it
+describes, never in a record-only commit. Then dispatch a normal `adversarial-review` (never
 `review`, which takes no focus text) with a compact focus, built per the rules above, naming
 that file's path, the base/head revisions under verification, and the specific finding IDs to
 check. The focus must require the reviewer to:
@@ -128,9 +130,8 @@ printf 'exit=%s\n' "$status"
 
 Require an explicit per-finding verdict and the new-findings report described above; silence
 about a finding is unverified, never agreement, and a verification pass with no new-findings
-result is incomplete, not clean. Record the reviewer's verdicts back into the findings file's
-`Verification:` field, its new-findings result in the review file's `Completion` section, and
-update each finding's status and round history. This is still the same bounded fix-verification
+result is incomplete, not clean. Record the reviewer's verdicts, its new-findings result, and each finding's
+status and round history in the PR body; the findings file picks them up with the next fix commit, if any. This is still the same bounded fix-verification
 dispatch, not an additional review pass or approval gate: it replaces one unfocused re-review
 with one focused one that also covers the fix delta's own blast radius.
 

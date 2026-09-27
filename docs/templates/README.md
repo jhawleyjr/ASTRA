@@ -14,7 +14,7 @@ Markdown tables are the task manifest format; no YAML schema, parser or service 
 | [Human review packet](human-review.md) | PR body, or `docs/reviews/<feature>-human.md` |
 | [ADR proposal](adr.md) | Draft with the plan; Joe authorizes a new `docs/decisions/NNNN-title.md` |
 
-Keep exact revisions in check/PR/review evidence; task briefs may cite or link this provenance.
+Keep exact revisions in the PR body and the gate summary log; task briefs may cite or link this provenance.
 Standing rules should not carry transient revision pins. Link documents
 rather than reproducing architecture or PLAN. Approval fields start pending; agents never fill in a
 human decision that has not occurred. Joe's explicit decision or squash-merge is the solo-maintainer

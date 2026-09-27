@@ -13,17 +13,17 @@ Decision requested: [approve behavior/merge/release; distinguish each]
 
 ## Evidence
 
-| Check / acceptance | Result / date / duration | Log or retained artifact / candidate |
+| Check / acceptance | Result / date / duration | Summary log / candidate |
 |---|---|---|
-| [fast/full/targeted/link checks] | [pass/fail/not run, actual exit] | [link and revision; dirty-tree disclosure] |
+| [fast/full/targeted/link checks] | [pass/fail/not run, actual exit, summary counts] | [`<head>-gate-summary.log` link and revision; dirty-tree disclosure] |
 
 [Toolchain, relevant seeds/reference provenance, numerical/performance changes, coverage limitations.
 CI is intentionally local-gate mode to conserve GitHub minutes; green CI is not a full-gate result.]
 
 ## Independent review
 
-[Claude builder/Codex reviewer models, findings link, fix rounds, remaining critical/major/minor, rejected or
-accepted-risk findings with evidence. If unavailable, explicitly pending; self-review is not a substitute.]
+[Claude builder/Codex reviewer models, Codex verdict and thread id, findings, fix rounds, remaining
+critical/major/minor, rejected or accepted-risk findings with evidence. If unavailable, explicitly pending.]
 
 ## Joe's attention
 

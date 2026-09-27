@@ -16,8 +16,10 @@ accepted ADRs, explicit allowed paths, and acceptance commands. Output: bounded 
    without weakening checks.
 5. Inspect scope and diff. Update docs that explain changed behavior; produce an evidence-based handoff.
 6. Use `/review-cycle` to send the complete candidate to Codex in fresh context using repository artifacts.
-   Triage findings with evidence; batch fixes and retest within the workflow's two-round budget.
-7. Prepare the human packet/PR text. Leave merge/release approval to Joe; record any pending review.
+   Triage findings with evidence; batch fixes and retest within the correction budget (AGENTS.md).
+   On Tier 0 and Tier 1, one Codex pass on the final diff; non-defect findings become follow-ups.
+7. Prepare the human packet/PR text with the check and review results. Leave merge/release approval to Joe;
+   record any pending review.
 
 Escalate changed requirements, unapproved dependencies/architecture, scope expansion, disputed oracle
 changes, or exhausted fix/integration budgets. Completion means acceptance proved, not code merely written.
