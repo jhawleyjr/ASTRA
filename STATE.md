@@ -23,7 +23,7 @@ not here. Prior-session: M4 acceptance evidence at `4e418e1` (`docs/reviews/evid
 3. Follow-ups named in PR #60's body: none of them block it.
 
 ## Tried / failed
-Correction rounds: 0/2; failed integrations: 0/2 at this handoff. Any later fix is recorded in PR #60's body.
+Correction and integration counts: PR #60's body holds them. Nothing failed before this handoff.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.

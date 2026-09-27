@@ -157,9 +157,9 @@ push invalidates prior review/validation for affected work. Do not weaken requir
 
 - The budget (two correction rounds, two failed integrations) is in AGENTS.md; a finding surviving
   both rounds escalates. No infinite retry, review ping-pong, or reviewer refactoring.
-- Record the running counts as `Correction rounds: n/2; failed integrations: n/2` in the PR body and, at
-  `/wrap`, in STATE.md's `Tried / failed` section (the task manifest's own fields when one exists), so a
-  fresh session or reviewer reads the budget without chat history.
+- Record the running counts as `Correction rounds: n/2; failed integrations: n/2` in the PR body (the
+  task manifest's own fields when one exists), the one place a fresh session or reviewer reads the budget
+  without chat history; STATE.md's `Tried / failed` section links there rather than copying the counts.
 - Build/test defect → builder. Infrastructure failure → tooling diagnosis. Spec ambiguity → Joe.
   Architecture conflict/scope expansion → Joe. Exhausted budget → summary of attempts and next choice.
 - A fresh context after two failed corrections is useful, but does not reset the budget or approval.

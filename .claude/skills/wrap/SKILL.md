@@ -51,8 +51,8 @@ to wrap. If later changes invalidate evidence, mark the affected gate pending an
    conditions actually hold. Check a milestone only when all of its requirements hold; do not advance to
    a new milestone while this task has unfinished gates. No separate retrospective ceremony is required.
 4. **STATE.md:** rewrite it once, here, to at most 40 lines, with `## In flight`, `## Last verified result`,
-   `## Next step`, `## Tried / failed` (including the current `Correction rounds: n/2; failed
-   integrations: n/2`), and the existing `## Honesty rules` block verbatim. Include the branch/PR
+   `## Next step`, `## Tried / failed` (what was tried; for the correction/integration counts, a link to
+   the PR body, which holds them), and the existing `## Honesty rules` block verbatim. Include the branch/PR
    (or no PR), actual workflow stage, what remains and who owns it, and point to the PR body for results.
    Distinguish prior-session validation from commands run now; preserve useful product-task pointers.
    Per AGENTS.md, write nothing that changes when the PR merges (no merge status, no "awaiting merge"):
