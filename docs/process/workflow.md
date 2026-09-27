@@ -2,24 +2,24 @@
 
 Baseline requested by Joe, September 2026. Replaces v2's prohibition on feature artifacts with
 optional templates and risk-based depth. Preserves `just check`, human-owned oracles, oracle/main protection
-hooks, model settings, draft PRs, and Joe's squash-merge authority. `/wrap` is revised for stage-aware
-handoff; its push and draft-PR steps are governed by the standing authorization under Git and worktrees. Git retains the v2 rationale.
+hooks, model settings, draft PRs, and Joe's squash-merge authority. Git retains the v2 rationale.
+Standing rules are stated once, in [AGENTS.md](../../AGENTS.md); this file holds procedure and rationale and links there.
 
 ## Sources of truth and lightweight state
 
 [Architecture](../architecture.md) and accepted [ADRs](../decisions/) govern design.
-[PLAN.md](../../PLAN.md) is the milestone checklist; [STATE.md](../../STATE.md) is the current handoff
-(40 lines maximum, rewritten). Verify Git/PR state: a handoff written before a merge predates it by design; check `git log origin/main`, and don't report it as stale.
-[AGENTS.md](../../AGENTS.md) is the canonical shared rule file; `CLAUDE.md` imports it. Together they
-stay under 100 lines. [Agent procedures](../agents/README.md) hold repeatable details.
+What [PLAN.md](../../PLAN.md) and [STATE.md](../../STATE.md) (40 lines maximum) hold, and what they never
+record, is in [AGENTS.md](../../AGENTS.md#read-first). Rationale: a fact that becomes true only at merge made
+every such edit stale on merge and forced bookkeeping PRs (`docs/lessons.md`, 2026-09-26). Verify Git/PR state
+with `git log origin/main` rather than trusting either file. `CLAUDE.md` imports AGENTS.md;
+[agent procedures](../agents/README.md) hold repeatable details.
 
 A small task still needs only 3–10 lines of intent, acceptance commands, and binding ADR pointers.
 Use [templates](../templates/README.md) for information that would otherwise be lost; never create
 seven empty documents to satisfy a checklist. Specs describe behavior; plans describe implementation.
 `docs/tasks/<feature>/STATUS.md` coordinates multi-package work only. Do not duplicate the milestone
-checklist there. Keep transient revision pins out of standing rules. Check/review evidence records
-exact base/head revisions; task/session handoffs may cite these when needed to identify validated
-work. Prefer links to evidence over duplicated, stale pins. Reference data/goldens retain provenance.
+checklist there. Handoffs link the PR body's exact base/head revisions rather than duplicating
+pins. Reference data/goldens retain provenance.
 
 ## The twelve steps
 
@@ -31,8 +31,8 @@ work. Prefer links to evidence over duplicated, stale pins. Reference data/golde
 | 4. Decomposition | One package by default; dependencies and file ownership when splitting | Stable contracts, one writer per path/worktree |
 | 5. Repository instructions | Read shared root rules and task inputs | No conflict with accepted design |
 | 6. Reusable procedures | Use [Claude skills and role procedures](../agents/README.md#invocable-claude-skills) with existing checks | Bounded role, inputs, outputs, escalation known |
-| 7. Validation | Fast loop, then full gate and task-specific acceptance | Commands finish successfully; evidence recorded |
-| 8. Independent review | Different model, fresh context, actual diff plus spec/tests | Evidence-backed findings recorded |
+| 7. Validation | Fast loop, then full gate and task-specific acceptance | Commands finish successfully; results in the PR body |
+| 8. Independent review | Different model, fresh context, actual diff plus spec/tests | Evidence-backed findings in the PR body |
 | 9. Fix and retest | Builder resolves findings, reviewer verifies deltas | No unresolved critical/major findings; validation current |
 | 10. Human review | Prepare [packet](../templates/human-review.md); Joe reads consequential changes | Explicit decision against the current candidate |
 | 11. Merge and release | Draft PR → ready → Joe squash-merges; separate release decision | Current validation/review, protected merge, release checklist |
@@ -57,8 +57,8 @@ step 11: before merge, fetch and check whether `main` has advanced past the cand
 validated base (`git fetch origin && git log --oneline HEAD..origin/main`), not just whether the
 candidate itself is green. If `main` moved with changes that overlap or interact with this
 candidate, the merged result (`main` + candidate) is a combined state nothing has actually
-validated yet: merge `origin/main` into the task branch (a pushed task branch is never rebased or
-force-pushed; Joe's squash-merge flattens the merge commits), then rerun the checks the assigned
+validated yet: merge `origin/main` into the task branch (Joe's squash-merge flattens the merge
+commits), then rerun the checks the assigned
 risk tier requires against that combined state (at minimum fast validation; the full gate for tier
 2-3, per [risk tiers](#risk-tiers)), and renew Codex review and Joe's decision for whatever the
 merge materially touched — an approval given against the old base does not carry over to
@@ -75,15 +75,16 @@ uncertain numerical impact is reason to raise risk, not silently downgrade it.
 
 | Tier | ASTRA examples | Minimum process |
 |---|---|---|
-| 0 — editorial | Prose, comments; no executable or policy behavior | Brief + links/consistency check; Joe's merge decision |
-| 1 — low | Small internal change with no interface/numerical effect | Brief, focused checks + full gate, independent review |
+| 0 — editorial | Prose, comments; no executable or policy behavior | Brief + links/consistency check; one Codex pass on the final diff (Joe may waive); Joe's merge decision |
+| 1 — low | Small internal change with no interface/numerical effect | Brief, focused checks + full gate; one Codex pass on the final diff (Joe may waive) |
 | 2 — normal | Feature, build/CI/hook/workflow behavior, dependency proposal | Spec/plan (may share one short artifact), Joe approves intent/plan, full gate + acceptance, independent review, human packet |
 | 3 — high | `core/kernel/`, numerical `core/util/`, `plugins/physical/`, `aircraft/**/physical`, `aircraft/**/hardware`, `icd/`, transport/concurrency, health behavior, goldens/tolerances | Full relevant artifacts, Joe approves spec/plan, independent numerical/adversarial review and oracles, full gate, Joe reads critical diff/tests |
 
-New dependencies, architecture/API decisions, security, and release authority always need Joe's
-approval regardless of tier. Existing explicit authorization counts; do not request it again for
-routine implementation choices. Tier 0 may omit the expensive product gate only when no execution,
-build, test, or policy behavior changes; record the scope and checks instead of claiming a full pass.
+Joe's approvals ([AGENTS.md](../../AGENTS.md#commands-and-boundaries)) apply regardless of tier; security
+decisions are his too. Tier 0 may omit the expensive product gate only when no execution, build, test, or
+policy behavior changes; record the scope and checks instead of claiming a full pass. On Tier 0 and Tier 1,
+a finding that is not a factual error or defect becomes a follow-up, not a correction round. Rationale: a
+docs-only closeout once took six commits, two correction rounds and three reviews over nits.
 
 ## Git and worktrees
 
@@ -97,14 +98,10 @@ build, test, or policy behavior changes; record the scope and checks instead of 
 - Parallel builders are optional, only for independent owned paths with stable contracts and an
   explicit assignment. Prefer dependency waves; one integrator combines completed packages and runs
   full validation on the combined tree. Resolve semantic conflicts with the spec owner.
-- Standing authorization (Joe, 2026-09-26): commit coherent, descriptively worded work as it lands, push the task
-  branch (only the task branch) after each meaningful commit, and open a draft PR as soon as the branch has its
-  first commit; keep its body current with the packet or brief. Nothing is held only locally. Joe squash-merges.
-  No agent commits or pushes to `main`, merges a PR, rebases or force-pushes a pushed branch, marks a PR ready as a
-  merge signal, changes branch protection, or publishes a release without explicit authorization. Merging
-  `origin/main` into the task branch is the required integration step (final integration with `main`, step 11), not
-  a prohibited merge. Permission to implement and push is not permission to send messages (email, chat, issue or PR
-  comments to other people).
+- The standing push/draft-PR authorization and its limits are in [AGENTS.md](../../AGENTS.md#commands-and-boundaries).
+  Keep the draft PR's body current with the brief, packet and results. Changing branch protection also needs
+  Joe's explicit authorization. Merging `origin/main` into the task branch is the required integration step
+  (final integration with `main`, step 11), not a prohibited merge.
   A push after the PR opens does not re-run CI's `check`; see the `gh pr ready --undo` / `gh pr ready` rerun under
   [Human approval and merge/release gates](#human-approval-and-mergerelease-gates) before merge. That rerun re-triggers `check` and is not itself a merge signal.
 
@@ -113,11 +110,12 @@ build, test, or policy behavior changes; record the scope and checks instead of 
 [Validation commands and coverage](validation.md) are wrappers over the existing `justfile`.
 Fast is `just test-unit`; full is `just check`. Run the full gate once on the final candidate,
 then rerun after substantive fixes/integration. Redirect noisy output to a log, wait for the real
-process to exit, read its status and `check: OK`; record failures and missing coverage honestly.
+process to exit, read its status and `check: OK` (the pass condition in AGENTS.md); record failures and
+missing coverage honestly, in the PR body, with the trimmed log from [validation](validation.md#evidence).
 Do not run concurrent checks in one checkout. A timeout or absent dependency is not a pass.
 
-The oracle remains human-owned: `tests/golden/**`, tolerance files, and `docs/decisions/**`.
-Claude's PreToolUse guard requires Joe to authorize and lift it via `ASTRA_TOUCH_GOLDENS=1` on the
+The oracle boundary is in [AGENTS.md](../../AGENTS.md#commands-and-boundaries); the guard covers
+`tests/golden/**`, tolerance files, and `docs/decisions/**`. Claude's PreToolUse guard requires Joe to authorize and lift it via `ASTRA_TOUCH_GOLDENS=1` on the
 launch environment or `.claude/touch-goldens` in the session or main checkout. SessionStart deletes
 the file marker in both locations; a hook cannot unset a running session's environment variable, so
 `ASTRA_TOUCH_GOLDENS` lasts as long as the session it was launched with. Agents must not arm their
@@ -127,11 +125,8 @@ is a blocking finding unless Joe explicitly approves the underlying requirement/
 
 ## Review
 
-Joe's role assignment: **Claude owns planning, implementation, tests/validation, fixes, integration,
-and handoff; Codex owns independent review and adversarial review**, including the one-off critique
-of consequential plans below. These roles are not interchangeable unless Joe explicitly changes the
-assignment. Joe remains the requirement owner, architect, human approver and merge/release authority.
-Use fresh review context and record the actual model.
+Roles are in [AGENTS.md](../../AGENTS.md); Codex's review work includes the one-off critique of
+consequential plans below. Roles change only when Joe reassigns them. Record the actual model.
 Review receives the spec/plan, base/head, diff, relevant surrounding code, tests, and validation
 results, not just the builder's rationale. Reviewer is read-only; builder owns fixes.
 See [review procedure](../agents/review.md) and [findings template](../templates/review-findings.md).
@@ -140,13 +135,13 @@ Claude runs [`/review-cycle`](../../.claude/skills/review-cycle/SKILL.md) using 
 [dispatch instructions](../agents/review-dispatch.md) cover working-tree/branch/mixed candidates.
 Physics diffs also need adversarial review focused on ADRs, units/signs, domain validity, allocation,
 and determinism. Joe reads these diffs. Review is not run on every turn; the Stop hook is the fast
-check. If Codex review is unavailable, say so and leave review pending; self-review is not
-independent review. An accepted human exception must be recorded explicitly.
+check. An accepted human exception to review must be recorded explicitly.
 
 For an unpinned design expensive to unwind, do one independent plan critique before Joe sees the
 plan, including acceptance commands and ADRs. Resolve supported findings; explain rejected ones.
-Skip this extra critique when the architecture already pins the design. Cowork/design chat is an
-optional input, never a required hop.
+Skip this extra critique when the architecture already pins the design. Cowork review applies to
+Tier 2 and Tier 3 work, or when Joe asks; on Tier 0 and Tier 1 its findings default to follow-ups
+unless something is factually wrong. Otherwise Cowork/design chat is an optional input, never a required hop.
 
 ## Review-fix limits and failure routing
 
@@ -160,11 +155,11 @@ Batch fixes; add a meaningful regression test where behavior changes, rerun affe
 full gate before final approval, and re-review changed areas plus affected invariants. Any substantive
 push invalidates prior review/validation for affected work. Do not weaken requirements or tests.
 
-- At most two autonomous correction/review-fix rounds per task; a finding surviving both escalates.
-- At most two failed integration attempts. No infinite retry, review ping-pong, or reviewer refactoring.
-- Record the running counts as `Correction rounds: n/2; failed integrations: n/2` in STATE.md's
-  `Tried / failed` section (the task manifest's own fields when one exists), so a fresh session or
-  reviewer reads the budget without chat history; a default single-package task still needs this line.
+- The budget (two correction rounds, two failed integrations) is in AGENTS.md; a finding surviving
+  both rounds escalates. No infinite retry, review ping-pong, or reviewer refactoring.
+- Record the running counts as `Correction rounds: n/2; failed integrations: n/2` in the PR body and, at
+  `/wrap`, in STATE.md's `Tried / failed` section (the task manifest's own fields when one exists), so a
+  fresh session or reviewer reads the budget without chat history.
 - Build/test defect → builder. Infrastructure failure → tooling diagnosis. Spec ambiguity → Joe.
   Architecture conflict/scope expansion → Joe. Exhausted budget → summary of attempts and next choice.
 - A fresh context after two failed corrections is useful, but does not reset the budget or approval.
@@ -216,9 +211,9 @@ packet's [Decision record](../templates/human-review.md#decision-record).
 
 Use [`/human-review`](../../.claude/skills/human-review/SKILL.md) to prepare a
 [human review packet](../templates/human-review.md) before requesting approval: behavior,
-requirements, diff scope, current check results/logs, findings, assumptions, critical files, rollback.
-Joe approves the current PR candidate; later substantive changes require renewed review. Human
-approval, AI review, validation, merge, and release are separate states, never inferred from labels.
+requirements, diff scope, current check results (in the PR body), findings, assumptions, critical files,
+rollback. Joe approves the current PR candidate; later substantive changes require renewed review. Human
+approval, AI review, validation, merge, and release are separate states (approval: AGENTS.md).
 
 **What actually enforces this — four different things, not one:**
 
@@ -309,18 +304,18 @@ Use [task status](../templates/task-status.md) for multiple packages; otherwise 
 Use the revised [`/wrap`](../../.claude/skills/wrap/SKILL.md) when Claude pauses or finishes meaningful
 work at any stage, including a blocked-validation handoff. It records the first unfinished
 gate, actual evidence, Codex findings/retry counts, human decisions and next action; it prepares the
-human packet when appropriate. It pushes the task branch and opens or updates the draft PR under the
-standing authorization in Git and worktrees (never merging or marking ready as a merge signal); it does not
-infer approval from tests or move to the next milestone while the current task is unfinished. Append lessons only when something actually
+human packet when appropriate and writes STATE once. It pushes the task branch and opens or updates the
+draft PR; it does not move to the next milestone while the current task is unfinished. Append lessons only when something actually
 bit. Review process cost when useful from existing evidence; the obsolete retrospective skill is
 removed and no retro ceremony blocks a milestone. Add automation only for demonstrated repetitive work.
 
 ## Model and effort
 
-Preserve `.claude/settings.json`: `opusplan`, `high`, Sonnet subagents. No recon subagents for this
-repository. Model/effort escalation is Joe's decision; physics correctness comes from independent
-oracles and review. One PR per context; log verbose output. Templates record the assigned provider/model
-without changing provider settings. Claude does the work; Codex reviews it. No new agent service or dependency is needed.
+`.claude/settings.json` pins `opusplan` at `high` with Sonnet subagents; who changes it, and the
+no-recon-subagents rule, are in AGENTS.md. Rationale: physics correctness comes from independent oracles
+and review, not effort; a recon subagent costs tokens (`docs/lessons.md`, 2026-09-14) and hands the planner
+a secondhand account instead of a first-hand read. One PR per context; log verbose output. Templates record
+the assigned provider/model without changing provider settings. No new agent service or dependency is needed.
 
 ## Implementation boundaries
 
