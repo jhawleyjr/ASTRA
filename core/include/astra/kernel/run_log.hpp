@@ -123,8 +123,9 @@ class RunLog {
   void close(const RunLogEnd& end);
   // close() without the exception, for Simulation's destructor.
   void close_best_effort(const RunLogEnd& end) noexcept;
-  // Closes every handle and removes the file: for a Simulation whose construction failed after
-  // the file was created (a transport handshake that failed). Best effort, never throws.
+  // Closes every handle (drops it unclosed after a real failure, see abandon()) and removes the
+  // file: for a Simulation whose construction failed after the file was created (a transport
+  // handshake that failed, or a failed provenance write). Best effort, never throws.
   void discard() noexcept;
 
   [[nodiscard]] bool closed() const noexcept { return closed_; }
@@ -177,7 +178,7 @@ class RunLog {
   void abandon() noexcept;
   // Records the first failure: what was being written (writing_) and why.
   void note_failure(std::string_view message) noexcept;
-  void check_injected(Fault fault) const;
+  void check_injected(Fault fault);
   [[nodiscard]] static bool due(const Ring& ring, std::uint64_t frame) noexcept {
     return frame % ring.divisor == 0;
   }
@@ -207,6 +208,7 @@ class RunLog {
   std::string_view writing_;  // the write in progress, for a failure's message
   std::string failed_write_;  // what failed ("the rows of /rate_1", "/summary", ...)
   Fault injected_ = Fault::kNone;
+  bool injected_fired_ = false;  // the failure, if any, was an injected one
 };
 
 }  // namespace astra

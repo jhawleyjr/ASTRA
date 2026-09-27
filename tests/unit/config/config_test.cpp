@@ -178,4 +178,30 @@ TEST(Config, NavigatingPastTheEndOfASequenceWithMoreSegmentsIsUndefined) {
   EXPECT_FALSE(config.has("xs.5.y"));
 }
 
+// M5 PR 4 (ADR-0025): the run log stores the config without its "log" block. Only that root key
+// goes; every other value keeps its source spelling and loads back equal; nothing is marked read.
+TEST(Config, EmitWithoutDropsOnlyThatRootKeyAndRoundTrips) {
+  const Config config = Config::from_string(
+      "sim: { dt: 0.001, frames: 1000 }\n"
+      "log: { path: /tmp/x.h5, buffer_frames: 8 }\n"
+      "physical:\n"
+      "  wind: { plugin: plugins/physical/wind/dryden, seed: 42, w20_knots: 15.0 }\n"
+      "  values: [0.1, 1e-300, -0.0, 0.30000000000000004]\n"
+      "nested: { log: kept }\n",
+      "test");
+  const std::string text = config.emit_without("log");
+  const Config reloaded = Config::from_string(text, "reloaded");
+  EXPECT_FALSE(reloaded.has("log"));
+  EXPECT_EQ(reloaded.text("nested.log"), "kept") << "only the root key is dropped";
+  EXPECT_EQ(reloaded.number("sim.dt"), 0.001);
+  EXPECT_EQ(reloaded.integer("physical.wind.seed"), 42);
+  EXPECT_EQ(reloaded.text("physical.wind.plugin"), "plugins/physical/wind/dryden");
+  EXPECT_EQ(reloaded.number("physical.values.3"), 0.30000000000000004);
+  EXPECT_EQ(reloaded.number("physical.values.1"), 1e-300);
+  EXPECT_NE(text.find("0.30000000000000004"), std::string::npos) << "the source spelling is kept";
+  EXPECT_EQ(reloaded.emit_without("log"), text) << "emitting is a fixed point";
+  EXPECT_EQ(config.unknown_keys().size(), 12U) << "emitting read nothing";
+  EXPECT_EQ(Config::from_string("a: 1\n", "t").emit_without("log"), "a: 1\n");
+}
+
 }  // namespace

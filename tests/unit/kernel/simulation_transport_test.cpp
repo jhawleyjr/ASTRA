@@ -4,11 +4,13 @@
 // changes nothing), the recorder, and the critique additions F-1 to F-6 plus Joe's all-halts-sticky
 // rule.
 #include <gtest/gtest.h>
+#include <unistd.h>
 
 #include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <limits>
 #include <span>
@@ -718,6 +720,91 @@ TEST(SimulationTransport, APluginThatIsNotATransportOrSpeaksAnotherIcdVersionIsR
                      astra::Config::from_string(text, "wrong plugin"), ASTRA_TEST_PLUGIN_DIR)),
                  astra::PluginLoadError);
   }
+}
+
+// ---------------------------------------------------------------------------------------------
+// M5 PR 4 (ADR-0025): the run log with a transport.
+
+// A per-test log path in the system temporary directory, removed first.
+std::filesystem::path fresh_log_path(std::string_view name) {
+  const auto* info = ::testing::UnitTest::GetInstance()->current_test_info();
+  std::filesystem::path path = std::filesystem::temp_directory_path() /
+                               ("astra_transport_log_" + std::to_string(::getpid()) + "_" +
+                                info->name() + "_" + std::string{name} + ".h5");
+  std::filesystem::remove(path);
+  return path;
+}
+
+std::string log_block(const std::filesystem::path& path, std::uint64_t buffer_frames) {
+  return "log:\n  path: " + path.string() + "\n  buffer_frames: " + std::to_string(buffer_frames) +
+         "\n";
+}
+
+// A full ring halts kLog before the exchange runs: the halt is sticky, the exchange stage stores
+// it (so teardown closes the transport kAfterFailure), and nothing is published again.
+TEST(SimulationTransport, ALogHaltIsStickyStoredByTheExchangeAndPublishesNothing) {
+  const std::filesystem::path path = fresh_log_path("run");
+  astra::Simulation sim = astra::Simulation::from_config(
+      astra::Config::from_string(to_yaml(Spec{}) + log_block(path, 25), "transport + log"),
+      ASTRA_TEST_PLUGIN_DIR);
+  for (int k = 0; k < 25; ++k) {
+    ASSERT_FALSE(sim.step()) << k;
+  }
+  EXPECT_EQ(sim.transport_close_reason(), CloseReason::kNormal);
+  const HaltReason halt = sim.step();
+  EXPECT_EQ(halt.check, HealthCheck::kLog);
+  EXPECT_EQ(halt.source, "log");
+  EXPECT_EQ(halt.frame, 25U);
+  const std::size_t requests = sim.exchange_recorder()->requests().size();
+  EXPECT_EQ(requests, 3U) << "frames 0, 10, 20";
+  for (int i = 0; i < 3; ++i) {
+    EXPECT_TRUE(same_halt(sim.step(), halt));
+    EXPECT_TRUE(same_halt(sim.run(20), halt));
+    EXPECT_TRUE(same_halt(sim.flush_log(), halt));
+  }
+  EXPECT_EQ(sim.clock().frame(), 25U);
+  EXPECT_EQ(sim.exchange_recorder()->requests().size(), requests);
+  EXPECT_EQ(sim.transport_fault(), TransportFault::kNone);
+  EXPECT_EQ(sim.transport_close_reason(), CloseReason::kAfterFailure);
+  std::filesystem::remove(path);
+}
+
+// A failed handshake happens after the log file is created (a log path problem is a config error,
+// and a config error never starts a handshake), so the file is removed again.
+TEST(SimulationTransport, AFailedHandshakeLeavesNoLogFile) {
+  const std::filesystem::path path = fresh_log_path("run");
+  Spec spec;
+  spec.peer = "    handshake_fail: true\n";
+  try {
+    static_cast<void>(astra::Simulation::from_config(
+        astra::Config::from_string(to_yaml(spec) + log_block(path, 16), "handshake + log"),
+        ASTRA_TEST_PLUGIN_DIR));
+    FAIL() << "expected ConfigError";
+  } catch (const astra::ConfigError& error) {
+    EXPECT_EQ(error.config_path(), "transport");
+  }
+  EXPECT_FALSE(std::filesystem::exists(path));
+}
+
+// Logging adds a stage but changes nothing the exchange sends or records: the recorder bytes of
+// the cruise config with a loopback transport are identical with and without a log.
+TEST(SimulationTransport, LoggingChangesNoRecorderByte) {
+  const std::filesystem::path path = fresh_log_path("run");
+  const auto dump = [](const std::string& extra) {
+    std::string text =
+        read_file(std::string{ASTRA_AIRCRAFT_DIR} + "/notional_transport/configs/cruise.yaml");
+    std::string block{kCruiseTrimTransport};
+    block.replace(block.find("DIVISOR"), std::string_view{"DIVISOR"}.size(), "10");
+    text += "\n" + block + extra;
+    astra::Simulation sim = astra::Simulation::from_config(
+        astra::Config::from_string(text, "cruise + transport"), ASTRA_TEST_PLUGIN_DIR);
+    EXPECT_FALSE(sim.run(500));
+    sim.close_log();
+    return sim.exchange_recorder()->serialize();
+  };
+  EXPECT_EQ(dump(""), dump(log_block(path, 32)));
+  EXPECT_TRUE(std::filesystem::exists(path));
+  std::filesystem::remove(path);
 }
 
 }  // namespace

@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include <chrono>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -18,6 +19,7 @@
 #include <iterator>
 #include <string>
 #include <thread>
+#include <variant>
 #include <vector>
 
 #include "astra/errors.hpp"
@@ -419,6 +421,92 @@ TEST_F(Hdf5Determinism, OneDifferentValueGivesDifferentBytes) {
   write_run_log_shape(path("a.h5"), 1.0);
   write_run_log_shape(path("b.h5"), 2.0);
   EXPECT_FALSE(read_bytes(path("a.h5")) == read_bytes(path("b.h5")));
+}
+
+// --- Hdf5Records (M5 PR 4: the compound tables behind /plugins and /writes) ---------------------
+
+using Hdf5Records = Hdf5Test;
+using astra::hdf5::RecordField;
+
+std::vector<RecordField> sample_records() {
+  std::vector<RecordField> fields;
+  fields.push_back({"frame", std::vector<std::uint64_t>{0, 7, 18446744073709551615ULL}});
+  fields.push_back({"name", std::vector<std::string>{"controls.elevator", "", "ünïcode"}});
+  fields.push_back({"value", std::vector<double>{-0.5, 1e300, -0.0}});
+  return fields;
+}
+
+TEST_F(Hdf5Records, EveryMemberKindRoundTripsInOrderAndExactly) {
+  {
+    File file = File::create(path("records.h5"));
+    file.write_records("writes", sample_records());
+    Group group = file.create_group("g");
+    group.write_records("nested", sample_records());
+    group.close();
+    file.close();
+  }
+  const File file = File::open_read_only(path("records.h5"));
+  for (const auto& read :
+       {file.read_records("writes"), file.open_group("g").read_records("nested")}) {
+    ASSERT_EQ(read.size(), 3U);
+    EXPECT_EQ(read[0].name, "frame");
+    EXPECT_EQ(read[1].name, "name");
+    EXPECT_EQ(read[2].name, "value");
+    EXPECT_EQ(std::get<std::vector<std::uint64_t>>(read[0].values),
+              (std::vector<std::uint64_t>{0, 7, 18446744073709551615ULL}));
+    EXPECT_EQ(std::get<std::vector<std::string>>(read[1].values),
+              (std::vector<std::string>{"controls.elevator", "", "ünïcode"}));
+    const auto& values = std::get<std::vector<double>>(read[2].values);
+    ASSERT_EQ(values.size(), 3U);
+    EXPECT_EQ(values[0], -0.5);
+    EXPECT_EQ(values[1], 1e300);
+    EXPECT_TRUE(std::signbit(values[2])) << "-0.0 is stored bit for bit";
+  }
+}
+
+TEST_F(Hdf5Records, ZeroRowsIsAValidTableWithItsMembers) {
+  {
+    File file = File::create(path("empty.h5"));
+    std::vector<RecordField> fields;
+    fields.push_back({"frame", std::vector<std::uint64_t>{}});
+    fields.push_back({"name", std::vector<std::string>{}});
+    file.write_records("writes", fields);
+    file.close();
+  }
+  const std::vector<RecordField> read =
+      File::open_read_only(path("empty.h5")).read_records("writes");
+  ASSERT_EQ(read.size(), 2U);
+  EXPECT_EQ(read[0].name, "frame");
+  EXPECT_EQ(read[0].rows(), 0U);
+  EXPECT_TRUE(std::holds_alternative<std::vector<std::string>>(read[1].values));
+}
+
+TEST_F(Hdf5Records, BadFieldsThrowNamingTheTable) {
+  File file = File::create(path("bad.h5"));
+  const auto expect_refused = [&file](const std::vector<RecordField>& fields,
+                                      const std::string& fragment) {
+    try {
+      file.write_records("t", fields);
+      FAIL() << "expected Hdf5Error containing " << fragment;
+    } catch (const Hdf5Error& error) {
+      EXPECT_EQ(error.object_path(), "/t");
+      EXPECT_NE(std::string{error.what()}.find(fragment), std::string::npos) << error.what();
+    }
+  };
+  expect_refused({}, "at least one field");
+  expect_refused({{"a", std::vector<double>{1.0}}, {"b", std::vector<double>{1.0, 2.0}}}, "rows");
+  expect_refused({{"a", std::vector<double>{1.0}}, {"a", std::vector<double>{2.0}}}, "distinct");
+  expect_refused({{"", std::vector<double>{1.0}}}, "non-empty");
+  expect_refused({{"s", std::vector<std::string>{std::string{"a\0b", 3}}}}, "NUL");
+}
+
+TEST_F(Hdf5Records, IdenticalTablesToDifferentPathsGiveIdenticalBytes) {
+  for (const char* name : {"a.h5", "b.h5"}) {
+    File file = File::create(path(name));
+    file.write_records("writes", sample_records());
+    file.close();
+  }
+  EXPECT_TRUE(read_bytes(path("a.h5")) == read_bytes(path("b.h5")));
 }
 
 }  // namespace

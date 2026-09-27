@@ -32,7 +32,7 @@ std::optional<std::size_t> stage_offset(const Vehicle& vehicle, const double* va
   if (stage.empty()) {
     return std::nullopt;
   }
-  const std::less<const double*> before;
+  const std::less<> before;
   if (before(value, stage.data()) || !before(value, stage.data() + stage.size())) {
     return std::nullopt;
   }
@@ -138,6 +138,7 @@ RunLog::RunLog(const RunLogSettings& settings, const SignalRegistry& registry,
     write_provenance(provenance);
     file_->write_records("plugins", plugins);
   } catch (const Hdf5Error& error) {
+    note_failure(error.what());
     discard();
     throw ConfigError(origin_, "log.path",
                       std::string{"cannot write the log's provenance: "} + error.what());
@@ -219,6 +220,8 @@ void RunLog::write_provenance(const RunLogProvenance& provenance) {
         ring.group->create_table("values", hdf5::ElementType::kFloat64, ring.columns, kBlockRows));
     std::vector<std::string> names;
     std::vector<std::string> units;
+    names.reserve(ring.columns);
+    units.reserve(ring.columns);
     for (const std::size_t index : ring.signal_indices) {
       names.push_back(signal_names_[index]);
       units.push_back(signal_units_[index]);
@@ -451,12 +454,22 @@ void RunLog::close_handles() {
 }
 
 void RunLog::abandon() noexcept {
+  // After a real failure the handles are dropped unclosed (hdf5::Object::abandon(): libhdf5
+  // 1.10.10 corrupts its state on a failed close). After an injected one (tests) the file itself
+  // is sound and closes normally.
+  const bool leave_open = failed() && !injected_fired_;
+  const auto drop = [leave_open](auto& handle) {
+    if (leave_open && handle.has_value()) {
+      handle->abandon();
+    }
+    handle.reset();
+  };
   for (Ring& ring : rings_) {
-    ring.frame_dataset.reset();
-    ring.values_dataset.reset();
-    ring.group.reset();
+    drop(ring.frame_dataset);
+    drop(ring.values_dataset);
+    drop(ring.group);
   }
-  file_.reset();
+  drop(file_);
 }
 
 void RunLog::note_failure(std::string_view message) noexcept {
@@ -471,8 +484,9 @@ void RunLog::note_failure(std::string_view message) noexcept {
   }
 }
 
-void RunLog::check_injected(Fault fault) const {
+void RunLog::check_injected(Fault fault) {
   if (injected_ == fault) {
+    injected_fired_ = true;
     throw Hdf5Error(path_.string(), writing_, "injected failure (test)");
   }
 }
