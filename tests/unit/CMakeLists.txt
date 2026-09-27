@@ -27,6 +27,7 @@ add_executable(astra_unit_tests
   kernel/vehicle_state_test.cpp
   plugin/load_all_test.cpp
   plugin/loader_test.cpp
+  signals/hdf5_file_test.cpp
   signals/input_registry_test.cpp
   signals/signal_registry_test.cpp
   util/air_data_test.cpp
@@ -48,6 +49,24 @@ target_compile_definitions(astra_unit_tests PRIVATE
 # "golden/atmosphere/isa1976_table.hpp" -- the astra_frames_test pattern below.
 target_include_directories(astra_unit_tests PRIVATE "${ASTRA_SOURCE_DIR}/tests")
 gtest_discover_tests(astra_unit_tests DISCOVERY_MODE PRE_TEST PROPERTIES LABELS unit)
+
+# M5 PR 2 (docs/plans/m5-tooling.md): LeakSanitizer against the uninstrumented libhdf5, settled with
+# no suppression. `clean` must exit 0 with no LSan report; `leak_control` leaks on purpose and must
+# be reported, which shows detection is live. ASAN_OPTIONS pins detect_leaks on for both, whatever
+# the caller's environment. Sanitizer presets with ASan only; the names carry "Hdf5" for `-R Hdf5`.
+if(ASTRA_SANITIZERS MATCHES "address")
+  add_executable(astra_hdf5_lsan_probe signals/hdf5_lsan_probe.cpp)
+  target_link_libraries(astra_hdf5_lsan_probe PRIVATE astra::core)
+  add_test(NAME Hdf5LsanProbe.clean
+           COMMAND astra_hdf5_lsan_probe clean "${CMAKE_CURRENT_BINARY_DIR}/hdf5_lsan_probe_clean.h5")
+  set_tests_properties(Hdf5LsanProbe.clean PROPERTIES
+    LABELS unit ENVIRONMENT "ASAN_OPTIONS=detect_leaks=1" FAIL_REGULAR_EXPRESSION "LeakSanitizer")
+  add_test(NAME Hdf5LsanProbe.leak_control
+           COMMAND astra_hdf5_lsan_probe leak "${CMAKE_CURRENT_BINARY_DIR}/hdf5_lsan_probe_leak.h5")
+  set_tests_properties(Hdf5LsanProbe.leak_control PROPERTIES
+    LABELS unit ENVIRONMENT "ASAN_OPTIONS=detect_leaks=1"
+    PASS_REGULAR_EXPRESSION "LeakSanitizer: detected memory leaks")
+endif()
 
 # Separate executables so ctest's names carry "frames"/"integrator" for `-R 'frames|integrator'`
 # (PLAN.md M1 PR 1 acceptance); TEST_PREFIX puts the substring at the front of every discovered name.

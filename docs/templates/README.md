@@ -11,7 +11,7 @@ Markdown tables are the task manifest format; no YAML schema, parser or service 
 | [Task manifest/status](task-status.md) | `docs/tasks/<feature>/STATUS.md` for multiple packages |
 | [Work package](work-package.md) | `docs/tasks/<feature>/<package>.md` |
 | [Review findings](review-findings.md) | PR review, or `docs/reviews/<feature>-review.md` |
-| [Human review packet](human-review.md) | PR body, or `docs/reviews/<feature>-human.md` |
+| [PR description](pr-description.md) | PR body |
 | [ADR proposal](adr.md) | Draft with the plan; Joe authorizes a new `docs/decisions/NNNN-title.md` |
 
 Keep exact revisions in the PR body and the gate summary log; task briefs may cite or link this provenance.

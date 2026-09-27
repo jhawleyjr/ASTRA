@@ -64,4 +64,29 @@ ConfigError::ConfigError(std::string_view origin, std::string_view config_path,
       origin_(origin),
       config_path_(config_path) {}
 
+namespace {
+
+std::string describe_hdf5(std::string_view file_path, std::string_view object_path,
+                          std::string_view message) {
+  std::string text = "hdf5 '";
+  text += file_path;
+  text += "'";
+  if (!object_path.empty()) {
+    text += " at '";
+    text += object_path;
+    text += "'";
+  }
+  text += ": ";
+  text += message;
+  return text;
+}
+
+}  // namespace
+
+Hdf5Error::Hdf5Error(std::string_view file_path, std::string_view object_path,
+                     std::string_view message)
+    : Error(describe_hdf5(file_path, object_path, message)),
+      file_path_(file_path),
+      object_path_(object_path) {}
+
 }  // namespace astra

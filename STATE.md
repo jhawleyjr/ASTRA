@@ -1,37 +1,39 @@
 # STATE (rewritten once, at /wrap, never appended; ≤ 40 lines; says nothing that changes at merge)
 
 ## In flight
-M5 PR 1 (Tier 2, docs only): PR #63, branch `worktree-m5-pr1-adrs` off `origin/main` `2cce400`, plan
-`docs/plans/m5-tooling.md`. ADR-0025 (HDF5 run log and replay, Q3 to Q12) and ADR-0026 (derived
-flight-condition signals, Q13) were **accepted by Joe 2026-09-27**, ADR-0025 with his J1 amendment (the row fill
-uses an allocation-free frame-start state snapshot). Also in the PR: architecture rev 9 (§5, §9, §10, §12 with
-the 62.5 Hz bridge divisor, §13, §15, §16 note); AGENTS.md's wall-clock rule scoped to `core/`, `plugins/` and
-`aircraft/`; Joe's F1 decision (replay refuses a `kLog`-halted log, named) in ADR-0025, §9 and the plan.
-The packet is in PR #63's body. Joe asked for it there, not as a committed `docs/reviews/*-human.md`.
+M5 PR 2 (Tier 2): PR #64, branch `worktree-m5-pr2-hdf5-wrapper` off `origin/main` `19d535a`, plan
+`docs/plans/m5-tooling.md` PR 2 row, binding ADR-0005 and ADR-0025 (Q7). Stage: human review; the PR body is
+the description Joe reviews. Code candidate `587ef23`; later commits change no code. The wrapper is
+`core/include/astra/signals/hdf5_file.hpp` and `core/src/signals/hdf5_file.cpp`, plus `astra::Hdf5Error`.
+Settings: time tracking off; bounds (V18, V110), because V110 gives superblock v3 and a crashed file then
+will not reopen. No LSan suppression; Q7 byte identity holds, so there is no fallback.
+Also in this PR, at Joe's request (2026-09-27), commit `1c44f02`: `docs/templates/pr-description.md` (a plain
+PR description, no title line, no decision block) replaces `docs/templates/human-review.md`. The
+`human-review` and `wrap` skills, `workflow.md`, the templates and reviews READMEs and the agent docs point at
+it. PLAN.md's `Packet:` field is unchanged; renaming it is Joe's call.
 
 ## Last verified result
-This session, on the branch: `python3 scripts/docs_check.py` exit 0 and `git diff --check` exit 0, after each
-fix and after the status flip. No build or test ran (docs only, per the plan's PR 1 row). Codex adversarial
-review: needs-attention with F1, then fix verification: approve with no new findings. Thread ids are in the PR
-body. CI `check` passed on the flip commit. This handoff commit changes only STATE.md and docs/lessons.md; its
-own `check` rerun result is in the PR body.
-Prior-session: M4 acceptance evidence at `4e418e1` (`docs/reviews/evidence/4e418e1-*`).
+This session, at `587ef23`: `./scripts/check-full.sh` exit 0 with `check: OK`
+(`docs/reviews/evidence/587ef23-gate-summary.log`). `ctest --preset asan -R Hdf5 --no-tests=error` and the
+same under `static-plugins` each exit 0, 21/21. At `1c44f02`: `python3 scripts/docs_check.py` and
+`git diff --check` exit 0. Codex: round 1 needs-attention (F1, F2), fix verification approve. The workflow
+commit has no Codex review. Thread ids and CI's `check` result are in the PR body.
 
 ## Next step
-1. PR #63: Joe's decision is recorded in its body. Any later push needs the `gh pr ready --undo` /
-   `gh pr ready` rerun of CI's `check` before merge.
-2. M5 PR 2 (Tier 2): `find_package(HDF5 COMPONENTS C)` and the RAII wrapper in `core/signals/` (time tracking
-   off, version bounds fixed), unit tests with temp files, ASan/LSan behavior with libhdf5 settled, and a
-   byte-identity test of two identical writes. If byte identity fails, the ADR-0025 Q7 fallback applies and
-   PR 2's evidence and every test using it say so. Acceptance and binding ADRs: the plan's PR 2 row.
-3. M5 PR 3 (Tier 3): the derived signals per ADR-0026; `lockstep_exchange.cpp` untouched, and R10's
-   base-vs-candidate recorder SHA-256. It can follow PR 1 independently of PR 2.
+1. Joe: decide on PR #64. Its "Needs Joe's decision" section lists merge approval, the two untested failure
+   paths, whether `1c44f02` needs a Codex pass, and two optional items. After any later push, rerun CI's
+   `check` with `gh pr ready --undo` then `gh pr ready`.
+2. M5 PR 3 (Tier 3): the derived signals per ADR-0026. `lockstep_exchange.cpp` stays untouched, and R10
+   compares the recorder SHA-256 of base and candidate. It depends only on PR 1.
+3. M5 PR 4 (Tier 3): the logger stage, on PR 2 and PR 3. It builds on `astra::hdf5`, adding compound tables
+   for `/plugins` and `/writes` itself. PR 5 must check h5py's bundled libhdf5 alongside ours in one process.
 4. Before PR 8: Joe places FlightGear's `net_fdm.hxx` (version 24) in `docs/refs/` (Q21).
 
 ## Tried / failed
-Correction and integration counts: PR #63's body holds them. The budget of two correction rounds is spent on
-this PR. `gh pr edit --body-file` still fails on the `projectCards` GraphQL error (lessons 2026-09-19); the REST
-`gh api -X PATCH` route worked.
+Correction and integration counts: PR #64's body holds them. The first gate ran at `4693cf7` before round 1;
+it passed but is superseded. Untestable here: F1's rollback-after-write-failure and F2's `bad_alloc` reclaim,
+because there is no HDF5 or allocator fault injection. The worktree guard again refused inline Python whose
+text named git; the edit ran from a scratchpad script (lessons 2026-09-27).
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.

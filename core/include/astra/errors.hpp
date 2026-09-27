@@ -85,4 +85,20 @@ class ConfigError : public Error {
   std::string config_path_;
 };
 
+// Any failure in the HDF5 wrapper (core/signals/hdf5_file.hpp, ADR-0005): an HDF5 call that
+// failed, or a call the wrapper refuses (a partial row, a wrong element type, a closed object).
+// what() names the file and the object inside it ("/rate_1/values") and, for an HDF5 failure,
+// HDF5's own outermost and innermost error descriptions.
+class Hdf5Error : public Error {
+ public:
+  Hdf5Error(std::string_view file_path, std::string_view object_path, std::string_view message);
+
+  [[nodiscard]] const std::string& file_path() const noexcept { return file_path_; }
+  [[nodiscard]] const std::string& object_path() const noexcept { return object_path_; }
+
+ private:
+  std::string file_path_;
+  std::string object_path_;
+};
+
 }  // namespace astra

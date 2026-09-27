@@ -1,0 +1,424 @@
+// The HDF5 RAII wrapper (core/signals/hdf5_file.hpp, ADR-0005, ADR-0025): files never
+// overwritten, groups, appendable series and tables, attributes of every stored type, typed
+// errors naming the file and object, explicit close, the fixed library-version bounds, and
+// ADR-0025's Q7 criterion itself: two identical write sequences to different paths give
+// byte-identical files. That criterion holds with libhdf5 1.10.10, so no test here uses Q7's
+// dataset-and-attribute-equality fallback. Every file lives in a per-test temporary directory.
+#include "astra/signals/hdf5_file.hpp"
+
+#include <gtest/gtest.h>
+#include <unistd.h>
+
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <string>
+#include <thread>
+#include <vector>
+
+#include "astra/errors.hpp"
+
+namespace {
+
+namespace fs = std::filesystem;
+using astra::Hdf5Error;
+using astra::hdf5::Dataset;
+using astra::hdf5::ElementType;
+using astra::hdf5::File;
+using astra::hdf5::Group;
+
+// A fresh directory per test (pid and test name), removed afterwards.
+class Hdf5Test : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    const auto* info = ::testing::UnitTest::GetInstance()->current_test_info();
+    dir_ = fs::temp_directory_path() / ("astra_hdf5_" + std::to_string(::getpid()) + "_" +
+                                        info->test_suite_name() + "_" + info->name());
+    fs::remove_all(dir_);
+    fs::create_directories(dir_);
+  }
+  void TearDown() override {
+    std::error_code ignored;
+    fs::remove_all(dir_, ignored);
+  }
+
+  [[nodiscard]] fs::path path(const std::string& name) const { return dir_ / name; }
+
+ private:
+  fs::path dir_;
+};
+
+std::vector<char> read_bytes(const fs::path& path) {
+  std::ifstream in(path, std::ios::binary);
+  return {std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
+}
+
+// --- Hdf5File ---------------------------------------------------------------------------------
+
+using Hdf5File = Hdf5Test;
+
+TEST_F(Hdf5File, CreateRefusesAnExistingFileAndLeavesItUntouched) {
+  const fs::path existing = path("existing.h5");
+  {
+    std::ofstream out(existing, std::ios::binary);
+    out << "not overwritten";
+  }
+  try {
+    static_cast<void>(File::create(existing));
+    FAIL() << "create() of an existing file did not throw";
+  } catch (const Hdf5Error& error) {
+    EXPECT_EQ(error.file_path(), existing.string());
+    EXPECT_NE(std::string{error.what()}.find(existing.string()), std::string::npos) << error.what();
+  }
+  const std::vector<char> bytes = read_bytes(existing);
+  EXPECT_EQ(std::string(bytes.begin(), bytes.end()), "not overwritten");
+}
+
+TEST_F(Hdf5File, CreateInAMissingDirectoryThrowsNamingThePath) {
+  const fs::path missing = path("no_such_dir") / "run.h5";
+  EXPECT_THROW(static_cast<void>(File::create(missing)), Hdf5Error);
+  EXPECT_FALSE(fs::exists(missing));
+}
+
+TEST_F(Hdf5File, OpenReadOnlyRefusesAMissingOrNonHdf5File) {
+  EXPECT_THROW(static_cast<void>(File::open_read_only(path("missing.h5"))), Hdf5Error);
+  const fs::path text = path("text.h5");
+  {
+    std::ofstream out(text);
+    out << "plain text, not HDF5\n";
+  }
+  EXPECT_THROW(static_cast<void>(File::open_read_only(text)), Hdf5Error);
+}
+
+TEST_F(Hdf5File, LibraryVersionLowBoundGivesSuperblockVersionTwo) {
+  // Default bounds (EARLIEST) would give version 0; a 1.10 low bound would give version 3.
+  File file = File::create(path("run.h5"));
+  EXPECT_EQ(file.superblock_version(), 2U);
+  file.close();
+  const File reopened = File::open_read_only(path("run.h5"));
+  EXPECT_EQ(reopened.superblock_version(), 2U);
+}
+
+TEST_F(Hdf5File, CloseRefusesWhileAnObjectIsOpenThenSucceedsAndIsIdempotent) {
+  File file = File::create(path("run.h5"));
+  Group group = file.create_group("rate_1");
+  EXPECT_THROW(file.close(), Hdf5Error);
+  EXPECT_TRUE(file.is_open());
+  group.close();
+  file.close();
+  EXPECT_FALSE(file.is_open());
+  EXPECT_NO_THROW(file.close());
+  EXPECT_THROW(static_cast<void>(file.create_group("late")), Hdf5Error);
+  EXPECT_THROW(static_cast<void>(group.has_attribute("x")), Hdf5Error);
+}
+
+TEST_F(Hdf5File, TheDestructorClosesAFileWhoseObjectsOutliveIt) {
+  {
+    Dataset frames = [&] {
+      File file = File::create(path("run.h5"));
+      return file.create_series("frame", ElementType::kUint64, 8);
+    }();
+    const std::vector<std::uint64_t> values{1, 2, 3};
+    frames.append(values);
+  }
+  const File file = File::open_read_only(path("run.h5"));
+  EXPECT_EQ(file.open_dataset("frame").read_uint64(), (std::vector<std::uint64_t>{1, 2, 3}));
+}
+
+// The reason for the 1.8 low bound: a process that dies without closing the file (no destructor,
+// no atexit) leaves a file that still opens, and every flushed row is readable. With a 1.10 low
+// bound (superblock version 3) the reopen fails until h5clear is run.
+TEST_F(Hdf5File, AFlushedFileSurvivesAProcessThatNeverClosesIt) {
+  const fs::path crashed = path("crashed.h5");
+  const auto write_then_die = [&crashed] {
+    File file = File::create(crashed);
+    Dataset frames = file.create_series("frame", ElementType::kUint64, 4);
+    const std::vector<std::uint64_t> values{7, 8, 9, 10, 11};
+    frames.append(values);
+    file.flush();
+    std::_Exit(0);
+  };
+  EXPECT_EXIT(write_then_die(), ::testing::ExitedWithCode(0), "");
+  const File file = File::open_read_only(crashed);
+  EXPECT_EQ(file.open_dataset("frame").read_uint64(),
+            (std::vector<std::uint64_t>{7, 8, 9, 10, 11}));
+}
+
+// --- Hdf5Group --------------------------------------------------------------------------------
+
+using Hdf5Group = Hdf5Test;
+
+TEST_F(Hdf5Group, CreateOpenAndNestedPaths) {
+  {
+    File file = File::create(path("run.h5"));
+    Group rate = file.create_group("rate_1");
+    EXPECT_EQ(rate.object_path(), "/rate_1");
+    const Group inner = rate.create_group("inner");
+    EXPECT_EQ(inner.object_path(), "/rate_1/inner");
+  }
+  const File file = File::open_read_only(path("run.h5"));
+  const Group rate = file.open_group("rate_1");
+  EXPECT_EQ(rate.open_group("inner").object_path(), "/rate_1/inner");
+}
+
+TEST_F(Hdf5Group, ADuplicateOrMissingGroupThrowsNamingTheObject) {
+  File file = File::create(path("run.h5"));
+  static_cast<void>(file.create_group("rate_1"));
+  try {
+    static_cast<void>(file.create_group("rate_1"));
+    FAIL() << "a duplicate group did not throw";
+  } catch (const Hdf5Error& error) {
+    EXPECT_EQ(error.object_path(), "/rate_1");
+  }
+  try {
+    static_cast<void>(file.open_group("rate_10"));
+    FAIL() << "a missing group did not throw";
+  } catch (const Hdf5Error& error) {
+    EXPECT_EQ(error.object_path(), "/rate_10");
+  }
+}
+
+// --- Hdf5Dataset ------------------------------------------------------------------------------
+
+using Hdf5Dataset = Hdf5Test;
+
+TEST_F(Hdf5Dataset, TableAppendsWholeRowsAcrossChunkBoundaries) {
+  std::vector<double> expected;
+  {
+    File file = File::create(path("run.h5"));
+    Group rate = file.create_group("rate_1");
+    Dataset values = rate.create_table("values", ElementType::kFloat64, 3, 4);
+    EXPECT_EQ(values.rank(), 2);
+    EXPECT_EQ(values.columns(), 3U);
+    EXPECT_EQ(values.rows(), 0U);
+    double next = 0.25;
+    for (const std::size_t rows : {3U, 5U, 1U, 0U, 8U}) {
+      std::vector<double> batch;
+      for (std::size_t i = 0; i < rows * 3; ++i) {
+        batch.push_back(next);
+        next += 1.5;
+      }
+      values.append(batch);
+      expected.insert(expected.end(), batch.begin(), batch.end());
+    }
+    EXPECT_EQ(values.rows(), 17U);
+  }
+  const File file = File::open_read_only(path("run.h5"));
+  const Dataset values = file.open_group("rate_1").open_dataset("values");
+  EXPECT_EQ(values.type(), ElementType::kFloat64);
+  EXPECT_EQ(values.rank(), 2);
+  EXPECT_EQ(values.columns(), 3U);
+  EXPECT_EQ(values.rows(), 17U);
+  EXPECT_EQ(values.read_float64(), expected);
+}
+
+TEST_F(Hdf5Dataset, SeriesStoresUint64FramesExactly) {
+  // Above 2^53, where a float64 round trip would lose the low bits.
+  const std::vector<std::uint64_t> frames{0, 1, (std::uint64_t{1} << 53U) + 1U, ~std::uint64_t{0}};
+  {
+    File file = File::create(path("run.h5"));
+    Dataset series = file.create_series("frame", ElementType::kUint64, 2);
+    EXPECT_EQ(series.rank(), 1);
+    EXPECT_EQ(series.columns(), 1U);
+    series.append(frames);
+  }
+  const File file = File::open_read_only(path("run.h5"));
+  const Dataset series = file.open_dataset("frame");
+  EXPECT_EQ(series.type(), ElementType::kUint64);
+  EXPECT_EQ(series.rank(), 1);
+  EXPECT_EQ(series.read_uint64(), frames);
+}
+
+TEST_F(Hdf5Dataset, AppendRefusesAPartialRowOrTheWrongTypeAndLeavesTheDatasetUnchanged) {
+  File file = File::create(path("run.h5"));
+  Dataset values = file.create_table("values", ElementType::kFloat64, 3, 4);
+  const std::vector<double> row{1.0, 2.0, 3.0};
+  values.append(row);
+
+  const std::vector<double> partial{4.0, 5.0};
+  try {
+    values.append(partial);
+    FAIL() << "a partial row did not throw";
+  } catch (const Hdf5Error& error) {
+    EXPECT_EQ(error.object_path(), "/values");
+  }
+  const std::vector<std::uint64_t> wrong_type{1, 2, 3};
+  EXPECT_THROW(values.append(wrong_type), Hdf5Error);
+  EXPECT_THROW(static_cast<void>(values.read_uint64()), Hdf5Error);
+
+  EXPECT_EQ(values.rows(), 1U);
+  EXPECT_EQ(values.read_float64(), row);
+}
+
+// A refused extend (the file is read-only) leaves the rows as they were. The rollback after a
+// failed write (Codex review F1) has no test: nothing short of an HDF5 fault-injection shim makes
+// H5Dwrite fail after H5Dset_extent succeeded.
+TEST_F(Hdf5Dataset, AppendToAReadOnlyFileThrowsAndLeavesTheRowsAsTheyWere) {
+  {
+    File file = File::create(path("run.h5"));
+    Dataset values = file.create_table("values", ElementType::kFloat64, 2, 4);
+    values.append(std::vector<double>{1.0, 2.0});
+  }
+  const File file = File::open_read_only(path("run.h5"));
+  Dataset values = file.open_dataset("values");
+  EXPECT_THROW(values.append(std::vector<double>{3.0, 4.0}), Hdf5Error);
+  EXPECT_EQ(values.rows(), 1U);
+  EXPECT_EQ(values.read_float64(), (std::vector<double>{1.0, 2.0}));
+}
+
+TEST_F(Hdf5Dataset, CreateRefusesZeroColumnsZeroChunkRowsOrADuplicateName) {
+  File file = File::create(path("run.h5"));
+  EXPECT_THROW(static_cast<void>(file.create_table("values", ElementType::kFloat64, 0, 4)),
+               Hdf5Error);
+  EXPECT_THROW(static_cast<void>(file.create_series("frame", ElementType::kUint64, 0)), Hdf5Error);
+  static_cast<void>(file.create_series("frame", ElementType::kUint64, 4));
+  EXPECT_THROW(static_cast<void>(file.create_series("frame", ElementType::kUint64, 4)), Hdf5Error);
+  EXPECT_THROW(static_cast<void>(file.open_dataset("missing")), Hdf5Error);
+}
+
+// --- Hdf5Attribute ----------------------------------------------------------------------------
+
+using Hdf5Attribute = Hdf5Test;
+
+TEST_F(Hdf5Attribute, EveryTypeRoundTripsOnTheRootAGroupAndADataset) {
+  const std::string config = "sim:\n  dt: 0.001\nvehicle:\n  name: \"n\xC3\xB8tional\"\n";
+  const std::vector<std::string> names{"v0.state.x", "v0.state.y", ""};
+  const std::vector<std::string> units{"m", "m", "1"};
+  {
+    File file = File::create(path("run.h5"));
+    file.set_attribute("config", config);
+    file.set_attribute("dt", 0.001);
+    file.set_attribute("core_api_version", std::uint64_t{7});
+    file.set_attribute("offset", std::int64_t{-42});
+    Group rate = file.create_group("rate_1");
+    rate.set_attribute("divisor", std::uint64_t{1});
+    Dataset values = rate.create_table("values", ElementType::kFloat64, 3, 4);
+    values.set_attribute("names", names);
+    values.set_attribute("units", units);
+    values.set_attribute("empty", std::vector<std::string>{});
+  }
+  const File file = File::open_read_only(path("run.h5"));
+  EXPECT_EQ(file.attribute_string("config"), config);
+  EXPECT_EQ(file.attribute_float64("dt"), 0.001);
+  EXPECT_EQ(file.attribute_uint64("core_api_version"), 7U);
+  EXPECT_EQ(file.attribute_int64("offset"), -42);
+  const Group rate = file.open_group("rate_1");
+  EXPECT_EQ(rate.attribute_uint64("divisor"), 1U);
+  const Dataset values = rate.open_dataset("values");
+  EXPECT_EQ(values.attribute_strings("names"), names);
+  EXPECT_EQ(values.attribute_strings("units"), units);
+  EXPECT_TRUE(values.attribute_strings("empty").empty());
+  EXPECT_TRUE(values.has_attribute("units"));
+  EXPECT_FALSE(values.has_attribute("unit"));
+}
+
+TEST_F(Hdf5Attribute, SettingAnExistingAttributeReplacesItsValueAndType) {
+  {
+    File file = File::create(path("run.h5"));
+    file.set_attribute("complete", std::uint64_t{0});
+    file.set_attribute("complete", std::uint64_t{1});
+    file.set_attribute("note", 1.5);
+    file.set_attribute("note", "now a string");
+  }
+  const File file = File::open_read_only(path("run.h5"));
+  EXPECT_EQ(file.attribute_uint64("complete"), 1U);
+  EXPECT_EQ(file.attribute_string("note"), "now a string");
+}
+
+TEST_F(Hdf5Attribute, AMissingAttributeTheWrongTypeOrANulCharacterThrows) {
+  File file = File::create(path("run.h5"));
+  file.set_attribute("dt", 0.001);
+  file.set_attribute("names", std::vector<std::string>{"a", "b"});
+  try {
+    static_cast<void>(file.attribute_float64("missing"));
+    FAIL() << "a missing attribute did not throw";
+  } catch (const Hdf5Error& error) {
+    EXPECT_EQ(error.object_path(), "/");
+    EXPECT_NE(std::string{error.what()}.find("missing"), std::string::npos) << error.what();
+  }
+  EXPECT_THROW(static_cast<void>(file.attribute_uint64("dt")), Hdf5Error);
+  EXPECT_THROW(static_cast<void>(file.attribute_int64("dt")), Hdf5Error);
+  EXPECT_THROW(static_cast<void>(file.attribute_string("dt")), Hdf5Error);
+  EXPECT_THROW(static_cast<void>(file.attribute_string("names")), Hdf5Error);
+  EXPECT_THROW(static_cast<void>(file.attribute_strings("dt")), Hdf5Error);
+  EXPECT_THROW(file.set_attribute("bad", std::string_view{"a\0b", 3}), Hdf5Error);
+  EXPECT_FALSE(file.has_attribute("bad"));
+}
+
+// --- Hdf5Determinism (ADR-0025 Q7) ------------------------------------------------------------
+
+// One fixed write sequence shaped like ADR-0025's run log: provenance attributes on the root, a
+// rate group with a uint64 frame series and a float64 value table (names and units attributes),
+// appends crossing chunk boundaries, a second rate group, and `complete` rewritten 0 -> 1 last.
+// scale changes one stored value, for the sensitivity check.
+void write_run_log_shape(const fs::path& path, double scale) {
+  File file = File::create(path);
+  file.set_attribute("complete", std::uint64_t{0});
+  file.set_attribute("config", "sim:\n  dt: 0.001\n  seed: 12345\n");
+  file.set_attribute("git_describe", "19d535a-dirty");
+  file.set_attribute("core_version", "0.1.0");
+  file.set_attribute("core_api_version", std::uint64_t{7});
+  file.set_attribute("dt", 0.001);
+  for (const std::uint64_t divisor : {1U, 10U}) {
+    Group rate = file.create_group("rate_" + std::to_string(divisor));
+    Dataset frames = rate.create_series("frame", ElementType::kUint64, 16);
+    Dataset values = rate.create_table("values", ElementType::kFloat64, 3, 16);
+    values.set_attribute("names", std::vector<std::string>{"v0.state.x", "v0.state.u", "wind.n"});
+    values.set_attribute("units", std::vector<std::string>{"m", "m/s", "m/s"});
+    std::uint64_t frame = 0;
+    for (const std::size_t drain : {7U, 16U, 33U, 1U}) {
+      std::vector<std::uint64_t> frame_rows;
+      std::vector<double> value_rows;
+      for (std::size_t i = 0; i < drain; ++i, frame += divisor) {
+        frame_rows.push_back(frame);
+        const auto t = static_cast<double>(frame) * 0.001;
+        value_rows.insert(value_rows.end(), {t * scale, 250.0 - t, -0.5 * t});
+      }
+      frames.append(frame_rows);
+      values.append(value_rows);
+    }
+  }
+  file.set_attribute("complete", std::uint64_t{1});
+  file.close();
+}
+
+using Hdf5Determinism = Hdf5Test;
+
+// ADR-0025 Q7: byte identity, no fallback. The two writes go to different directories and are
+// separated by more than one second (HDF5's timestamps have one-second resolution, so a stored
+// creation or modification time would differ) with the heap dirtied in between (uninitialized
+// bytes reaching the file would differ).
+TEST_F(Hdf5Determinism, IdenticalWriteSequencesToDifferentPathsGiveIdenticalBytes) {
+  fs::create_directories(path("first"));
+  fs::create_directories(path("second"));
+  const fs::path first = path("first") / "run.h5";
+  const fs::path second = path("second") / "other_name.h5";
+
+  write_run_log_shape(first, 1.0);
+  std::this_thread::sleep_for(std::chrono::milliseconds(1100));
+  for (int i = 0; i < 64; ++i) {
+    std::vector<unsigned char> noise(4096U * static_cast<std::size_t>(1 + (i % 7)),
+                                     static_cast<unsigned char>(0xA5 + i));
+    ASSERT_EQ(noise.front(), static_cast<unsigned char>(0xA5 + i));
+  }
+  write_run_log_shape(second, 1.0);
+
+  const std::vector<char> a = read_bytes(first);
+  const std::vector<char> b = read_bytes(second);
+  ASSERT_FALSE(a.empty());
+  EXPECT_EQ(a.size(), b.size());
+  EXPECT_TRUE(a == b) << "HDF5 wrote different bytes for identical write sequences";
+}
+
+// The comparison above is not vacuous: one different stored value gives different bytes.
+TEST_F(Hdf5Determinism, OneDifferentValueGivesDifferentBytes) {
+  write_run_log_shape(path("a.h5"), 1.0);
+  write_run_log_shape(path("b.h5"), 2.0);
+  EXPECT_FALSE(read_bytes(path("a.h5")) == read_bytes(path("b.h5")));
+}
+
+}  // namespace

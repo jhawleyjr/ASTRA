@@ -15,7 +15,7 @@ Provider-specific procedures; shared rules remain in [AGENTS.md](../../AGENTS.md
   [validation](../process/validation.md#evidence) and put the results in the PR body.
 - Use [`/plan-feature`](../../.claude/skills/plan-feature/SKILL.md) for specs, repository-aware plans and
   packages; [`/review-cycle`](../../.claude/skills/review-cycle/SKILL.md) for Codex dispatch and bounded
-  fixes; [`/human-review`](../../.claude/skills/human-review/SKILL.md) for Joe's packet.
+  fixes; [`/human-review`](../../.claude/skills/human-review/SKILL.md) for the PR description Joe reviews.
 - Follow [review dispatch](review-dispatch.md): select working-tree versus committed-branch scope
   explicitly. A dirty candidate plus earlier commits needs combined coverage. Codex is read-only;
   the built-in Claude reviewer and automatic stop-time model reviews do not replace it.

@@ -1,0 +1,25 @@
+date: 2026-09-27T08:07:19Z
+command: ./scripts/check-full.sh
+base: 19d535aa1fb7b49cdc056ccba6846d934eb96c99
+head: 587ef2362744c469e312ce9dc8d3eb2764511bea
+exit: 0
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 144 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr2-hdf5-wrapper/build/debug
+100% tests passed, 0 tests failed out of 577
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr2-hdf5-wrapper/build/release
+100% tests passed, 0 tests failed out of 578
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr2-hdf5-wrapper/build/static-plugins
+100% tests passed, 0 tests failed out of 579
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr2-hdf5-wrapper/build/asan
+100% tests passed, 0 tests failed out of 580
+0 errors, 0 warnings, 0 informations
+177 passed in 30.95s
+check: OK
+
+acceptance selectors (same head):
+ctest --preset asan -R Hdf5 --no-tests=error: exit 0, 100% tests passed, 0 tests failed out of 21
+ctest --preset static-plugins -R Hdf5 --no-tests=error: exit 0, 100% tests passed, 0 tests failed out of 21

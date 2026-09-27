@@ -34,7 +34,7 @@ pins. Reference data/goldens retain provenance.
 | 7. Validation | Fast loop, then full gate and task-specific acceptance | Commands finish successfully; results in the PR body |
 | 8. Independent review | Different model, fresh context, actual diff plus spec/tests | Evidence-backed findings in the PR body |
 | 9. Fix and retest | Builder resolves findings, reviewer verifies deltas | No unresolved critical/major findings; validation current |
-| 10. Human review | Prepare [packet](../templates/human-review.md); Joe reads consequential changes | Explicit decision against the current candidate |
+| 10. Human review | Write the [PR description](../templates/pr-description.md); Joe reads consequential changes | Explicit decision against the current candidate |
 | 11. Merge and release | Draft PR → ready → Joe squash-merges; separate release decision | Current validation/review, protected merge, release checklist |
 | 12. Coordination | Keep next action/owner visible in STATE or feature status | Handoff recoverable without chat; stop when complete |
 
@@ -77,7 +77,7 @@ uncertain numerical impact is reason to raise risk, not silently downgrade it.
 |---|---|---|
 | 0 — editorial | Prose, comments; no executable or policy behavior | Brief + links/consistency check; one Codex pass on the final diff (Joe may waive); Joe's merge decision |
 | 1 — low | Small internal change with no interface/numerical effect | Brief, focused checks + full gate; one Codex pass on the final diff (Joe may waive) |
-| 2 — normal | Feature, build/CI/hook/workflow behavior, dependency proposal | Spec/plan (may share one short artifact), Joe approves intent/plan, full gate + acceptance, independent review, human packet |
+| 2 — normal | Feature, build/CI/hook/workflow behavior, dependency proposal | Spec/plan (may share one short artifact), Joe approves intent/plan, full gate + acceptance, independent review, PR description for Joe |
 | 3 — high | `core/kernel/`, numerical `core/util/`, `plugins/physical/`, `aircraft/**/physical`, `aircraft/**/hardware`, `icd/`, transport/concurrency, health behavior, goldens/tolerances | Full relevant artifacts, Joe approves spec/plan, independent numerical/adversarial review and oracles, full gate, Joe reads critical diff/tests |
 
 Joe's approvals ([AGENTS.md](../../AGENTS.md#commands-and-boundaries)) apply regardless of tier; security
@@ -99,7 +99,7 @@ docs-only closeout once took six commits, two correction rounds and three review
   explicit assignment. Prefer dependency waves; one integrator combines completed packages and runs
   full validation on the combined tree. Resolve semantic conflicts with the spec owner.
 - The standing push/draft-PR authorization and its limits are in [AGENTS.md](../../AGENTS.md#commands-and-boundaries).
-  Keep the draft PR's body current with the brief, packet and results. Changing branch protection also needs
+  Keep the draft PR's body current with the brief, description and results. Changing branch protection also needs
   Joe's explicit authorization. Merging `origin/main` into the task branch is the required integration step
   (final integration with `main`, step 11), not a prohibited merge.
   A push after the PR opens does not re-run CI's `check`; see the `gh pr ready --undo` / `gh pr ready` rerun under
@@ -174,7 +174,7 @@ push invalidates prior review/validation for affected work. Do not weaken requir
 By step 10 the candidate has passed the full local gate and independent Codex review with no
 unresolved critical/major findings (steps 7-9); this is not re-inspecting every line, it is
 judging engineering decisions and evidence before deciding. Start from the spec/plan and the
-[review packet](../templates/human-review.md)'s acceptance evidence, not the diff: confirm the
+[PR description](../templates/pr-description.md)'s acceptance evidence, not the diff: confirm the
 candidate actually matches what was approved before reading implementation. Read the changed
 tests early — they show how the builder interpreted each requirement, and a green gate proves
 nothing if the tests misunderstood the behavior. Trace consequential behavior end-to-end along
@@ -206,11 +206,11 @@ the plan); a requirements gap returns to step 2 (revise the specification, then 
 plan/tests/code); an architecture conflict is Joe's own step 1 decision, recorded as a new or
 superseding [ADR](../templates/adr.md) when it changes an accepted one. The workflow is not
 strictly linear — a human-review finding just names which earlier step actually needs
-revisiting, per [the twelve steps](#the-twelve-steps) above. Record the decision itself in the
-packet's [Decision record](../templates/human-review.md#decision-record).
+revisiting, per [the twelve steps](#the-twelve-steps) above. Joe's decision is recorded by his own PR
+comment or squash-merge, never written into the PR description by an agent.
 
-Use [`/human-review`](../../.claude/skills/human-review/SKILL.md) to prepare a
-[human review packet](../templates/human-review.md) before requesting approval: behavior,
+Use [`/human-review`](../../.claude/skills/human-review/SKILL.md) to write the
+[PR description](../templates/pr-description.md) before requesting approval: behavior,
 requirements, diff scope, current check results (in the PR body), findings, assumptions, critical files,
 rollback. Joe approves the current PR candidate; later substantive changes require renewed review. Human
 approval, AI review, validation, merge, and release are separate states (approval: AGENTS.md).
@@ -304,7 +304,7 @@ Use [task status](../templates/task-status.md) for multiple packages; otherwise 
 Use the revised [`/wrap`](../../.claude/skills/wrap/SKILL.md) when Claude pauses or finishes meaningful
 work at any stage, including a blocked-validation handoff. It records the first unfinished
 gate, actual evidence, Codex findings/retry counts, human decisions and next action; it prepares the
-human packet when appropriate and writes STATE once. It pushes the task branch and opens or updates the
+PR description when appropriate and writes STATE once. It pushes the task branch and opens or updates the
 draft PR; it does not move to the next milestone while the current task is unfinished. Append lessons only when something actually
 bit. Review process cost when useful from existing evidence; the obsolete retrospective skill is
 removed and no retro ceremony blocks a milestone. Add automation only for demonstrated repetitive work.

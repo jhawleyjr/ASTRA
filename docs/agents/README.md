@@ -34,7 +34,7 @@ artifacts, scope, acceptance commands, and evidence, so it survives the loss of 
 - [`/plan-feature`](../../.claude/skills/plan-feature/SKILL.md): intent → spec → plan → bounded packages.
 - [`/review-cycle`](../../.claude/skills/review-cycle/SKILL.md): Codex review/adversarial dispatch, findings,
   Claude fixes, retest and Codex verification within the task budget.
-- [`/human-review`](../../.claude/skills/human-review/SKILL.md): Joe's evidence/decision packet.
+- [`/human-review`](../../.claude/skills/human-review/SKILL.md): the PR description Joe reviews.
 - [`/wrap`](../../.claude/skills/wrap/SKILL.md): handoff at the current stage, including blockers.
 
 These skills reference the canonical rules/templates; they do not introduce a scheduler or extra

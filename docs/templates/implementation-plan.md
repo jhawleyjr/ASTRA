@@ -34,5 +34,5 @@ Findings accepted/rejected with evidence, unresolved questions/owner, Joe's deci
 
 ## Done when
 
-[Requirements proved, complete validation, independent review, human packet; links to work packages
+[Requirements proved, complete validation, independent review, PR description for Joe; links to work packages
 only if needed. Implementation completion is distinct from human approval/merge/release.]
