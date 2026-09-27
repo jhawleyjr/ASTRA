@@ -433,6 +433,47 @@ TEST_F(RunLogFailure, AFullRingHaltsBeforeAnySideEffectOfTheFrame) {
   EXPECT_TRUE(bitwise_equal(signal_values(sim), signal_values(reference)));
 }
 
+// R6, the side effects themselves: counting_wind counts its scheduler step() (where a stochastic
+// wind such as Dryden draws its RNG) and its begin_frame(), and dummy counts its model step().
+// None of them runs for the frame the full ring refuses, or on any repeated call.
+TEST_F(RunLogFailure, AFullRingRunsNoEnvironmentWindOrModelStep) {
+  constexpr std::string_view kCounting =
+      "sim:\n"
+      "  dt: 0.001\n"
+      "  frames: 100\n"
+      "vehicle:\n"
+      "  models:\n"
+      "    - tests/plugins/dummy\n"
+      "physical:\n"
+      "  earth: plugins/physical/earth/flat\n"
+      "  gravity: plugins/physical/gravity/constant\n"
+      "  wind: tests/plugins/counting_wind\n"
+      "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, "
+      "izz: 1.0 }\n"
+      "initial:\n"
+      "  state: { p_n: [0.0, 0.0, -100.0], v_b: [60.0, 0.0, 0.0] }\n";
+  Simulation sim = build(with_log(kCounting, path("run.h5"), "  buffer_frames: 5\n"));
+  const auto count = [&sim](std::string_view name) {
+    const double* value = sim.registry().find(name);
+    EXPECT_NE(value, nullptr) << name;
+    return value == nullptr ? -1.0 : *value;
+  };
+  for (int k = 0; k < 5; ++k) {
+    ASSERT_FALSE(sim.step());
+  }
+  ASSERT_EQ(count("counting_wind.step_calls"), 5.0) << "the counters are live";
+  ASSERT_EQ(count("counting_wind.begin_frame_calls"), 5.0);
+  ASSERT_EQ(count("v0.dummy.steps"), 5.0);
+  EXPECT_EQ(sim.step().check, HealthCheck::kLog);
+  EXPECT_EQ(sim.run(3).check, HealthCheck::kLog);
+  EXPECT_EQ(sim.flush_log().check, HealthCheck::kLog);
+  EXPECT_EQ(sim.step().check, HealthCheck::kLog);
+  EXPECT_EQ(count("counting_wind.step_calls"), 5.0);
+  EXPECT_EQ(count("counting_wind.begin_frame_calls"), 5.0);
+  EXPECT_EQ(count("v0.dummy.steps"), 5.0);
+  EXPECT_EQ(sim.clock().frame(), 5U);
+}
+
 // R6: sticky without a transport. step(), run() and flush_log() all return the same halt and
 // nothing advances; flush_log() does not drain after it.
 TEST_F(RunLogFailure, AKLogHaltIsStickyWithoutATransport) {
