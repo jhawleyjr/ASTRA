@@ -23,7 +23,6 @@ scenarios pass, with measured values in the PR body; the halt came at the predic
    - the Q15 bands (table with measured values);
    - the Q14 schema readings (`expect_halt.frame`, half-open windows, trim keys, list-index overrides);
    - the change from the plan's "expected counter is exactly 1" rule.
-
    After any later push, rerun CI's `check` with `gh pr ready --undo`, then `gh pr ready`.
 2. M5 PR 7 (Tier 2): `astra.montecarlo`, the sampler, the summary parquet, pyarrow pinned (Q2), and the
    64-run case under `just check` (Q17 to Q20). PR 7 needs the same consumer assertion this PR has, and
