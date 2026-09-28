@@ -115,14 +115,31 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
     [packet](docs/reviews/m4-pr6-lockstep-acceptance-human.md).
   - PR 7 (#58): M4 closeout (check-off, duplicate §15 bullet removed, M4 follow-ups, architecture §7/§10 status
     and `Transport` sketch). Plan: [plan](docs/plans/m4-lockstep.md). Packet: none.
-- [ ] **M5 Tooling** — HDF5 logging + replay, scenario harness over `tests/scenarios/`, Monte Carlo of 64 runs,
+- [x] **M5 Tooling** — HDF5 logging + replay, scenario harness over `tests/scenarios/`, Monte Carlo of 64 runs,
       FlightGear packets verified by a decoder test. Spec and plan: [plan](docs/plans/m5-tooling.md).
+      Evidence, clause by clause:
+      - HDF5 logging and replay: PR 4
+        (`ctest --preset asan -R 'RunLog|Hdf5|NoAlloc|Health|SimulationTransport'`, 119 passed; R1
+        `ctest --preset release -R NotionalTransportCruiseRegression`, 2 passed; R4 byte-identical Dryden
+        logs —
+        [summary](docs/reviews/evidence/baddd0a-gate-summary.log)) and PR 5 (`pytest tests/python -k
+        'log or replay'`, 34 passed — [summary](docs/reviews/evidence/3ff2eac-gate-summary.log); the R9
+        replay cases in the PR body);
+      - the scenario harness over `tests/scenarios/`: PR 6 (`pytest tests/scenarios tests/python -k
+        scenario`, 64 passed — [summary](docs/reviews/evidence/63777fc-gate-summary.log); the Q15 seed
+        scenarios and bands in the PR body);
+      - the 64-run Monte Carlo under `just check`: PR 7 (`pytest tests/python -k montecarlo`, 58 passed
+        including `test_montecarlo_q19_64_runs_complete`, and collected by `just pytest`'s gate run, 333
+        passed — [summary](docs/reviews/evidence/b41bdcb-gate-summary.log); the Q19 case in the PR body);
+      - FlightGear packets verified by a decoder test: PR 8 (`pytest tests/python -k fgbridge`, 29 passed —
+        [summary](docs/reviews/evidence/5d51da9-gate-summary.log); the table-built decoder over a real UDP
+        socket in the PR body).
   - Planning (#62): M5 spec, plan and nine-PR decomposition; Q1 to Q24 decided by Joe. Plan:
     [plan](docs/plans/m5-tooling.md). Packet: none.
   - PR 1 (#63): ADR-0025 (run log and replay), ADR-0026 (derived signals), architecture rev 9, AGENTS.md
     wall-clock scope. Plan: [plan](docs/plans/m5-tooling.md). Packet: in the PR body.
-  - PR 2: HDF5 RAII wrapper in `core/signals/` (`Hdf5Error`, time tracking off, version bounds fixed at 1.8 to
-    1.10), byte-identity and LSan tests. Plan: [plan](docs/plans/m5-tooling.md). Packet: in the PR body.
+  - PR 2 (#64): HDF5 RAII wrapper in `core/signals/` (`Hdf5Error`, time tracking off, version bounds fixed at
+    1.8 to 1.10), byte-identity and LSan tests. Plan: [plan](docs/plans/m5-tooling.md). Packet: in the PR body.
   - PR 3 (#65): derived flight-condition signals `v<i>.derived.*` (ADR-0026), a separate frame-start
     `pack_sim_to_sw` per physics vehicle; exchange untouched (R10). Plan: [plan](docs/plans/m5-tooling.md).
     Packet: in the PR body.
@@ -137,15 +154,20 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
     `cruise_still_air.yaml`, five Q15 seed scenarios; reads each run's own log strictly (frames_run, halt,
     warn counters: the finalization open item's consumer assertion). Plan: [plan](docs/plans/m5-tooling.md).
     Packet: in the PR body.
-  - PR 7: `astra.montecarlo` (spawn pool, SHA-256 per-run seeds, in-house sampler, `summary.parquet`; halts are
-    rows, failures are `error` rows, a dead worker fails the batch), helpers shared with `astra.scenario` in
-    `astra._runkit`, pyarrow pinned, the Q19 64-run case under `just check`. Plan:
+  - PR 7 (#69): `astra.montecarlo` (spawn pool, SHA-256 per-run seeds, in-house sampler, `summary.parquet`;
+    halts are rows, failures are `error` rows, a dead worker fails the batch), helpers shared with
+    `astra.scenario` in `astra._runkit`, pyarrow pinned, the Q19 64-run case under `just check`. Plan:
     [plan](docs/plans/m5-tooling.md). Packet: in the PR body.
-  - PR 8: `astra.fgbridge` (FGNetFDM v24 over UDP from a live `Simulation` or a strictly loaded log, one
+  - PR 8 (#70): `astra.fgbridge` (FGNetFDM v24 over UDP from a live `Simulation` or a strictly loaded log, one
     packet per `frame % divisor == 0`, flat Earth refused), the transcribed table
     `tests/golden/flightgear/fgnetfdm_v24.py` (FlightGear 2024.1.7) and its by-hand g++ cross-check
     `scripts/fgnetfdm_layout_check.py`, a table-built decoder test over a real socket. Plan:
     [plan](docs/plans/m5-tooling.md). Packet: in the PR body.
+  - PR 9 (#NN): M5 closeout: PLAN.md check-off with evidence links, open items for the held-out scope
+    (writer thread, CLI, recorder retirement, wind events, closed-loop scenarios/Monte Carlo, lockstep
+    replay, bridge pacing), the finalization item extended with the F1 residual, crash-readable log and
+    load cross-check points, architecture §12 status. Plan: [plan](docs/plans/m5-tooling.md). Packet: in the
+    PR body.
 
 ## Open items
 
@@ -245,12 +267,46 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
 - [ ] Evaluate Jev (TypeSafe AI) for workflow routing: model/effort selection at session launch and context
       selection, advisory with today's fixed settings as the fallback and file-path rules for Tier 3 kept
       (origin: Joe, 2026-09-26; owner: Joe, starting with console.typesafe.ai signup).
-- [ ] Record how a run log was finalized (origin: M5 PR 5; Joe 2026-09-27, Tier 3, scheduling is Joe's call):
-      `close_log()` versus the `Simulation` destructor, so `astra.log.load` can flag, not refuse, a
-      destructor-finalized log (`Session` relies on the destructor path). A driver that raises mid-run leaves its
-      `Simulation` to GC and the destructor writes a consistent file with `complete = 1`, which `load`'s checks
-      cannot tell apart. Changes ADR-0025's Finalization, so it needs a superseding ADR. Until then, the PR 6 and
-      PR 7 consumers assert `frames_run == duration/dt` and no unexpected halt. Not started.
+- [ ] One superseding ADR to ADR-0025's Finalization (origin: M5 PR 5; Joe 2026-09-27; extended by M5 PR 9,
+      2026-09-28; Tier 3, scheduling is Joe's call), covering four points:
+      a. record how a run log was finalized: `close_log()` versus the `Simulation` destructor, so
+         `astra.log.load` can flag, not refuse, a destructor-finalized log (`Session` relies on the destructor
+         path). A driver that raises mid-run leaves its `Simulation` to GC and the destructor writes a
+         consistent file with `complete = 1`, which `load`'s checks cannot tell apart. Until this lands, the
+         PR 6 and PR 7 consumers assert `frames_run == duration/dt` and no unexpected halt;
+      b. PR 4 review finding F1's residual (`docs/reviews/evidence/baddd0a-gate-summary.log`'s candidate): the
+         file's own close can fail after it writes `complete = 1`, which Joe accepts as a disclosed residual
+         (2026-09-28). The fix is a rename-on-complete protocol: write to a temporary name and rename to
+         `log.path` only after a successful close, so a file at the final path is complete by construction;
+         this also covers a killed run;
+      c. a crash-readable log: the writer keeps HDF5 metadata in memory until `close_log()`, so a killed or
+         failed run leaves a file no reader can open, and `load`'s `allow_incomplete` never recovers a real
+         run. Needs a flush at drain;
+      d. minor: `load`'s optional cross-checks, `final_state.frame == frames_run` and the rate groups' signal
+         names against `/summary`'s min/max names. These catch only hand-edited files.
+      Not started.
+- [ ] `RealTime` mode's logger writer thread (origin: M5 plan §9/architecture §9, held-out scope; Joe's call):
+      M5's logger drains only inline (`AsFastAsPossible`); `RealTime` mode itself is not built, so the
+      separate non-RT drain thread architecture §9 describes has nothing to run on yet. Not started.
+- [ ] A CLI, `astra run` with `--strict` (origin: M5 plan Q24, architecture §15/§18; Joe's call): §16's M5 row
+      does not require it; `--strict` exits non-zero on any halt or nonzero warn counter, as the scenario
+      harness already does internally. Not started.
+- [ ] Retire the M4 `ExchangeRecorder` once a lockstep test compares HDF5 logs instead (origin: M5 plan Q12,
+      ADR-0022; Joe's call): kept through M5 because M4's byte-identity acceptance tests
+      (`closed_loop_acceptance_test.cpp`) read it; M5's log already carries `v0.controls.*` and `transport.*`
+      for lockstep runs. Retiring it would also moot Follow-up C's recorder-sizing item above. Not started.
+- [ ] Wind events in scenarios (origin: M5 plan Q14; Joe's call): `astra.scenario` events are `write_input`
+      only; there is no write seam for wind, so a wind change is a config choice (for example `wind/uniform`),
+      not an event, until a seam exists. Not started.
+- [ ] Closed-loop (autopilot) scenarios and Monte Carlo (origin: M5 plan Q16; Joe's call): not in M5, since
+      adding the autopilot peer means subprocess management in the harness; M4's own acceptance already covers
+      closed loop. Not started.
+- [ ] Replaying a lockstep run (origin: M5 plan Q11; Joe's call): `astra.log.replay` refuses a log with a
+      `transport` block, since replaying commands without the peer is a different feature. Not started.
+- [ ] `astra.fgbridge` pacing (origin: M5 PR 8 review; Joe's call): pacing (`pace=True`) is off by default, so
+      a live bridge sends packets as fast as the sim runs, and a real FlightGear reading at a fixed 62.5 Hz
+      falls behind. Live use needs `pace=True` passed explicitly, or pacing becomes the default outside tests.
+      Not started.
 
 ## Recorded only here
 
