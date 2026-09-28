@@ -1,0 +1,16 @@
+# The Q19 acceptance case (docs/plans/m5-tooling.md Q19, R14): 64 dispersed, re-trimmed 60 s runs of
+# the notional transport cruise in light Dryden turbulence, open loop. "Completes" means 64 logs with
+# complete = 1 and a 64-row summary with zero halts and zero errors. The duration and dispersions are
+# Joe's call, made with the measured gate cost (PR 7's body).
+config: aircraft/notional_transport/configs/cruise.yaml
+trim: {true_airspeed: 230.0, altitude: 10000.0}
+duration: 60.0
+runs: 64
+seed: 2026
+dispersions:
+  # Mass alone: the inertia tensor (ixx, iyy, izz, ixz) is not dispersed with it.
+  physical.mass.mass: {normal: {sigma: 0.02, mode: relative, clip: 3.0}}
+  # The aero reference point's x offset from the CG, 0.3556 m +/- 0.1 m (a CG shift).
+  vehicle.models.0.r_aero_b_x_m: {uniform: {lo: 0.2556, hi: 0.4556}}
+  physical.wind.seed: seed
+signals: [v0.derived.altitude, v0.derived.tas, v0.derived.alpha, v0.derived.theta]
