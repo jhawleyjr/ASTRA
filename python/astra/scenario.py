@@ -97,17 +97,18 @@ from __future__ import annotations
 import copy
 import dataclasses
 import math
-import re
-import tempfile
-from fractions import Fraction
 from pathlib import Path
 from typing import Any, cast
 
 import numpy as np
 import yaml
 
-import astra.trim
-from astra import _core, log
+from astra import _core, _runkit, log
+
+# Shared with astra.montecarlo through astra._runkit; re-exported so both read one list.
+from astra._runkit import TRIM_OWNED as TRIM_OWNED
+from astra._runkit import TRIM_RESIDUAL_BOUND as TRIM_RESIDUAL_BOUND
+from astra._runkit import TrimSetpoint as TrimSetpoint
 
 # health_monitor.cpp registers these as counters; health.max_q_drift is a drift, not a count.
 WARN_COUNTERS = ("health.nan", "health.quaternion", "health.domain", "health.input")
@@ -124,27 +125,11 @@ COUNTER_OF_CHECK = {
     "NON_FINITE_INPUT": "health.input",
 }
 
-# With trim set, the override-key prefixes trim sets or assumes, and why (module docstring). A key
-# matches a prefix when it equals it or continues it with "." (an element of a list).
-TRIM_OWNED = (
-    ("initial.state.p_n.2", "trim sets the altitude from trim.altitude"),
-    ("initial.state.v_b", "trim sets v_b from trim.true_airspeed and its alpha"),
-    ("initial.state.euler_nb", "trim sets euler_nb to [0, alpha, 0]"),
-    ("initial.state.q_nb", "trim replaces q_nb with euler_nb"),
-    ("initial.state.omega_b", "trim sets omega_b to zero"),
-    ("vehicle.initial_controls.controls.elevator", "trim sets the elevator it solves for"),
-    ("vehicle.initial_controls.controls.throttle", "trim sets the throttle it solves for"),
-    ("vehicle.initial_controls.controls.aileron", "trim assumes aileron = 0 and never writes it"),
-    ("vehicle.initial_controls.controls.rudder", "trim assumes rudder = 0 and never writes it"),
-)
-
-# D8's trim residual bound (docs/plans/pr6-trim.md), the bound cruise.yaml's trim was held to.
-TRIM_RESIDUAL_BOUND = 1e-6
+# TRIM_OWNED and TRIM_RESIDUAL_BOUND live in astra._runkit, shared with astra.montecarlo.
 
 _TOP_KEYS = {"config", "overrides", "trim", "duration", "events", "checks", "expect_halt"}
 _KINDS = ("within", "between", "angle_within")
 _HALT_KEYS = {"check", "source", "frame"}
-_INDEX = re.compile(r"0|[1-9][0-9]*")
 
 
 class ScenarioError(Exception):
@@ -192,12 +177,6 @@ class ExpectedHalt:
     check: str
     source: str
     frame: int
-
-
-@dataclasses.dataclass(frozen=True)
-class TrimSetpoint:
-    true_airspeed: float
-    altitude: float
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
@@ -286,50 +265,23 @@ def _closed(
 ) -> dict[str, Any]:
     """``value`` as a map with string keys: every ``required`` key present, and (unless
     ``optional`` is ``None``) no key outside ``optional``."""
-    if not isinstance(value, dict):
-        raise ScenarioError(f"{path}: {where}: must be a map")
-    mapping = cast(dict[Any, Any], value)
-    for key in mapping:
-        if not isinstance(key, str):
-            raise ScenarioError(f"{path}: {where}: key {key!r} is not a string")
-        if optional is not None and key not in optional:
-            raise ScenarioError(
-                f"{path}: {where}: unknown key {key!r} (allowed: {', '.join(sorted(optional))})"
-            )
-    missing = sorted(required - set(mapping))
-    if missing:
-        raise ScenarioError(f"{path}: {where}: missing {', '.join(missing)}")
-    return cast(dict[str, Any], mapping)
+    return _runkit.closed_map(
+        path, value, where, required=required, optional=optional, error=ScenarioError
+    )
 
 
 def _text(path: Path, value: Any, where: str) -> str:
-    if not isinstance(value, str) or not value:
-        raise ScenarioError(f"{path}: {where}: must be a non-empty string")
-    return value
+    return _runkit.text(path, value, where, error=ScenarioError)
 
 
 def _number(path: Path, value: Any, where: str) -> float:
-    if isinstance(value, bool) or not isinstance(value, int | float):
-        hint = ""
-        if isinstance(value, str) and re.fullmatch(r"[-+]?[0-9.]+[eE][0-9]+", value):
-            hint = " (YAML 1.1 reads an exponent without a sign as a string: write 1.0e+3)"
-        raise ScenarioError(f"{path}: {where}: must be a number, got {value!r}{hint}")
-    number = float(value)
-    if not math.isfinite(number):
-        raise ScenarioError(f"{path}: {where}: must be finite, got {value!r}")
-    return number
+    return _runkit.number(path, value, where, error=ScenarioError)
 
 
 def _frames(path: Path, value: Any, where: str, dt: float) -> int:
     """The frame count of the time ``value``: an exact multiple of ``dt`` in the decimals the
     author and the config wrote (module docstring, Times)."""
-    seconds = _number(path, value, where)
-    ratio = Fraction(repr(seconds)) / Fraction(repr(dt))
-    if ratio.denominator != 1:
-        raise ScenarioError(
-            f"{path}: {where}: {seconds!r} s is not an exact multiple of dt = {dt!r} s"
-        )
-    return int(ratio)
+    return _runkit.frames_of(path, value, where, dt, error=ScenarioError)
 
 
 def _base_config(path: Path, config_path: Path) -> dict[str, Any]:
@@ -354,46 +306,19 @@ def _base_config(path: Path, config_path: Path) -> dict[str, Any]:
 def _override(path: Path, config: dict[str, Any], key: str, value: Any) -> None:
     where = f"overrides.{key}"
     _number(path, value, where)
-    node: Any = config
-    segments = key.split(".")
-    for i, segment in enumerate(segments):
-        leaf = i == len(segments) - 1
-        if isinstance(node, dict):
-            mapping = cast(dict[str, Any], node)
-            if segment not in mapping:
-                raise ScenarioError(f"{path}: {where}: no key {segment!r} in the config")
-            if leaf:
-                _numeric_leaf(path, where, mapping[segment])
-                mapping[segment] = value
-                return
-            node = mapping[segment]
-        elif isinstance(node, list):
-            items = cast(list[Any], node)
-            if _INDEX.fullmatch(segment) is None or int(segment) >= len(items):
-                raise ScenarioError(
-                    f"{path}: {where}: {segment!r} is not an index of a {len(items)}-item list"
-                )
-            if leaf:
-                _numeric_leaf(path, where, items[int(segment)])
-                items[int(segment)] = value
-                return
-            node = items[int(segment)]
-        else:
-            raise ScenarioError(f"{path}: {where}: {segment!r} is below a scalar")
+    try:
+        _runkit.set_numeric_leaf(config, key, value)
+    except _runkit.LeafError as error:
+        raise ScenarioError(f"{path}: {where}: {error}") from None
 
 
 def _refuse_trim_owned(path: Path, key: str) -> None:
-    for prefix, reason in TRIM_OWNED:
-        if key == prefix or key.startswith(f"{prefix}."):
-            raise ScenarioError(
-                f"{path}: overrides.{key}: {reason}, so with trim set this override would be "
-                "discarded or leave the run untrimmed"
-            )
-
-
-def _numeric_leaf(path: Path, where: str, old: Any) -> None:
-    if isinstance(old, bool) or not isinstance(old, int | float):
-        raise ScenarioError(f"{path}: {where}: the config's value {old!r} is not a number")
+    reason = _runkit.trim_owned_reason(key)
+    if reason is not None:
+        raise ScenarioError(
+            f"{path}: overrides.{key}: {reason}, so with trim set this override would be "
+            "discarded or leave the run untrimmed"
+        )
 
 
 def _expect_halt(path: Path, value: Any, frames: int) -> ExpectedHalt | None:
@@ -415,14 +340,7 @@ def _expect_halt(path: Path, value: Any, frames: int) -> ExpectedHalt | None:
 
 
 def _trim(path: Path, value: Any) -> TrimSetpoint | None:
-    if value is None:
-        return None
-    keys = {"true_airspeed", "altitude"}
-    spec = _closed(path, value, "trim", required=keys, optional=keys)
-    return TrimSetpoint(
-        _number(path, spec["true_airspeed"], "trim.true_airspeed"),
-        _number(path, spec["altitude"], "trim.altitude"),
-    )
+    return _runkit.trim_setpoint(path, value, error=ScenarioError)
 
 
 def _events(
@@ -546,56 +464,27 @@ def run(
     data = copy.deepcopy(scenario.config)
     if scenario.trim is not None:
         _apply_trim(scenario, data)
-    data["log"] = {"path": str(log_path)}
-    config = _core.Config.from_dict(data, origin=str(scenario.path))
-    directory = _core.default_plugin_dir() if plugin_dir is None else str(plugin_dir)
-    sim: _core.Simulation | None = None
-    try:
-        # Inside the try: a from_config that fails after opening the log leaves a file that the
-        # check above proves is this run's own.
-        sim = _core.Simulation.from_config(config, directory)
-        _drive(sim, scenario)
-        _close_log(sim)
-        run_log = log.load(log_path)  # sim is still alive here: no destructor close yet
-    except BaseException:
-        sim = None  # the destructor closes the file before it is removed
-        log_path.unlink(missing_ok=True)
-        raise
+    run_log = _runkit.run_logged(
+        data,
+        log_path,
+        origin=str(scenario.path),
+        plugin_dir=plugin_dir,
+        # Late-bound lambdas: a test replaces _drive or _close_log on this module.
+        drive=lambda sim: _drive(sim, scenario),
+        close=lambda sim: _close_log(sim),
+    )
     return ScenarioResult(run_log, verify(scenario, run_log))
 
 
 def _apply_trim(scenario: Scenario, data: dict[str, Any]) -> None:
     """Trims a copy of ``data`` (which has no ``log`` block yet) and writes the result into
     ``data``'s initial state and controls."""
-    setpoint = cast(TrimSetpoint, scenario.trim)
-    if "log" in data:
-        raise RuntimeError(f"{scenario.path}: the trim copy must not carry the run's log block")
-    with tempfile.TemporaryDirectory(prefix="astra_scenario_trim_") as directory:
-        still = Path(directory) / scenario.config_path.name
-        still.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
-        result = astra.trim.trim_straight_and_level(
-            still, setpoint.true_airspeed, setpoint.altitude
-        )
-    worst = float(np.max(np.abs(result.residual)))
-    if worst > TRIM_RESIDUAL_BOUND:
-        raise RuntimeError(
-            f"{scenario.path}: trim residual {worst:.3e} exceeds D8's {TRIM_RESIDUAL_BOUND:g}"
-        )
-    state = [float(v) for v in result.state]
-    initial = cast(dict[str, Any], data.setdefault("initial", {}))
-    values = cast(dict[str, Any], initial.setdefault("state", {}))
-    values.pop("q_nb", None)  # the trim fixes the attitude; euler_nb below states it
-    values["p_n"] = state[_core.POSITION : _core.POSITION + _core.POSITION_SIZE]
-    values["v_b"] = state[_core.VELOCITY : _core.VELOCITY + _core.VELOCITY_SIZE]
-    values["euler_nb"] = [0.0, result.alpha_rad, 0.0]  # [psi, theta, phi]; theta = alpha
-    values["omega_b"] = [0.0, 0.0, 0.0]
-    vehicle = cast(dict[str, Any], data.setdefault("vehicle", {}))
-    controls = cast(
-        dict[str, Any],
-        cast(dict[str, Any], vehicle.setdefault("initial_controls", {})).setdefault("controls", {}),
+    _runkit.apply_trim(
+        data,
+        cast(TrimSetpoint, scenario.trim),
+        origin=scenario.path,
+        config_name=scenario.config_path.name,
     )
-    controls["elevator"] = result.elevator_rad  # astra.trim's own control names (its D10)
-    controls["throttle"] = result.throttle
 
 
 def _drive(sim: _core.Simulation, scenario: Scenario) -> None:
@@ -628,10 +517,9 @@ def verify(scenario: Scenario, run_log: log.RunLog) -> list[str]:
     expected = scenario.expect_halt
     frames_run = run_log.frames_run
     if expected is None:
-        if frames_run != scenario.frames:
-            failures.append(
-                f"frames_run is {frames_run}, not duration / dt = {scenario.frames} frames"
-            )
+        failure = _runkit.duration_failure(frames_run, scenario.frames)
+        if failure is not None:
+            failures.append(failure)
     elif frames_run != expected.frame:
         failures.append(f"frames_run is {frames_run}, not expect_halt.frame {expected.frame}")
     failures.extend(_halt_failures(expected, run_log))
@@ -656,8 +544,9 @@ def _halt_failures(expected: ExpectedHalt | None, run_log: log.RunLog) -> list[s
     failures: list[str] = []
     if (halt.check, halt.source, halt.frame) != (expected.check, expected.source, expected.frame):
         failures.append(f"halt {_describe(halt)} is not expect_halt {_describe(expected)}")
-    if run_log.frames_run != halt.frame:
-        failures.append(f"frames_run is {run_log.frames_run}, not the halt's frame {halt.frame}")
+    failure = _runkit.halt_frame_failure(run_log.frames_run, halt)
+    if failure is not None:
+        failures.append(failure)
     return failures
 
 
