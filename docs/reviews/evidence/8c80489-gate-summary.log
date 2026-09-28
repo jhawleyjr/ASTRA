@@ -1,0 +1,63 @@
+date: 2026-09-28T09:42:30Z
+command: ./scripts/check-full.sh
+base: 3b5ca4a34437ec5bc3800ae98d43f09d67234b8d
+head: 8c80489a313e287d2c8f5e2858209c326792b116
+exit: 0
+working tree: 0 uncommitted paths
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 144 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr8-fgbridge/build/debug
+100% tests passed, 0 tests failed out of 621
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr8-fgbridge/build/release
+100% tests passed, 0 tests failed out of 622
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr8-fgbridge/build/static-plugins
+100% tests passed, 0 tests failed out of 623
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr8-fgbridge/build/asan
+100% tests passed, 0 tests failed out of 624
+0 errors, 0 warnings, 0 informations
+358 passed in 44.48s
+check: OK
+
+acceptance (plan PR 8 row, at head above): .venv/bin/pytest tests/python -k fgbridge
+exit: 0
+25 passed, 328 deselected in 0.67s
+(5 consecutive repeats before commit: 25 passed each)
+
+gate pytest: 358 passed in 44.48 s at this head (before: 333 passed in 43.18 s at b41bdcb, PR 7)
+
+layout cross-check (by hand, never in just check): python3 scripts/fgnetfdm_layout_check.py
+exit: 0; compiler g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+sha256 net_fdm.hxx 7b25b342fcbeaa15fb7f76a61277ac429dd8ea9d1b4650839f8523eff5a25460 ok
+sha256 native_structs.cxx ea8fda121dd4a9e8e3377a311e3e2ea7a7e5968231b6676afd811948d87e1440 ok
+sizeof 408, alignof 8, 58 members: every offset and size agrees; implicit padding 0 bytes
+negative control (a table copy with agl's offset 32 -> 36): exit 1, "agl offset: compiler 32, table 36"
+
+scratch mutations (each applied alone to python/astra/fgbridge.py, confirmed present, fgbridge tests
+run with -x, original bytes restored and checked):
+M1 live flat-Earth check dropped: KILLED (test_a_flat_earth_live_run_is_refused_at_its_first_frame)
+M2 log flat-Earth check dropped: KILLED (test_a_flat_earth_log_is_refused_before_any_packet)
+M3 log.load(path, allow_incomplete=True): KILLED (test_the_log_source_loads_strictly)
+M4 live reads frame k+1: KILLED (test_live_and_log_sources_..._byte_identically[50-1])
+M5 log uses row k+1: KILLED (test_live_and_log_sources_..._byte_identically[50-1])
+M6 divisor check removed: KILLED (test_a_divisor_that_is_not_a_positive_integer_is_refused[0])
+M7 nonzero A_Z while ACCEL_INVALID: KILLED (test_live_and_log_sources_..._byte_identically[50-1])
+M8 little-endian packing: KILLED (test_live_and_log_sources_..._byte_identically[50-1])
+M9 v_north/v_east swapped: KILLED (same)
+M10 air-relative velocity in v_body: KILLED (same)
+M11 frame-gap check removed: KILLED (test_frames_stepped_outside_the_live_bridge_are_refused)
+M12 vcas in m/s, not kt: KILLED (test_live_and_log_sources_..._byte_identically[50-1])
+M13 climb_rate sign flipped: KILLED (same)
+M14 v_body_u/v_body_w swapped: KILLED (same)
+shared-convention variants (the same packer mutant, plus the test's mapped comparison skipping the
+mutated fields, so only the decoded-value cross-field checks remain):
+M9s v_north/v_east swapped: KILLED (rotation residual 95.89 ft/s > tolerance 7.2e-4 ft/s)
+M13s climb_rate sign flipped: KILLED (|climb_rate + v_down| 76.14 ft/s > 3.8e-6 ft/s)
+M14s v_body_u/v_body_w swapped: KILLED (rotation residual 774.1 ft/s > tolerance 7.2e-4 ft/s)
+restored: True (git status clean afterwards)
+
+margins on correct packets (400-frame cruise fixture, every frame packed and decoded):
+rotation residual / tolerance: 0.082 worst; |climb_rate + v_down| / ulp32: 0.000 worst;
+float field error / ulp32(expected): 0.500 worst (the R18 bound is 1 ulp); v_down -38.1 .. -34.7 ft/s
