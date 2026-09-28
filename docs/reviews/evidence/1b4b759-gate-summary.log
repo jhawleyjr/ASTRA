@@ -1,0 +1,48 @@
+date: 2026-09-28T05:25:20Z
+command: ./scripts/check-full.sh
+base: 6227a17aaa5862f24d2f1ab6c7bb5e3056fc321a
+head: 1b4b7594678a719d9413057cc75ffb09b6869b66
+exit: 0
+working tree: 0 uncommitted paths during the gate (this summary is the one path written after it)
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 144 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr7-montecarlo/build/debug
+100% tests passed, 0 tests failed out of 621
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr7-montecarlo/build/release
+100% tests passed, 0 tests failed out of 622
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr7-montecarlo/build/static-plugins
+100% tests passed, 0 tests failed out of 623
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr7-montecarlo/build/asan
+100% tests passed, 0 tests failed out of 624
+0 errors, 0 warnings, 0 informations
+327 passed in 41.48s
+check: OK
+
+acceptance (plan PR 7 row, at head above): .venv/bin/pytest tests/python -k montecarlo
+exit: 0
+52 passed, 270 deselected in 5.94s
+2.07s call     tests/python/test_montecarlo.py::test_montecarlo_q19_64_runs_complete
+0.91s setup    tests/python/test_montecarlo.py::test_montecarlo_one_worker_and_four_write_identical_bytes
+0.85s call     tests/python/test_montecarlo.py::test_montecarlo_an_invalid_drawn_value_is_an_error_row_and_the_batch_continues
+0.51s call     tests/python/test_montecarlo.py::test_montecarlo_a_different_master_seed_changes_every_dispersed_value
+0.35s call     tests/python/test_montecarlo.py::test_montecarlo_an_interrupt_fails_the_batch_naming_incomplete_runs
+
+Q19 cost (scratch measurement at bfd7af2, montecarlo.run on 32 cores, 3 repeats):
+wall 2.02 / 1.98 / 1.98 s; logs 2.106 GB (32.9 MB per 60 s run); peak out_dir 2.106 GB; peak filesystem used delta 2.106 GB; summary 26523 B
+
+gate pytest: 326 passed in 41.60 s at 509c33f (before: 275 passed in 37.59 s at 63777fc, PR 6)
+
+scratch mutations (each guard removed, its tests run, file restored):
+M1 explicit close removed: KILLED (exit 1; 1 failed, 50 deselected in 3.15s)
+M2 strict load -> allow_incomplete: KILLED (exit 1; 1 failed, 51 deselected in 0.77s)
+M3 unlink on raise removed: KILLED (exit 1; 1 failed, 50 deselected in 0.73s)
+M4 consumer assertion removed: KILLED (exit 1; 1 failed, 50 deselected in 0.71s)
+M5 TRIM_OWNED refusal removed: KILLED (exit 1; 1 failed, 43 deselected in 0.64s)
+M6 incomplete-log cleanup removed: KILLED (exit 1; 1 failed, 50 deselected in 1.04s)
+M7 out_dir placeholder removed: KILLED (exit 1; 1 failed, 50 deselected in 0.58s)
+M8 LOG halt accepted: KILLED (exit 1; 1 failed, 51 deselected in 0.58s)
+M9 halt-log unlink on error row removed: KILLED (exit 1; 1 failed, 50 deselected in 0.58s)
+restored: True
