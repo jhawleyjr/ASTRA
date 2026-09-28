@@ -163,7 +163,7 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
     `tests/golden/flightgear/fgnetfdm_v24.py` (FlightGear 2024.1.7) and its by-hand g++ cross-check
     `scripts/fgnetfdm_layout_check.py`, a table-built decoder test over a real socket. Plan:
     [plan](docs/plans/m5-tooling.md). Packet: in the PR body.
-  - PR 9 (#NN): M5 closeout: PLAN.md check-off with evidence links, open items for the held-out scope
+  - PR 9 (#71): M5 closeout: PLAN.md check-off with evidence links, open items for the held-out scope
     (writer thread, CLI, recorder retirement, wind events, closed-loop scenarios/Monte Carlo, lockstep
     replay, bridge pacing), the finalization item extended with the F1 residual, crash-readable log and
     load cross-check points, architecture §12 status. Plan: [plan](docs/plans/m5-tooling.md). Packet: in the
