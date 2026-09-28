@@ -1,0 +1,53 @@
+date: 2026-09-28T05:49:06Z
+command: ./scripts/check-full.sh
+base: 6227a17aaa5862f24d2f1ab6c7bb5e3056fc321a
+head: b41bdcb90ffbe1da8e470a19df5d5e9106378398
+exit: 0
+working tree: 0 uncommitted paths
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 144 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr7-montecarlo/build/debug
+100% tests passed, 0 tests failed out of 621
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr7-montecarlo/build/release
+100% tests passed, 0 tests failed out of 622
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr7-montecarlo/build/static-plugins
+100% tests passed, 0 tests failed out of 623
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr7-montecarlo/build/asan
+100% tests passed, 0 tests failed out of 624
+0 errors, 0 warnings, 0 informations
+333 passed in 43.18s
+check: OK
+
+acceptance (plan PR 7 row, at head above): .venv/bin/pytest tests/python -k montecarlo
+exit: 0
+58 passed, 270 deselected in 7.68s
+2.08s call     tests/python/test_montecarlo.py::test_montecarlo_q19_64_runs_complete
+0.92s setup    tests/python/test_montecarlo.py::test_montecarlo_one_worker_and_four_write_identical_bytes
+0.88s call     tests/python/test_montecarlo.py::test_montecarlo_trimmed_error_rows_do_not_depend_on_the_trim_copy_path
+0.82s call     tests/python/test_montecarlo.py::test_montecarlo_an_invalid_drawn_value_is_an_error_row_and_the_batch_continues
+0.50s call     tests/python/test_montecarlo.py::test_montecarlo_a_different_master_seed_changes_every_dispersed_value
+
+Q19 cost (scratch measurement at b41bdcb, montecarlo.run on 32 cores, 3 repeats):
+wall 2.08 / 1.99 / 1.99 s; logs 2.106 GB (32.9 MB per 60 s run); peak out_dir 2.106 GB; peak filesystem used delta 2.106 GB; summary 26523 B
+
+gate pytest: 333 passed in 43.18 s at this head (before: 275 passed in 37.59 s at 63777fc, PR 6)
+
+scratch mutations (each guard removed, its tests run, file restored):
+M1 explicit close removed: KILLED (exit 1; 1 failed, 56 deselected in 2.30s)
+M2 strict load -> allow_incomplete: KILLED (exit 1; 1 failed, 57 deselected in 0.48s)
+M3 unlink on raise removed: KILLED (exit 1; 1 failed, 56 deselected in 0.47s)
+M4 consumer assertion removed: KILLED (exit 1; 1 failed, 56 deselected in 0.47s)
+M5 TRIM_OWNED refusal removed: KILLED (exit 1; 1 failed, 49 deselected in 0.51s)
+M6 incomplete-log cleanup removed: KILLED (exit 1; 1 failed, 53 deselected in 0.79s)
+M7 out_dir placeholder removed: KILLED (exit 1; 1 failed, 56 deselected in 0.47s)
+M8 LOG halt accepted: KILLED (exit 1; 1 failed, 57 deselected in 0.50s)
+M9 halt-log unlink on error row removed: KILLED (exit 1; 1 failed, 56 deselected in 0.48s)
+R1 (R-001) trim-copy normalization removed: KILLED (exit 1; 1 failed, 57 deselected in 1.34s)
+R2 (R-002) clip floor back to > 0: KILLED (exit 1; 1 failed, 57 deselected in 0.47s)
+R3 (R-003) start-up deferral removed: KILLED (exit 1; 1 failed, 57 deselected in 0.47s)
+R4 (R-003) stop deferral removed: KILLED (exit 1; 1 failed, 57 deselected in 0.93s)
+R5 (R-004) summary withdrawal removed: KILLED (exit 1; 1 failed, 57 deselected in 0.87s)
+restored: True
