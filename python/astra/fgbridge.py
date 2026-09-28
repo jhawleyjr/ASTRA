@@ -7,7 +7,8 @@ native FDM layout: 408 bytes, network byte order, ``version = 24``. It is sent o
 the same bytes for the same run:
 
 - ``LiveBridge``: a ``Simulation`` the caller steps through ``LiveBridge.step()`` or
-  ``LiveBridge.run()``;
+  ``LiveBridge.run()``, which also drain the run log after every step, as ``Simulation.run()``
+  and ``astra.lockstep.Session`` do (ADR-0025);
 - ``send_log``: a complete run log (ADR-0025), read with ``astra.log.load`` strictly, never with
   ``allow_incomplete``.
 
@@ -246,7 +247,11 @@ class LiveBridge:
 
     def step(self) -> _core.HaltReason:
         """Steps the ``Simulation`` one frame. If the frame completed, checks its derived values
-        and sends its packet when the frame is due. Returns ``step()``'s ``HaltReason``."""
+        and sends its packet when the frame is due. Then drains the run log, as
+        ``astra.lockstep.Session.step`` does: ``Simulation.step()`` never drains, and only
+        ``Simulation.run()`` does so on its own (ADR-0025). A frame that completed keeps its
+        packet even when the drain after it fails. Returns ``step()``'s ``HaltReason`` if it
+        halted, else the drain's (the sticky ``LOG`` halt after a failed write)."""
         current = self._sim.clock.frame
         if current != self._next:
             raise BridgeError(
@@ -254,17 +259,20 @@ class LiveBridge:
                 f"frame {self._next}: frames stepped outside LiveBridge could not be sent"
             )
         reason = self._sim.step()
-        if reason:
-            return reason  # no frame completed: no log row, no packet
-        frame = current
-        self._next = self._sim.clock.frame
+        if not reason:
+            self._next = self._sim.clock.frame
+            self._publish(current)
+        drained = self._sim.flush_log()  # no log: does nothing
+        return reason if reason else drained
+
+    def _publish(self, frame: int) -> None:
+        """Frame ``frame`` completed: the registry holds its derived values (log row ``frame``)."""
         registry = self._sim.registry
         values = {field: cast(float, registry.find(name)) for field, name in self._names.items()}
         _refuse_latlon(values["status_flags"], f"frame {frame} of the live Simulation")
         if frame % self._divisor == 0:
             self._sender.send(frame, pack(values))
             self.packets_sent += 1
-        return reason
 
     def run(self, frames: int) -> _core.HaltReason | None:
         """Steps up to ``frames`` frames through ``step()``. Returns the halt that stopped the run,

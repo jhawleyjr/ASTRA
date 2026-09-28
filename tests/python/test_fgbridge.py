@@ -168,8 +168,8 @@ def _cruise(frames: int) -> dict[str, Any]:
     return d
 
 
-def _sim(d: dict[str, Any], log_path: Path | None) -> _core.Simulation:
-    data = dict(d) if log_path is None else {**d, "log": {"path": str(log_path)}}
+def _sim(d: dict[str, Any], log_path: Path | None, **log_settings: Any) -> _core.Simulation:
+    data = dict(d) if log_path is None else {**d, "log": {"path": str(log_path), **log_settings}}
     return _core.Simulation.from_config(_core.Config.from_dict(data), _core.default_plugin_dir())
 
 
@@ -454,6 +454,63 @@ def test_a_divisor_the_logged_rate_cannot_serve_is_refused(
     with pytest.raises(fgbridge.BridgeError, match="logged every 2 frames, so divisor 3"):
         fgbridge.send_log(path, port=_port(receiver), divisor=3)
     _nothing_received(receiver)
+
+
+def test_the_live_bridge_drains_the_log_past_its_ring_capacity(
+    tmp_path: Path, receiver: socket.socket
+) -> None:
+    """R-001: Simulation.step() never drains, so without the bridge's own drain an 8-row ring
+    halts LOG at frame 8. With it, 100 frames complete and every packet matches the log's."""
+    path = tmp_path / "run.h5"
+    sim = _sim(_cruise(100), path, buffer_frames=8)
+    packets: list[bytes] = []
+    with fgbridge.LiveBridge(sim, port=_port(receiver), divisor=3) as bridge:
+        for _ in range(100):
+            before = bridge.packets_sent
+            assert not bridge.step()
+            packets += _receive(receiver, bridge.packets_sent - before)
+    sim.close_log()
+    assert sim.clock.frame == 100
+    assert len(packets) == len(_expected_frames(100, 3)) == 34
+    assert fgbridge.send_log(path, port=_port(receiver), divisor=3) == 34
+    assert _receive(receiver, 34) == packets
+    path2 = tmp_path / "run2.h5"  # run() goes through step(), so it drains too
+    sim2 = _sim(_cruise(100), path2, buffer_frames=8)
+    with fgbridge.LiveBridge(sim2, port=_port(receiver), divisor=50) as bridge2:
+        assert bridge2.run(100) is None
+    sim2.close_log()
+    _receive(receiver, 2)
+
+
+class _FailingDrain:
+    """A Simulation whose flush_log() reports ``halt``, as a failed drain write would; everything
+    else is the real Simulation's."""
+
+    def __init__(self, sim: _core.Simulation, halt: _core.HaltReason) -> None:
+        self._sim = sim
+        self._halt = halt
+
+    def flush_log(self) -> _core.HaltReason:
+        return self._halt
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._sim, name)
+
+
+def test_a_failed_drain_is_returned_after_the_completed_frames_packet(
+    receiver: socket.socket,
+) -> None:
+    donor = _sim(_cruise(10), None)
+    with pytest.raises(_core.Error):
+        donor.write_input("controls.throttle", math.nan)
+    halt = donor.step()  # a real, truthy HaltReason to stand in for the drain's LOG halt
+    assert halt
+    proxy: Any = _FailingDrain(_sim(_cruise(10), None), halt)
+    with fgbridge.LiveBridge(proxy, port=_port(receiver), divisor=1) as bridge:
+        assert bridge.step() is halt  # frame 0 completed, then the drain failed
+    assert bridge.packets_sent == 1
+    assert proxy.clock.frame == 1
+    _receive(receiver, 1)
 
 
 def test_a_halted_step_sends_nothing(receiver: socket.socket) -> None:
