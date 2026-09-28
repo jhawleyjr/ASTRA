@@ -1,0 +1,26 @@
+date: 2026-09-28T03:13:00Z
+command: ./scripts/check-full.sh
+base: 0cd3f78a6e2dc79c2a55a12350e5c30fc4456e64
+head: 553077d4f6d173bc5ff23eb9d94cf32de59c0212
+exit: 0
+working tree: 0 uncommitted paths
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 144 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr6-scenario/build/debug
+100% tests passed, 0 tests failed out of 621
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr6-scenario/build/release
+100% tests passed, 0 tests failed out of 622
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr6-scenario/build/static-plugins
+100% tests passed, 0 tests failed out of 623
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr6-scenario/build/asan
+100% tests passed, 0 tests failed out of 624
+0 errors, 0 warnings, 0 informations
+265 passed in 35.78s
+check: OK
+
+acceptance (plan PR 6 row, at head above): .venv/bin/pytest tests/scenarios tests/python -k scenario
+exit: 0
+54 passed, 211 deselected in 1.28s
