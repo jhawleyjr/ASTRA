@@ -491,8 +491,11 @@ def run(
     data["log"] = {"path": str(log_path)}
     config = _core.Config.from_dict(data, origin=str(scenario.path))
     directory = _core.default_plugin_dir() if plugin_dir is None else str(plugin_dir)
-    sim: _core.Simulation | None = _core.Simulation.from_config(config, directory)
+    sim: _core.Simulation | None = None
     try:
+        # Inside the try: a from_config that fails after opening the log leaves a file that the
+        # check above proves is this run's own.
+        sim = _core.Simulation.from_config(config, directory)
         _drive(sim, scenario)
         _close_log(sim)
         run_log = log.load(log_path)  # sim is still alive here: no destructor close yet
@@ -507,7 +510,8 @@ def _apply_trim(scenario: Scenario, data: dict[str, Any]) -> None:
     """Trims a copy of ``data`` (which has no ``log`` block yet) and writes the result into
     ``data``'s initial state and controls."""
     setpoint = cast(TrimSetpoint, scenario.trim)
-    assert "log" not in data, "the trim copy must not carry the run's log block"
+    if "log" in data:
+        raise RuntimeError(f"{scenario.path}: the trim copy must not carry the run's log block")
     with tempfile.TemporaryDirectory(prefix="astra_scenario_trim_") as directory:
         still = Path(directory) / scenario.config_path.name
         still.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")

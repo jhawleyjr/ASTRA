@@ -360,6 +360,22 @@ def test_a_run_without_an_explicit_close_log_is_refused_and_leaves_no_file(
     assert not path.exists()
 
 
+def test_an_aborted_run_leaves_no_log_that_could_look_complete(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A harness failure mid-run drops the Simulation, whose destructor would finalize the file
+    # with complete = 1 (PLAN.md's finalization-marker open item), so the harness removes it.
+    def broken(sim: Any, scenario: Any) -> None:
+        assert not sim.run(10)
+        raise RuntimeError("harness bug")
+
+    monkeypatch.setattr(harness, "_drive", broken)
+    path = tmp_path / "run.h5"
+    with pytest.raises(RuntimeError, match="harness bug"):
+        harness.run(_load(FIXTURES / "violated_check.yaml"), path)
+    assert not path.exists()
+
+
 def test_a_run_refuses_an_existing_log_path_and_leaves_it_alone(tmp_path: Path) -> None:
     path = tmp_path / "run.h5"
     path.write_bytes(b"someone else's file")
