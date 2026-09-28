@@ -497,6 +497,48 @@ def test_the_cruise_hold_pitch_target_is_the_config_trim_alpha() -> None:
     assert theta.a == alpha
 
 
+# --- slower rate groups (Codex review R-001) ----------------------------------------------------
+# Every signal registered today has divisor 1, so these build the divisor-10 case directly.
+
+
+def test_a_window_with_no_row_of_its_signal_rate_is_a_collection_error() -> None:
+    with pytest.raises(harness.ScenarioError, match="logged every 10 frames, and no logged frame"):
+        harness._window(
+            Path("s.yaml"), {"from": 0.001, "to": 0.002}, "checks[0].window", 0.001, 100, 100, 10
+        )
+    window = harness._window(Path("s.yaml"), {"from": 0.001, "to": 0.011}, "w", 0.001, 100, 100, 10)
+    assert window == harness.Window(1, 11)
+
+
+def _rate_10_log(tmp_path: Path) -> tuple[harness.Scenario, Any]:
+    import pandas as pd  # pyright: ignore[reportMissingTypeStubs]
+
+    scenario = dataclasses.replace(_load(FIXTURES / "violated_check.yaml"), checks=())
+    run_log = _run(scenario, tmp_path).log
+    table = pd.DataFrame(
+        {"t": [0.0, 0.01], "slow": [1.0, 2.0]}, index=pd.Index([0, 10], name="frame")
+    )
+    return scenario, dataclasses.replace(run_log, rates={**run_log.rates, 10: table})
+
+
+def test_verify_reports_a_rate_group_window_without_its_rows_instead_of_raising(
+    tmp_path: Path,
+) -> None:
+    scenario, run_log = _rate_10_log(tmp_path)
+    empty = harness.Check(0, "slow", "between", 0.0, 0.0, harness.Window(1, 2), 10)
+    short = harness.Check(1, "slow", "between", 0.0, 9.0, harness.Window(0, 30), 10)
+    final = harness.Check(2, "slow", "between", 0.0, 1.5, harness.Window(0, None), 10)
+    failures = harness.verify(dataclasses.replace(scenario, checks=(empty, short, final)), run_log)
+    assert failures == [
+        "checks[0] slow between [0.0, 0.0] over [0.001, 0.002) s (frames 1..1): the log has 0 of "
+        "its 0 rows",
+        "checks[1] slow between [0.0, 9.0] over [0, 0.03) s (frames 0..29): the log has 2 of its "
+        "3 rows",
+        "checks[2] slow between [0.0, 1.5] over final (frame 10): worst value 2.0 at frame 10 "
+        "(t = 0.01 s)",
+    ]
+
+
 # --- check arithmetic ---------------------------------------------------------------------------
 
 

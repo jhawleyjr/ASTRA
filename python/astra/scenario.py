@@ -39,8 +39,10 @@ check the harness works in integer frames only (ADR-0010).
 What "final" means. ``window: final`` is the log's last row: frame ``frames_run - 1``, at
 ``t = (frames_run - 1) * dt``. Per ADR-0025, row k holds the frame-start values of frame k, so the
 last row is the start of the last frame that ran. It is one frame before ``duration`` (or before
-the halt). ``/final_state``, the state after the last frame, is never used by a check: it holds
-state only, not derived signals or controls, and one definition should cover every signal.
+the halt). For a signal in a slower rate group (divisor d), it is that group's last row, the last
+multiple of d below ``frames_run``. ``/final_state``, the state after the last frame, is never
+used by a check: it holds state only, not derived signals or controls, and one definition should
+cover every signal.
 
 Collection (``load``). Every error above is a ``ScenarioError``, which the conftest turns into a
 collection error, never a skip. That covers the schema, the refused config blocks, the overrides,
@@ -68,7 +70,8 @@ Verification (``verify``) reads only the log and asserts:
   frame would have halted there. The rows being zero is therefore what shows that nothing was
   counted before the halt. The log's ``health.*`` names must be exactly ``HEALTH_SIGNALS``, so a
   new counter forces a deliberate update here.
-- Each check holds over every row in its window, and the window has every row it asks for. A
+- Each check holds over every row in its window, and the window has every row its signal's rate
+  group logs there (a window with no such row is refused at collection). A
   failure names the scenario, the check, the signal, the window, the worst value and its frame.
   A NaN is the worst value.
 """
@@ -144,6 +147,7 @@ class Check:
     a: float
     b: float
     window: Window
+    divisor: int  # the signal's rate group (SignalRegistry divisor): its rows are 0, d, 2d, ...
 
 
 @dataclasses.dataclass(frozen=True)
@@ -220,7 +224,7 @@ def load(path: str | Path, *, root: str | Path | None = None) -> Scenario:
     except _core.Error as error:
         raise ScenarioError(f"{path}: the config does not build: {error}") from error
     dt = sim.clock.dt
-    signals = {name for name, _value, _unit, _divisor in sim.registry.signals}
+    signals = {name: int(divisor) for name, _value, _unit, divisor in sim.registry.signals}
     inputs = set(sim.input_names())
 
     frames = _frames(path, top["duration"], "duration", dt)
@@ -414,7 +418,7 @@ def _events(
 
 
 def _checks(
-    path: Path, value: Any, dt: float, frames: int, last_frame: int, signals: set[str]
+    path: Path, value: Any, dt: float, frames: int, last_frame: int, signals: dict[str, int]
 ) -> tuple[Check, ...]:
     if not isinstance(value, list):
         raise ScenarioError(f"{path}: checks: must be a list")
@@ -432,8 +436,9 @@ def _checks(
             raise ScenarioError(f"{path}: {where}: needs exactly one of {', '.join(_KINDS)}")
         kind = kinds[0]
         a, b = _bounds(path, spec[kind], f"{where}.{kind}", kind)
-        window = _window(path, spec["window"], f"{where}.window", dt, frames, last_frame)
-        checks.append(Check(i, signal, kind, a, b, window))
+        divisor = signals[signal]
+        window = _window(path, spec["window"], f"{where}.window", dt, frames, last_frame, divisor)
+        checks.append(Check(i, signal, kind, a, b, window, divisor))
     return tuple(checks)
 
 
@@ -454,7 +459,14 @@ def _bounds(path: Path, value: Any, where: str, kind: str) -> tuple[float, float
     return target, tol
 
 
-def _window(path: Path, value: Any, where: str, dt: float, frames: int, last_frame: int) -> Window:
+def _rows(first: int, stop: int, divisor: int) -> int:
+    """How many rows a rate group with ``divisor`` logs in frames ``[first, stop)``."""
+    return len(range(-(-first // divisor) * divisor, stop, divisor))
+
+
+def _window(
+    path: Path, value: Any, where: str, dt: float, frames: int, last_frame: int, divisor: int
+) -> Window:
     if value == "final":
         if last_frame < 1:
             raise ScenarioError(f"{path}: {where}: the run logs no row, so it has no final row")
@@ -469,6 +481,11 @@ def _window(path: Path, value: Any, where: str, dt: float, frames: int, last_fra
         raise ScenarioError(
             f"{path}: {where}.to: the run halts at frame {last_frame} (expect_halt), so no row "
             "reaches this window's end"
+        )
+    if _rows(first, stop, divisor) == 0:
+        raise ScenarioError(
+            f"{path}: {where}: the signal is logged every {divisor} frames, and no logged frame "
+            "falls in this window"
         )
     return Window(first, stop)
 
@@ -660,9 +677,8 @@ def _check_failure(scenario: Scenario, check: Check, run_log: log.RunLog) -> str
             f"[{window.first * scenario.dt:g}, {window.stop * scenario.dt:g}) s "
             f"(frames {window.first}..{window.stop - 1})"
         )
-        divisor = int(frames[1] - frames[0]) if frames.size > 1 else 1
-        wanted = len(range(-(-window.first // divisor) * divisor, window.stop, divisor))
-        if selected.size != wanted:
+        wanted = _rows(window.first, window.stop, check.divisor)
+        if selected.size != wanted or wanted == 0:
             return f"{label} over {span}: the log has {selected.size} of its {wanted} rows"
     excess = violation(check.kind, check.a, check.b, values[selected])
     worst = int(np.argmax(excess))
