@@ -407,6 +407,49 @@ def test_trim_works_on_a_copy_without_log_so_it_never_creates_the_run_file(
     assert path.exists()  # the run itself did write it
 
 
+# Joe's J-1: with trim set, an override of a leaf that trim sets or assumes would be discarded, or
+# would leave the run untrimmed. It is a collection error naming the key.
+_TRIM_HEAD = _CRUISE_HEAD + "trim: {true_airspeed: 230.0, altitude: 10000.0}\nduration: 0.01\n"
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        pytest.param("initial.state.euler_nb.0", 1.5707963267948966, id="a-euler_nb.0"),
+        pytest.param("vehicle.initial_controls.controls.throttle", 0.9, id="b-throttle"),
+        pytest.param("initial.state.v_b.0", 240.0, id="c-v_b.0"),
+        pytest.param("vehicle.initial_controls.controls.aileron", 0.01, id="d-aileron"),
+        pytest.param("vehicle.initial_controls.controls.rudder", 0.01, id="rudder"),
+        pytest.param("vehicle.initial_controls.controls.elevator", 0.01, id="elevator"),
+        pytest.param("initial.state.p_n.2", 9000.0, id="altitude"),
+        pytest.param("initial.state.euler_nb.1", 0.1, id="euler_nb.1"),
+        pytest.param("initial.state.omega_b.1", 0.01, id="omega_b.1"),
+    ],
+)
+def test_with_trim_an_override_of_a_leaf_trim_sets_or_assumes_is_a_collection_error(
+    tmp_path: Path, key: str, value: float
+) -> None:
+    text = _TRIM_HEAD + f"overrides: {{{key}: {value!r}}}\n"
+    with pytest.raises(harness.ScenarioError) as error:
+        _load(_write(tmp_path, text))
+    assert f"overrides.{key}: " in str(error.value)
+    assert "trim" in str(error.value)
+    # The same override without trim still collects: the refusal is trim's, not the leaf's.
+    _load(_write(tmp_path, _CRUISE_HEAD + f"duration: 0.01\noverrides: {{{key}: {value!r}}}\n"))
+
+
+def test_with_trim_an_override_of_a_leaf_trim_only_reads_collects_and_reaches_the_trim(
+    tmp_path: Path,
+) -> None:
+    text = _TRIM_HEAD + "overrides: {physical.mass.mass: 40000.0}\n"
+    scenario = _load(_write(tmp_path, text))
+    result = _run(scenario, tmp_path)
+    assert result.failures == []
+    trimmed = float(result.log.rates[1]["v0.controls.throttle"].iloc[0])
+    config = _controls(yaml.safe_load(STILL_AIR.read_text(encoding="utf-8")))["throttle"]
+    assert trimmed > config  # a heavier aircraft trims at more thrust: the override reached trim
+
+
 # --- "final", events and replay -----------------------------------------------------------------
 
 

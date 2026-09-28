@@ -16,6 +16,22 @@ Schema (Q14). Every map is closed: an unknown key at any level is an error.
 - ``trim``: ``{true_airspeed, altitude}``, for ``astra.trim.trim_straight_and_level``. It works
   on a copy of the config without the ``log`` block, so it never creates the run's file. Its state
   and its elevator and throttle replace the config's initial state and controls.
+
+  With ``trim`` set, an override of a leaf that trim sets or assumes is refused, naming the key,
+  because it would be discarded or would leave the run untrimmed (``TRIM_OWNED``). Trim sets:
+  - ``initial.state.p_n.2``, the altitude, from ``trim.altitude``;
+  - every ``initial.state.v_b``, ``euler_nb`` (``[0, alpha, 0]``) and ``omega_b`` (zero) element;
+  - any ``initial.state.q_nb`` element, which it replaces with ``euler_nb``;
+  - ``vehicle.initial_controls.controls.elevator`` and ``throttle``, which it solves for.
+
+  Trim assumes ``controls.aileron`` and ``controls.rudder`` are 0 (``astra.trim``'s
+  straight-and-level scenario): it never writes them, so a nonzero value would fly an untrimmed
+  run. Leaves trim reads but does not replace stay overridable, and the override reaches the trim:
+  latitude and longitude (``p_n.0``, ``p_n.1``), mass, and aero or propulsion coefficients.
+
+  ``physical.wind`` also stays overridable. Trim is still-air by design; wind is a disturbance from
+  trim. A run with wind starts off-trim at frame 0, because Dryden draws its first gust at frame 0
+  (lessons 2026-09-22), so a check near t = 0 sees a disturbed state.
 - ``duration``: seconds, greater than zero.
 - ``events``: a list of ``{at, write, value}``. ``write`` is a write-seam input name
   (``Simulation.input_names()``) and ``value`` is absolute and finite. It is written through
@@ -107,6 +123,20 @@ COUNTER_OF_CHECK = {
     "OUT_OF_DOMAIN": "health.domain",
     "NON_FINITE_INPUT": "health.input",
 }
+
+# With trim set, the override-key prefixes trim sets or assumes, and why (module docstring). A key
+# matches a prefix when it equals it or continues it with "." (an element of a list).
+TRIM_OWNED = (
+    ("initial.state.p_n.2", "trim sets the altitude from trim.altitude"),
+    ("initial.state.v_b", "trim sets v_b from trim.true_airspeed and its alpha"),
+    ("initial.state.euler_nb", "trim sets euler_nb to [0, alpha, 0]"),
+    ("initial.state.q_nb", "trim replaces q_nb with euler_nb"),
+    ("initial.state.omega_b", "trim sets omega_b to zero"),
+    ("vehicle.initial_controls.controls.elevator", "trim sets the elevator it solves for"),
+    ("vehicle.initial_controls.controls.throttle", "trim sets the throttle it solves for"),
+    ("vehicle.initial_controls.controls.aileron", "trim assumes aileron = 0 and never writes it"),
+    ("vehicle.initial_controls.controls.rudder", "trim assumes rudder = 0 and never writes it"),
+)
 
 # D8's trim residual bound (docs/plans/pr6-trim.md), the bound cruise.yaml's trim was held to.
 TRIM_RESIDUAL_BOUND = 1e-6
@@ -214,7 +244,10 @@ def load(path: str | Path, *, root: str | Path | None = None) -> Scenario:
     config_path = base / _text(path, top["config"], "config")
     config = _base_config(path, config_path)
     overrides = _closed(path, top.get("overrides", {}), "overrides", required=set(), optional=None)
+    trim = _trim(path, top.get("trim"))
     for key, value in overrides.items():
+        if trim is not None:
+            _refuse_trim_owned(path, key)
         _override(path, config, key, value)
 
     try:
@@ -232,7 +265,6 @@ def load(path: str | Path, *, root: str | Path | None = None) -> Scenario:
         raise ScenarioError(f"{path}: duration: must be greater than zero")
     expect_halt = _expect_halt(path, top.get("expect_halt"), frames)
     last_frame = frames if expect_halt is None else expect_halt.frame
-    trim = _trim(path, top.get("trim"))
     events = _events(path, top.get("events", []), dt, frames, inputs, expect_halt)
     checks = _checks(path, top.get("checks", []), dt, frames, last_frame, signals)
     return Scenario(
@@ -348,6 +380,15 @@ def _override(path: Path, config: dict[str, Any], key: str, value: Any) -> None:
             node = items[int(segment)]
         else:
             raise ScenarioError(f"{path}: {where}: {segment!r} is below a scalar")
+
+
+def _refuse_trim_owned(path: Path, key: str) -> None:
+    for prefix, reason in TRIM_OWNED:
+        if key == prefix or key.startswith(f"{prefix}."):
+            raise ScenarioError(
+                f"{path}: overrides.{key}: {reason}, so with trim set this override would be "
+                "discarded or leave the run untrimmed"
+            )
 
 
 def _numeric_leaf(path: Path, where: str, old: Any) -> None:
