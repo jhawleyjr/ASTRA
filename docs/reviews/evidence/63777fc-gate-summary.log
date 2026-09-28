@@ -1,0 +1,29 @@
+date: 2026-09-28T04:16:03Z
+command: ./scripts/check-full.sh
+base: 0cd3f78a6e2dc79c2a55a12350e5c30fc4456e64
+head: 63777fc4c8d3e0efe3f1c2c125bf7f694199427f
+exit: 0
+working tree: 0 uncommitted paths
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 144 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr6-scenario/build/debug
+100% tests passed, 0 tests failed out of 621
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr6-scenario/build/release
+100% tests passed, 0 tests failed out of 622
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr6-scenario/build/static-plugins
+100% tests passed, 0 tests failed out of 623
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr6-scenario/build/asan
+100% tests passed, 0 tests failed out of 624
+0 errors, 0 warnings, 0 informations
+275 passed in 37.59s
+check: OK
+
+acceptance (plan PR 6 row, at head above): .venv/bin/pytest tests/scenarios tests/python -k scenario
+exit: 0
+64 passed, 211 deselected in 1.75s
+
+J-1 before/after (the new trim-override tests, run against the 553077d harness before the fix):
+9 failed (DID NOT RAISE ScenarioError), 1 passed (case e, which passes at both by design)
