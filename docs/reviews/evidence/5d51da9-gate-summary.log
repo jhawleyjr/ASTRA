@@ -1,0 +1,40 @@
+date: 2026-09-28T10:14:25Z
+command: ./scripts/check-full.sh
+base: 3b5ca4a34437ec5bc3800ae98d43f09d67234b8d
+head: 5d51da902a02a479b2dc182913815638bd603a91
+exit: 0
+working tree: 0 uncommitted paths
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 144 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr8-fgbridge/build/debug
+100% tests passed, 0 tests failed out of 621
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr8-fgbridge/build/release
+100% tests passed, 0 tests failed out of 622
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr8-fgbridge/build/static-plugins
+100% tests passed, 0 tests failed out of 623
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m5-pr8-fgbridge/build/asan
+100% tests passed, 0 tests failed out of 624
+0 errors, 0 warnings, 0 informations
+362 passed in 44.79s
+check: OK
+
+acceptance (plan PR 8 row, at head above): .venv/bin/pytest tests/python -k fgbridge
+exit: 0
+29 passed, 328 deselected in 0.87s (3 consecutive repeats before commit: 29 passed each)
+
+gate pytest: 362 passed in 44.79 s at this head (8c80489: 358; PR 7 b41bdcb: 333 in 43.18 s)
+
+review fixes since 8c80489 (R-001, both correction rounds): LiveBridge.step drains the run log after
+every step, in a finally; four new tests.
+
+scratch mutations at this head (each applied alone to python/astra/fgbridge.py, confirmed present,
+fgbridge tests run with -x, original bytes restored and checked; git status clean afterwards):
+M1 to M14 (as in 8c80489-gate-summary.log): all KILLED
+R1a drain removed: KILLED (test_the_live_bridge_drains_the_log_past_its_ring_capacity)
+R1b drain halt dropped: KILLED (test_a_failed_drain_is_returned_after_the_completed_frames_packet)
+R1c drain outside the finally: KILLED (test_the_live_bridge_drains_even_when_sending_raises)
+M9s, M13s, M14s (mapping shared; cross-field checks only): all KILLED
+20 of 20 killed
