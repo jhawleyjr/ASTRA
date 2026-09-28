@@ -1,0 +1,8 @@
+# R12 negative fixture: a missed expect_halt. health_nan_wrench.yaml first produces a NaN at frame
+# 500, after this 0.4 s run ends, so the expected halt never happens.
+config: tests/configs/health_nan_wrench.yaml
+duration: 0.4
+expect_halt:
+  check: NON_FINITE_WRENCH
+  source: tests/plugins/nan_wrench
+  frame: 300

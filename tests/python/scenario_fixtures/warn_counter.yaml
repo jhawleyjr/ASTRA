@@ -1,0 +1,5 @@
+# R12 negative fixture: a nonzero warn counter. The NaN wrench from frame 500 is counted under
+# sim.health.nan: warn (nan_wrench_warn_config.yaml), so the run does not halt, but health.nan is
+# nonzero.
+config: tests/python/scenario_fixtures/nan_wrench_warn_config.yaml
+duration: 0.6

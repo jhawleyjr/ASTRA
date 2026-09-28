@@ -274,7 +274,10 @@ def _text(path: Path, value: Any, where: str) -> str:
 
 def _number(path: Path, value: Any, where: str) -> float:
     if isinstance(value, bool) or not isinstance(value, int | float):
-        raise ScenarioError(f"{path}: {where}: must be a number, got {value!r}")
+        hint = ""
+        if isinstance(value, str) and re.fullmatch(r"[-+]?[0-9.]+[eE][0-9]+", value):
+            hint = " (YAML 1.1 reads an exponent without a sign as a string: write 1.0e+3)"
+        raise ScenarioError(f"{path}: {where}: must be a number, got {value!r}{hint}")
     number = float(value)
     if not math.isfinite(number):
         raise ScenarioError(f"{path}: {where}: must be finite, got {value!r}")

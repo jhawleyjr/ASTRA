@@ -1,0 +1,8 @@
+# R12 negative fixture: a violated check. Still-air cruise at 230 m/s against a band of [0, 100] m/s,
+# so every row fails and the worst value is the largest TAS in the window.
+config: aircraft/notional_transport/configs/cruise_still_air.yaml
+duration: 0.05
+checks:
+  - signal: v0.derived.tas
+    window: { from: 0.0, to: 0.05 }
+    between: { lo: 0.0, hi: 100.0 }
