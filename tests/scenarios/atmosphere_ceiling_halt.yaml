@@ -1,0 +1,60 @@
+# Seed scenario 5 (docs/plans/m5-tooling.md Q15): an expected halt. The aircraft climbs out of the
+# top of isa1976's valid range and halts OUT_OF_DOMAIN, naming the atmosphere plugin.
+#
+# The domain. isa1976's valid_range() is [-5000, 86000] m geometric (isa1976.cpp kValidRange; the
+# top of its Table I, 86,000 m geometric = 84,852 m geopotential). Both the init-time and the
+# per-frame checks compare that range with earth.altitude(), which for wgs84_rotating is p_n[2],
+# the geodetic height. The overrides start at 85,950 m, inside the range, so from_config's init
+# check (simulation.cpp) passes. Neither wgs84_rotating's domain_fault nor wgs84_j2's in_domain has
+# an upper altitude bound, so the atmosphere is the only domain this climb can leave.
+#
+# The rule that decides the frame. check_domain's first-order lookahead (ADR-0012,
+# p_n + dt * p_n_dot) covers the Earth and gravity models only (vehicle.cpp check_domain). The
+# atmosphere is checked in two places:
+# (a) ADR-0020's per-stage pre-check (vehicle.cpp prepare_stage_environment), against each RK4
+#     stage's trial altitude, before the atmosphere is sampled;
+# (b) the post-step check in Simulation::step, against the post-step altitude, with no lookahead
+#     (the comment there says so).
+# Climbing, the highest trial altitude in frame k is stage 4's, y_k + dt * k3. For a constant
+# vertical acceleration a, its altitude is h_k + dt * (v_k + a dt / 2) = h(t_{k+1}) exactly, which
+# is also RK4's post-step altitude. So (a) fires in frame k exactly when h(t_{k+1}) > 86000, and the
+# halt is at frame k with the state restored and the clock not advanced. (b) would name the same
+# frame.
+#
+# The trajectory. The overrides set theta = 0 (so q_nb is the identity) and v_b = (230, 0, -100)
+# m/s, so the NED velocity is 230 m/s north and 100 m/s up, starting at lat = lon = 0. The vertical
+# acceleration at the equator at 86 km is a = -(gravitation - centrifugal - curvature) =
+# -(9.55439 - 0.03437 - 0.00824) = -9.51177 m/s^2:
+# - gravitation is J2 with geodesy.hpp's constants;
+# - centrifugal is wgs84_j2's omega_sq term;
+# - curvature is v_N^2 / (M + h).
+# Near vacuum makes the rest negligible: rho(86 km) = 7.0e-6 kg/m^3 gives q_bar = 0.22 Pa, lift and
+# drag below 38 N, and thrust 0.5 N, so under 1.1e-3 m/s^2, or 0.15 mm by t = 0.513 s.
+# h(t) = 85950 + 100 t - 4.75589 t^2. Then:
+# - frame 511: stage 4 at h(0.512) = 85,999.9533 m, in range;
+# - frame 512: stage 4 at h(0.513) = 86,000.0484 m, out of range.
+# The predicted halt is frame 512, with 4.7 cm and 4.8 cm of margin against the 0.15 mm above (and
+# 4.5 mm even if the centrifugal term were dropped entirely). frames_run is then 512, and the last
+# logged row is frame 511, at h(0.511) = 85,999.8581 m.
+#
+# expect_halt.frame is this prediction, written before the first run. If the run disagrees, the
+# disagreement is reported; the number is never edited to match.
+#
+# Band (Joe decides it): the final row's altitude between 85,999.8 and 86,000.0 m, around the
+# predicted 85,999.8581 m. It shows the last logged row is still inside the range, and that the
+# halt came from the step out of it.
+config: aircraft/notional_transport/configs/cruise_still_air.yaml
+overrides:
+  initial.state.p_n.2: 85950.0
+  initial.state.v_b.0: 230.0
+  initial.state.v_b.2: -100.0
+  initial.state.euler_nb.1: 0.0
+duration: 1.0
+checks:
+  - signal: v0.derived.altitude
+    window: final
+    between: { lo: 85999.8, hi: 86000.0 }
+expect_halt:
+  check: OUT_OF_DOMAIN
+  source: plugins/physical/atmosphere/isa1976
+  frame: 512

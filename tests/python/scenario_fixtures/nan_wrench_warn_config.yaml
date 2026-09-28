@@ -1,0 +1,14 @@
+# R12 fixture config (M5 PR 6, tests/python/test_scenario.py): tests/configs/health_nan_wrench.yaml
+# with sim.health.nan set to warn. The NaN wrench from frame 500 is counted, not halted on, so a run
+# ends without a halt but with a nonzero health.nan: the "nonzero warn counter" case.
+sim:
+  dt: 0.001
+  frames: 1000
+  health: { nan: warn }
+vehicle:
+  models:
+    - { plugin: tests/plugins/nan_wrench, nan_frame: 500 }
+physical:
+  earth: plugins/physical/earth/flat
+  gravity: plugins/physical/gravity/constant
+  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 }

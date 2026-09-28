@@ -1,0 +1,8 @@
+# R12 negative fixture: the right halt check and source at the wrong frame. health_nan_wrench.yaml
+# halts at frame 500, not 499, so this expect_halt fails on its frame alone.
+config: tests/configs/health_nan_wrench.yaml
+duration: 0.6
+expect_halt:
+  check: NON_FINITE_WRENCH
+  source: tests/plugins/nan_wrench
+  frame: 499

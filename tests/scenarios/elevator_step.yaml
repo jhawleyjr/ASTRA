@@ -1,0 +1,45 @@
+# Seed scenario 2 (docs/plans/m5-tooling.md Q15): an elevator step from still-air trim. The pitch
+# rate responds nose-up.
+#
+# Event. At 1.0 s (frame 1000) the elevator goes from the config's trim value
+# (cruise_still_air.yaml vehicle.initial_controls.controls.elevator = 0.026674474137989946) to that
+# value + (-0.01) rad. Q14's event value is absolute, so the literal below is the float sum, and
+# tests/python/test_scenario.py asserts it equals config + delta exactly.
+#
+# Sign. cm_elevator_per_rad = -0.8544 < 0, so delta_elevator = -0.01 gives delta_Cm > 0. That is a
+# nose-up moment, q > 0 in ADR-0001's FRD body axes. derived q is omega_b[1] itself (icd_pack.hpp).
+#
+# Magnitude. The aero plugin transfers its moment from AERORP to the CG, moment_b = native +
+# r_aero_b x force_b (aero_math.hpp; lessons 2026-09-21/22), so the step's lift change also moves
+# the pitching moment. Worked with CG-referenced terms at q_bar = 0.5 * 0.41351 * 230^2 = 10,937 Pa
+# (ISA 1976 at 10,000 m):
+# - native delta_M = q_bar * S * c * Cm_de * delta_de = +38,145 N m;
+# - transfer of delta_L = q_bar * S * CL_de * delta_de = -2,380 N (and delta_D = -63 N) through
+#   r_aero_b = (0.3556, 0, -1.6256) m gives -858 N m;
+# - the total, +37,287 N m, is 2.2 % below native, and q_dot_0 = 37,287 / Iyy = 0.01867 rad/s^2
+#   (0.01910 with the transfer ignored).
+#
+# Response. The short period is linearized with CG-referenced terms: M_alpha / Iyy = -0.703 s^-2
+# (Cm_alpha CG-referenced -0.314, matching lessons 2026-09-22's -0.315), M_q / Iyy = -0.492 s^-1,
+# Z_alpha / (m V) = -0.600 s^-1. It predicts q = 1.82e-3 rad/s at 0.1 s after the step, rising
+# monotonically to 8.03e-3 rad/s at 0.5 s.
+#
+# Neglected terms and their sizes:
+# - pre-step drift of omega_b from the rotating-Earth forcing: order V/R = 3.6e-5 rad/s, 2 % of the
+#   lower value;
+# - the phugoid, much slower than this window;
+# - nonlinearity over a delta alpha of about 1e-3 rad: under 1 %.
+#
+# Band (Joe decides it; it was argued before the first run): q between 0.9 and 1.1 times that
+# prediction over [1.1, 1.5) s, i.e. [1.6e-3, 8.8e-3] rad/s. It rejects a sign error, a missing or
+# doubled elevator effectiveness, and an error above about 10 % in q_bar, Iyy or Cm_de. It cannot
+# tell a transfer-ignoring model apart from this one, which is 2.2 % away; that is disclosed, not
+# tested.
+config: aircraft/notional_transport/configs/cruise_still_air.yaml
+duration: 1.5
+events:
+  - { at: 1.0, write: controls.elevator, value: 0.016674474137989947 }
+checks:
+  - signal: v0.derived.q
+    window: { from: 1.1, to: 1.5 }
+    between: { lo: 1.6e-3, hi: 8.8e-3 }

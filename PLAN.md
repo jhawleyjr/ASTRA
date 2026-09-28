@@ -133,6 +133,10 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
   - PR 5 (#67): `astra.log`: `load` (pandas per rate group; refuses a log without `complete = 1` or inconsistent
     with its `/summary`), `replay` (byte identity; refuses transport and `LOG`-halted logs); h5py and pandas
     pinned. Plan: [plan](docs/plans/m5-tooling.md). Packet: in the PR body.
+  - PR 6 (#68): `astra.scenario` and `tests/scenarios/` (one item per YAML; invalid is a collection error),
+    `cruise_still_air.yaml`, five Q15 seed scenarios; reads each run's own log strictly (frames_run, halt,
+    warn counters: the finalization open item's consumer assertion). Plan: [plan](docs/plans/m5-tooling.md).
+    Packet: in the PR body.
 
 ## Open items
 

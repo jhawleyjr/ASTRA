@@ -1,0 +1,122 @@
+# Still-air cruise, the base of the M5 scenario harness's seed scenarios (docs/plans/m5-tooling.md
+# Q15; tests/scenarios/). cruise.yaml copied verbatim with physical.wind removed and nothing else
+# changed (tests/python/test_scenario.py asserts exactly that). Still air is the condition
+# cruise.yaml's initial state was trimmed in (its own provenance comment below), so a run from this
+# file starts in equilibrium (D8 residual 8.3e-17) instead of in seed-42 Dryden turbulence.
+#
+# aircraft/notional_transport: an example airframe, not a validated real Boeing 737. mass/aero/
+# propulsion parameters are transcribed from JSBSim's "737" example aircraft
+# (docs/refs/aircrafts/737.xml, gitignored -- not in this repository; $Revision: 1.43 $, authors
+# Dave Culp / Aeromatic, GPL). That file's own <note> says it was "created using publicly available
+# data, publicly available technical reports, textbooks, and guesses ... meant for educational and
+# entertainment purposes only" (Aeromatic/Roskam-style estimates) -- this config carries the same
+# caveat forward, not a claim of real-737 fidelity.
+#
+# Only keys Simulation::from_config actually reads appear below (docs/architecture.md §13, §15:
+# an unconsumed key is a ConfigError).
+sim:
+  dt: 0.001
+  frames: 1000
+vehicle:
+  models:
+    # Linear-coefficient aero (docs/plans/pr4-notional-aero-turbofan.md, ADR-0020). Every
+    # coefficient below is transcribed from docs/refs/aircrafts/737.xml's own <aerodynamics> block
+    # (same source as O1's mass properties above) -- notional, not a validated real 737, per that
+    # file's own <note>. cl_alpha_per_rad/croll_aileron_per_rad/cm_elevator_per_rad are the plan's
+    # own secant-slope/cruise-Mach-evaluated constants (Open items 2/3), not the source's raw
+    # per-alpha/per-Mach tables -- see the plan for the derivation.
+    - plugin: aircraft/notional_transport/physical/aero
+      wing_area_m2: 108.78945984       # m^2; 1171 FT2 x 0.09290304
+      wingspan_m: 28.864560          # m; 94.70 FT x 0.3048
+      mean_chord_m: 3.752088         # m; 12.31 FT x 0.3048
+      r_aero_b_x_m: 0.3556           # AERORP relative to CG, body axes -- see the plan's own
+      r_aero_b_y_m: 0.0              # "Frame-conversion math" for the structural-to-body
+      r_aero_b_z_m: -1.6256          # conversion (AERORP - CG = (-14, 0, 64) in, structural)
+      cl_0: 0.20                     # CLalpha table's own alpha=0 breakpoint
+      cl_alpha_per_rad: 4.3478260869565215  # secant slope, (0,0.20)->(0.23,1.20)
+      cl_elevator_per_rad: 0.2       # CLde, plain scalar in the source
+      cd_0: 0.021                    # CD0's own alpha=0 breakpoint
+      cd_k: 0.043                    # CDi's induced-drag factor, plain scalar in the source
+      cy_beta_per_rad: -1.0          # CYb -- JSBSim's own +right SIDE convention, used directly
+                                      # (NOT S&L's -C; see the plan's "Force/moment assembly")
+      croll_beta_per_rad: -0.09      # Clb
+      croll_p_per_rad: -0.4          # Clp
+      croll_r_per_rad: 0.09          # Clr
+      croll_aileron_per_rad: 0.0743  # Clda, linear-interpolated at cruise Mach ~0.768
+      croll_rudder_per_rad: 0.01     # Cldr
+      cm_alpha_per_rad: -0.6         # Cmalpha
+      cm_q_per_rad: -27.0            # Cmq
+      cm_elevator_per_rad: -0.8544   # Cmde, linear-interpolated at cruise Mach ~0.768
+      cn_beta_per_rad: 0.26          # Cnb
+      cn_r_per_rad: -0.35            # Cnr
+      cn_rudder_per_rad: -0.20       # Cndr
+    # Linear thrust-lapse turbofan (docs/plans/pr4-notional-aero-turbofan.md, Open item 1):
+    # thrust_ref_n is derived from this same config's own cruise drag/thrust equilibrium (not a
+    # real CFM56 spec -- none exists in docs/refs/), sized so throttle=0.5 at density_ref_kgm3
+    # balances cruise drag exactly, not the zero-margin throttle=1.0 an earlier revision used.
+    - plugin: aircraft/notional_transport/hardware/propulsion/turbofan
+      station: left
+      x_offset_from_cg_m: 2.5146    # engine relative to CG, body axes -- see the plan's own
+      y_offset_from_cg_m: -4.9022   # "Frame-conversion math" (engine - CG = (-99, -193, 0) in,
+      z_offset_from_cg_m: 0.0       # structural, left engine)
+      thrust_ref_n: 29878.121867743088  # N; notional, derived (see the plan's "Worked numbers")
+      density_ref_kgm3: 0.4128          # kg/m^3; the ISA density thrust_ref_n was derived at
+    - plugin: aircraft/notional_transport/hardware/propulsion/turbofan
+      station: right
+      x_offset_from_cg_m: 2.5146    # (-99, 193, 0) in, structural, right engine
+      y_offset_from_cg_m: 4.9022
+      z_offset_from_cg_m: 0.0
+      thrust_ref_n: 29878.121867743088
+      density_ref_kgm3: 0.4128
+  # ADR-0017: config-literal value for each write-seam input the models above registered.
+  # elevator/throttle are the still-air trim (see initial.state below for provenance);
+  # aileron/rudder=0.0 by the straight-and-level scenario.
+  initial_controls:
+    controls:
+      elevator: 0.026674474137989946   # rad
+      aileron: 0.0
+      rudder: 0.0
+      throttle: 0.4985979490507746
+physical:
+  earth: plugins/physical/earth/wgs84_rotating
+  gravity: plugins/physical/gravity/wgs84_j2
+  atmosphere: plugins/physical/atmosphere/isa1976
+  # No wind: still air (this file's header).
+  mass:
+    plugin: aircraft/notional_transport/physical/mass
+    # <mass_balance negated_crossproduct_inertia="true"><emptywt unit="LBS">83000</emptywt> etc.
+    # (docs/refs/aircrafts/737.xml). Empty-weight condition: JSBSim adds fuel mass at runtime;
+    # this model carries no fuel state (ADR-0003: mass is not state in v1), so these are the
+    # aircraft's only mass properties, not a specific loaded/gross-weight condition.
+    mass: 37648.0    # kg; 83000 LBS x 0.45359237
+    ixx: 761970.0    # kg*m^2; 562000 SLUG*FT2 x 1.35581795
+    iyy: 1997120.0   # kg*m^2; 1.473e6 SLUG*FT2 x 1.35581795
+    izz: 2567919.0   # kg*m^2; 1.894e6 SLUG*FT2 x 1.35581795
+    # ixy/iyz: 0 in the source (laterally symmetric airframe) -- left at this plugin's own default.
+    #
+    # ixz (product-of-inertia convention this plugin expects -- see its own header comment): the
+    # source's <ixz unit="SLUG*FT2">8000</ixz> is read under
+    # negated_crossproduct_inertia="true", under which JSBSim's own FGMassBalance::ReadInertiaMatrix
+    # (src/models/FGMassBalance.cpp) places that raw value UNNEGATED into its inertia matrix's
+    # (x,z) entry: JSBSim's tensor_xz = +8000 SLUG*FT2. Our tensor convention is
+    # tensor_xz = -integral(x*z*dm), so integral(x*z*dm) = -8000 SLUG*FT2 = -10846.5 kg*m^2 -- the
+    # value below. The plugin negates it back before building the tensor, reproducing JSBSim's own
+    # +8000 SLUG*FT2 (+10846.5 kg*m^2) tensor entry once converted to SI, as it must for the same
+    # airframe (JSBSim's X-forward/Y-right/Z-down body axes match ADR-0001's FRD; no axis remap).
+    # This gives the notional airframe a small (~0.34 deg), slightly nose-UP principal-axis tilt --
+    # that is what the source's token gives, transcribed faithfully, not a sign error to "fix".
+    ixz: -10846.5    # kg*m^2; integral(x*z*dm) = -(8000 SLUG*FT2) x 1.35581795
+# Trimmed initial state (M3 PR 8, D19; docs/plans/pr8-cruise-regression.md). v_b, euler_nb[1] and
+# initial_controls' elevator/throttle are astra.trim.trim_straight_and_level(this file, 230.0,
+# 10000.0)'s result at full repr precision -- astra.trim as of 553700f (unchanged since 53064e0),
+# default xtol=1e-12. euler_nb[1] is the trim alpha (gamma = 0, so theta = alpha). Residual (D8,
+# docs/plans/pr6-trim.md: max-abs of [v_dot_b, omega_dot_b] from Simulation.derivative at this state)
+# = 8.3e-17, in STILL AIR -- the trim drops physical.wind, and so does the test that re-checks this
+# state (tests/python/test_cruise_phugoid.py). This file has no wind, so that residual is the
+# frame-0 condition of a run from it (cruise.yaml's Dryden frame-0 gust does not apply here).
+initial:
+  state:
+    p_n: [0.0, 0.0, 10000.0]   # wgs84_rotating: lat (rad), lon (rad), altitude (m)
+    v_b: [229.9360238725, 0.0, 5.42447469393253]  # m/s, body axes; TAS 230 at trim alpha
+    euler_nb: [0.0, 0.023586859573503434, 0.0]    # [psi, theta, phi] rad; heading 0, theta = alpha
+    omega_b: [0.0, 0.0, 0.0]

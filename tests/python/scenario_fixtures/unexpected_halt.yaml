@@ -1,0 +1,4 @@
+# R12 negative fixture: an unexpected halt. health_nan_wrench.yaml halts NON_FINITE_WRENCH at frame
+# 500 (its own PLAN.md M1 PR 4 acceptance), inside this 0.6 s run, and no expect_halt is given.
+config: tests/configs/health_nan_wrench.yaml
+duration: 0.6
