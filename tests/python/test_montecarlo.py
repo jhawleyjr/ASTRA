@@ -12,6 +12,8 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import math
+import multiprocessing
+import multiprocessing.context
 import os
 import shutil
 import signal
@@ -232,6 +234,21 @@ def test_montecarlo_a_relative_out_dir_is_replaced_as_its_absolute_path_only(
     row = montecarlo.run_one(spec, 0, "out")
     assert row["error_message"].startswith(f"{montecarlo.OUT_DIR_PLACEHOLDER}/run_0000.h5: ")
     assert row["error_message"].count(montecarlo.OUT_DIR_PLACEHOLDER) == 1
+
+
+def test_montecarlo_trimmed_error_rows_do_not_depend_on_the_trim_copy_path(tmp_path: Path) -> None:
+    # Review R-001: with trim set, a drawn value the config refuses fails inside astra.trim, whose
+    # Config origin is its random temporary copy; the summary must not carry that path.
+    spec = _spec(tmp_path, duration="0.01", runs=6, seed=11, dispersions=_BAD_MASS)
+    montecarlo.run(spec, tmp_path / "one", workers=1)
+    montecarlo.run(spec, tmp_path / "four", workers=4)
+    _assert_identical(tmp_path / "one", tmp_path / "four")
+    errors = [row for row in _rows(tmp_path / "one") if row["status"] == "error"]
+    assert errors
+    for row in errors:
+        assert _runkit.TRIM_DIR_PREFIX not in row["error_message"]
+        assert f"{montecarlo.TRIM_COPY_PLACEHOLDER}/cruise.yaml" in row["error_message"]
+        assert "physical.mass.mass" in row["error_message"]
 
 
 def test_montecarlo_a_transport_config_is_refused(tmp_path: Path) -> None:
@@ -695,6 +712,14 @@ def test_montecarlo_trim_works_on_a_copy_without_log_or_transport(
         pytest.param({"extra": "signals: [v0.derived.nope]\n"}, "not a registered", id="signal"),
         pytest.param({"duration": "0.0005"}, "not an exact multiple of dt", id="duration"),
         pytest.param({"duration": "0.0"}, "greater than zero", id="zero-duration"),
+        pytest.param(
+            {
+                "dispersions": "dispersions:\n  physical.mass.mass: "
+                "{normal: {sigma: 0.1, mode: relative, clip: 0.5}}\n"
+            },
+            "normal.clip: 0.5 is below 1 standard deviation",
+            id="clip-below-one",  # review R-002: the redraw loop must end
+        ),
         pytest.param({"runs": 0}, "runs: 0 is outside", id="zero-runs"),
         pytest.param({"seed": -1}, "seed: -1 is outside", id="negative-seed"),
         pytest.param({"seed": 2**64}, "is outside \\[0, 18446744073709551616\\)", id="big-seed"),
@@ -705,6 +730,91 @@ def test_montecarlo_an_invalid_spec_is_refused_naming_the_key(
 ) -> None:
     with pytest.raises(montecarlo.SpecError, match=match):
         _spec(tmp_path, **kwargs)
+
+
+def _interrupt_inside_a_deferral(reached: list[str]) -> None:
+    with montecarlo._sigint_deferred():
+        signal.raise_signal(signal.SIGINT)
+        reached.append("end of block")  # not interrupted inside the block
+
+
+def test_montecarlo_sigint_deferred_holds_the_interrupt_to_the_end_of_the_block() -> None:
+    reached: list[str] = []
+    with pytest.raises(KeyboardInterrupt):
+        _interrupt_inside_a_deferral(reached)
+    assert reached == ["end of block"]
+    with montecarlo._sigint_deferred(reraise=False) as pending:
+        signal.raise_signal(signal.SIGINT)
+    assert pending == [signal.SIGINT]
+    assert signal.getsignal(signal.SIGINT) is signal.default_int_handler
+
+
+def test_montecarlo_an_interrupt_while_a_worker_starts_leaves_no_worker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Review R-003: SIGINT right after a start() returns, before the worker would have been
+    # registered for cleanup.
+    real = multiprocessing.context.SpawnProcess.start
+    started: list[int] = []
+
+    def start_then_interrupt(self: Any) -> None:
+        real(self)
+        started.append(cast(int, self.pid))
+        if len(started) == 1:
+            signal.raise_signal(signal.SIGINT)
+
+    monkeypatch.setattr(multiprocessing.context.SpawnProcess, "start", start_then_interrupt)
+    spec = _spec(tmp_path, trim=False, duration="0.01", runs=4)
+    with pytest.raises(montecarlo.BatchInterrupted, match="runs not completed: 0, 1, 2, 3"):
+        montecarlo.run(spec, tmp_path / "batch", workers=2)
+    assert len(started) == 2  # the interrupt waited for the whole start-up
+    assert not any(_alive(pid) for pid in started)
+    assert not _children()
+    assert list((tmp_path / "batch").iterdir()) == []
+
+
+def test_montecarlo_an_interrupt_while_workers_stop_still_stops_every_worker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Review R-003: SIGINT inside the stop of a finished batch. Every worker is still joined and
+    # closed, and the batch is interrupted: every run completed, so every log stays, and no
+    # summary is written.
+    real = multiprocessing.context.SpawnProcess.close
+    closed: list[bool] = []
+
+    def close_then_interrupt(self: Any) -> None:
+        real(self)
+        closed.append(True)
+        if len(closed) == 1:
+            signal.raise_signal(signal.SIGINT)
+
+    monkeypatch.setattr(multiprocessing.context.SpawnProcess, "close", close_then_interrupt)
+    spec = _spec(tmp_path, trim=False, duration="0.01", runs=4)
+    out = tmp_path / "batch"
+    with pytest.raises(montecarlo.BatchInterrupted, match="runs not completed: none") as caught:
+        montecarlo.run(spec, out, workers=3)
+    assert caught.value.incomplete == ()
+    assert len(closed) == 3
+    assert not _children()
+    assert not (out / montecarlo.SUMMARY).exists()
+    assert [path.name for path in _logs(out)] == [montecarlo.log_name(i) for i in range(4)]
+
+
+def test_montecarlo_a_parent_failure_after_the_runs_leaves_no_summary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Review R-004: the summary was published before the last fallible steps (the DataFrame, the
+    # stdout report). A failure there now withdraws it and raises BatchError.
+    def broken_print(*_args: Any, **_kwargs: Any) -> None:
+        raise BrokenPipeError("stdout is closed")
+
+    monkeypatch.setattr(montecarlo, "print", broken_print, raising=False)
+    spec = _spec(tmp_path, trim=False, duration="0.01", runs=3)
+    out = tmp_path / "batch"
+    with pytest.raises(montecarlo.BatchError, match="BrokenPipeError") as caught:
+        montecarlo.run(spec, out, workers=2)
+    assert caught.value.incomplete == ()
+    assert sorted(path.name for path in out.iterdir()) == [montecarlo.log_name(i) for i in range(3)]
 
 
 def test_montecarlo_refuses_a_non_empty_out_dir_and_a_bad_worker_count(tmp_path: Path) -> None:

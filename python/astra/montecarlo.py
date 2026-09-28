@@ -28,7 +28,8 @@ file and the key).
   - ``{normal: {sigma, mode, clip}}``, all three required, centered on the config's value
     ``base``. ``mode: absolute``: the value is ``base + sigma * z`` (sigma in the leaf's units).
     ``mode: relative``: ``base + (sigma * |base|) * z`` (sigma a fraction; ``base`` must not be
-    zero). ``clip`` is in standard deviations (dimensionless, > 0): a draw with ``|z| > clip`` is
+    zero). ``clip`` is in standard deviations (dimensionless, at least ``MIN_CLIP`` = 1, so at
+    least 68 % of draws are kept and the redraw loop ends): a draw with ``|z| > clip`` is
     **redrawn**, never clamped, so the value is a normal truncated to ``base +/- clip`` standard
     deviations, with no extra probability at the bounds.
   - ``seed``: for an integer plugin seed (the config's value must be an integer): an integer
@@ -63,15 +64,18 @@ config text (the log's ``config`` attribute) and in the summary. The row's ``sta
   strict load refuses, a ``LOG`` halt (a log write failure, ``LogHaltError``), and a failed consumer
   assertion (``RunLengthError``: ``frames_run`` must equal ``duration / dt`` without a halt, or the
   halt's own frame with one; PLAN.md's finalization-marker open item, ``astra._runkit``). A message
-  naming ``out_dir`` has that prefix replaced by ``<out_dir>``, so the summary does not depend on
-  the output directory.
+  naming ``out_dir`` has that prefix replaced by ``<out_dir>``, and one naming trim's temporary
+  copy has its random directory replaced by ``<trim_copy>``, so the summary depends on neither.
 
 The batch (``run``, Q20). ``out_dir`` is created if missing and must be empty. Runs are spread over
 ``workers`` processes (default ``os.cpu_count()``, never more than ``runs``) started with the
 ``spawn`` method, each building its own ``Config`` and ``Simulation``; workers ignore SIGINT, so the
-parent alone handles an interrupt. If a worker dies, or the parent is interrupted or fails, every
-worker is killed and joined, no ``summary.parquet`` is written, and ``BatchError`` (or
-``BatchInterrupted``, a ``KeyboardInterrupt``) is raised naming the runs not completed. The log of
+parent alone handles an interrupt. If a worker dies, or the parent is interrupted or fails at any
+point up to ``run``'s return (writing the summary and printing included), every worker is killed
+and joined, no ``summary.parquet`` is left, and ``BatchError`` (or ``BatchInterrupted``, a
+``KeyboardInterrupt``) is raised naming the runs not completed. While workers start and while they
+are stopped, SIGINT is deferred to the end of that step, so an interrupt can neither leave a
+started worker untracked nor abandon a stop half done (review R-003). The log of
 every run not completed is removed: a killed worker leaves a partial HDF5 file that h5py cannot
 read (PR 5's finding), and a later reader must never mistake it for a result. The logs of completed
 runs stay, and each of them is complete and was loaded strictly.
@@ -88,6 +92,7 @@ real-time factor to stdout.
 
 from __future__ import annotations
 
+import contextlib
 import copy
 import dataclasses
 import hashlib
@@ -96,9 +101,13 @@ import multiprocessing
 import multiprocessing.connection
 import os
 import random
+import re
 import signal
 import struct
+import tempfile
+import threading
 import time
+from collections.abc import Generator
 from pathlib import Path
 from typing import Any, cast
 
@@ -115,6 +124,13 @@ _pq = cast(Any, pyarrow.parquet)
 
 SUMMARY = "summary.parquet"
 OUT_DIR_PLACEHOLDER = "<out_dir>"
+TRIM_COPY_PLACEHOLDER = "<trim_copy>"
+MIN_CLIP = 1.0  # standard deviations: at least 68 % of draws are kept (review R-002)
+
+# apply_trim's temporary directory, as it appears in a Config origin inside an error message.
+_TRIM_COPY = re.compile(
+    re.escape(os.path.join(tempfile.gettempdir(), _runkit.TRIM_DIR_PREFIX)) + r"[^/\s'\"]*"
+)
 
 _TOP_KEYS = {"config", "trim", "duration", "runs", "seed", "dispersions", "signals"}
 _REQUIRED = {"config", "duration", "runs", "seed", "dispersions"}
@@ -397,8 +413,11 @@ def _distribution(path: Path, where: str, key: str, value: Any, base: int | floa
     mode = normal["mode"]
     if sigma <= 0.0:
         raise SpecError(f"{path}: {where}.normal.sigma: must be greater than zero")
-    if clip <= 0.0:
-        raise SpecError(f"{path}: {where}.normal.clip: must be greater than zero (in sigmas)")
+    if clip < MIN_CLIP:
+        # A redraw keeps a fraction erf(clip / sqrt 2) of draws; a tiny clip would never finish.
+        raise SpecError(
+            f"{path}: {where}.normal.clip: {clip!r} is below {MIN_CLIP:g} standard deviation"
+        )
     center = float(base)
     if mode == "absolute":
         scale = sigma
@@ -501,8 +520,10 @@ def _close_log(sim: _core.Simulation) -> None:
 
 def _error_row(row: dict[str, Any], error: Exception, out_dir: Path) -> dict[str, Any]:
     """``out_dir`` is absolute (``run_one`` resolves it), so exactly one prefix is replaced, and a
-    relative name cannot rewrite unrelated text."""
+    relative name cannot rewrite unrelated text. The trim copy's random temporary directory is
+    replaced too (review R-001)."""
     message = str(error).replace(str(out_dir), OUT_DIR_PLACEHOLDER)
+    message = _TRIM_COPY.sub(TRIM_COPY_PLACEHOLDER, message)
     row.update(status="error", error_type=type(error).__name__, error_message=message)
     return row
 
@@ -513,8 +534,8 @@ def _error_row(row: dict[str, Any], error: Exception, out_dir: Path) -> dict[str
 def run(spec: Spec | str | Path, out_dir: str | Path, workers: int | None = None) -> pd.DataFrame:
     """Runs every run of ``spec`` (a ``Spec`` or a spec path) into ``out_dir`` and writes
     ``summary.parquet`` (module docstring, The batch). Returns the summary. Raises
-    ``BatchError``/``BatchInterrupted`` naming the runs not completed when a worker dies or the
-    batch is interrupted."""
+    ``BatchError``/``BatchInterrupted`` naming the runs not completed when a worker dies, the
+    parent fails, or the batch is interrupted; no summary is then left."""
     spec = spec if isinstance(spec, Spec) else load(spec)
     out_dir = Path(out_dir).resolve()
     count = _worker_count(workers, spec.runs)
@@ -522,17 +543,24 @@ def run(spec: Spec | str | Path, out_dir: str | Path, workers: int | None = None
     if any(out_dir.iterdir()):
         raise FileExistsError(f"{out_dir}: the batch's output directory is not empty")
     started = time.perf_counter()
-    rows = _run_pool(spec, out_dir, count)
-    wall = time.perf_counter() - started
-    ordered = [rows[index] for index in range(spec.runs)]
-    summary = _write_summary(spec, ordered, out_dir / SUMMARY)
-    simulated = sum(
-        row["frames_run"] * spec.dt for row in ordered if row.get("frames_run") is not None
-    )
-    print(
-        f"astra.montecarlo: {spec.name}: {spec.runs} runs on {count} workers in {wall:.2f} s "
-        f"wall, {simulated:.1f} s simulated, real-time factor {simulated / wall:.1f}"
-    )
+    rows = _run_pool(spec, out_dir, count)  # every worker is stopped when it returns or raises
+    path = out_dir / SUMMARY
+    try:
+        wall = time.perf_counter() - started
+        ordered = [rows[index] for index in range(spec.runs)]
+        summary = _write_summary(spec, ordered, path)
+        simulated = sum(
+            row["frames_run"] * spec.dt for row in ordered if row.get("frames_run") is not None
+        )
+        print(
+            f"astra.montecarlo: {spec.name}: {spec.runs} runs on {count} workers in {wall:.2f} "
+            f"s wall, {simulated:.1f} s simulated, real-time factor {simulated / wall:.1f}"
+        )
+    except BaseException as error:
+        # Every run completed and its log stays; the summary is withdrawn (review R-004).
+        with _sigint_deferred(reraise=False) as pending:
+            path.unlink(missing_ok=True)
+        raise _batch_error(spec, (), error, interrupted=bool(pending)) from error
     return summary
 
 
@@ -543,6 +571,24 @@ def _worker_count(workers: int | None, runs: int) -> int:
     if isinstance(checked, bool) or not isinstance(checked, int) or workers < 1:
         raise ValueError(f"workers must be an integer >= 1, got {workers!r}")
     return min(workers, runs)
+
+
+@contextlib.contextmanager
+def _sigint_deferred(*, reraise: bool = True) -> Generator[list[int]]:
+    """Holds SIGINT until the block ends, then re-raises it under the previous handler
+    (``reraise``) or only reports it in the yielded list. A no-op off the main thread, where
+    Python delivers no signal."""
+    pending: list[int] = []
+    if threading.current_thread() is not threading.main_thread():
+        yield pending
+        return
+    previous = signal.signal(signal.SIGINT, lambda signum, _frame: pending.append(signum))
+    try:
+        yield pending
+    finally:
+        signal.signal(signal.SIGINT, previous)
+        if pending and reraise:
+            signal.raise_signal(signal.SIGINT)
 
 
 def _worker(conn: multiprocessing.connection.Connection, spec: Spec, out_dir: Path) -> None:
@@ -563,6 +609,8 @@ class _WorkerDiedError(Exception):
 
 
 def _run_pool(spec: Spec, out_dir: Path, count: int) -> dict[int, dict[str, Any]]:
+    """Every run's row, by index. Returns only after every worker has exited and been joined;
+    raises (``_batch_error``) after killing them."""
     context = multiprocessing.get_context("spawn")
     processes: list[Any] = []
     conns: list[multiprocessing.connection.Connection] = []
@@ -570,15 +618,16 @@ def _run_pool(spec: Spec, out_dir: Path, count: int) -> dict[int, dict[str, Any]
     pending = list(range(spec.runs - 1, -1, -1))  # popped from the end: run 0 first
     assigned: dict[int, int] = {}  # worker -> run
     try:
-        for _ in range(count):
-            parent, child = context.Pipe()
-            process = context.Process(
-                target=_worker, args=(child, spec, out_dir), name="astra.montecarlo worker"
-            )
-            process.start()
-            child.close()
-            processes.append(process)
-            conns.append(parent)
+        with _sigint_deferred():  # a started worker is always in processes (review R-003)
+            for _ in range(count):
+                parent, child = context.Pipe()
+                process = context.Process(
+                    target=_worker, args=(child, spec, out_dir), name="astra.montecarlo worker"
+                )
+                conns.append(parent)
+                processes.append(process)
+                process.start()
+                child.close()
         for worker in range(count):
             _assign(worker, conns, pending, assigned)
         while len(rows) < spec.runs:
@@ -601,10 +650,9 @@ def _run_pool(spec: Spec, out_dir: Path, count: int) -> dict[int, dict[str, Any]
             conn.send(None)
         for process in processes:
             process.join(_JOIN_S)
+        _stop(processes, conns)  # a worker that has not exited by now is killed
     except BaseException as error:
         _abort(processes, conns, spec, out_dir, rows, error)
-    finally:
-        _stop(processes, conns)
     return rows
 
 
@@ -630,15 +678,20 @@ def _assign(
 
 
 def _stop(processes: list[Any], conns: list[multiprocessing.connection.Connection]) -> None:
-    """Kills and joins every worker still alive and closes every pipe."""
-    for process in processes:
-        if process.is_alive():
-            process.kill()
-    for process in processes:
-        process.join()
-        process.close()
-    for conn in conns:
-        conn.close()
+    """Kills and joins every worker still alive, closes every pipe, and empties both lists, with
+    SIGINT held until all of that is done (review R-003); safe to call twice."""
+    with _sigint_deferred():
+        for process in processes:
+            if process.is_alive():  # False for a worker whose start() failed
+                process.kill()
+        for process in processes:
+            if process.pid is not None:
+                process.join()
+            process.close()
+        processes.clear()
+        for conn in conns:
+            conn.close()
+        conns.clear()
 
 
 def _abort(
@@ -650,32 +703,37 @@ def _abort(
     error: BaseException,
 ) -> None:
     """Kills the pool, removes every log of a run not completed, and raises naming those runs."""
-    _stop(processes, conns)
-    processes.clear()
-    conns.clear()
     incomplete = tuple(index for index in range(spec.runs) if index not in rows)
-    for index in incomplete:
-        (out_dir / log_name(index)).unlink(missing_ok=True)
+    with _sigint_deferred(reraise=False) as pending:
+        _stop(processes, conns)
+        for index in incomplete:
+            (out_dir / log_name(index)).unlink(missing_ok=True)
+    raise _batch_error(spec, incomplete, error, interrupted=bool(pending)) from error
+
+
+def _batch_error(
+    spec: Spec, incomplete: tuple[int, ...], error: BaseException, *, interrupted: bool
+) -> BatchError | BatchInterrupted:
     runs = ", ".join(str(index) for index in incomplete) or "none"
-    if isinstance(error, KeyboardInterrupt):
-        raise BatchInterrupted(
+    if interrupted or isinstance(error, KeyboardInterrupt):
+        return BatchInterrupted(
             f"{spec.path}: the batch was interrupted; runs not completed: {runs}; no summary "
             "was written",
             incomplete,
-        ) from error
-    raise BatchError(
+        )
+    return BatchError(
         f"{spec.path}: the batch failed ({type(error).__name__}: {error}); runs not completed: "
         f"{runs}; no summary was written",
         incomplete,
-    ) from error
+    )
 
 
 # --- summary ------------------------------------------------------------------------------------
 
 
 def _write_summary(spec: Spec, rows: list[dict[str, Any]], path: Path) -> pd.DataFrame:
-    """Writes the summary with an explicit schema, to a temporary name first, so a partial file
-    never carries the summary's name."""
+    """Builds the summary with an explicit schema and its DataFrame, then writes it under a
+    temporary name and renames it: the file carries the summary's name only once complete."""
     fields: list[tuple[str, Any]] = [
         ("run", _pa.int64()),
         ("seed", _pa.uint64()),
@@ -702,7 +760,11 @@ def _write_summary(spec: Spec, rows: list[dict[str, Any]], path: Path) -> pd.Dat
     schema = _pa.schema(fields)
     columns = {name: [row.get(name) for row in rows] for name, _type in fields}
     table = _pa.Table.from_pydict(columns, schema=schema)
+    summary = cast(pd.DataFrame, table.to_pandas())
     partial = path.with_name(f".{path.name}.partial")
-    _pq.write_table(table, partial)
-    partial.replace(path)
-    return cast(pd.DataFrame, table.to_pandas())
+    try:
+        _pq.write_table(table, partial)
+        partial.replace(path)
+    finally:
+        partial.unlink(missing_ok=True)
+    return summary

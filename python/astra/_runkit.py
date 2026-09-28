@@ -48,6 +48,10 @@ TRIM_OWNED = (
 # D8's trim residual bound (docs/plans/pr6-trim.md), the bound cruise.yaml's trim was held to.
 TRIM_RESIDUAL_BOUND = 1e-6
 
+# The temporary directory apply_trim writes its still-air copy into. The copy's path is its Config
+# origin, so it can reach an error message; astra.montecarlo replaces it with a placeholder.
+TRIM_DIR_PREFIX = "astra_scenario_trim_"
+
 _INDEX = re.compile(r"0|[1-9][0-9]*")
 
 ErrorType = Callable[[str], Exception]
@@ -199,7 +203,7 @@ def apply_trim(
     bound."""
     if "log" in data:
         raise RuntimeError(f"{origin}: the trim copy must not carry the run's log block")
-    with tempfile.TemporaryDirectory(prefix="astra_scenario_trim_") as directory:
+    with tempfile.TemporaryDirectory(prefix=TRIM_DIR_PREFIX) as directory:
         still = Path(directory) / config_name
         still.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
         result = astra.trim.trim_straight_and_level(
