@@ -1,0 +1,45 @@
+# Seed scenario 1 (docs/plans/m5-tooling.md Q15): trimmed still-air cruise, held open loop for 60 s.
+# It runs astra.trim through the harness (the one seed scenario that does). The trim works on a copy
+# of the config without the log block, so it cannot create this run's log.
+#
+# Evidence. This is the unperturbed still-air run of M3 PR 8 (docs/plans/pr8-cruise-regression.md):
+# the same airframe and the same 230 m/s, 10,000 m trim, with no wind. Its findings 6 and 8 describe
+# that run ("Unperturbed from trim, still air"); finding 9, not used here, is the separate
+# seed-42 Dryden regression. Over 300 s, u stays within [-0.193, +0.012] m/s of trim, altitude rises
+# by at most +5.8 m, and heading drifts -3.2 deg. PR 8 attributes all three to rotating-Earth and
+# transport-rate forcing that the trim (omega_b = 0) does not cancel. This scenario is the first
+# 60 s of that same trajectory, apart from trim's re-solve, which reproduces the config's literals.
+#
+# Bands (Joe decides them; they were argued before the first run):
+# - Altitude: 10000 +/- 10 m. The whole 300 s run peaks at +5.8 m, and a 60 s prefix of it cannot
+#   exceed its own maximum. The evidence gives no lower excursion, so the band is symmetric at 1.7x
+#   the stated maximum. It rejects a trim off by about 0.5 % in lift (a phugoid of tens of metres)
+#   or an altitude signal that is not p_n's altitude.
+# - Pitch: theta within alpha_trim +/- 3e-3 rad. Level trim has gamma = 0, so theta = alpha_trim,
+#   which is the config's euler_nb[1] (tests/python/test_scenario.py pins the literal to it).
+#   Departures are gamma plus the change in alpha:
+#   - |gamma| <= omega_p * h_amplitude / V = 0.0579 * 5.8 / 230 = 1.5e-3 rad, using the phugoid's
+#     108.57 s period (PR 8 finding 4);
+#   - |delta alpha| <= 2 * |du| / V * CL / CL_alpha = 2 * 0.193 / 230 * 0.31 / 4.35 = 1.2e-4 rad.
+#   The sum, 1.6e-3, gets about 2x margin.
+# - Heading: psi within 0 +/- 0.012 rad, wrap-aware. The -3.2 deg (0.056 rad) is the 300 s total.
+#   At latitude 0 heading north, the Earth-rate component that turns a heading (its local vertical,
+#   Omega sin(lat)) starts at zero and grows with the latitude flown. The drift rate therefore does
+#   not decrease, and the first 60 s carry at most 60/300 of the total: 0.0112 rad. It rejects a
+#   heading or quaternion convention error (psi near pi, or far from 0) and a yaw asymmetry, such as
+#   unequal engine thrust, turning the aircraft faster than the forcing.
+config: aircraft/notional_transport/configs/cruise_still_air.yaml
+trim:
+  true_airspeed: 230.0
+  altitude: 10000.0
+duration: 60.0
+checks:
+  - signal: v0.derived.altitude
+    window: { from: 0.0, to: 60.0 }
+    within: { target: 10000.0, tol: 10.0 }
+  - signal: v0.derived.theta
+    window: { from: 0.0, to: 60.0 }
+    within: { target: 0.023586859573503434, tol: 3.0e-3 }
+  - signal: v0.derived.psi
+    window: { from: 0.0, to: 60.0 }
+    angle_within: { target: 0.0, tol: 0.012 }

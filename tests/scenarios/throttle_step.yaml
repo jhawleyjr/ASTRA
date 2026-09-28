@@ -1,0 +1,37 @@
+# Seed scenario 4 (docs/plans/m5-tooling.md Q15): a throttle step from still-air trim. True
+# airspeed rises.
+#
+# Event. At 1.0 s (frame 1000) the throttle goes from the config's trim value
+# (cruise_still_air.yaml vehicle.initial_controls.controls.throttle = 0.4985979490507746) to that
+# value + 0.1. Q14's event value is absolute, so the literal is the float sum, and
+# tests/python/test_scenario.py asserts it equals config + delta exactly.
+#
+# Force. Thrust = throttle * thrust_ref * rho / rho_ref per engine (turbofan_math.hpp), so two
+# engines give delta_T = 0.1 * 2 * 29,878.1 * 0.41351 / 0.4128 = 5,986 N along body x. Both engines
+# sit at z = 0 from the CG and at symmetric y, so there is no moment.
+# delta_V_dot_0 = delta_T / m = 0.1590 m/s^2.
+#
+# Response. Accepted evidence is PR 8's still-air phugoid: a 108.57 s damped period and zeta 0.0271
+# (docs/plans/pr8-cruise-regression.md finding 4). A thrust step drives the phugoid's speed response
+# delta_V(tau) = (delta_V_dot_0 / omega_d) * exp(-zeta omega_n tau) * sin(omega_d tau), where tau
+# is the time since the step and omega_d = 0.05787 rad/s. That is 0.626 m/s at tau = 4 s and
+# 2.377 m/s at tau = 19 s, monotonic until tau of about 27 s.
+#
+# Unperturbed drift: at most -0.193 / +0.012 m/s (PR 8 finding 6, still air).
+#
+# Band (Joe decides it; it was argued before the first run): TAS over [5, 20) s, i.e. tau in
+# [4, 19) s, between 230 + 0.85 * 0.626 - 0.193 = 230.3 and 230 + 1.15 * 2.377 + 0.012 = 232.8 m/s.
+# The 15 % on the phugoid term covers what the second-order form omits:
+# - the slow height mode, lambda = -0.00173 s^-1 (PR 8 finding 7), which moves about 3 % in 19 s;
+# - the density change as the aircraft climbs;
+# - the short-period transient, which has decayed by tau = 4 s.
+# It rejects a sign error (TAS falling), a missing thrust change, and a thrust law off by more than
+# about 15 %.
+config: aircraft/notional_transport/configs/cruise_still_air.yaml
+duration: 20.0
+events:
+  - { at: 1.0, write: controls.throttle, value: 0.5985979490507746 }
+checks:
+  - signal: v0.derived.tas
+    window: { from: 5.0, to: 20.0 }
+    between: { lo: 230.3, hi: 232.8 }

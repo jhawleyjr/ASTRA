@@ -1,0 +1,40 @@
+# Seed scenario 3 (docs/plans/m5-tooling.md Q15): an aileron step from still-air trim. The roll
+# rate responds right wing down.
+#
+# Event. At 1.0 s (frame 1000) the aileron goes from the config's trim value
+# (cruise_still_air.yaml vehicle.initial_controls.controls.aileron = 0.0) to that value + 0.01 rad.
+# Q14's event value is absolute, so the literal is the float sum, and tests/python/test_scenario.py
+# asserts it equals config + delta exactly.
+#
+# Sign. croll_aileron_per_rad = 0.0743 > 0, so +0.01 rad is a positive rolling moment: p > 0, right
+# wing down, in ADR-0001's FRD body axes. derived p is omega_b[0] itself (icd_pack.hpp).
+#
+# Magnitude. The aero plugin transfers its moment from AERORP to the CG (r_aero_b x force_b;
+# lessons 2026-09-21/22), but no force in this model depends on the aileron, so the step's transfer
+# term is zero. The native rolling moment is
+# delta_L = q_bar * S * b * Cl_da * delta_da = 10,937 * 108.79 * 28.865 * 0.0743 * 0.01 = 25,518 N m.
+# With the Ixz product of inertia, p_dot_0 = Izz * delta_L / (Ixx * Izz - Ixz^2) = 0.03349 rad/s^2.
+#
+# Response. Roll damping carries no transfer term (no force depends on p):
+# L_p = 0.25 * rho * V * S * b^2 * Cl_p / Ixx = -1.131 s^-1. The first-order roll mode predicts
+# p = (p_dot_0 / 1.131)(1 - exp(-1.131 t)), which is 3.17e-3 rad/s at 0.1 s after the step, rising
+# monotonically to 1.279e-2 rad/s at 0.5 s.
+#
+# Neglected terms and their sizes, over 0.5 s:
+# - sideslip from roll (alpha * integral of p, plus g/V * integral of phi) of about 1.2e-4 rad. Its
+#   Cl_beta moment, including the side-force transfer, is under 2.5 % of delta_L.
+# - Ixz yaw coupling: r_dot = Ixz * delta_L / (Ixx Izz - Ixz^2) = 1.4e-4 rad/s^2, whose Cl_r roll
+#   moment is under 0.1 %.
+#
+# Band (Joe decides it; it was argued before the first run): p between 0.9 and 1.1 times that
+# prediction over [1.1, 1.5) s, i.e. [2.85e-3, 1.41e-2] rad/s. It rejects a sign error, a missing or
+# doubled aileron effectiveness, a roll damping off by a factor of two, and an error above about
+# 10 % in q_bar or Ixx.
+config: aircraft/notional_transport/configs/cruise_still_air.yaml
+duration: 1.5
+events:
+  - { at: 1.0, write: controls.aileron, value: 0.01 }
+checks:
+  - signal: v0.derived.p
+    window: { from: 1.1, to: 1.5 }
+    between: { lo: 2.85e-3, hi: 1.41e-2 }
