@@ -482,6 +482,39 @@ def test_the_live_bridge_drains_the_log_past_its_ring_capacity(
     _receive(receiver, 2)
 
 
+def test_the_live_bridge_drains_even_when_sending_raises(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R-001 (verification): a caller that catches send errors and keeps stepping must not fill
+    an 8-row ring."""
+
+    def unreachable(self: object, frame: int, packet: bytes) -> None:
+        del self, frame, packet
+        raise OSError("network is unreachable")
+
+    monkeypatch.setattr(fgbridge._Sender, "send", unreachable)
+    path = tmp_path / "run.h5"
+    sim = _sim(_cruise(20), path, buffer_frames=8)
+    with fgbridge.LiveBridge(sim, divisor=1) as bridge:
+        for _ in range(20):
+            with pytest.raises(OSError, match="unreachable"):
+                bridge.step()
+    assert sim.clock.frame == 20
+    sim.close_log()
+    run_log = log.load(path)
+    assert run_log.frames_run == 20
+    assert run_log.halt is None
+
+
+def test_a_flat_earth_refusal_still_drains_the_completed_frame(tmp_path: Path) -> None:
+    sim = _sim(_flat(10), tmp_path / "flat.h5", buffer_frames=1)
+    with fgbridge.LiveBridge(sim, divisor=1) as bridge, pytest.raises(fgbridge.BridgeError):
+        bridge.step()
+    assert sim.clock.frame == 1
+    assert not sim.step()  # a one-row ring: frame 1 fits only because frame 0's row was drained
+    sim.close_log()
+
+
 class _FailingDrain:
     """A Simulation whose flush_log() reports ``halt``, as a failed drain write would; everything
     else is the real Simulation's."""

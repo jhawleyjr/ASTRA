@@ -250,7 +250,8 @@ class LiveBridge:
         and sends its packet when the frame is due. Then drains the run log, as
         ``astra.lockstep.Session.step`` does: ``Simulation.step()`` never drains, and only
         ``Simulation.run()`` does so on its own (ADR-0025). A frame that completed keeps its
-        packet even when the drain after it fails. Returns ``step()``'s ``HaltReason`` if it
+        packet even when the drain after it fails, and the drain runs even when sending or a
+        refusal raises. Returns ``step()``'s ``HaltReason`` if it
         halted, else the drain's (the sticky ``LOG`` halt after a failed write)."""
         current = self._sim.clock.frame
         if current != self._next:
@@ -259,10 +260,14 @@ class LiveBridge:
                 f"frame {self._next}: frames stepped outside LiveBridge could not be sent"
             )
         reason = self._sim.step()
-        if not reason:
-            self._next = self._sim.clock.frame
-            self._publish(current)
-        drained = self._sim.flush_log()  # no log: does nothing
+        try:
+            if not reason:
+                self._next = self._sim.clock.frame
+                self._publish(current)
+        finally:
+            # Even when publishing raised (a send error, a refusal): frame k's row was committed,
+            # and a caller that goes on stepping must not fill the ring (review R-001).
+            drained = self._sim.flush_log()  # no log: does nothing
         return reason if reason else drained
 
     def _publish(self, frame: int) -> None:
