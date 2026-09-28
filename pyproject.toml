@@ -15,8 +15,8 @@ requires-python = ">=3.12"
 dependencies = ["numpy>=2"]
 
 [dependency-groups]
-# What the gate needs, pinned: `just venv` installs this group. The analysis libraries (scipy, h5py, pandas,
-# pyarrow, pyyaml) join when a milestone uses them.
+# What the gate needs, pinned: `just venv` installs this group. The analysis libraries join when a milestone uses
+# them (pyarrow: M5 PR 7).
 dev = [
   "nanobind==3.0.1",
   "scikit-build-core==1.0.3",
@@ -27,6 +27,10 @@ dev = [
   # M3 PR 6 (astra.trim, docs/plans/pr6-trim.md, D9): current release at pin time, 2026-09-21.
   "scipy==1.18.1",
   "pyyaml==6.0.3",
+  # M5 PR 5 (astra.log, docs/plans/m5-tooling.md Q2, approved by Joe 2026-09-26): current releases at pin time.
+  # h5py's wheel bundles its own libhdf5 (2.0.0) beside the system 1.10 that libastra_core links (plan R8).
+  "h5py==3.16.0",
+  "pandas==3.0.5",
 ]
 
 [tool.scikit-build]

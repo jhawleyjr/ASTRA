@@ -35,7 +35,7 @@ import numpy as np
 import pytest
 import yaml
 
-from astra import _core
+from astra import _core, log
 from astra import lockstep as ls
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -1022,7 +1022,8 @@ def test_session_log_write_failure_halts_and_close_log_raises(
     """Plan R6b through astra.lockstep (the core half is tests/unit/kernel/run_log_test.cpp; the
     "load then refuses the file" half is PR 5's astra.log): a real write failure (RLIMIT_FSIZE in
     the child) is a sticky LOG halt from Session.run, close_log() raises LogError naming the write
-    both times, complete is never set, and the child process still exits cleanly."""
+    both times, complete is never set, the child process still exits cleanly, and astra.log.load
+    refuses the file."""
     facts = _lifecycle(reaper, binaries, "log-close-failure", tmp_path)
     assert "exception" not in facts, facts
     assert facts["halt"] is not None
@@ -1034,6 +1035,8 @@ def test_session_log_write_failure_halts_and_close_log_raises(
     assert "File too large" in first
     assert second == first
     assert not facts["log_complete_marker"]
+    with pytest.raises(log.IncompleteLogError):  # M5 PR 5: astra.log refuses the file
+        log.load(tmp_path / "run.h5")
 
 
 def test_session_missing_executable(

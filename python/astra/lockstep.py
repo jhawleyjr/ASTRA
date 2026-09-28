@@ -559,8 +559,10 @@ class Session:
         return _halt(halt if halt else drained)
 
     def flush_log(self) -> Halt | None:
-        """Drains the run log; the sticky ``LOG`` halt once there is one. Nothing without a
-        ``log`` block."""
+        """Drains the run log's rings; the sticky ``LOG`` halt once there is one. Nothing without
+        a ``log`` block. Drained rows go to a 1024-row staging block per rate group, which reaches
+        the file only when it fills or at ``close_log()`` (ADR-0025, PR 4), so a flush does not
+        make the rows readable on disk."""
         return _halt(self._live().flush_log())
 
     def close_log(self) -> None:
