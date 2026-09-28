@@ -438,7 +438,7 @@ def run_one(spec: Spec, index: int, out_dir: str | Path) -> dict[str, Any]:
     """Draws, trims (if set), runs and reads back run ``index`` with its log in ``out_dir``, and
     returns its summary row (module docstring, A run). Only an ``ok`` or ``halt`` row leaves a
     log."""
-    out_dir = Path(out_dir)
+    out_dir = Path(out_dir).resolve()  # absolute, so _error_row replaces one exact prefix
     seed, values = draw(spec, index)
     row: dict[str, Any] = {"run": index, "seed": seed, "status": "ok", **values}
     log_path = out_dir / log_name(index)
@@ -500,9 +500,9 @@ def _close_log(sim: _core.Simulation) -> None:
 
 
 def _error_row(row: dict[str, Any], error: Exception, out_dir: Path) -> dict[str, Any]:
-    message = str(error)
-    for prefix in {str(out_dir.resolve()), str(out_dir)}:
-        message = message.replace(prefix, OUT_DIR_PLACEHOLDER)
+    """``out_dir`` is absolute (``run_one`` resolves it), so exactly one prefix is replaced, and a
+    relative name cannot rewrite unrelated text."""
+    message = str(error).replace(str(out_dir), OUT_DIR_PLACEHOLDER)
     row.update(status="error", error_type=type(error).__name__, error_message=message)
     return row
 
@@ -516,7 +516,7 @@ def run(spec: Spec | str | Path, out_dir: str | Path, workers: int | None = None
     ``BatchError``/``BatchInterrupted`` naming the runs not completed when a worker dies or the
     batch is interrupted."""
     spec = spec if isinstance(spec, Spec) else load(spec)
-    out_dir = Path(out_dir)
+    out_dir = Path(out_dir).resolve()
     count = _worker_count(workers, spec.runs)
     out_dir.mkdir(parents=True, exist_ok=True)
     if any(out_dir.iterdir()):

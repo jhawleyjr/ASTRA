@@ -220,6 +220,20 @@ def test_montecarlo_an_error_message_naming_out_dir_is_recorded_with_a_placehold
     assert (out / montecarlo.log_name(0)).read_bytes() == b"not ours"
 
 
+def test_montecarlo_a_relative_out_dir_is_replaced_as_its_absolute_path_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Replacing the bare "out" as well would also rewrite other text, including the placeholder
+    # "<out_dir>" itself; only the resolved directory is replaced.
+    spec = _spec(tmp_path, trim=False, duration="0.01")
+    monkeypatch.chdir(tmp_path)
+    Path("out").mkdir()
+    (Path("out") / montecarlo.log_name(0)).write_bytes(b"not ours")
+    row = montecarlo.run_one(spec, 0, "out")
+    assert row["error_message"].startswith(f"{montecarlo.OUT_DIR_PLACEHOLDER}/run_0000.h5: ")
+    assert row["error_message"].count(montecarlo.OUT_DIR_PLACEHOLDER) == 1
+
+
 def test_montecarlo_a_transport_config_is_refused(tmp_path: Path) -> None:
     config = "aircraft/notional_transport/configs/cruise_light_turbulence.yaml"
     with pytest.raises(montecarlo.SpecError, match="transport block"):
