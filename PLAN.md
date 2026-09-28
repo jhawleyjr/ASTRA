@@ -141,6 +141,11 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
     rows, failures are `error` rows, a dead worker fails the batch), helpers shared with `astra.scenario` in
     `astra._runkit`, pyarrow pinned, the Q19 64-run case under `just check`. Plan:
     [plan](docs/plans/m5-tooling.md). Packet: in the PR body.
+  - PR 8: `astra.fgbridge` (FGNetFDM v24 over UDP from a live `Simulation` or a strictly loaded log, one
+    packet per `frame % divisor == 0`, flat Earth refused), the transcribed table
+    `tests/golden/flightgear/fgnetfdm_v24.py` (FlightGear 2024.1.7) and its by-hand g++ cross-check
+    `scripts/fgnetfdm_layout_check.py`, a table-built decoder test over a real socket. Plan:
+    [plan](docs/plans/m5-tooling.md). Packet: in the PR body.
 
 ## Open items
 
