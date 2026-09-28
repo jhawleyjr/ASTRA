@@ -65,7 +65,7 @@ select = ["E", "W", "F", "I", "N", "UP", "B", "SIM", "PT", "RUF"]
 known-first-party = ["astra"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests/python"]
+testpaths = ["tests/python", "tests/scenarios"]
 addopts = "-ra"
 xfail_strict = true
 # Warnings are errors, like -Werror on the C++ side.

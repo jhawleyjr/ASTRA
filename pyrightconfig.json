@@ -1,12 +1,13 @@
 {
-  // Pyright strict on python/astra/ (docs/architecture.md §14); tests/python at the standard level. The interpreter
-  // is the repo venv that `just venv` creates. astra._core is compiled into that venv while its stub is generated
-  // into python/astra/, so pyright cannot pair the two; reportMissingModuleSource is off for that one reason.
+  // Pyright strict on python/astra/ (docs/architecture.md §14); tests/python and tests/scenarios (its conftest.py)
+  // at the standard level. The interpreter is the repo venv that `just venv` creates. astra._core is compiled into
+  // that venv while its stub is generated into python/astra/, so pyright cannot pair the two;
+  // reportMissingModuleSource is off for that one reason.
   "venvPath": ".",
   "venv": ".venv",
   "pythonVersion": "3.12",
   "pythonPlatform": "Linux",
-  "include": ["python/astra", "tests/python"],
+  "include": ["python/astra", "tests/python", "tests/scenarios"],
   "extraPaths": ["python"],
   "strict": ["python/astra"],
   "reportMissingModuleSource": "none"
