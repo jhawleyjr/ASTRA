@@ -137,6 +137,10 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
     `cruise_still_air.yaml`, five Q15 seed scenarios; reads each run's own log strictly (frames_run, halt,
     warn counters: the finalization open item's consumer assertion). Plan: [plan](docs/plans/m5-tooling.md).
     Packet: in the PR body.
+  - PR 7: `astra.montecarlo` (spawn pool, SHA-256 per-run seeds, in-house sampler, `summary.parquet`; halts are
+    rows, failures are `error` rows, a dead worker fails the batch), helpers shared with `astra.scenario` in
+    `astra._runkit`, pyarrow pinned, the Q19 64-run case under `just check`. Plan:
+    [plan](docs/plans/m5-tooling.md). Packet: in the PR body.
 
 ## Open items
 

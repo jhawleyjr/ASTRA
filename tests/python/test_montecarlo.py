@@ -458,6 +458,24 @@ def test_montecarlo_a_run_without_an_explicit_close_log_is_an_error_row_with_no_
     assert _logs(tmp_path) == []
 
 
+def test_montecarlo_a_run_reads_its_log_strictly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Without close_log() the writer still holds the file, so h5py cannot open it strictly or not;
+    # the strict read is checked at the call itself.
+    calls: list[dict[str, Any]] = []
+    real = log.load
+
+    def spy(path: Any, **kwargs: Any) -> log.RunLog:
+        calls.append(kwargs)
+        return real(path, **kwargs)
+
+    monkeypatch.setattr(log, "load", spy)
+    row = montecarlo.run_one(_spec(tmp_path), 0, tmp_path)
+    assert row["status"] == "ok"
+    assert calls == [{}]  # never allow_incomplete
+
+
 def test_montecarlo_a_run_that_raises_mid_run_is_an_error_row_with_no_log(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
