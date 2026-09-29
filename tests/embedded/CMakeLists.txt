@@ -22,6 +22,10 @@ target_compile_definitions(astra_autopilot_process_tests PRIVATE
   "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""
   "ASTRA_ECHO_PEER_PATH=\"$<TARGET_FILE:astra_autopilot>\"")
 add_dependencies(astra_autopilot_process_tests astra_autopilot)
+# shm_test_support.cpp compiles in plugin loads by path (LoadedShm, build_sim) that these tests do not call.
+# Registered anyway: astra_finalize_plugins() refuses an unregistered executable compiled with
+# ASTRA_TEST_PLUGIN_DIR, and a test here that starts calling them is then already ordered.
+astra_add_plugin_test(astra_autopilot_process_tests)
 gtest_discover_tests(astra_autopilot_process_tests DISCOVERY_MODE PRE_TEST
   PROPERTIES LABELS lockstep TIMEOUT 600)
 

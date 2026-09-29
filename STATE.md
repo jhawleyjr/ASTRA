@@ -1,37 +1,40 @@
 # STATE (rewritten once, at /wrap, never appended; ≤ 40 lines, says nothing that changes at merge)
 
 ## In flight
-M5 PR 12 (Tier 2): PR #73, branch `worktree-plugin-test-helper` off `origin/main` `ffb395a`, with `origin/main`
-`7320977` (#74) merged in (no rebase). Plan `docs/plans/plugin-test-helper.md` (approved by Joe with four
-adjustments, all applied). Scope: `astra_add_plugin_test()` in `cmake/AstraPlugin.cmake`, the hardcoded test list
-removed and every target migrated, `aircraft/_template/tests/` (the template's own tests, using the helper),
-`tests/python/test_new_aircraft_build.py` (copy the template, build clean, run its tests; shared and static),
-architecture §18, PLAN.md (this PR is "PR 12", plus one new open item).
-Stage: implementation, full gate, the Codex general pass and the integration of #74 are complete for the
-candidate; human review is next. The PR is marked ready; CI's `check` is not a gate until Oct 1 (Next step).
+Plugin-test guard (Tier 2), M5 "PR 13": PR #75, branch `worktree-plugin-test-guard` off `origin/main` `c0c0439`.
+Plan `docs/plans/plugin-test-guard.md` (approved by Joe in plan mode, no adjustments). Scope:
+`astra_finalize_plugins()` (`cmake/AstraPlugin.cmake`) fails configure, shared and static, for an executable
+compiled with `ASTRA_TEST_PLUGIN_DIR` that is not registered with `astra_add_plugin_test()`, naming each target
+and its directory. `tests/embedded`'s `astra_autopilot_process_tests` is registered. There is a configure-only
+regression in `tests/python/test_new_aircraft_build.py`, and PLAN.md has the PR 13 line with the open item
+removed. Stage: implementation, the full gate, the Codex general pass and Joe's Cowork review are complete for
+the candidate. Human review is next (step 10); the PR is a draft.
 
 ## Last verified result
-Run this session: `./scripts/check-full.sh` from a fresh configure on `b8e3ab4`, exit 0, `check: OK`
-(`docs/reviews/evidence/b8e3ab4-gate-summary.log`); the acceptance test, three scratch mutations and the
-Codex pass (thread id in the PR body). After the merge, on `ac9d92c`: `just docs-check` exit 0,
-`./scripts/check-fast.sh` exit 0 (508 of 508), and a comment-only equivalence check of the six code files #74
-touched (all identical once comments and docstrings are removed). NOT rerun on `ac9d92c` or later: the full gate;
-the PR body says why. Later commits add only this file and `docs/lessons.md`.
+Run this session: `./scripts/check-full.sh` from a fresh configure on `cb2853c`, exit 0, `check: OK`
+(`docs/reviews/evidence/cb2853c-gate-summary.log`). CTest 621/622/623/624 per preset, the same as PR 12's gate.
+Pytest 473, which is 471 plus the two new cases. Also run this session:
+- the known case K and three scratch mutations (M1 shared and static, M2, M3), each seen to fire and each
+  restored;
+- the Codex general pass on `c0c0439..d4895d5`: no findings, thread id in the PR body.
+Joe's Cowork session reported a scratch CMake project review with no findings; the cases are in the PR body.
+Every commit after `cb2853c` is docs only (evidence, plan file, PLAN.md, `docs/lessons.md`, this file), except
+`60d4166`. That one is comment-only in `cmake/AstraPlugin.cmake` (it adds `-D` in `COMPILE_OPTIONS` to the
+blind spots). Joe waived the full gate for that comment alone. Its evidence, run this session: the
+`git diff 244a32f` shows comment lines only, `cmake --preset debug` exits 0, and `just docs-check` exits 0.
+The `cb2853c` gate covers the code. `origin/main` was still `c0c0439` at the last fetch.
 
 ## Next step
-1. No GitHub CI until Oct 1: Joe is out of Actions minutes and has turned off the required check in the ruleset.
-   Don't run the gh pr ready --undo / gh pr ready rerun, and don't treat a red or missing check as a blocker. The
-   local ./scripts/check-full.sh is the evidence. On or after Oct 1, restore the required check when Joe says to.
-   (CI run 175 on `ac9d92c` failed with "The job was not started because recent account payments have failed"; no
-   step ran.)
-2. Joe: decide on PR #73. It ran only the general Codex pass; say if an adversarial pass is wanted.
-3. Then: M6 planning is Joe's to launch. Open items with owners are in PLAN.md, including the new one (a
-   shared-build test executable that omits `astra_add_plugin_test()` is caught only by a targeted or clean build).
+1. Joe: decide on PR #75 (approval of the candidate). No adversarial Codex pass: Joe did not request one.
+2. No GitHub CI until Oct 1: Joe is out of Actions minutes and has turned off the required check in the ruleset.
+   Don't run the `gh pr ready --undo` / `gh pr ready` rerun, and don't treat a red or missing check as a blocker.
+   The local ./scripts/check-full.sh is the evidence. On or after Oct 1, restore the required check when Joe says to.
+3. Then: M6 planning is Joe's to launch. Open items with owners are in PLAN.md.
 
 ## Tried / failed
-CI `check` did not start (out of Actions minutes), so no CI result exists for any head of this PR. A mutation anchor check I
-first used proved nothing (two lessons appended, 2026-09-29). No correction rounds and no failed integrations;
-the counts are in the PR body.
+The auto-mode classifier refused the first plan-file write. It was not retried until Joe instructed it directly
+in session (lesson 2026-09-29). CI `check` was not run (no Actions minutes). No correction rounds and no failed
+integrations; the counts are in the PR body.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.
