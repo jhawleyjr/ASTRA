@@ -1,21 +1,22 @@
 """scripts/wallclock_scan.py seen to fire, permanently (M5 PR 10; architecture §15, ADR-0010/0023).
 
-Each case builds a throwaway repository root in tmp_path, compiles tiny translation units with
-the gate's compiler, writes the compile database CMake would write, and runs the scanner as a
-subprocess.
-Nothing here reads the real build tree: `just wallclock-scan` is what scans that.
-
-The parametrized symbol cases double as the toolchain check: each one compiles a real call and
-expects the symbol nm shows for it on this toolchain (clang++-18, libstdc++), so a name that
-stops appearing fails here instead of silently leaving a hole in the scan.
+Three layers. (1) One compiled case per pattern family: a tiny translation unit is compiled with the
+gate's compiler into a throwaway repository root in tmp_path, next to the compile database CMake
+would write, and the scanner runs on it as a subprocess, so a family that stops matching on this
+toolchain (clang++-18, libstdc++) fails here. (2) The scan's own semantics on such trees: scope,
+allowlist by file and symbol, stale entries, missing objects. (3) `flagged()` on strings: every name
+the reviews found, and the lookalikes that must not match. Nothing here reads the real build tree:
+`just wallclock-scan` is what scans that.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import subprocess
 import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
@@ -43,44 +44,40 @@ CLEAN = _fn("cstdlib", "return std::strtod(s, nullptr);", "const char* s")  # st
 STEADY_NOW = "return std::chrono::steady_clock::now().time_since_epoch().count();"
 
 STEADY = "std::chrono::_V2::steady_clock::now()"
-SYSTEM = "std::chrono::_V2::system_clock::now()"
-NOW = ".time_since_epoch().count();"
 MS = "std::chrono::milliseconds(1)"
 
-# (id, source, a symbol nm shows for it)
-SYMBOL_CASES = [
-    ("steady_clock_now", _fn("chrono", STEADY_NOW), STEADY),
+
+def _load_scanner() -> ModuleType:
+    spec = importlib.util.spec_from_file_location("wallclock_scan", SCANNER)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+scanner = _load_scanner()
+
+# One compiled case per family: (family, source, a symbol nm shows for it).
+FAMILY_CASES = [
+    ("clock_*", CLOCK_GETTIME, "clock_gettime"),
+    ("time reads", _fn("ctime", "return time(nullptr);"), "time"),
     (
-        "system_clock_now",
-        _fn("chrono", "return std::chrono::system_clock::now()" + NOW),
-        SYSTEM,
-    ),
-    (
-        "high_resolution_clock_now",
-        _fn("chrono", "return std::chrono::high_resolution_clock::now()" + NOW),
-        SYSTEM,  # an alias of system_clock in libstdc++
-    ),
-    ("clock_gettime", CLOCK_GETTIME, "clock_gettime"),
-    (
-        "gettimeofday",
+        "*timeofday",
         _fn("sys/time.h", "timeval v; gettimeofday(&v, nullptr); return v.tv_sec;"),
         "gettimeofday",
     ),
-    ("time", _fn("ctime", "return time(nullptr);"), "time"),
-    ("clock", _fn("ctime", "return clock();"), "clock"),
     (
-        "timespec_get",
-        _fn("ctime", "timespec t; timespec_get(&t, TIME_UTC); return t.tv_sec;"),
-        "timespec_get",
-    ),
-    ("ftime", _fn("sys/timeb.h", "timeb t; ftime(&t); return t.time;"), "ftime"),
-    (
-        "this_thread_sleep_for",
+        # sleep_for has no out-of-line symbol of its own here: it ends in nanosleep
+        "*sleep",
         _fn("chrono thread", f"std::this_thread::sleep_for({MS}); return 0;"),
         "nanosleep",
     ),
+    ("timers", _fn("unistd.h", "return ualarm(1000, 1000);"), "ualarm"),
     (
-        "condition_variable_wait_for",
+        # condition_variable::wait_for ends in pthread_cond_clockwait
+        "timed waits",
         _fn(
             "chrono condition_variable mutex",
             f"c.wait_for(l, {MS}); return 0;",
@@ -89,142 +86,115 @@ SYMBOL_CASES = [
         "pthread_cond_clockwait",
     ),
     (
-        "future_wait_for",
+        "multiplexing",
+        _fn("poll.h", "return poll(fds, 1, 10);", "pollfd* fds"),
+        "poll",
+    ),
+    ("std::chrono now", _fn("chrono", STEADY_NOW), STEADY),
+    (
+        "std timed member",
         _fn("chrono future", f"x.wait_for({MS}); return 0;", "std::future<int>& x"),
         "std::__atomic_futex_unsigned_base::_M_futex_wait_until_steady(",
     ),
-    (
-        "nanosleep",
-        _fn("ctime", "timespec t{}; nanosleep(&t, nullptr); return 0;"),
-        "nanosleep",
-    ),
-    (
-        "clock_nanosleep",
-        _fn("ctime", "timespec t{}; clock_nanosleep(CLOCK_MONOTONIC, 0, &t, nullptr); return 0;"),
-        "clock_nanosleep",
-    ),
-    ("usleep", _fn("unistd.h", "usleep(1); return 0;"), "usleep"),
-    ("sleep", _fn("unistd.h", "sleep(1); return 0;"), "sleep"),
-    (
-        "pthread_cond_timedwait",
-        _fn(
-            "pthread.h",
-            "return pthread_cond_timedwait(c, m, t);",
-            "pthread_cond_t* c, pthread_mutex_t* m, const timespec* t",
-        ),
-        "pthread_cond_timedwait",
-    ),
-    (
-        "sem_timedwait",
-        _fn("semaphore.h", "return sem_timedwait(s, t);", "sem_t* s, const timespec* t"),
-        "sem_timedwait",
-    ),
-    (
-        "sem_clockwait",
-        _fn(
-            "ctime semaphore.h",
-            "return sem_clockwait(s, CLOCK_MONOTONIC, t);",
-            "sem_t* s, const timespec* t",
-        ),
-        "sem_clockwait",
-    ),
-    (
-        "pthread_mutex_timedlock",
-        _fn(
-            "pthread.h",
-            "return pthread_mutex_timedlock(m, t);",
-            "pthread_mutex_t* m, const timespec* t",
-        ),
-        "pthread_mutex_timedlock",
-    ),
-    (
-        "thrd_sleep",
-        _fn("threads.h ctime", "return thrd_sleep(t, nullptr);", "const timespec* t"),
-        "thrd_sleep",
-    ),
-    (
-        "cnd_timedwait",
-        _fn(
-            "threads.h ctime",
-            "return cnd_timedwait(c, m, t);",
-            "cnd_t* c, mtx_t* m, const timespec* t",
-        ),
-        "cnd_timedwait",
-    ),
-    (
-        "mtx_timedlock",
-        _fn("threads.h ctime", "return mtx_timedlock(m, t);", "mtx_t* m, const timespec* t"),
-        "mtx_timedlock",
-    ),
-    (
-        "sigtimedwait",
-        _fn(
-            "csignal ctime",
-            "return sigtimedwait(s, nullptr, t);",
-            "const sigset_t* s, const timespec* t",
-        ),
-        "sigtimedwait",
-    ),
-    (
-        "semtimedop",
-        _fn(
-            "sys/sem.h ctime",
-            "return semtimedop(id, ops, 1, t);",
-            "int id, sembuf* ops, const timespec* t",
-        ),
-        "semtimedop",
-    ),
-    (
-        "mq_timedsend",
-        _fn(
-            "mqueue.h ctime",
-            "return mq_timedsend(q, m, 1, 0, t);",
-            "mqd_t q, const char* m, const timespec* t",
-        ),
-        "mq_timedsend",
-    ),
-    (
-        "mq_timedreceive",
-        _fn(
-            "mqueue.h ctime",
-            "return mq_timedreceive(q, m, 1, nullptr, t);",
-            "mqd_t q, char* m, const timespec* t",
-        ),
-        "mq_timedreceive",
-    ),
-    ("alarm", _fn("unistd.h", "return alarm(1);"), "alarm"),
-    (
-        "setitimer",
-        _fn("sys/time.h", "itimerval v{}; return setitimer(ITIMER_REAL, &v, nullptr);"),
-        "setitimer",
-    ),
-    (
-        "timer_settime",
-        _fn(
-            "ctime",
-            "return timer_settime(id, 0, spec, nullptr);",
-            "timer_t id, const itimerspec* spec",
-        ),
-        "timer_settime",
-    ),
-    (
-        "timerfd_settime",
-        _fn(
-            "sys/timerfd.h",
-            "return timerfd_settime(fd, 0, spec, nullptr);",
-            "int fd, const itimerspec* spec",
-        ),
-        "timerfd_settime",
-    ),
-    (
-        "pthread_timedjoin_np",
-        _fn(
-            "pthread.h",
-            "return pthread_timedjoin_np(p, nullptr, t);",
-            "pthread_t p, const timespec* t",
-        ),
-        "pthread_timedjoin_np",
-    ),
+]
+
+# Every name the reviews raised, plus the family members Joe listed, as the scanner sees them.
+MUST_MATCH = [
+    "clock",
+    "clock_gettime",
+    "clock_settime",
+    "clock_nanosleep",
+    "time",
+    "timespec_get",
+    "gettimeofday",
+    "settimeofday",
+    "ftime",
+    "sleep",
+    "usleep",
+    "nanosleep",
+    "thrd_sleep",
+    "alarm",
+    "ualarm",
+    "setitimer",
+    "getitimer",
+    "timer_create",
+    "timer_settime",
+    "timerfd_create",
+    "timerfd_settime",
+    "pthread_cond_timedwait",
+    "pthread_cond_clockwait",
+    "sem_timedwait",
+    "sem_clockwait",
+    "cnd_timedwait",
+    "sigtimedwait",
+    "pthread_mutex_timedlock",
+    "pthread_mutex_clocklock",
+    "mtx_timedlock",
+    "pthread_rwlock_timedrdlock",
+    "pthread_rwlock_clockwrlock",
+    "pthread_timedjoin_np",
+    "pthread_clockjoin_np",
+    "semtimedop",
+    "mq_timedsend",
+    "mq_timedreceive",
+    "select",
+    "pselect",
+    "poll",
+    "ppoll",
+    "epoll_wait",
+    "epoll_pwait",
+    "std::chrono::_V2::steady_clock::now()",
+    "std::chrono::_V2::system_clock::now()",
+    "std::chrono::__1::steady_clock::now()",
+    "std::this_thread::sleep_for<long, std::ratio<1l, 1000l> >(std::chrono::duration<long, "
+    "std::ratio<1l, 1000l> > const&)",
+    "std::this_thread::__sleep_for(std::chrono::duration<long, std::ratio<1l, 1l> >, "
+    "std::chrono::duration<long, std::ratio<1l, 1000000000l> >)",
+    "std::cv_status std::condition_variable::wait_for<long, std::ratio<1l, 1000l> >"
+    "(std::unique_lock<std::mutex>&, std::chrono::duration<long, std::ratio<1l, 1000l> > const&)",
+    "std::future<int>::wait_for<long, std::ratio<1l, 1000l> >(std::chrono::duration<long, "
+    "std::ratio<1l, 1000l> > const&) const",
+    "bool std::timed_mutex::try_lock_for<long, std::ratio<1l, 1000l> >(std::chrono::duration<long, "
+    "std::ratio<1l, 1000l> > const&)",
+    "std::__atomic_futex_unsigned_base::_M_futex_wait_until_steady(unsigned int*, unsigned int, "
+    "bool, std::chrono::duration<long, std::ratio<1l, 1l> >, std::chrono::duration<long, "
+    "std::ratio<1l, 1000000000l> >)",
+]
+
+# Lookalikes that must not match: our own namespaces, other libraries, and near-miss C names.
+MUST_NOT_MATCH = [
+    "strtod",
+    "H5Pset_obj_track_times",
+    "H5Pget_obj_track_times",
+    "memset",
+    "mktime",
+    "localtime_r",
+    "strftime",
+    "difftime",
+    "timeout",
+    "timeline",
+    "runtime",
+    "poller",
+    "pollution",
+    "selection",
+    "select_all",
+    "sleeper",
+    "astra_hal_shm_wait_until",
+    "astra_hal_wait_frame",
+    "astra_plugin",
+    "__cxa_begin_catch",
+    "astra::time_step(double)",
+    "astra::clock_skew() const",
+    "astra::VirtualClock::now() const",
+    "astra::sleep_ms(int)",
+    "astra::poll(int)",
+    "astra::Timer::timer_settime()",
+    "std::runtime_error::what() const",
+    "std::chrono::duration<long, std::ratio<1l, 1l> >::count() const",
+    "std::vector<astra::wait_for_frame, std::allocator<astra::wait_for_frame> >::size() const",
+    "std::function<void (astra::wait_until_done)>::operator()() const",
+    "std::__throw_system_error(int)",
+    "typeinfo for std::runtime_error",
 ]
 
 
@@ -280,9 +250,9 @@ def _failure_lines(result: subprocess.CompletedProcess[str]) -> list[str]:
 
 
 @pytest.mark.parametrize(
-    ("source", "symbol"), [c[1:] for c in SYMBOL_CASES], ids=[c[0] for c in SYMBOL_CASES]
+    ("source", "symbol"), [c[1:] for c in FAMILY_CASES], ids=[c[0] for c in FAMILY_CASES]
 )
-def test_a_wall_clock_or_sleep_reference_fails_naming_the_file_and_symbol(
+def test_each_family_fails_naming_the_file_and_symbol(
     tmp_path: Path, source: str, symbol: str
 ) -> None:
     tree = Tree(tmp_path)
@@ -385,3 +355,20 @@ def test_a_source_outside_the_scope_roots_is_not_scanned(tmp_path: Path) -> None
     result = tree.scan()
     assert result.returncode == 0, result.stderr
     assert "(2 TUs scanned" in result.stdout
+
+
+@pytest.mark.parametrize("symbol", MUST_MATCH)
+def test_flagged_matches_every_name_the_reviews_raised(symbol: str) -> None:
+    assert scanner.flagged(symbol) is not None, symbol
+
+
+@pytest.mark.parametrize("symbol", MUST_NOT_MATCH)
+def test_flagged_ignores_lookalikes(symbol: str) -> None:
+    assert scanner.flagged(symbol) is None, (symbol, scanner.flagged(symbol))
+
+
+def test_every_family_has_a_compiled_case_or_a_reason() -> None:
+    compiled = {family for family, _, _ in FAMILY_CASES}
+    # std::this_thread has no out-of-line symbol on this toolchain: sleep_for compiles to nanosleep
+    # (the "*sleep" case), and MUST_MATCH holds the demangled forms other toolchains may show.
+    assert compiled | {"std::this_thread"} == set(scanner.C_FAMILIES) | set(scanner.CXX_FAMILIES)
