@@ -1,8 +1,8 @@
-// aircraft/_template/hardware/propulsion/turbofan (docs/plans/pr4-notional-aero-turbofan.md, R9):
-// the un-edited template's own config (aircraft/_template/configs/cruise.yaml) carries
-// thrust_ref_n/ density_ref_kgm3 zeroed and TODO-marked. Pins the intended failure mode: copying
-// _template and never touching the numbers cannot silently fly. Mirrors
-// tests/unit/mass/template_mass_test.cpp.
+// This aircraft's hardware/propulsion/turbofan plugin (docs/plans/pr4-notional-aero-turbofan.md,
+// R9): the un-edited template's own config (configs/cruise.yaml) carries thrust_ref_n/
+// density_ref_kgm3 zeroed and TODO-marked. Pins the intended failure mode: copying _template and
+// never touching the numbers cannot silently fly. Mirrors mass_test.cpp, including the aircraft
+// path from ASTRA_THIS_AIRCRAFT.
 #include <gtest/gtest.h>
 
 #include "astra/config/config.hpp"
@@ -17,14 +17,14 @@ using astra::Config;
 using astra::ConfigError;
 using astra::PropulsionModel;
 
-TEST(TemplateTurbofan, ZeroedConfigThrowsConfigErrorNamingTheTodoField) {
+TEST(AircraftTurbofan, ZeroedConfigThrowsConfigErrorNamingTheTodoField) {
   astra::PluginLoader loader{ASTRA_TEST_PLUGIN_DIR};
-  astra::LoadedPlugin loaded = loader.load("aircraft/_template/hardware/propulsion/turbofan");
+  astra::LoadedPlugin loaded = loader.load(ASTRA_THIS_AIRCRAFT "/hardware/propulsion/turbofan");
   auto* const turbofan = dynamic_cast<PropulsionModel*>(loaded.model.get());
   astra::SignalRegistry registry;
 
   try {
-    // aircraft/_template/configs/cruise.yaml's own un-edited values (left station).
+    // The template's configs/cruise.yaml, un-edited (left station).
     turbofan->init(Config::from_string("station: left\n"
                                        "x_offset_from_cg_m: 0.0\n"
                                        "y_offset_from_cg_m: 0.0\n"
@@ -43,9 +43,9 @@ TEST(TemplateTurbofan, ZeroedConfigThrowsConfigErrorNamingTheTodoField) {
 // density_ref_kgm3 used to pass checked_positive() and then silently produce zero thrust
 // (finite_rho / Inf == 0) -- a plausible-looking, wrong answer, not a loud failure. Fixed:
 // checked_positive() now also requires std::isfinite().
-TEST(TemplateTurbofan, InfiniteDensityRefThrowsConfigErrorInsteadOfSilentlyZeroingThrust) {
+TEST(AircraftTurbofan, InfiniteDensityRefThrowsConfigErrorInsteadOfSilentlyZeroingThrust) {
   astra::PluginLoader loader{ASTRA_TEST_PLUGIN_DIR};
-  astra::LoadedPlugin loaded = loader.load("aircraft/_template/hardware/propulsion/turbofan");
+  astra::LoadedPlugin loaded = loader.load(ASTRA_THIS_AIRCRAFT "/hardware/propulsion/turbofan");
   auto* const turbofan = dynamic_cast<PropulsionModel*>(loaded.model.get());
   astra::SignalRegistry registry;
 

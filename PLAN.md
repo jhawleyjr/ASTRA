@@ -177,6 +177,12 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
     `core/include/astra/util/frames.hpp` and the golden header `tests/golden/frames/adr0001_cases.hpp`, and the
     half-angle citation in four Python files (scope widened by Joe); the Follow-up B open item is removed.
     Plan: none (Tier 0). Packet: in the PR body.
+  - PR 12 (#73): `astra_add_plugin_test()`: a test executable opts into the plugin build order with one call in
+    its own `CMakeLists.txt`, and `astra_finalize_plugins()`'s hardcoded test list is gone. Every listed target
+    migrated; `aircraft/_template/tests/` carries the template's own tests, so a copy from `just new-aircraft`
+    builds and runs them with no framework edit (architecture §18); `tests/python/test_new_aircraft_build.py`
+    builds and tests such a copy from a clean directory, shared and static. The open item on that list is
+    removed. Plan: [plan](docs/plans/plugin-test-helper.md). Packet: in the PR body.
 
 ## Open items
 
@@ -227,15 +233,6 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
       `add_subdirectory(golden/dynamics)` as `tests/CMakeLists.txt`'s comment implies. Its script
       `capture_r1_golden.sh` also has no arming check of its own (unlike PR 8's); today it refuses at its
       clean-tree and baseline-drift (`26ad594`) steps, before its first commit. Not started.
-- [ ] `cmake/AstraPlugin.cmake`'s `astra_finalize_plugins()` hardcodes which test executables get a plugin
-      build-order dependency (origin: M3 PR 1; `astra_unit_tests`, `astra_physics_tests`, and since M3 PR 1
-      `astra_notional_transport_mass_test`, `astra_template_mass_test`; M4 PR 6 added two more), by explicit
-      design ("listed explicitly ... so a new test target opts in", that function's own comment). A new aircraft
-      with its own dedicated test executable therefore needs a framework edit (`cmake/AstraPlugin.cmake` itself)
-      to build correctly from clean, contradicting §18's on-ramp story ("copy `_template`, edit, rebuild —
-      nothing in the framework is edited"). Wants an `astra_add_plugin_test()` helper (mirroring
-      `astra_add_plugin()`'s own one-line self-registration) so a new aircraft's own `CMakeLists.txt` can opt its
-      test in without touching `cmake/AstraPlugin.cmake`. Not started.
 - [ ] ADR-0002's literal "no unit suffixes in identifiers (`altitude`, not `altitude_m`)" text (origin: M3 PR 3,
       ADR-0018) vs. `AtmoState`'s own field names (`temperature_k`, `pressure_pa`, `density_kg_m3`,
       `speed_of_sound_m_s`): whether the rule means signal-name strings specifically (its own example,
@@ -306,6 +303,11 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
       closed loop. Not started.
 - [ ] Replaying a lockstep run (origin: M5 plan Q11; Joe's call): `astra.log.replay` refuses a log with a
       `transport` block, since replaying commands without the peer is a different feature. Not started.
+- [ ] A shared-build test executable that omits `astra_add_plugin_test()` is only caught by a targeted or clean
+      build (origin: M5 PR 12; Joe's call): the default in-tree build builds every plugin anyway, so the gate
+      cannot see the omission, and `tests/python/test_new_aircraft_build.py` checks only the template's own
+      target. Candidate check: `astra_finalize_plugins()` refuses a target with an `ASTRA_TEST_PLUGIN_DIR`
+      compile definition that is not registered. Not started.
 
 ## Recorded only here
 

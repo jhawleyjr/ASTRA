@@ -25,6 +25,8 @@ define_property(GLOBAL PROPERTY ASTRA_PLUGIN_TARGETS
   BRIEF_DOCS "Plugin targets registered by astra_add_plugin" FULL_DOCS "See cmake/AstraPlugin.cmake")
 define_property(GLOBAL PROPERTY ASTRA_LOAD_ALL_PATHS
   BRIEF_DOCS "Plugin paths the load-all test iterates" FULL_DOCS "See cmake/AstraPlugin.cmake")
+define_property(GLOBAL PROPERTY ASTRA_PLUGIN_TEST_TARGETS
+  BRIEF_DOCS "Test targets registered by astra_add_plugin_test" FULL_DOCS "See cmake/AstraPlugin.cmake")
 
 function(astra_add_plugin)
   cmake_parse_arguments(PARSE_ARGV 0 ARG "NO_LOAD_ALL" "" "SOURCES")
@@ -65,6 +67,26 @@ function(astra_add_plugin)
   if(NOT ARG_NO_LOAD_ALL)
     set_property(GLOBAL APPEND PROPERTY ASTRA_LOAD_ALL_PATHS "${plugin_path}")
   endif()
+endfunction()
+
+# A test executable that loads plugins by path declares it with one call in its own CMakeLists.txt,
+# after add_executable:
+#
+#   astra_add_plugin_test(my_aircraft_tests)
+#
+# In the shared build astra_finalize_plugins() makes the target depend on every plugin, so a targeted or
+# clean build cannot run the test before the .so files exist. In the static build the plugins link into
+# astra_core, which the test already links, so the call only records the target. Nothing in this file
+# lists a test.
+function(astra_add_plugin_test target)
+  if(NOT "${ARGN}" STREQUAL "")
+    message(FATAL_ERROR "astra_add_plugin_test: unknown arguments '${ARGN}' (${CMAKE_CURRENT_SOURCE_DIR})")
+  endif()
+  if(NOT TARGET ${target})
+    message(FATAL_ERROR "astra_add_plugin_test: '${target}' is not a target; call it after add_executable "
+                        "(${CMAKE_CURRENT_SOURCE_DIR})")
+  endif()
+  set_property(GLOBAL APPEND PROPERTY ASTRA_PLUGIN_TEST_TARGETS "${target}")
 endfunction()
 
 # Adds every directory under <root> (relative to the repo root) that contains a CMakeLists.txt. A missing
@@ -150,21 +172,13 @@ std::span<const StaticPluginEntry> static_plugin_table() noexcept { return kTabl
       target_link_libraries(astra_core PRIVATE ${targets})
     endif()
   elseif(targets)
-    # Every test binary that dlopens plugins by path needs a build-order dependency on them; listed
-    # explicitly (not globbed) so a new test target opts in here instead of racing a clean build.
-    foreach(test_target IN ITEMS astra_unit_tests astra_physics_tests
-                                 astra_notional_transport_mass_test astra_template_mass_test
-                                 astra_notional_transport_aero_wrench_test astra_template_aero_test
-                                 astra_notional_transport_turbofan_wrench_test
-                                 astra_template_turbofan_test
-                                 astra_notional_transport_cruise_regression_test
-                                 capture_cruise_regression
-                                 astra_lockstep_tests astra_lockstep_timing_tests
-                                 astra_echo_peer_stress_test astra_closed_loop_tests
-                                 astra_closed_loop_full_test)
-      if(TARGET ${test_target})
-        add_dependencies(${test_target} ${targets})
-      endif()
+    # Every test binary that dlopens plugins by path needs a build-order dependency on them. Each one
+    # opted in with astra_add_plugin_test() in its own directory; the dependency is added here, after
+    # every plugin has registered, because a test under aircraft/a/ is declared before aircraft/b/'s
+    # plugins exist.
+    get_property(test_targets GLOBAL PROPERTY ASTRA_PLUGIN_TEST_TARGETS)
+    foreach(test_target IN LISTS test_targets)
+      add_dependencies(${test_target} ${targets})
     endforeach()
   endif()
 endfunction()

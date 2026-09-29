@@ -44,6 +44,7 @@ add_executable(astra_unit_tests
   wind/wind_test.cpp
   wrench/nesc_aero_test.cpp)
 target_link_libraries(astra_unit_tests PRIVATE astra::core GTest::gtest_main)
+astra_add_plugin_test(astra_unit_tests)
 target_compile_definitions(astra_unit_tests PRIVATE
   "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""
   "ASTRA_TEST_CONFIG_DIR=\"${ASTRA_SOURCE_DIR}/tests/configs\""
@@ -84,12 +85,12 @@ target_link_libraries(astra_integrator_test PRIVATE astra::core GTest::gtest_mai
 gtest_discover_tests(astra_integrator_test TEST_PREFIX "integrator." DISCOVERY_MODE PRE_TEST
                      PROPERTIES LABELS unit)
 
-# aircraft/notional_transport's and aircraft/_template's own physical/mass plugins (PLAN.md M3
-# PR 1): own executables so ctest's names carry "notional_transport_mass"/"template_mass" for
-# `-R notional_transport_mass` (PR 1's own accept criterion), same TEST_PREFIX shape as
-# frames/integrator above.
+# aircraft/notional_transport's own physical/mass plugin (PLAN.md M3 PR 1): its own executable so
+# ctest's names carry "notional_transport_mass" for `-R notional_transport_mass` (PR 1's own accept
+# criterion), same TEST_PREFIX shape as frames/integrator above.
 add_executable(astra_notional_transport_mass_test mass/notional_transport_mass_test.cpp)
 target_link_libraries(astra_notional_transport_mass_test PRIVATE astra::core GTest::gtest_main)
+astra_add_plugin_test(astra_notional_transport_mass_test)
 target_compile_definitions(astra_notional_transport_mass_test PRIVATE
   "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""
   "ASTRA_AIRCRAFT_DIR=\"${ASTRA_SOURCE_DIR}/aircraft\"")
@@ -105,6 +106,7 @@ add_executable(astra_notional_transport_cruise_regression_test
   kernel/notional_transport_cruise_regression_test.cpp)
 target_link_libraries(astra_notional_transport_cruise_regression_test
   PRIVATE astra::core GTest::gtest_main)
+astra_add_plugin_test(astra_notional_transport_cruise_regression_test)
 target_compile_definitions(astra_notional_transport_cruise_regression_test PRIVATE
   "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""
   "ASTRA_AIRCRAFT_DIR=\"${ASTRA_SOURCE_DIR}/aircraft\"")
@@ -113,13 +115,6 @@ target_include_directories(astra_notional_transport_cruise_regression_test PRIVA
 gtest_discover_tests(astra_notional_transport_cruise_regression_test
                      TEST_PREFIX "notional_transport_cruise_regression."
                      DISCOVERY_MODE PRE_TEST PROPERTIES LABELS physics)
-
-add_executable(astra_template_mass_test mass/template_mass_test.cpp)
-target_link_libraries(astra_template_mass_test PRIVATE astra::core GTest::gtest_main)
-target_compile_definitions(astra_template_mass_test PRIVATE
-  "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\"")
-gtest_discover_tests(astra_template_mass_test TEST_PREFIX "template_mass."
-                     DISCOVERY_MODE PRE_TEST PROPERTIES LABELS unit)
 
 # docs/plans/pr4-notional-aero-turbofan.md, R1/R4: aero_math.hpp/turbofan_math.hpp's own pure
 # compute_wrench(), called directly with hand-built Inputs/Coefficients -- no plugin instance, no
@@ -137,18 +132,5 @@ gtest_discover_tests(astra_notional_transport_turbofan_math_test
                      TEST_PREFIX "notional_transport_turbofan_math."
                      DISCOVERY_MODE PRE_TEST PROPERTIES LABELS unit)
 
-# R9: the un-edited aircraft/_template copies of aero/turbofan throw ConfigError on their own
-# TODO-zeroed config -- same shape as astra_template_mass_test above.
-add_executable(astra_template_aero_test aero/template_aero_test.cpp)
-target_link_libraries(astra_template_aero_test PRIVATE astra::core GTest::gtest_main)
-target_compile_definitions(astra_template_aero_test PRIVATE
-  "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\"")
-gtest_discover_tests(astra_template_aero_test TEST_PREFIX "template_aero."
-                     DISCOVERY_MODE PRE_TEST PROPERTIES LABELS unit)
-
-add_executable(astra_template_turbofan_test turbofan/template_turbofan_test.cpp)
-target_link_libraries(astra_template_turbofan_test PRIVATE astra::core GTest::gtest_main)
-target_compile_definitions(astra_template_turbofan_test PRIVATE
-  "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\"")
-gtest_discover_tests(astra_template_turbofan_test TEST_PREFIX "template_turbofan."
-                     DISCOVERY_MODE PRE_TEST PROPERTIES LABELS unit)
+# The un-edited aircraft/_template's mass/aero/turbofan tests (ConfigError on the TODO-zeroed config) live in
+# aircraft/_template/tests/, so a copy made by `just new-aircraft` carries them.

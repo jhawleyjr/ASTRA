@@ -5,6 +5,9 @@
 # arming; only its output lands under tests/golden/notional_transport/.
 add_executable(capture_cruise_regression EXCLUDE_FROM_ALL capture_cruise_regression.cpp)
 target_link_libraries(capture_cruise_regression PRIVATE astra::core)
+# Being EXCLUDE_FROM_ALL does not exempt it: capture_cruise_regression.sh builds only this target, so the
+# plugins it loads must come with it.
+astra_add_plugin_test(capture_cruise_regression)
 target_include_directories(capture_cruise_regression PRIVATE "${ASTRA_SOURCE_DIR}/tests/support")
 # Already OFF for every target via the top-level CMAKE_CXX_SCAN_FOR_MODULES; restated here because this
 # EXCLUDE_FROM_ALL target is the one `just tidy` sees without ever building (M3 PR 10), so it must never

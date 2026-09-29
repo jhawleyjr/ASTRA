@@ -1,9 +1,8 @@
 # Physics oracle tests (docs/architecture.md §16 row M1, PLAN.md M1 PR 3): torque-free rigid body,
 # ballistic arc, symmetric-top precession, each against a closed form computed independently of the
 # EOM under test. Labeled "physics", not "unit": the Stop hook's `ctest -L unit` (fast subset) skips
-# these; `just check`'s unlabeled `ctest` still runs them under every preset. cmake/AstraPlugin.cmake's
-# astra_finalize_plugins() gives this target (named explicitly there) a build-order dependency on
-# every plugin it dlopens by path.
+# these; `just check`'s unlabeled `ctest` still runs them under every preset. Its
+# astra_add_plugin_test() call gives it a build-order dependency on every plugin it dlopens by path.
 #
 # no_alloc_test.cpp (docs/architecture.md §15's tests/physics/test_no_alloc, PLAN.md M1 PR 4) links
 # ../support/alloc_counter.cpp's global operator new/delete replacement into this target only, never
@@ -31,6 +30,7 @@ add_executable(astra_physics_tests
   round_earth_drop_test.cpp
   torque_free_test.cpp)
 target_link_libraries(astra_physics_tests PRIVATE astra::core GTest::gtest_main)
+astra_add_plugin_test(astra_physics_tests)
 target_compile_definitions(astra_physics_tests PRIVATE
   "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""
   "ASTRA_TEST_CONFIG_DIR=\"${ASTRA_SOURCE_DIR}/tests/configs\""
@@ -56,6 +56,7 @@ gtest_discover_tests(astra_physics_tests TEST_PREFIX "physics." DISCOVERY_MODE P
 # notional_transport_aero_wrench`/`_turbofan_wrench` select them.
 add_executable(astra_notional_transport_aero_wrench_test notional_transport/aero_wrench_test.cpp)
 target_link_libraries(astra_notional_transport_aero_wrench_test PRIVATE astra::core GTest::gtest_main)
+astra_add_plugin_test(astra_notional_transport_aero_wrench_test)
 target_compile_definitions(astra_notional_transport_aero_wrench_test PRIVATE
   "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""
   "ASTRA_AIRCRAFT_DIR=\"${ASTRA_SOURCE_DIR}/aircraft\"")
@@ -66,6 +67,7 @@ gtest_discover_tests(astra_notional_transport_aero_wrench_test
 add_executable(astra_notional_transport_turbofan_wrench_test
   notional_transport/turbofan_wrench_test.cpp)
 target_link_libraries(astra_notional_transport_turbofan_wrench_test PRIVATE astra::core GTest::gtest_main)
+astra_add_plugin_test(astra_notional_transport_turbofan_wrench_test)
 target_compile_definitions(astra_notional_transport_turbofan_wrench_test PRIVATE
   "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""
   "ASTRA_AIRCRAFT_DIR=\"${ASTRA_SOURCE_DIR}/aircraft\"")

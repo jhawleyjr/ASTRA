@@ -1,8 +1,9 @@
-// aircraft/_template/physical/aero (docs/plans/pr4-notional-aero-turbofan.md, R9): the un-edited
-// template's own config (aircraft/_template/configs/cruise.yaml) carries every coefficient zeroed
-// and TODO-marked. This pins the intended failure mode: copying _template and never touching the
+// This aircraft's physical/aero plugin (docs/plans/pr4-notional-aero-turbofan.md, R9): the
+// un-edited template's own config (configs/cruise.yaml) carries every coefficient zeroed and
+// TODO-marked. This pins the intended failure mode: copying _template and never touching the
 // numbers cannot silently fly -- init() throws a ConfigError naming the exact field still at its
-// TODO value (wing_area_m2, checked first). Mirrors tests/unit/mass/template_mass_test.cpp.
+// TODO value (wing_area_m2, checked first). Mirrors mass_test.cpp, including the aircraft path from
+// ASTRA_THIS_AIRCRAFT.
 #include <gtest/gtest.h>
 
 #include "astra/config/config.hpp"
@@ -17,14 +18,14 @@ using astra::AeroModel;
 using astra::Config;
 using astra::ConfigError;
 
-TEST(TemplateAero, ZeroedConfigThrowsConfigErrorNamingTheTodoField) {
+TEST(AircraftAero, ZeroedConfigThrowsConfigErrorNamingTheTodoField) {
   astra::PluginLoader loader{ASTRA_TEST_PLUGIN_DIR};
-  astra::LoadedPlugin loaded = loader.load("aircraft/_template/physical/aero");
+  astra::LoadedPlugin loaded = loader.load(ASTRA_THIS_AIRCRAFT "/physical/aero");
   auto* const aero = dynamic_cast<AeroModel*>(loaded.model.get());
   astra::SignalRegistry registry;
 
   try {
-    // aircraft/_template/configs/cruise.yaml's own un-edited values.
+    // The template's configs/cruise.yaml, un-edited.
     aero->init(Config::from_string("wing_area_m2: 0.0\n"
                                    "wingspan_m: 0.0\n"
                                    "mean_chord_m: 0.0\n"
@@ -59,9 +60,9 @@ TEST(TemplateAero, ZeroedConfigThrowsConfigErrorNamingTheTodoField) {
 // Codex general-review finding (turbofan.cpp's density_ref_kgm3, same helper here): `value > 0.0`
 // alone is true for +Inf, so checked_positive() used to accept an infinite wing_area_m2. Fixed:
 // checked_positive() now also requires std::isfinite().
-TEST(TemplateAero, InfiniteWingAreaThrowsConfigError) {
+TEST(AircraftAero, InfiniteWingAreaThrowsConfigError) {
   astra::PluginLoader loader{ASTRA_TEST_PLUGIN_DIR};
-  astra::LoadedPlugin loaded = loader.load("aircraft/_template/physical/aero");
+  astra::LoadedPlugin loaded = loader.load(ASTRA_THIS_AIRCRAFT "/physical/aero");
   auto* const aero = dynamic_cast<AeroModel*>(loaded.model.get());
   astra::SignalRegistry registry;
 

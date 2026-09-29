@@ -108,9 +108,9 @@ capture_under_all_presets() {
     # Only the harness target, never a full build (R-003): a full build also compiles the
     # regression test, which includes the golden header, so after Joe removes the golden to
     # authorize a re-capture (step 1b) it would fail before the harness could regenerate it. This
-    # target still carries the full plugin dependency through astra_finalize_plugins()
-    # (cmake/AstraPlugin.cmake) under both plugin modes: with dynamic plugins, its explicit
-    # add_dependencies list names capture_cruise_regression; with ASTRA_STATIC_PLUGINS, every
+    # target still carries the full plugin dependency under both plugin modes: with dynamic plugins,
+    # tests/capture/CMakeLists.txt's astra_add_plugin_test(capture_cruise_regression) makes
+    # astra_finalize_plugins() (cmake/AstraPlugin.cmake) add it; with ASTRA_STATIC_PLUGINS, every
     # plugin links into astra_core, which the harness links.
     cmake --build "build/${preset}" --target capture_cruise_regression --parallel "${jobs}"
 

@@ -1,7 +1,9 @@
-// aircraft/_template/physical/mass (PLAN.md M3 PR 1): the un-edited template's own config
-// (aircraft/_template/configs/cruise.yaml) carries mass/ixx/iyy/izz all zeroed and TODO-marked.
-// This pins the intended failure mode: copying _template and never touching the numbers cannot
-// silently run -- init() throws a ConfigError naming the exact field still at its TODO value.
+// This aircraft's physical/mass plugin (PLAN.md M3 PR 1): the un-edited template's own config
+// (configs/cruise.yaml) carries mass/ixx/iyy/izz all zeroed and TODO-marked. This pins the intended
+// failure mode: copying _template and never touching the numbers cannot silently run -- init()
+// throws a ConfigError naming the exact field still at its TODO value. The fixture below is inline,
+// so it keeps passing after the config is edited. The aircraft's directory comes from CMake
+// (ASTRA_THIS_AIRCRAFT, aircraft/<name>/tests/CMakeLists.txt), so a copy needs no source edit.
 #include <gtest/gtest.h>
 
 #include "astra/config/config.hpp"
@@ -16,14 +18,14 @@ using astra::Config;
 using astra::ConfigError;
 using astra::MassPropertiesModel;
 
-TEST(TemplateMass, ZeroedConfigThrowsConfigErrorNamingTheTodoField) {
+TEST(AircraftMass, ZeroedConfigThrowsConfigErrorNamingTheTodoField) {
   astra::PluginLoader loader{ASTRA_TEST_PLUGIN_DIR};
-  astra::LoadedPlugin loaded = loader.load("aircraft/_template/physical/mass");
+  astra::LoadedPlugin loaded = loader.load(ASTRA_THIS_AIRCRAFT "/physical/mass");
   auto* const mass = dynamic_cast<MassPropertiesModel*>(loaded.model.get());
   astra::SignalRegistry registry;
 
   try {
-    // aircraft/_template/configs/cruise.yaml's own un-edited values.
+    // The template's configs/cruise.yaml, un-edited.
     mass->init(Config::from_string("mass: 0.0\n"
                                    "ixx: 0.0\n"
                                    "iyy: 0.0\n"
