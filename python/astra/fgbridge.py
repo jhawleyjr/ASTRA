@@ -19,10 +19,19 @@ packet.
 
 Rate (Q23). One packet for each frame with ``frame % divisor == 0``, carrying that frame's values.
 The default divisor is 16 (62.5 Hz at dt = 1 ms), and any integer divisor >= 1 is accepted.
-Pacing to wall time (``pace=True``) is Python-only and off by default. It holds the packet for
-frame k until ``start + (k - k0) * dt`` on ``time.monotonic()``, where frame k0 is the first packet
-sent. It only delays sending and never feeds simulation time (ADR-0010's scope is ``core/``,
-``plugins/`` and ``aircraft/``).
+Pacing to wall time (``pace``) is Python-only and on by default. It holds the packet for frame k
+until ``start + (k - k0) * dt`` on ``time.monotonic()``, where frame k0 is the first packet sent. It
+only delays sending and never feeds simulation time (ADR-0010's scope is ``core/``, ``plugins/`` and
+``aircraft/``).
+
+Why it is on. FlightGear does not fall behind a fast sender: its socket reader
+(``FGNativeFDM::process``, ``native_fdm.cxx`` lines 120 to 125, the branch for a channel that is
+neither the file nor the DDS one) loops ``while (io->read(buf, length) == length)`` (lines 121 to
+124) and applies every waiting packet through ``FGFDM2Props``, so the newest one wins. The source is
+FlightGear 2024.1.7, ``docs/refs/native_fdm.cxx`` in the main checkout, SHA-256
+``de4ebc5ba3e17520b5eaaf32fe8b700cb93403e7293adb74e604e8cb81aff414``. An unpaced bridge therefore
+shows the flight in fast-forward, jumping to whatever frame was sent last. ``pace=False`` sends as
+fast as the run produces packets; the tests use it so that none waits on the wall clock.
 
 Units. Every source value is SI (ADR-0002). Conversion happens here and nowhere else, to the unit
 FlightGear reads each field in. The transcribed oracle is
@@ -229,7 +238,7 @@ class LiveBridge:
         port: int = DEFAULT_PORT,
         divisor: int = DEFAULT_DIVISOR,
         vehicle: int = 0,
-        pace: bool = False,
+        pace: bool = True,
     ) -> None:
         _check_divisor(divisor)
         self._names = _signal_names(vehicle)
@@ -309,7 +318,7 @@ def send_log(
     port: int = DEFAULT_PORT,
     divisor: int = DEFAULT_DIVISOR,
     vehicle: int = 0,
-    pace: bool = False,
+    pace: bool = True,
 ) -> int:
     """Sends the packets of the complete run log at ``path``: one for each logged frame with
     ``frame % divisor == 0``, in frame order (module docstring). Returns the number sent. Every

@@ -180,7 +180,7 @@ def _live_run(
     returns the packets and the run's own log."""
     sim = _sim(d, log_path)
     packets: list[bytes] = []
-    with fgbridge.LiveBridge(sim, port=_port(receiver), divisor=divisor) as bridge:
+    with fgbridge.LiveBridge(sim, port=_port(receiver), divisor=divisor, pace=False) as bridge:
         for _ in range(frames):
             before = bridge.packets_sent
             assert not bridge.step()
@@ -267,7 +267,7 @@ def test_live_and_log_sources_send_the_logged_frames_values_byte_identically(
     assert len(live) == len(expected)
     for packet, frame in zip(live, expected, strict=True):  # R18, R19: packet i is frame i * d
         _check_packet(packet, rows.loc[frame])
-    sent = fgbridge.send_log(tmp_path / "run.h5", port=_port(receiver), divisor=divisor)
+    sent = fgbridge.send_log(tmp_path / "run.h5", port=_port(receiver), divisor=divisor, pace=False)
     assert sent == len(expected)
     assert _receive(receiver, sent) == live  # one definition of frame k's values
 
@@ -275,12 +275,12 @@ def test_live_and_log_sources_send_the_logged_frames_values_byte_identically(
 def test_default_divisor_is_16(tmp_path: Path, receiver: socket.socket) -> None:
     path = tmp_path / "run.h5"
     sim = _sim(_cruise(100), path)
-    with fgbridge.LiveBridge(sim, port=_port(receiver)) as bridge:
+    with fgbridge.LiveBridge(sim, port=_port(receiver), pace=False) as bridge:
         assert bridge.run(100) is None
     sim.close_log()
     assert bridge.packets_sent == 7  # frames 0, 16, ..., 96
     live = _receive(receiver, 7)
-    assert fgbridge.send_log(path, port=_port(receiver)) == 7
+    assert fgbridge.send_log(path, port=_port(receiver), pace=False) == 7
     assert _receive(receiver, 7) == live
 
 
@@ -348,7 +348,7 @@ def test_the_log_source_loads_strictly(
         return real_load(p, **kwargs)
 
     monkeypatch.setattr(fgbridge.log, "load", spy)
-    assert fgbridge.send_log(path, port=_port(receiver)) == 3
+    assert fgbridge.send_log(path, port=_port(receiver), pace=False) == 3
     assert calls == [{}]  # never allow_incomplete
     _receive(receiver, 3)
     tampered = tmp_path / "tampered.h5"
@@ -356,7 +356,7 @@ def test_the_log_source_loads_strictly(
     with h5py.File(tampered, "r+") as f:
         f.attrs["complete"] = 0
     with pytest.raises(log.IncompleteLogError):
-        fgbridge.send_log(tampered, port=_port(receiver))
+        fgbridge.send_log(tampered, port=_port(receiver), pace=False)
     _nothing_received(receiver)
 
 
@@ -372,7 +372,7 @@ def _flat(frames: int) -> dict[str, Any]:
 def test_a_flat_earth_live_run_is_refused_at_its_first_frame(receiver: socket.socket) -> None:
     sim = _sim(_flat(10), None)
     with (
-        fgbridge.LiveBridge(sim, port=_port(receiver), divisor=1) as bridge,
+        fgbridge.LiveBridge(sim, port=_port(receiver), divisor=1, pace=False) as bridge,
         pytest.raises(fgbridge.BridgeError, match=r"LATLON_NOT_MODELED \(0x2\)"),
     ):
         bridge.step()
@@ -388,7 +388,7 @@ def test_a_flat_earth_log_is_refused_before_any_packet(
     assert not sim.run(10)
     sim.close_log()
     with pytest.raises(fgbridge.BridgeError, match=r"frame 0: .*LATLON_NOT_MODELED \(0x2\)"):
-        fgbridge.send_log(path, port=_port(receiver), divisor=1)
+        fgbridge.send_log(path, port=_port(receiver), divisor=1, pace=False)
     _nothing_received(receiver)
 
 
@@ -396,9 +396,9 @@ def test_a_flat_earth_log_is_refused_before_any_packet(
 def test_a_divisor_that_is_not_a_positive_integer_is_refused(tmp_path: Path, divisor: Any) -> None:
     sim = _sim(_cruise(10), None)
     with pytest.raises(fgbridge.BridgeError, match="divisor"):
-        fgbridge.LiveBridge(sim, divisor=divisor)
+        fgbridge.LiveBridge(sim, divisor=divisor, pace=False)
     with pytest.raises(fgbridge.BridgeError, match="divisor"):
-        fgbridge.send_log(tmp_path / "absent.h5", divisor=divisor)
+        fgbridge.send_log(tmp_path / "absent.h5", divisor=divisor, pace=False)
 
 
 @pytest.mark.parametrize(
@@ -407,12 +407,12 @@ def test_a_divisor_that_is_not_a_positive_integer_is_refused(tmp_path: Path, div
 def test_a_bad_address_is_refused(host: Any, port: Any) -> None:
     sim = _sim(_cruise(10), None)
     with pytest.raises(fgbridge.BridgeError, match=r"host|port"):
-        fgbridge.LiveBridge(sim, host=host, port=port)
+        fgbridge.LiveBridge(sim, host=host, port=port, pace=False)
 
 
 def test_frames_stepped_outside_the_live_bridge_are_refused(receiver: socket.socket) -> None:
     sim = _sim(_cruise(10), None)
-    with fgbridge.LiveBridge(sim, port=_port(receiver), divisor=1) as bridge:
+    with fgbridge.LiveBridge(sim, port=_port(receiver), divisor=1, pace=False) as bridge:
         assert not bridge.step()
         assert not sim.step()  # frame 1, behind the bridge's back
         with pytest.raises(fgbridge.BridgeError, match=r"clock is at frame 2.*frame 1"):
@@ -423,15 +423,17 @@ def test_frames_stepped_outside_the_live_bridge_are_refused(receiver: socket.soc
 def test_a_source_without_derived_signals_is_refused(tmp_path: Path) -> None:
     no_physics = {"sim": {"dt": 0.001, "frames": 5}, "vehicle": {"models": []}}
     with pytest.raises(fgbridge.BridgeError, match=r"no signal v0\.derived\.lon"):
-        fgbridge.LiveBridge(_sim(no_physics, None))
+        fgbridge.LiveBridge(_sim(no_physics, None), pace=False)
     path = tmp_path / "none.h5"
     sim = _sim(no_physics, path)
     assert not sim.run(5)
     sim.close_log()
     with pytest.raises(fgbridge.BridgeError, match=r"no signal v0\.derived\.lon"):
-        fgbridge.send_log(path)
+        fgbridge.send_log(path, pace=False)
     with pytest.raises(fgbridge.BridgeError, match=r"no signal v1\.derived\.lon"):
-        fgbridge.LiveBridge(_sim(_cruise(5), None), vehicle=1)  # ADR-0011: v1 does not exist
+        fgbridge.LiveBridge(
+            _sim(_cruise(5), None), vehicle=1, pace=False
+        )  # ADR-0011: v1 does not exist
 
 
 def test_a_divisor_the_logged_rate_cannot_serve_is_refused(
@@ -452,7 +454,7 @@ def test_a_divisor_the_logged_rate_cannot_serve_is_refused(
 
     monkeypatch.setattr(fgbridge.log, "load", load)
     with pytest.raises(fgbridge.BridgeError, match="logged every 2 frames, so divisor 3"):
-        fgbridge.send_log(path, port=_port(receiver), divisor=3)
+        fgbridge.send_log(path, port=_port(receiver), divisor=3, pace=False)
     _nothing_received(receiver)
 
 
@@ -464,7 +466,7 @@ def test_the_live_bridge_drains_the_log_past_its_ring_capacity(
     path = tmp_path / "run.h5"
     sim = _sim(_cruise(100), path, buffer_frames=8)
     packets: list[bytes] = []
-    with fgbridge.LiveBridge(sim, port=_port(receiver), divisor=3) as bridge:
+    with fgbridge.LiveBridge(sim, port=_port(receiver), divisor=3, pace=False) as bridge:
         for _ in range(100):
             before = bridge.packets_sent
             assert not bridge.step()
@@ -472,11 +474,11 @@ def test_the_live_bridge_drains_the_log_past_its_ring_capacity(
     sim.close_log()
     assert sim.clock.frame == 100
     assert len(packets) == len(_expected_frames(100, 3)) == 34
-    assert fgbridge.send_log(path, port=_port(receiver), divisor=3) == 34
+    assert fgbridge.send_log(path, port=_port(receiver), divisor=3, pace=False) == 34
     assert _receive(receiver, 34) == packets
     path2 = tmp_path / "run2.h5"  # run() goes through step(), so it drains too
     sim2 = _sim(_cruise(100), path2, buffer_frames=8)
-    with fgbridge.LiveBridge(sim2, port=_port(receiver), divisor=50) as bridge2:
+    with fgbridge.LiveBridge(sim2, port=_port(receiver), divisor=50, pace=False) as bridge2:
         assert bridge2.run(100) is None
     sim2.close_log()
     _receive(receiver, 2)
@@ -495,7 +497,7 @@ def test_the_live_bridge_drains_even_when_sending_raises(
     monkeypatch.setattr(fgbridge._Sender, "send", unreachable)
     path = tmp_path / "run.h5"
     sim = _sim(_cruise(20), path, buffer_frames=8)
-    with fgbridge.LiveBridge(sim, divisor=1) as bridge:
+    with fgbridge.LiveBridge(sim, divisor=1, pace=False) as bridge:
         for _ in range(20):
             with pytest.raises(OSError, match="unreachable"):
                 bridge.step()
@@ -508,7 +510,10 @@ def test_the_live_bridge_drains_even_when_sending_raises(
 
 def test_a_flat_earth_refusal_still_drains_the_completed_frame(tmp_path: Path) -> None:
     sim = _sim(_flat(10), tmp_path / "flat.h5", buffer_frames=1)
-    with fgbridge.LiveBridge(sim, divisor=1) as bridge, pytest.raises(fgbridge.BridgeError):
+    with (
+        fgbridge.LiveBridge(sim, divisor=1, pace=False) as bridge,
+        pytest.raises(fgbridge.BridgeError),
+    ):
         bridge.step()
     assert sim.clock.frame == 1
     assert not sim.step()  # a one-row ring: frame 1 fits only because frame 0's row was drained
@@ -539,7 +544,7 @@ def test_a_failed_drain_is_returned_after_the_completed_frames_packet(
     halt = donor.step()  # a real, truthy HaltReason to stand in for the drain's LOG halt
     assert halt
     proxy: Any = _FailingDrain(_sim(_cruise(10), None), halt)
-    with fgbridge.LiveBridge(proxy, port=_port(receiver), divisor=1) as bridge:
+    with fgbridge.LiveBridge(proxy, port=_port(receiver), divisor=1, pace=False) as bridge:
         assert bridge.step() is halt  # frame 0 completed, then the drain failed
     assert bridge.packets_sent == 1
     assert proxy.clock.frame == 1
@@ -550,7 +555,7 @@ def test_a_halted_step_sends_nothing(receiver: socket.socket) -> None:
     sim = _sim(_cruise(10), None)
     with pytest.raises(_core.Error):
         sim.write_input("controls.throttle", math.nan)  # pending: frame 0's latch halts on it
-    with fgbridge.LiveBridge(sim, port=_port(receiver), divisor=1) as bridge:
+    with fgbridge.LiveBridge(sim, port=_port(receiver), divisor=1, pace=False) as bridge:
         reason = bridge.step()
     assert reason
     assert reason.check == _core.HealthCheck.NON_FINITE_INPUT
@@ -558,7 +563,7 @@ def test_a_halted_step_sends_nothing(receiver: socket.socket) -> None:
     _nothing_received(receiver)
 
 
-# --- pacing (Python-only, off by default; no real wait here) --------------------------------------
+# --- pacing (Python-only, on by default; no real wait here) --------------------------------------
 
 
 def test_pacing_holds_each_packet_until_its_frame_time(
@@ -582,3 +587,25 @@ def test_pacing_holds_each_packet_until_its_frame_time(
     assert fgbridge.send_log(path, port=_port(receiver), divisor=16, pace=False) == 4
     _receive(receiver, 4)
     assert sleeps == []
+
+
+def test_pacing_is_on_by_default_for_both_sources(
+    tmp_path: Path, receiver: socket.socket, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "run.h5"
+    sim = _sim(_cruise(50), path)
+    assert not sim.run(50)
+    sim.close_log()
+    sleeps: list[float] = []
+    monkeypatch.setattr(fgbridge.time, "monotonic", lambda: 100.0)  # wall time stands still
+    monkeypatch.setattr(fgbridge.time, "sleep", sleeps.append)  # and nothing really waits
+
+    assert fgbridge.send_log(path, port=_port(receiver), divisor=16) == 4  # no pace argument
+    _receive(receiver, 4)
+    assert sleeps == pytest.approx([0.016, 0.032, 0.048], rel=1e-12)
+
+    sleeps.clear()
+    with fgbridge.LiveBridge(_sim(_cruise(50), None), port=_port(receiver), divisor=16) as bridge:
+        assert bridge.run(50) is None
+    _receive(receiver, 4)
+    assert sleeps == pytest.approx([0.016, 0.032, 0.048], rel=1e-12)
