@@ -8,7 +8,7 @@ removed and every target migrated, `aircraft/_template/tests/` (the template's o
 `tests/python/test_new_aircraft_build.py` (copy the template, build clean, run its tests; shared and static),
 architecture §18, PLAN.md (this PR is "PR 12", plus one new open item).
 Stage: implementation, full gate, the Codex general pass and the integration of #74 are complete for the
-candidate; human review is next. The PR is marked ready but CI's `check` is red for a billing reason (below).
+candidate; human review is next. The PR is marked ready; CI's `check` is not a gate until Oct 1 (Next step).
 
 ## Last verified result
 Run this session: `./scripts/check-full.sh` from a fresh configure on `b8e3ab4`, exit 0, `check: OK`
@@ -19,15 +19,17 @@ touched (all identical once comments and docstrings are removed). NOT rerun on `
 the PR body says why. Later commits add only this file and `docs/lessons.md`.
 
 ## Next step
-1. Joe: clear the GitHub billing block (CI run 175 on `ac9d92c` failed with "The job was not started because
-   recent account payments have failed"; no step ran), then `gh pr ready --undo` and `gh pr ready`, and read the
-   actual current-head `check` result.
+1. No GitHub CI until Oct 1: Joe is out of Actions minutes and has turned off the required check in the ruleset.
+   Don't run the gh pr ready --undo / gh pr ready rerun, and don't treat a red or missing check as a blocker. The
+   local ./scripts/check-full.sh is the evidence. On or after Oct 1, restore the required check when Joe says to.
+   (CI run 175 on `ac9d92c` failed with "The job was not started because recent account payments have failed"; no
+   step ran.)
 2. Joe: decide on PR #73. It ran only the general Codex pass; say if an adversarial pass is wanted.
 3. Then: M6 planning is Joe's to launch. Open items with owners are in PLAN.md, including the new one (a
    shared-build test executable that omits `astra_add_plugin_test()` is caught only by a targeted or clean build).
 
 ## Tried / failed
-CI `check` did not start (billing), so no CI result exists for any head of this PR. A mutation anchor check I
+CI `check` did not start (out of Actions minutes), so no CI result exists for any head of this PR. A mutation anchor check I
 first used proved nothing (two lessons appended, 2026-09-29). No correction rounds and no failed integrations;
 the counts are in the PR body.
 
