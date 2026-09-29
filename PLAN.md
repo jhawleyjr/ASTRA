@@ -190,9 +190,39 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
     with the template's call removed and expects the refusal. The open item on the omission is removed. Plan:
     [plan](docs/plans/plugin-test-guard.md). Packet: in the PR body.
 
+M6 to M11 were mapped from [future work](docs/future-work.md) by Joe on 2026-09-29, in this order. Each still
+gets its own spec, plan and architecture §16 row at its planning step. Open items carry the milestone that
+takes them as a prefix.
+
+- [ ] **M6 Analysis tooling** — plotting with reusable plot packages over run logs; Monte Carlo visualization
+      (draws, outcomes, trajectory envelopes); failure-to-draw correlation over `summary.parquet`; a tool that
+      sizes a Monte Carlo from the question asked and the number of dispersed parameters; a run report with
+      provenance; a frame-time benchmark; `astra run --strict`; the superseding ADR to ADR-0025's
+      Finalization (Tier 3). Detail: [future work](docs/future-work.md#analysis-and-debugging-tools).
+- [ ] **M7 F-16 and the NESC oracle** — `aircraft/f16` built from the template; NESC atmospheric cases 11, 12,
+      13.1 to 13.4, 15 and 16 against the participating simulations' trajectories in `docs/refs` (ADR-0013's
+      ensemble as oracle); the tutorial and the generated config-key reference written from this path. The
+      NESC F-16 control laws (`F16_control.dml` for 13.x, `F16_gnc.dml` for 15 and 16) run outside
+      `embedded/` first and are shown to match the ensemble, then are ported to `embedded/` (Joe,
+      2026-09-29). Plan questions: where the sim-side control law lives, the port's equivalence criterion, and
+      hand-porting the aero tables versus a generic DAVE-ML table plugin.
+- [ ] **M8 Actuators and controller tuning** — a first-order lag and a nonlinear second-order actuator model
+      with rate and position limits; autopilot gains loaded at startup; the tuning tool (spec-driven on the
+      linear model, time-domain on the nonlinear sim, robustness across draws, gain schedules) with
+      frequency-domain and handling-qualities analysis (MIL-HDBK-1797), for the notional transport and the
+      F-16.
+- [ ] **M9 Sensors and ICD v2** — ICD v2 with timestamps and per-sensor rates; IMU at several fidelity levels,
+      GNSS PVT, barometric altimeter, air data, and a magnetometer with a magnetic field model; non-standard
+      days, 1-cosine gusts, wind shear and microbursts; fuzzing of ICD decode.
+- [ ] **M10 Navigation, faults and closed-loop Monte Carlo** — an INS/GNSS EKF in `embedded/` with the
+      autopilot flying on estimated state; truth, measurements and estimates logged, with NEES and NIS over a
+      batch; fault injection as scenario events (sensor faults, GNSS-denied, actuator faults, engine out);
+      closed-loop scenarios and Monte Carlo, with failure correlation extended to them.
+- [ ] **M11 Real-time** — `RealTime` mode, with the frame-time benchmark tracked over time.
+
 ## Open items
 
-- [ ] Earth/gravity rotation-consistency check at init (origin: M2 case05 fix; deferred by Joe, 2026-09-19) —
+- [ ] (M7) Earth/gravity rotation-consistency check at init (origin: M2 case05 fix; deferred by Joe, 2026-09-19) —
       `docs/plans/nesc-case05-gravity-centripetal.md`'s D2(b), deferred (D2(a), disclosed only, for that task).
       Two independently-configured plugins can each pass their own init-time validation while disagreeing about
       whether Earth rotates: `gravity/inverse_square`'s `rotating` config key must be set consistently with
@@ -205,14 +235,14 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
       `assumed_position_representation()`/`position_representation()` check already in `Simulation::from_config`)
       — a real, if modest, interface change, not a `plugins/physical`-only fix; plan-review before code. Not
       started.
-- [ ] `plugins/physical/mass/constant`'s `ixy`/`ixz`/`iyz` config keys have no documented sign convention
+- [ ] (M7) `plugins/physical/mass/constant`'s `ixy`/`ixz`/`iyz` config keys have no documented sign convention
       (origin: M3 PR 1 review): the plugin places them directly, unnegated, into the inertia tensor's
       off-diagonal entries, which only matches the standard aerospace convention (tensor entry =
       `-integral(x*z*dm)`) if the config value is already meant as that negated tensor entry rather than the
       product of inertia itself. `aircraft/_template`'s and `aircraft/notional_transport`'s own `physical/mass`
       plugins (M3 PR 1) document and use the product-of-inertia convention explicitly instead; the shared
       plugin's keys are unchanged and still undocumented. Not started.
-- [ ] Elevator/throttle deflection *range* has no declared home (origin: M3 PR 6 planning,
+- [ ] (M8) Elevator/throttle deflection *range* has no declared home (origin: M3 PR 6 planning,
       `docs/plans/pr6-trim.md`, D10): the second control-surface property (after the positive-deflection sense,
       resolved by M3 PR 9) with no config key or ICD field to read it from. PR 6's own plausibility check
       hardcodes `elevator ∈ [-0.3, 0.3]` rad (737.xml) and `throttle ∈ [0, 1]` (the ICD's documented convention,
@@ -220,11 +250,11 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
       surface limits live with the aircraft's own actuator model (M4+), not the ICD — `astra_sw_to_sim_v1`'s
       `elevator`/`aileron`/`rudder`/`throttle` fields carry a commanded angle the sim does not clamp in v1; the
       ICD does not carry limits. Not started.
-- [ ] `astra.trim`'s own hardcoded control-input names (origin: M3 PR 7 planning; D10, PR 6,
+- [ ] (M7) `astra.trim`'s own hardcoded control-input names (origin: M3 PR 7 planning; D10, PR 6,
       `docs/plans/pr6-trim.md`) are not retrofitted to `InputRegistry::names()` by PR 7's own binding of it: PR 7
       reads control names through it for `astra.linearize` only, and `trim_straight_and_level` keeps its
       literals. Not started.
-- [ ] `astra.linearize`'s 9-state `A` (PR 7, D11) omits altitude (origin: M3 PR 8 finding,
+- [ ] (M8) `astra.linearize`'s 9-state `A` (PR 7, D11) omits altitude (origin: M3 PR 8 finding,
       `docs/plans/pr8-cruise-regression.md` finding 4; owner: Joe's call): position is held fixed, so `A` has no
       d/dh and no density/thrust-lapse coupling. Against a nonlinear open-loop run from the trimmed cruise,
       `modes(A).phugoid`'s damped period is 125.3 s against a measured 108.6 s (15% long; the measured period is
@@ -232,14 +262,14 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
       (108.5 s, 0.027), as S&L Example 3.8-5 describes. PR 8 builds that 5x5 in its own test only. An opt-in
       altitude state in `astra.linearize` itself would be a D11 revision — Joe's call, not scheduled. Not
       started.
-- [ ] `tests/golden/dynamics/capture_r1_golden.cpp` (the R1/R1-Sim capture harness, M3 PR 4a) is stale (origin:
+- [ ] (unscheduled) `tests/golden/dynamics/capture_r1_golden.cpp` (the R1/R1-Sim capture harness, M3 PR 4a) is stale (origin:
       M3 PR 10 finding; owner: Joe): it includes `astra/kernel/eom.hpp` and uses
       `astra::Eom`/`post_step_renormalize`, all retired by ADR-0021 in PR 4a itself. A future R1 re-capture needs
       a source fix to that harness under Joe's authorization (it is under `tests/golden/**`), not just re-adding
       `add_subdirectory(golden/dynamics)` as `tests/CMakeLists.txt`'s comment implies. Its script
       `capture_r1_golden.sh` also has no arming check of its own (unlike PR 8's); today it refuses at its
       clean-tree and baseline-drift (`26ad594`) steps, before its first commit. Not started.
-- [ ] ADR-0002's literal "no unit suffixes in identifiers (`altitude`, not `altitude_m`)" text (origin: M3 PR 3,
+- [ ] (M7) ADR-0002's literal "no unit suffixes in identifiers (`altitude`, not `altitude_m`)" text (origin: M3 PR 3,
       ADR-0018) vs. `AtmoState`'s own field names (`temperature_k`, `pressure_pa`, `density_kg_m3`,
       `speed_of_sound_m_s`): whether the rule means signal-name strings specifically (its own example,
       `registry.add("aero.CL", ...)`, is a string) or every C++ identifier is unresolved; PR 3's own plan accepted
@@ -248,32 +278,32 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
       ADR-0020's cited precedent for whatever unit-suffixed fields a concrete plugin's own
       `air_data.hpp`-derived, plugin-side `Inputs`-shaped struct uses instead; the wording question is otherwise
       unchanged. Not started.
-- [ ] §15 envelope monitors (α, β, Mach, dynamic pressure, load-factor limits declared by the aero model)
+- [ ] (M7) §15 envelope monitors (α, β, Mach, dynamic pressure, load-factor limits declared by the aero model)
       (origin: deferred from M3 PR 3, ADR-0018): no declaration hook exists yet on `AeroModel`, because no concrete
       plugin had real numbers to declare before M3 PR 4. A later PR adds
       the declaration virtual (a further `kCoreApiVersion` bump, precedented) and wires `HealthMonitor`'s own
       per-frame check against it. Not started.
-- [ ] Moderate-turbulence throttle jitter (origin: M4 PR 6; Joe 2026-09-26, nonblocking): airspeed gusts pass
+- [ ] (M8) Moderate-turbulence throttle jitter (origin: M4 PR 6; Joe 2026-09-26, nonblocking): airspeed gusts pass
       through the autopilot's speed loop to the throttle, up to 0.019 per exchange at moderate (throttle 0.310 to
       0.633 around trim 0.4986), no limit reached (`docs/reviews/m4-pr6-lockstep-acceptance-human.md`). Revisit
       when a sensor or actuator model lands. Not started.
-- [ ] Remove the `OPTIONAL_GAIN_NAMES`/`kSideslip` support from `tests/python/autopilot_design.py` (origin: M4
+- [ ] (M8) Remove the `OPTIONAL_GAIN_NAMES`/`kSideslip` support from `tests/python/autopilot_design.py` (origin: M4
       PR 5 follow-up, carried by PR 6; owner: whoever next touches the gains): `gains.hpp` defines no `kSideslip`
       and no sideslip term was needed at M4 acceptance. Not started.
-- [ ] Follow-up C (origin: M4 PR 3; Joe 2026-09-25, not scheduled): `LockstepExchange` recorder sizing for an
+- [ ] (M10) Follow-up C (origin: M4 PR 3; Joe 2026-09-25, not scheduled): `LockstepExchange` recorder sizing for an
       absurd `sim.frames`: preallocation throws `std::bad_alloc` at init instead of a `ConfigError` naming
       `sim.frames`, and `sim.frames` near `UINT64_MAX` wraps the capacity arithmetic in its constructor
       (`docs/reviews/m4-pr3-core-seam-human.md`). Not started.
-- [ ] Wall-clock scan, timed I/O waits (origin: M5 PR 10 review, Codex thread `01a0eb14-1425-7c02-bb04-44d54eb9960e`;
+- [ ] (M11) Wall-clock scan, timed I/O waits (origin: M5 PR 10 review, Codex thread `01a0eb14-1425-7c02-bb04-44d54eb9960e`;
       Joe's stop rule, 2026-09-28): `scripts/wallclock_scan.py`'s `multiplexing` family covers `select`, `pselect`,
       `poll`, `ppoll`, `epoll_wait` and `epoll_pwait`, but not three more members of it that take a timeout:
       `epoll_pwait2`, `aio_suspend` (and `aio_suspend64`) and `recvmmsg`. Each shows as an undefined symbol under
       `nm -u -C` on clang++-18 and passes the scan today. Add anchored patterns and one compiled case per family.
       The scan stays a tripwire, not a proof (its docstring and architecture §15 list the blind spots). Not started.
-- [ ] Evaluate Jev (TypeSafe AI) for workflow routing: model/effort selection at session launch and context
+- [ ] (unscheduled) Evaluate Jev (TypeSafe AI) for workflow routing: model/effort selection at session launch and context
       selection, advisory with today's fixed settings as the fallback and file-path rules for Tier 3 kept
       (origin: Joe, 2026-09-26; owner: Joe, starting with console.typesafe.ai signup).
-- [ ] One superseding ADR to ADR-0025's Finalization (origin: M5 PR 5; Joe 2026-09-27; extended by M5 PR 9,
+- [ ] (M6) One superseding ADR to ADR-0025's Finalization (origin: M5 PR 5; Joe 2026-09-27; extended by M5 PR 9,
       2026-09-28; Tier 3, scheduling is Joe's call), covering four points:
       a. record how a run log was finalized: `close_log()` versus the `Simulation` destructor, so
          `astra.log.load` can flag, not refuse, a destructor-finalized log (`Session` relies on the destructor
@@ -291,30 +321,29 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
       d. minor: `load`'s optional cross-checks, `final_state.frame == frames_run` and the rate groups' signal
          names against `/summary`'s min/max names. These catch only hand-edited files.
       Not started.
-- [ ] `RealTime` mode's logger writer thread (origin: M5 plan §9/architecture §9, held-out scope; Joe's call):
+- [ ] (M11) `RealTime` mode's logger writer thread (origin: M5 plan §9/architecture §9, held-out scope; Joe's call):
       M5's logger drains only inline (`AsFastAsPossible`); `RealTime` mode itself is not built, so the
       separate non-RT drain thread architecture §9 describes has nothing to run on yet. Not started.
-- [ ] A CLI, `astra run` with `--strict` (origin: M5 plan Q24, architecture §15/§18; Joe's call): §16's M5 row
+- [ ] (M6) A CLI, `astra run` with `--strict` (origin: M5 plan Q24, architecture §15/§18; Joe's call): §16's M5 row
       does not require it; `--strict` exits non-zero on any halt or nonzero warn counter, as the scenario
       harness already does internally. Not started.
-- [ ] Retire the M4 `ExchangeRecorder` once a lockstep test compares HDF5 logs instead (origin: M5 plan Q12,
+- [ ] (M10) Retire the M4 `ExchangeRecorder` once a lockstep test compares HDF5 logs instead (origin: M5 plan Q12,
       ADR-0022; Joe's call): kept through M5 because M4's byte-identity acceptance tests
       (`closed_loop_acceptance_test.cpp`) read it; M5's log already carries `v0.controls.*` and `transport.*`
       for lockstep runs. Retiring it would also moot Follow-up C's recorder-sizing item above. Not started.
-- [ ] Wind events in scenarios (origin: M5 plan Q14; Joe's call): `astra.scenario` events are `write_input`
+- [ ] (M10) Wind events in scenarios (origin: M5 plan Q14; Joe's call): `astra.scenario` events are `write_input`
       only; there is no write seam for wind, so a wind change is a config choice (for example `wind/uniform`),
       not an event, until a seam exists. Not started.
-- [ ] Closed-loop (autopilot) scenarios and Monte Carlo (origin: M5 plan Q16; Joe's call): not in M5, since
+- [ ] (M10) Closed-loop (autopilot) scenarios and Monte Carlo (origin: M5 plan Q16; Joe's call): not in M5, since
       adding the autopilot peer means subprocess management in the harness; M4's own acceptance already covers
       closed loop. Not started.
-- [ ] Replaying a lockstep run (origin: M5 plan Q11; Joe's call): `astra.log.replay` refuses a log with a
+- [ ] (M10) Replaying a lockstep run (origin: M5 plan Q11; Joe's call): `astra.log.replay` refuses a log with a
       `transport` block, since replaying commands without the peer is a different feature. Not started.
 
 ## Future work
 
-Unscheduled candidates from Joe's 2026-09-29 brainstorm, grouped, with the direction he set:
-[future work](docs/future-work.md). An item enters this file, as a milestone, a PR line or an open item,
-when it is planned.
+Joe's 2026-09-29 brainstorm, grouped, with the direction he set: [future work](docs/future-work.md). Its
+items are mapped to M6 to M11 above; the rest wait under its "Later" list.
 
 ## Recorded only here
 
