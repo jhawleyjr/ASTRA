@@ -8,18 +8,18 @@
 // Conventions (ADR-0001): body FRD, nav NED, 3-2-1 Euler psi (yaw), theta (pitch), phi (roll) in
 // rad. q_nb is Hamilton, scalar-first (w, x, y, z), rotates n -> b: v_b = C_nb v_n. Stevens &
 // Lewis, Aircraft Control and Simulation, 3rd ed. (c = cos, s = sin, p = phi, t = theta, ps = psi):
-//   C_nb from Euler (eq. 1.3-11):
+//   C_nb from Euler (eq. 1.3-10):
 //     [ ct*cps            ct*sps            -st   ]
 //     [ sp*st*cps-cp*sps  sp*st*sps+cp*cps  sp*ct ]
 //     [ cp*st*cps+sp*sps  cp*st*sps-sp*cps  cp*ct ]
-//   q_nb from Euler (eq. 1.8-16), half angles a = phi/2, b = theta/2, c = psi/2:
+//   q_nb from Euler (Example 1.8-1 eq. (1), p. 52, + sign), half angles a = phi/2, b = theta/2, c = psi/2:
 //     w = ca*cb*cc + sa*sb*sc,  x = sa*cb*cc - ca*sb*sc,
 //     y = ca*sb*cc + sa*cb*sc,  z = ca*cb*sc - sa*sb*cc
-//   C_nb from q (eq. 1.8-18), checked equal to the Euler form for every case:
+//   C_nb from q (eq. 1.8-16/1.8-18), checked equal to the Euler form for every case:
 //     [ w2+x2-y2-z2  2(xy+wz)     2(xz-wy)    ]
 //     [ 2(xy-wz)     w2-x2+y2-z2  2(yz+wx)    ]
 //     [ 2(xz+wy)     2(yz-wx)     w2-x2-y2+z2 ]
-//   Euler from C_nb (1-based indices): psi = atan2(C12, C11), theta = -asin(C13), phi = atan2(C23, C33)
+//   Euler from C_nb (eq. 1.3-11, 1-based indices): psi = atan2(C12, C11), theta = -asin(C13), phi = atan2(C23, C33)
 //   Kinematics (eq. 1.8-15): qdot_nb = 0.5 * q_nb (x) (0, omega_b), Hamilton product, omega_b = (p, q, r).
 //     The other order, 0.5 * (0, omega_b) (x) q_nb, gives different numbers for every case except pure yaw.
 // clang-format on

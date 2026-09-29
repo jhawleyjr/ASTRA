@@ -422,7 +422,7 @@ def test_spiral_matches_the_approximation(result: linearize.LinearizeResult) -> 
 
 
 def test_quaternion_from_euler_matches_the_real_construction() -> None:
-    # frames.hpp::quaternion_from_euler (S&L eq. 1.8-16), checked against the real
+    # frames.hpp::quaternion_from_euler (S&L Example 1.8-1 Eq. (1), p. 52), checked against the real
     # Simulation.from_config's own initial.state.euler_nb construction at three distinct, all-
     # nonzero angles -- catches a phi/psi argument-order transposition (the permutation trap the
     # module docstring flags), which a phi = psi = 0 case (like R3's own trim point) cannot.

@@ -22,13 +22,14 @@ using Quaternion = Eigen::Vector4d;
 using EulerAngles = Eigen::Vector3d;
 
 // NOLINTBEGIN(readability-magic-numbers): every literal below is a coefficient from Stevens &
-// Lewis' closed-form equations (eq. 1.3-11, 1.8-16, 1.8-18), not an arbitrary magic number; naming
-// each one (e.g. kHalf = 0.5) would make the formulas harder to check against the reference, not
-// easier.
+// Lewis' closed-form equations (eq. 1.3-10, 1.3-11, 1.8-18, Example 1.8-1 eq. (1)), not an
+// arbitrary magic number; naming each one (e.g. kHalf = 0.5) would make the formulas harder to
+// check against the reference, not easier.
 
-// --- Euler <-> quaternion <-> DCM (Stevens & Lewis eq. 1.3-11, 1.8-16, 1.8-18) ---
+// --- Euler <-> quaternion <-> DCM (Stevens & Lewis eq. 1.3-10, 1.3-11, 1.8-16/1.8-18, Example
+// 1.8-1) ---
 
-// eq. 1.8-16, half angles a = phi/2, b = theta/2, c = psi/2.
+// Example 1.8-1 eq. (1), p. 52 (its + sign), half angles a = phi/2, b = theta/2, c = psi/2.
 [[nodiscard]] inline Quaternion quaternion_from_euler(const EulerAngles& euler_nb) noexcept {
   const double ca = std::cos(euler_nb(2) / 2.0);
   const double sa = std::sin(euler_nb(2) / 2.0);
@@ -40,7 +41,7 @@ using EulerAngles = Eigen::Vector3d;
                     ca * sb * cc + sa * cb * sc, ca * cb * sc - sa * sb * cc};
 }
 
-// eq. 1.3-11.
+// eq. 1.3-10.
 [[nodiscard]] inline Eigen::Matrix3d dcm_from_euler(const EulerAngles& euler_nb) noexcept {
   const double cp = std::cos(euler_nb(2));
   const double sp = std::sin(euler_nb(2));
@@ -57,7 +58,8 @@ using EulerAngles = Eigen::Vector3d;
   return c_nb;
 }
 
-// eq. 1.8-18, checked equal to the Euler form for every oracle case.
+// eq. 1.8-16 (array form), expanded in eq. 1.8-18; checked equal to the Euler form for every oracle
+// case.
 [[nodiscard]] inline Eigen::Matrix3d dcm_from_quaternion(const Quaternion& q_nb) noexcept {
   const double w = q_nb(0);
   const double x = q_nb(1);
@@ -72,9 +74,9 @@ using EulerAngles = Eigen::Vector3d;
   return c_nb;
 }
 
-// psi = atan2(C12, C11), theta = -asin(C13), phi = atan2(C23, C33) (1-based indices in the oracle's
-// comment; C13 is clamped for the theta = +-90 deg gimbal-lock cases where roundoff can push |C13|
-// past 1 by an epsilon).
+// eq. 1.3-11: psi = atan2(C12, C11), theta = -asin(C13), phi = atan2(C23, C33) (1-based indices in
+// the oracle's comment; C13 is clamped for the theta = +-90 deg gimbal-lock cases where roundoff
+// can push |C13| past 1 by an epsilon).
 [[nodiscard]] inline EulerAngles euler_from_dcm(const Eigen::Matrix3d& c_nb) noexcept {
   const double c13 = std::clamp(c_nb(0, 2), -1.0, 1.0);
   return EulerAngles{std::atan2(c_nb(0, 1), c_nb(0, 0)), -std::asin(c13),
