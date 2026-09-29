@@ -310,6 +310,12 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
 - [ ] Replaying a lockstep run (origin: M5 plan Q11; Joe's call): `astra.log.replay` refuses a log with a
       `transport` block, since replaying commands without the peer is a different feature. Not started.
 
+## Future work
+
+Unscheduled candidates from Joe's 2026-09-29 brainstorm, grouped, with the direction he set:
+[future work](docs/future-work.md). An item enters this file, as a milestone, a PR line or an open item,
+when it is planned.
+
 ## Recorded only here
 
 Decisions and disclosures from the compacted narratives that no plan, packet or ADR holds:
