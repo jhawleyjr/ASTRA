@@ -82,8 +82,8 @@ endfunction()
 # Leaving the call out fails configure in every build: astra_finalize_plugins() refuses an executable whose
 # own COMPILE_DEFINITIONS carry ASTRA_TEST_PLUGIN_DIR and that is not registered. It sees nothing else, so
 # a test that finds its plugins another way (capture_cruise_regression reads the directory from its command
-# line), gets the macro from a directory, source file or linked library, or loads them from a support
-# library must still be registered by hand.
+# line), gets the macro from a directory, source file, linked library or -D in COMPILE_OPTIONS, or loads
+# them from a support library must still be registered by hand.
 function(astra_add_plugin_test target)
   if(NOT "${ARGN}" STREQUAL "")
     message(FATAL_ERROR "astra_add_plugin_test: unknown arguments '${ARGN}' (${CMAKE_CURRENT_SOURCE_DIR})")
