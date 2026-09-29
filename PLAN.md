@@ -188,7 +188,7 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
     directory (`astra_finalize_plugins()` walks every directory's targets). `tests/embedded`'s
     `astra_autopilot_process_tests` is registered; `tests/python/test_new_aircraft_build.py` configures a copy
     with the template's call removed and expects the refusal. The open item on the omission is removed. Plan:
-    in the PR body. Packet: in the PR body.
+    [plan](docs/plans/plugin-test-guard.md). Packet: in the PR body.
 
 ## Open items
 
