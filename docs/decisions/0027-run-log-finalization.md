@@ -8,7 +8,7 @@ section. ADR-0025 is not edited, and its other sections stand. This record adds 
 contradicting them: Enabling gains more refusals (item 1), Replay gains the `out` rules and one more refused
 kind of log (item 7), and Determinism states that its fallback does not cover this record (item 9).
 Elaborates ADR-0005 (HDF5 through the C API) and ADR-0010 (no wall time in the file). Drafted with
-`docs/plans/m6-analysis-tooling.md` (Q13, Q17 to Q19) and `docs/plans/m6-pr1-adr0027.md` (Joe's D1 to D6).
+`docs/plans/m6-analysis-tooling.md` (Q13, Q17 to Q19) and `docs/plans/m6-pr1-adr0027.md` (Joe's D1 to D7).
 
 ## Context
 
@@ -44,14 +44,21 @@ Otherwise the log creates `<log.path>.partial` exclusively (`H5F_ACC_EXCL`) in t
 the provenance, `/plugins`, each rate group's empty datasets and `rows_committed = 0` on each group, then
 flushes. A missing or unwritable directory fails the create, and that is a `ConfigError` naming `log.path`.
 
-*The run's own file.* Right after the exclusive create, the log keeps a descriptor to the file it created,
-taken from HDF5's own descriptor (`H5Fget_vfd_handle`, sec2 driver) by `dup()` or a `/proc/self/fd` reopen,
-never by a second open of the name. It holds that descriptor until the rename or its refusal (item 3), or
-until item 8's init-failure delete, and closes it on every path, the destructor included. Holding it also
-keeps the inode number from being reused. PR 2 confirms that holding it does not keep HDF5's file lock alive
-past the HDF5 close. The *identity check* compares the descriptor's (device, inode) with
-`fstatat(dirfd, "<name>.partial", AT_SYMLINK_NOFOLLOW)`. It fails if the name is missing, is a symlink, or is
-any other file. The check guards every operation the core performs on the `.partial` by name.
+*The run's own file.* Right after the exclusive create, the log keeps its own descriptor to the file it created.
+It reopens HDF5's descriptor (`H5Fget_vfd_handle`, sec2 driver) through `/proc/self/fd`, which gives a
+separate open file description. It is never a `dup()`, which would share HDF5's description and let HDF5's
+file lock outlive HDF5's close, and never a second open of the name. The log holds this descriptor from the
+create until the `Simulation` is destroyed: through a successful rename, a publication refusal, a failed close
+and `discard_log()` (item 8). Only the destructor closes it, and it deletes nothing. When `from_config` fails,
+the log is destroyed with it. Holding the descriptor also keeps the inode number from being reused. PR 2 tests
+that `load(log.path)` succeeds while the `Simulation` is still alive, and so that the kept descriptor holds no
+HDF5 file lock.
+
+The *identity check* compares the descriptor's (device, inode) with
+`fstatat(dirfd, name, AT_SYMLINK_NOFOLLOW)`, where `name` is where the log currently lives: `<log.path>.partial`
+before the publication point (item 3), and `log.path` after it. The check fails if the name is missing, is a
+symlink, or is any other file. It guards every operation the core performs on a log file by name: the rename
+and every delete.
 
 **2. Crash-readable writing.** Each rate group still writes its own 1024-row blocks, `values` then `frame`. After
 every block write of any group, on the drain path and the close path alike (tails included), the writer makes
@@ -84,7 +91,6 @@ against the 1001 s full gate and the 59.3 s pytest run.
 6. runs the identity check (item 1);
 7. publishes with `renameat2(RENAME_NOREPLACE)` from `<log.path>.partial` to `log.path`. The rename is atomic
    and never replaces a file. It needs glibc 2.28 or later (Ubuntu 24.04 has 2.39).
-8. closes the kept descriptor.
 
 The successful rename is the *publication point*: before it, the run has published nothing, and after it the
 complete log is at `log.path` and no `.partial` remains, even if the process dies before `close_log()`
@@ -102,7 +108,7 @@ and leaves the `.partial` in place:
 - any other errno, with its message.
 
 A failed write or a failed file close in steps 1 to 5 throws a `LogError` as ADR-0025 says, with no rename.
-Every refusal also closes the kept descriptor. There is never a fallback to a non-atomic rename or to link and
+The kept descriptor stays open after every outcome (item 1). There is never a fallback to a non-atomic rename or to link and
 unlink. `close_log()` stays idempotent. After any failure, a later call raises the same error and does not
 retry, and after an earlier drain failure (`kLog`) it writes nothing more. A user who clears a collision
 moves the file by hand (`mv -n`). **A file at `log.path` is one that `close_log()` completed and published,
@@ -112,8 +118,9 @@ file close that fails after the marker leaves only a `.partial`.
 
 **4. Destructor.** When a `Simulation` is destroyed with its log still open, it runs `close_log()`'s steps 1 to 5
 with two differences. Where `close_log()` sets `complete = 1`, it sets the root attribute
-`finalized_by = "destructor"`, and it never renames. It closes the kept descriptor. The tails get their flush and `rows_committed`, and
-everything is flushed before the marker. After any earlier failure (a failed drain, `kLog`, a failed write
+`finalized_by = "destructor"`, and it never renames. The tails get their flush and `rows_committed`, and
+everything is flushed before the marker. In every state, the destructor then closes the kept descriptor and
+deletes nothing. After any earlier failure (a failed drain, `kLog`, a failed write
 during its own sequence) it writes nothing more and sets no marker. It never sets `complete`. A dropped
 `Simulation` therefore leaves only `<log.path>.partial`. A destructor that never runs (interpreter exit without
 collection, `abort`, a kill) leaves a killed run's file, and so does a failed one. `astra.lockstep.Session`
@@ -175,29 +182,36 @@ destructor or incomplete log is not a replayable record. This is in addition to 
 refusals. `out` follows item 1's rules: it is made absolute, and an existing `out`, an existing
 `<out>.partial` and a name ending in `.partial` are each refused. Replay closes with `close_log()`, which
 publishes to `out`. If the new file does not meet the determinism criterion, replay deletes the `out` it
-published.
+published through `discard_log()` (item 8).
 
 **8. Who deletes what.**
-- **The core** never deletes a log file, with one exception: the `.partial` that the current `from_config`
-  call created exclusively. It is deleted only while that same call is failing, and never after the call
-  returns. Today there are two such sites, and any future init step after the create follows the same rule:
+The core deletes a log file in exactly two cases, and each delete is an `unlinkat` through the directory that
+runs item 1's identity check first. On a failed check it deletes nothing. `close_log()` and the destructor
+delete nothing. A stale `.partial` refused under item 1 was not created by this run and is never touched.
+Stated residual: the gap between the check and the `unlinkat`, the same as item 3's gap before the rename.
+- **A failing init.** The `.partial` that the current `from_config` call created exclusively is deleted only
+  while that same call is failing, never after it returns. Today there are two such sites, and any future
+  init step after the create follows the same rule:
   - the `RunLog` constructor's provenance write failure;
   - the transport `open()` failure in `Simulation::open_log_and_transport`.
+- **`Simulation::discard_log()`**, bound to Python and off the per-frame path. It is the only way a tool
+  deletes a log file. It works in every state:
+  - while the log is open, it stops writing, closes the file without setting `complete` or `finalized_by`,
+    and unlinks the `.partial`;
+  - after a publication refusal or a failed close, it unlinks the `.partial`;
+  - after publication, it unlinks `log.path`.
 
-  The delete runs item 1's identity check first. If the check fails, the delete touches nothing, and the
-  descriptor is closed either way. The destructor and `close_log()` delete nothing. A stale `.partial` refused
-  under item 1 was not created by the call and is never touched. Stated residual: the same gap between the
-  check and the `unlinkat` as item 3's gap before the rename.
-- **A tool** (`montecarlo`, `scenario`, `replay`, through `_runkit`) deletes only files its own invocation
-  created, and only when it handles a failure. A file is the tool's own if it is the `.partial` its
-  `Simulation`'s construction created, or the file its `close_log()` published.
-  - A tool deletes its own `.partial` only through a core call that runs the identity check (PR 2 names the
-    call), and only while its `Simulation` is alive. Once the `Simulation` is gone, it leaves the `.partial`.
-    A tool never deletes a `.partial` by name alone.
-  - A tool never deletes a file whose construction was refused (an existing `log.path`, a stale `.partial`),
-    and never a foreign file that collided at `log.path` (`EEXIST`) or that replaced its `.partial`.
-  - After a clean run, or an error it handles while its `Simulation` is alive, a tool leaves no `.partial` of
-    its own.
+  On a failed identity check or a missing name it deletes nothing and returns a result saying so. It is
+  idempotent: a second call deletes nothing and returns the same result. Afterwards `close_log()` raises
+  `LogError` "discarded", and `step()` halts `kLog`, as with any closed log. `discard_log()` is how a tool
+  meets R18b.
+- **A tool** (`montecarlo`, `scenario`, `replay`, through `_runkit`) deletes only its own run's log file, only
+  when it handles a failure, and only by calling `discard_log()` while its `Simulation` is alive. When the
+  result reports a mismatch or a missing name, the tool leaves every file alone. Once the `Simulation` is gone,
+  a tool deletes nothing. A tool never deletes a log file by name, never a file whose construction was refused
+  (an existing `log.path`, a stale `.partial`), and never a foreign file that collided at `log.path`
+  (`EEXIST`) or that replaced its own. After a clean run, or an error it handles while its `Simulation` is
+  alive, it leaves no `.partial` of its own.
 
 **9. Determinism.** ADR-0025's criterion is unchanged: two runs of one config give byte-identical files at their
 final paths, and so does a run and its replay. By item 2 this holds for every drain pattern in use.
@@ -238,6 +252,11 @@ publication rule change what a file means. `load` reads version 2 and refuses ve
   a delete would remove it (Codex review of this record, F1).
 - **Taking the kept descriptor by opening the name a second time:** that could open a file that already
   replaced the one HDF5 created.
+- **A `dup()` of HDF5's descriptor:** it shares HDF5's open file description, so HDF5's file lock could outlive
+  HDF5's close, and `load(log.path)` could fail while the `Simulation` is alive.
+- **Closing the kept descriptor at the rename or at a refusal:** a tool that handles an `EEXIST` refusal could
+  then no longer delete its own `.partial` safely (Codex review of this record, N1).
+- **Tools deleting log files by name:** they could delete a file that replaced their own.
 
 ## Consequences and validation
 
@@ -247,10 +266,13 @@ untouched. Costs:
 - a rename at close;
 - a third finalization state in `load`;
 - `log_format_version` 2;
-- every Python tool moving to `close_log()` and to cleanup by ownership.
+- one descriptor held per logged `Simulation`;
+- a new bound call, `Simulation::discard_log()`;
+- every Python tool moving to `close_log()`, and to `discard_log()` for cleanup.
 
-`kCoreApiVersion` is expected not to change, because `close_log()`'s signature and the bound types stay the
-same; PR 2 confirms under ADR-0009's check. Rollback is reverting PR 2. This record then has no implementation
+`kCoreApiVersion` is expected not to change, because no plugin-facing interface changes: `close_log()`'s
+signature stays the same, and `discard_log()` is a new `Simulation` method that plugins never call. PR 2
+confirms this under ADR-0009's check. Rollback is reverting PR 2. This record then has no implementation
 and ADR-0025's Finalization describes the code again.
 
 Validation is the M6 plan's, in PR 2:
@@ -265,11 +287,14 @@ Validation is the M6 plan's, in PR 2:
 - R18 (byte identity from `run()`, a per-frame `flush_log()`, a small `buffer_frames` and `replay`, for the
   notional transport and the divisor-10 fixture, a halting run included);
 - R18b (one cleanup rule through `_runkit`, `montecarlo`, `scenario` and `replay`, with the Monte Carlo kill
-  test waiting on the `.partial` name);
+  test waiting on the `.partial` name). Its collision case checks that `discard_log()` removes the owned
+  `.partial` and leaves the foreign `log.path` untouched. Two more cases are added: a published log that is then
+  discarded, and a mismatch that deletes nothing and reports it;
 - R19b (the flush cost, measured before and after).
 
-PR 2 also confirms three claims: the chunk index type (item 5), the `frame` column claim for halted runs
-(item 6), and that the kept descriptor does not hold HDF5's file lock past the HDF5 close (item 1). R16's kill
+PR 2 also confirms two claims: the chunk index type (item 5) and the `frame` column claim for halted runs
+(item 6). It tests that `load(log.path)` succeeds while the `Simulation` is still alive, which shows the kept
+descriptor holds no HDF5 file lock (item 1). R16's kill
 tests accept a published log for a kill after the publication point (item 5).
 
 This record's own check: `python3 scripts/docs_check.py`, `git diff --check`, an adversarial Codex review and
