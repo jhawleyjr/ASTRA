@@ -183,6 +183,12 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
     builds and runs them with no framework edit (architecture §18); `tests/python/test_new_aircraft_build.py`
     builds and tests such a copy from a clean directory, shared and static. The open item on that list is
     removed. Plan: [plan](docs/plans/plugin-test-helper.md). Packet: in the PR body.
+  - PR 13 (#75): the plugin-test guard: configure fails, shared and static, for an executable compiled with
+    `ASTRA_TEST_PLUGIN_DIR` that is not registered with `astra_add_plugin_test()`, naming the target and its
+    directory (`astra_finalize_plugins()` walks every directory's targets). `tests/embedded`'s
+    `astra_autopilot_process_tests` is registered; `tests/python/test_new_aircraft_build.py` configures a copy
+    with the template's call removed and expects the refusal. The open item on the omission is removed. Plan:
+    in the PR body. Packet: in the PR body.
 
 ## Open items
 
@@ -303,11 +309,6 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
       closed loop. Not started.
 - [ ] Replaying a lockstep run (origin: M5 plan Q11; Joe's call): `astra.log.replay` refuses a log with a
       `transport` block, since replaying commands without the peer is a different feature. Not started.
-- [ ] A shared-build test executable that omits `astra_add_plugin_test()` is only caught by a targeted or clean
-      build (origin: M5 PR 12; Joe's call): the default in-tree build builds every plugin anyway, so the gate
-      cannot see the omission, and `tests/python/test_new_aircraft_build.py` checks only the template's own
-      target. Candidate check: `astra_finalize_plugins()` refuses a target with an `ASTRA_TEST_PLUGIN_DIR`
-      compile definition that is not registered. Not started.
 
 ## Recorded only here
 
