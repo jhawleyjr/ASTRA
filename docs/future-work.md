@@ -1,10 +1,10 @@
 # Future work (unscheduled)
 
 Captured from Joe's brainstorm in a Cowork session, 2026-09-29, after the plugin-test guard (#75) merged.
-These are candidates, not commitments: nothing here is scheduled or approved beyond the direction Joe
-stated. An item enters [PLAN.md](../PLAN.md) as a milestone, a PR or an open item when it is planned, and
-then follows the workflow's tier and approval rules. Items already tracked as PLAN.md open items are named
-here only where they connect; the open item stays the record.
+Joe mapped these items to milestones M6 to M11 the same day ("Milestone map" below; the milestones and the
+open items' prefixes in [PLAN.md](../PLAN.md)). Each milestone still gets its own spec and plan and follows
+the workflow's tier and approval rules. Items already tracked as PLAN.md open items are named here only
+where they connect; the open item stays the record.
 
 ## Direction (Joe, 2026-09-29)
 
@@ -12,6 +12,41 @@ here only where they connect; the open item stays the record.
 - The GNC stack is Joe's own. No third-party flight software (PX4, ArduPilot) in the loop.
 - Tools that design or analyze (tuning, sizing a Monte Carlo) run outside the 6-DoF run and reuse its
   models, rather than living inside it.
+
+## Milestone map (Joe, 2026-09-29)
+
+In this order; Joe accepted it as proposed, with the decisions listed after it.
+
+- **M6 Analysis tooling:** plotting and plot packages, Monte Carlo visualization, failure-to-draw
+  correlation, Monte Carlo sizing, the run report, the frame-time benchmark, `astra run --strict`, and the
+  superseding ADR to ADR-0025's Finalization.
+- **M7 F-16 and the NESC oracle:** `aircraft/f16`, NESC cases 11, 12, 13.1 to 13.4, 15 and 16, the tutorial
+  and the config-key reference. Takes the open items on Earth/gravity rotation consistency, the mass
+  product-of-inertia convention, trim's control names, §15 envelope monitors and ADR-0002's wording.
+- **M8 Actuators and controller tuning:** the actuator models, gains loaded at startup, the tuning tool,
+  frequency-domain and handling-qualities analysis. Takes the open items on deflection range, throttle
+  jitter, linearize's altitude state and the `kSideslip` cleanup.
+- **M9 Sensors and ICD v2:** IMU levels, GNSS PVT, baro, air data, magnetometer and a field model;
+  non-standard days, gusts, shear and microbursts; ICD decode fuzzing.
+- **M10 Navigation, faults and closed-loop Monte Carlo:** the INS/GNSS EKF, NEES and NIS, fault injection,
+  closed-loop scenarios and Monte Carlo. Takes the open items on wind events, closed-loop runs, retiring
+  `ExchangeRecorder`, Follow-up C and lockstep replay.
+- **M11 Real-time:** `RealTime` mode and the benchmark over time. Takes the open items on the logger writer
+  thread and the wall-clock scan's timed waits.
+- **Later (M12 and beyond, unordered):** GNSS pseudorange and Doppler; radar or laser altimeter with
+  terrain; the synthetic feature sensor; an adaptive controller example; prototyping a model in Python;
+  fuel burn with mass as state; ground contact; the FPGA link and hardware in the loop; generating the ICD
+  from a schema.
+- **Not milestones:** the workflow items below (small Tier 0 or Tier 1 PRs at any time); coverage, a
+  whole-tree gcc build and gate time (folded into whichever milestone next touches the gate); and two
+  unscheduled open items that are Joe's (the stale R1 capture harness, the Jev evaluation).
+
+Decisions (Joe, 2026-09-29):
+
+- The NESC F-16 control laws run outside `embedded/` first and are shown to match the NESC ensemble; then
+  they are ported to `embedded/`.
+- The superseding ADR to ADR-0025's Finalization is in M6.
+- Prototyping a model in Python waits (Later).
 
 ## Analysis and debugging tools
 
@@ -67,8 +102,9 @@ loop-at-a-time margins for the gains that ship.
 - **An external oracle for a whole aircraft.** NESC cases 11, 12, 13.1 to 13.4, 15 and 16 fly the F-16;
   `docs/refs/Atmospheric_checkcases` already holds three participating simulations' trajectories for each,
   and JSBSim took part in the study. The same ensemble-as-oracle pattern as M2's cases 1 to 10
-  (ADR-0013). Confirm what the report specifies for the controller in the 13.x maneuver cases. Case 17
-  (two-stage rocket to orbit) is out of scope by Joe's call.
+  (ADR-0013). The maneuver cases fly the NESC's own control laws, defined in DAVE-ML (Vol II): 13.x use
+  `F16_control.dml` (stability augmentation and a three-axis autopilot) and 15 and 16 use `F16_gnc.dml`.
+  Case 17 (two-stage rocket to orbit) is out of scope by Joe's call.
 
 ## Model fidelity
 
