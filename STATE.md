@@ -1,30 +1,35 @@
 # STATE (rewritten once, at /wrap, never appended; ≤ 40 lines, says nothing that changes at merge)
 
 ## In flight
-Follow-up B (Tier 0, comment-only): PR #74 (draft), branch `worktree-followup-b-citations` off `origin/main`
-`ffb395a`, no plan document (Tier 0). Corrects the Stevens & Lewis equation citations in
-`core/include/astra/util/frames.hpp` and the comments of `tests/golden/frames/adr0001_cases.hpp` (Joe armed the
-golden guard for the session), plus the half-angle citation in `python/astra/trim.py`, `python/astra/linearize.py`,
-`tests/python/test_trim.py` and `tests/python/test_linearize.py` (scope widened by Joe in the session).
-Stage: implementation, full gate and the single Codex pass are complete for the candidate; human review is next.
+M5 PR 12 (Tier 2): PR #73, branch `worktree-plugin-test-helper` off `origin/main` `ffb395a`, with `origin/main`
+`7320977` (#74) merged in (no rebase). Plan `docs/plans/plugin-test-helper.md` (approved by Joe with four
+adjustments, all applied). Scope: `astra_add_plugin_test()` in `cmake/AstraPlugin.cmake`, the hardcoded test list
+removed and every target migrated, `aircraft/_template/tests/` (the template's own tests, using the helper),
+`tests/python/test_new_aircraft_build.py` (copy the template, build clean, run its tests; shared and static),
+architecture §18, PLAN.md (this PR is "PR 12", plus one new open item).
+Stage: implementation, full gate, the Codex general pass and the integration of #74 are complete for the
+candidate; human review is next. The PR is marked ready but CI's `check` is red for a billing reason (below).
 
 ## Last verified result
-Run this session on `ed0d552`: `./scripts/check-full.sh` exit 0, `check: OK`
-(`docs/reviews/evidence/ed0d552-gate-summary.log`). Later commits add only that log, PLAN.md and this file.
-Also run this session: the comment-only equivalence check (C++ with comments stripped, Python AST minus
-docstrings; EQUAL on all six source files, both negative controls detected), `python3 scripts/docs_check.py`
-and `git diff --check origin/main` (re-run after this file's commit). The Codex verdict and thread id are in the
-PR body.
+Run this session: `./scripts/check-full.sh` from a fresh configure on `b8e3ab4`, exit 0, `check: OK`
+(`docs/reviews/evidence/b8e3ab4-gate-summary.log`); the acceptance test, three scratch mutations and the
+Codex pass (thread id in the PR body). After the merge, on `ac9d92c`: `just docs-check` exit 0,
+`./scripts/check-fast.sh` exit 0 (508 of 508), and a comment-only equivalence check of the six code files #74
+touched (all identical once comments and docstrings are removed). NOT rerun on `ac9d92c` or later: the full gate;
+the PR body says why. Later commits add only this file and `docs/lessons.md`.
 
 ## Next step
-1. Joe: decide on PR #74. Before merge, rerun CI's `check` with `gh pr ready --undo`, then `gh pr ready`.
-2. Then: M6 planning is Joe's to launch. Open items with owners are in PLAN.md (for example the wall-clock scan's
-   timed I/O waits).
+1. Joe: clear the GitHub billing block (CI run 175 on `ac9d92c` failed with "The job was not started because
+   recent account payments have failed"; no step ran), then `gh pr ready --undo` and `gh pr ready`, and read the
+   actual current-head `check` result.
+2. Joe: decide on PR #73. It ran only the general Codex pass; say if an adversarial pass is wanted.
+3. Then: M6 planning is Joe's to launch. Open items with owners are in PLAN.md, including the new one (a
+   shared-build test executable that omits `astra_add_plugin_test()` is caught only by a targeted or clean build).
 
 ## Tried / failed
-A wrong first attempt at the comment-only check used `clang++-18 -fpreprocessed`, which clang does not have;
-`g++ -fpreprocessed -E -P` strips comments and was used instead. No correction rounds and no failed
-integrations; the counts are in the PR body.
+CI `check` did not start (billing), so no CI result exists for any head of this PR. A mutation anchor check I
+first used proved nothing (two lessons appended, 2026-09-29). No correction rounds and no failed integrations;
+the counts are in the PR body.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.
