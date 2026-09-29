@@ -17,6 +17,10 @@ static-plugins preset) shows that `_template` and the copy link and run in one l
 not an ODR-isolation test: the two aircraft are identical and their model classes sit in anonymous
 namespaces. tests/unit/aero/aero_math_namespace_isolation_test.cpp covers that.
 
+The second test removes the template's astra_add_plugin_test() call in a throwaway copy and only
+configures it: astra_finalize_plugins() must refuse the unregistered target in both builds, naming
+it and its directory, so the omission fails configure instead of a later targeted or clean build.
+
 No git runs in the throwaway tree from this file. `GIT_*` is removed from every subprocess's
 environment, as tests/python/test_tidy_fresh_configure.py does: core's build-info step runs
 `git describe` in the source directory, and a hook-set GIT_DIR or GIT_INDEX_FILE would point it at
@@ -97,13 +101,13 @@ def _template_test_count() -> int:
     return sum(len(re.findall(r"^TEST\(", p.read_text(encoding="utf-8"), re.M)) for p in sources)
 
 
-@pytest.mark.parametrize(
-    "extra_defines",
-    [
-        pytest.param([], id="shared-plugins"),
-        pytest.param(["-DASTRA_STATIC_PLUGINS=ON"], id="static-plugins"),
-    ],
-)
+_PLUGIN_MODES = [
+    pytest.param([], id="shared-plugins"),
+    pytest.param(["-DASTRA_STATIC_PLUGINS=ON"], id="static-plugins"),
+]
+
+
+@pytest.mark.parametrize("extra_defines", _PLUGIN_MODES)
 def test_copied_aircraft_builds_from_clean_and_runs_its_tests(
     tmp_path: Path, extra_defines: list[str]
 ) -> None:
@@ -156,3 +160,33 @@ def test_copied_aircraft_builds_from_clean_and_runs_its_tests(
     # Configure, build and test wrote nothing into the source tree and changed nothing outside the
     # copy (one snapshot: same paths, same hashes).
     assert _snapshot(root) == after_copy
+
+
+@pytest.mark.parametrize("extra_defines", _PLUGIN_MODES)
+def test_unregistered_plugin_test_fails_configure(tmp_path: Path, extra_defines: list[str]) -> None:
+    root = tmp_path / "repo"
+    root.mkdir()
+    build = tmp_path / "build"
+    env = _env(tmp_path)
+
+    _copy_sources(root)
+    cmakelists = root / "aircraft" / "_template" / "tests" / "CMakeLists.txt"
+    lines = cmakelists.read_text(encoding="utf-8").splitlines(keepends=True)
+    kept = [line for line in lines if not line.startswith("astra_add_plugin_test(")]
+    # Exactly the one call is gone; the header comment's mention of it does not start a line.
+    assert len(lines) - len(kept) == 1
+    cmakelists.write_text("".join(kept), encoding="utf-8")
+
+    result = subprocess.run(
+        ["cmake", "--preset", "debug", "-B", str(build), *extra_defines],
+        cwd=root,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        check=False,
+    )
+    output = result.stdout + result.stderr
+    assert result.returncode != 0, output[-6000:]
+    # The check's own offender line, so the failure is this refusal and not another configure error.
+    assert "astra_aircraft__template_tests (aircraft/_template/tests)" in output, output[-6000:]
