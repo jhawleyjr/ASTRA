@@ -1,7 +1,8 @@
 # M6 Analysis tooling: spec, plan and PR decomposition
 
-Status: **draft, revised after the Codex plan critique** (Cowork planning session, 2026-09-29). Joe has decided
-Q2, Q6, Q8, Q16 and Q17 to Q22; approval of the spec and plan as a whole is pending.
+Status: **draft, second revision** (Cowork planning session, 2026-09-29), after the Codex plan critique and its
+verification pass. Joe has decided Q2, Q6, Q8, Q16 and Q17 to Q22; approval of the spec and plan as a whole is
+pending.
 Owner: Joe
 Risk: 3 overall. PR 1 records Tier 3 decisions (ADR-0027), PR 2 changes run-log finalization in `core/`, and
 PR 4 changes `core/util/units`; the rest are Tier 2 or lower. Each PR's tier is in the decomposition table.
@@ -43,8 +44,9 @@ changes `step()`.
 - produce a self-contained report of a run, a scenario or a batch, with provenance;
 - run a config with `astra run [--strict]` and get defined exit codes;
 - measure the per-frame cost and the margin against `dt`.
-And a file at a log's final path is always one that `close_log()` completed; a killed or dropped run leaves
-only a `.partial` file whose complete blocks are readable.
+And a file at a log's final path is always one that `close_log()` completed. A killed or dropped run leaves at
+most a `.partial` file; when that file opens, every row in it is correct, and when it does not, `load` says so
+instead of returning anything.
 
 **Non-goals.** Closed-loop (lockstep) scenarios, Monte Carlo and analysis (M10); `astra run` of a config with a
 `transport` block (refused with a reason; M10); a plotting UI or plotting a live run (offline plotly HTML is in
@@ -182,32 +184,42 @@ foot and knot pairs, each with a unit test, and the whole set is bound in `astra
 
 **Benchmark.** A test executable, built in Release, that runs each named config for all its frames, asserts it
 ran them without a halt, and only then records, with a steady clock, the mean, median, 99th percentile and
-maximum frame cost, frames per second, the margin against `dt`, and the toolchain and CPU, as JSON. The gate
-runs a short smoke of it and asserts the fields and the frame count, never a speed.
+maximum frame cost of `step()`, frames per second, the margin against `dt`, and the toolchain and CPU, as JSON.
+It also times a logged config end to end through `run()`, `flush_log()` and `close_log()`, so the drain and
+flush cost that lies outside `step()` is measured too. The gate runs a short smoke of it and asserts the fields
+and the frame count, never a speed.
 
 **Finalization (ADR-0027, superseding ADR-0025's Finalization).**
 - *Where a log is written (Q19).* At construction the log refuses `log.path` if it exists and refuses
   `<log.path>.partial` if that exists (a stale partial is the user's to remove), each a `ConfigError` naming
-  the path, then creates `<log.path>.partial` exclusively.
+  the path, then creates `<log.path>.partial` exclusively, writes the provenance and flushes.
 - *Explicit close.* `close_log()` writes the remaining rows, `/summary`, `/final_state` and `complete = 1`,
-  closes the file, then renames `.partial` to `log.path` without replacing anything (a link-and-unlink or
-  `renameat2(RENAME_NOREPLACE)`). If a file appeared at `log.path` meanwhile, or the rename fails, `close_log()`
-  raises naming the path and the `.partial` stays. A file at `log.path` is therefore one `close_log()`
-  completed, and nothing else.
-- *Destructor (Q17).* The destructor closes the file best effort but never renames: a dropped `Simulation`
-  leaves only `<log.path>.partial`, marked `finalized_by = destructor`. `load` refuses it unless
-  `allow_incomplete=True` and says why. `astra.lockstep.Session` calls `close_log()` on its normal close so its
-  logs keep reaching `log.path`. A log at `log.path` carries no finalization attribute, so a run and its replay
-  stay byte-identical.
-- *Crash-readable (Q18).* After each 1024-row block the writer flushes HDF5 metadata. A SIGKILLed run leaves
-  `<log.path>.partial` holding the provenance and every complete block, readable with
-  `allow_incomplete=True`: its rate groups hold exactly the first multiple of 1024 frames written, bitwise
-  equal to a clean run's first rows, and no `/summary`, `/final_state` or `complete`. Flush points depend on the
-  row count only, never on the drain pattern, and cost one flush per 1024 frames.
+  closes the file, then publishes it with `renameat2(RENAME_NOREPLACE)`, which is atomic and never replaces a
+  file. If a file appeared at `log.path` meanwhile, the filesystem does not support the call, or the rename
+  fails for any other reason, `close_log()` raises naming the path and the reason and the `.partial` stays. A
+  file at `log.path` is therefore one `close_log()` completed, and nothing else.
+- *Destructor (Q17).* The destructor closes the file best effort but never renames and never sets
+  `complete`: a dropped `Simulation` leaves only `<log.path>.partial`, with `finalized_by = destructor`.
+  `load` refuses it unless `allow_incomplete=True` and says why, and `replay` refuses it with that reason (a
+  dropped run is not a replayable record). `astra.lockstep.Session` calls `close_log()` on its normal close so
+  its logs keep reaching `log.path`. A log at `log.path` carries no finalization attribute, so a run and its
+  replay stay byte-identical.
+- *Crash-readable (Q18).* Each rate group writes its own 1024-row blocks; the writer flushes HDF5 metadata after
+  every block write, of any group, on the drain path and the close path alike, so the complete sequence of
+  HDF5 calls depends on the row counts only, never on the drain pattern. What a killed run leaves: nothing, if
+  it died before the `.partial` was created; otherwise a `.partial` that either opens with
+  `allow_incomplete=True` or makes `load` raise a typed error naming the file. When it opens, each rate group
+  holds a prefix of that group's rows, bitwise equal to a clean run's, and `load` ignores any `/summary` or
+  `/final_state` in a file without `complete`. A kill during a flush or during close may leave a file that does
+  not open; that is the stated limit (HDF5's single-writer/multiple-reader mode, which would remove it, is not
+  adopted: it changes the file-format bounds and the byte-identity story). The cost is one flush per block
+  written.
 - *Cross-checks.* `load` refuses a log whose `final_state.frame` differs from `frames_run`, or whose rate
   groups' signal names differ from `/summary`'s, naming the check.
-- *One lifecycle for the tools.* `_runkit` owns the log's paths for `montecarlo`, `scenario` and `replay`,
-  including removing the `.partial` and the final file on failure; replay's `out` follows the same rules.
+- *Who deletes what.* The core never deletes a log file. A tool (`montecarlo`, `scenario`, `replay`, through
+  `_runkit`) deletes only files its own run created, the `.partial` or the final file, when it handles a failure,
+  and never a file it did not create, such as one that collided at `log.path`. Replay's `out` follows the same
+  rules as `log.path`.
 
 ## Acceptance
 
@@ -225,18 +237,18 @@ runs a short smoke of it and asserts the fields and the frame count, never a spe
 | R8 | False positives controlled | Synthetic null over K seeded batches: the fraction flagging any parameter is at most q plus the one-sided 99 % binomial allowance for K batches. R6's power requirement makes a correction that never rejects fail the pair |
 | R9 | Planted cause in the real sim | A notional-transport batch with `cm_alpha_per_rad` dispersed across zero and at least three irrelevant dispersions. Named methods: KS on pass/fail at the approved maximum-angle-of-attack threshold, and Spearman against the maximum angle of attack. `cm_alpha_per_rad` ranks first on both with a strict margin over the second (a tie fails), meets a minimum effect stated before the run, and survives Benjamini-Hochberg. Negative control: the same batch with `cm_alpha_per_rad` fixed at -0.6 flags nothing. Run count from R11 (d); range, duration and threshold come back to Joe with evidence (Q9) |
 | R10 | Outcome criteria are closed | An unknown column, an unknown operator or a non-numeric value is an error naming it; `error` rows are counted separately |
-| R11 | Sizing formulas | Oracles: (a) p = 0.01, C = 0.95 gives 299; (b) Wilks 95/95 gives 59 one-sided and 93 two-sided; (c) Clopper-Pearson intervals for (n, k) = (100, 0), (100, 5), (299, 0), (1000, 20) equal `scipy.stats.binomtest(k, n).proportion_ci(method="exact")`; (d) r = 0.3, alpha = 0.05 two-sided, power 0.8 gives 85 at m = 1 (Cohen's table) and 120 at m = 4, n never decreases as m grows, and r outside (0, 1) is refused |
+| R11 | Sizing formulas | Oracles: (a) p = 0.01, C = 0.95 gives 299; (b) Wilks 95/95 gives 59 one-sided and 93 two-sided; (c) Clopper-Pearson intervals for (n, k) = (100, 0), (100, 5), (299, 0), (1000, 20) equal `scipy.stats.binomtest(k, n).proportion_ci(method="exact")`; (d) r = 0.3, alpha = 0.05 two-sided, power 0.8 gives 85 at m = 1 (Cohen's table) and 120 at m = 4, n never decreases as m grows, r = -0.3 gives the same n as 0.3, and r = 0 or \|r\| >= 1 is refused |
 | R12 | Convergence | On a batch, the reported estimate and interval at each prefix length equal a direct computation on that prefix |
 | R13 | Report | For a log, a scenario and a batch: the HTML holds one inline SVG per package figure, the frames run, the halt and every health counter, the scenario's check rows, and the batch's outcome counts, sizing check and correlation table; provenance fields equal the log's attributes; no `<script>`, and no `src` or `href` loading anything but a `data:` URI or a fragment; byte-identical when built in two separate processes |
 | R14 | `astra run` exit codes | Each row of the exit-code table seen to fire: a clean config gives 0; a halting config (`tests/configs/health_nan_wrench.yaml`) gives 1 and prints the check, source and frame; a halt with nonzero warnings under `--strict` gives 1; warnings without a halt give 2 under `--strict` and 0 without; an injected log close failure gives 74; a `transport` config gives 65 naming `transport`; a bad argument gives 64 |
-| R15 | Other subcommands | `trim`, `plot`, `report`, `mc size`, `mc analyze` and `mc rerun` each run a minimal case and reject a bad argument with code 64; `mc rerun` reproduces the chosen run's summary row |
-| R16 | Finalization lifecycle | A normal run leaves only `log.path`, with `complete = 1` and no `.partial`; a `Simulation` dropped mid-run leaves no `log.path` and a `.partial` marked `finalized_by = destructor` that `load` refuses without `allow_incomplete`; a `Session` closed normally leaves `log.path`; a run SIGKILLed in a subprocess after at least two blocks leaves no `log.path` and a `.partial` whose rate groups hold exactly the first multiple of 1024 frames, bitwise equal to a clean run's first rows |
-| R16b | Nothing is overwritten | An existing `log.path` and a stale `.partial` are each a `ConfigError` naming the path; a file created at `log.path` during the run makes `close_log()` raise naming it, leaves that file untouched and keeps the `.partial`; replay's `out` obeys the same three rules |
+| R15 | Other subcommands | `trim`, `plot`, `report`, `mc size`, `mc analyze` and `mc rerun` each run a minimal case and reject a bad argument with code 64; `mc rerun`, given a batch whose run logs were deleted, re-executes the chosen run and produces a log byte-identical to the original and the same summary row (a copy cannot pass without the original log) |
+| R16 | Finalization lifecycle | A normal run leaves only `log.path`, with `complete = 1` and no `.partial`; a `Simulation` dropped mid-run leaves no `log.path` and a `.partial` with `finalized_by = destructor` and no `complete`, which `load` refuses without `allow_incomplete` and `replay` refuses naming the reason; a `Session` closed normally leaves `log.path`. Kill tests, in a subprocess, with a config that has a divisor-10 signal (a test plugin, since no shipped signal has a divisor above 1): killed before the first block, between blocks, and at several seeded points across a run including close. Every outcome is no `log.path`, and a `.partial` that either opens and holds, per rate group, a row prefix bitwise equal to a clean run's, or makes `load` raise a typed error; never wrong data |
+| R16b | Nothing is overwritten | An existing `log.path` and a stale `.partial` are each a `ConfigError` naming the path; a file created at `log.path` during the run makes `close_log()` raise naming it, leaves that file untouched and keeps the `.partial`; an unsupported `RENAME_NOREPLACE` (simulated by an injected failure) raises and publishes nothing; replay's `out` obeys the same rules |
 | R17 | Cross-checks | Hand-edited files (a wrong `final_state.frame`, a renamed signal) are refused by `load` naming the check |
-| R18 | Identity survives every drain pattern | Byte-identical final files from: two `run()` runs (M5 R4); a run stepped with `flush_log()` after every frame, as `Session` does; and `replay` of each (M5 R9, including a halting run). M3's frozen regression passes |
-| R18b | One cleanup path | `montecarlo`, `scenario` and `replay` remove the `.partial` and the final file on failure through `_runkit`; the Monte Carlo kill test waits on the `.partial` name; no tool leaves a `.partial` after a clean run or a handled error |
-| R19 | Benchmark measures real frames | For each named config, the executable asserts all frames ran with no halt before it records; the smoke checks every JSON field and the frame count |
-| R19b | Flush cost measured | PR 2 records, before and after, a logged run's benchmark and the gate time |
+| R18 | Identity survives every drain pattern | For the notional transport and for the divisor-10 fixture, byte-identical final files from: two `run()` runs (M5 R4); a run stepped with `flush_log()` after every frame, as `Session` does; a run with a small `buffer_frames`; and `replay` of each (M5 R9, including a halting run). M3's frozen regression passes |
+| R18b | One cleanup rule | Through `_runkit`, `montecarlo`, `scenario` and `replay` delete, on a handled failure, only the `.partial` or final file their own run created, and a collided foreign file at the final path is left untouched (R16b's case run through each tool); the Monte Carlo kill test waits on the `.partial` name; no tool leaves its own `.partial` after a clean run or a handled error |
+| R19 | Benchmark measures real frames | For each named config, the executable asserts all frames ran with no halt before it records; the smoke checks every JSON field, the frame count, and the end-to-end logged timing |
+| R19b | Flush cost measured | PR 2 times a logged run end to end (`run()` plus `close_log()`, wall clock in the test, 1 and 100,000 frames, the divisor-10 fixture included) before and after its change, and records the gate time; PR 9's benchmark then tracks the same end-to-end figure |
 | R20 | Gate | `./scripts/check-full.sh` exit 0 with `check: OK` per PR (PR 10 excepted as Tier 0); review per tier |
 | R21 | Units at the boundary | The angle pair's unit tests, with the same round-trip property `units.hpp` pins for feet and knots; the bound functions equal the C++ ones; `astra.fgbridge` holds no conversion constant and its packet tests pass unchanged |
 
@@ -290,18 +302,21 @@ enough. Blocks: the first PR that cannot start without it. Q17 to Q22 come from 
 - **Q16. Plan critique (plan). Decided by Joe: yes, before approval.** Done: see "Plan critique and
   decisions".
 - **Q17. The destructor (ADR; blocks PR 1). Decided by Joe: as recommended.** The destructor closes best effort but
-  never renames, so a dropped `Simulation` leaves only a `.partial` marked `finalized_by = destructor`, and
-  `Session` calls `close_log()` on its normal close. Alternative: the destructor renames too and marks the file,
+  never renames and never sets `complete`, so a dropped `Simulation` leaves only a `.partial` marked
+  `finalized_by = destructor` that `load` and `replay` refuse, and `Session` calls `close_log()` on its normal
+  close. Alternative: the destructor renames too and marks the file,
   which keeps a dropped run's log at `log.path` but makes a file there no longer proof of an explicit close, and
   puts a finalization attribute into logs whose replay may close differently.
-- **Q18. What a crash leaves (ADR; blocks PR 1). Decided by Joe: as recommended,** a metadata flush after each
-  1024-row block: a killed run's `.partial` holds the provenance and every complete block, and nothing else. Flush
-  points then depend on the row count only, and the cost is one flush per 1024 frames. Alternatives: flush at every
-  drain (per-frame under `Session`, and flush points that depend on the drain pattern), or no flush (a killed run's
-  file is unreadable, as today).
+- **Q18. What a crash leaves (ADR; blocks PR 1). Decided by Joe: as recommended,** a metadata flush after every
+  block write of any rate group, on the drain and close paths alike, plus one after the provenance. What a killed
+  run leaves is as the contract states: a correct row prefix per group, or a typed refusal, never wrong data. Flush
+  points depend on the row counts only; the cost is one flush per block written. Alternatives: flush at every drain
+  (per-frame under `Session`, and flush points that depend on the drain pattern), or no flush (a killed run's file
+  is unreadable, as today).
 - **Q19. Paths and collisions (ADR; blocks PR 1). Decided by Joe: as recommended.** Refuse an existing `log.path`
-  or `.partial` at construction; create the `.partial` exclusively; rename without replacing; a failed rename
-  raises and keeps the `.partial`; replay's `out` follows the same rules.
+  or `.partial` at construction; create the `.partial` exclusively; publish with `renameat2(RENAME_NOREPLACE)`
+  only (after the verification pass, N-02: link-and-unlink is not atomic); an unsupported filesystem or a failed
+  rename raises and keeps the `.partial`; replay's `out` follows the same rules.
 - **Q20. Units (plan; blocks PR 4). Decided by Joe: as recommended.** ADR-0002 requires every boundary conversion
   to be a named function in `core/util/units`. Add the angle pair there with unit tests, binding the set in
   `astra._core`, and moving `astra.fgbridge`'s two constants onto it in the same PR (its packet tests guard it).
@@ -311,6 +326,12 @@ enough. Blocks: the first PR that cannot start without it. Q17 to Q22 come from 
   PR 1 runs it too (about 17 minutes); the alternative is Joe's explicit waiver, recorded in the PR body.
 - **Q22. Rerun command (plan). Decided by Joe: yes.** `astra mc rerun` is in M6 (PR 6), since the future-work
   detail placed it with the correlation work and a flagged run is what a user wants to look at next.
+- **Q23. A third critique of this plan (plan).** Recommend none. The verification pass found the design issues
+  fixed above (N-01 to N-06, and the C-01, C-03 and C-05 gaps); what remains of C-06 to C-15, C-18 and C-19 is
+  fixture and oracle detail that belongs to each PR's own plan ("Obligations carried to PR plans"), where each
+  PR's Codex review checks it. ADR-0027's text gets a Tier 3 adversarial review in PR 1, which is the right place
+  for any remaining finalization design scrutiny. Another milestone-level pass would likely keep finding
+  test-level detail (lesson 2026-09-28 on enumerations under repeated review).
 
 ## PR decomposition
 
@@ -335,12 +356,31 @@ PR 1, PR 2 and PR 4 are Tier 3: adversarial Codex review (for PR 2: byte identit
 file lifecycle under failure, the kill test, and the no-replace rename), and Joe reads the diff and tests.
 ADR-0027 needs Joe's acceptance before PR 2 starts.
 
+## Obligations carried to PR plans
+
+The verification pass left 17 of the 20 findings partially resolved; its per-finding notes in PR #78's body say
+what each still lacks, mostly a fixture or an independent oracle. Each PR's own plan starts from those notes for
+the findings below and says how its tests close each one; its Codex review checks that it did.
+
+| PR | Findings to close in the PR's plan |
+|---|---|
+| 1 (ADR-0027 text) | C-01, C-02, C-03, C-05, C-18, and N-01 to N-03 as resolved here |
+| 2 (finalization) | C-01, C-02, C-03, C-04, C-05, C-18 (tests: R16, R16b, R17, R18, R18b, R19b) |
+| 3 (CLI) | C-14 |
+| 4 (units) | C-15 |
+| 5 (plots) | C-11, C-12 |
+| 6 (analysis) | C-06, C-07, C-10, N-06 |
+| 7 (sizing, planted cause) | C-08, C-09, N-04 |
+| 8 (report) | C-11, C-12, C-13 |
+| 9 (benchmark) | C-19, N-05 |
+
 ## Validation and risks
 
 - **Byte identity (Q13, Q18).** Expected to hold because flush points follow the row count; R18 checks every
   drain pattern in use, and a failure comes back to Joe before anything depends on it.
-- **Portability of the rename.** `renameat2(RENAME_NOREPLACE)` is Linux-specific; link-and-unlink is POSIX. PR 2
-  picks one and tests the collision case (R16b) on the target platform (Ubuntu 24.04, ext4).
+- **Portability of the rename.** `renameat2(RENAME_NOREPLACE)` is Linux-specific and needs filesystem support;
+  the target is Ubuntu 24.04 (ext4 and tmpfs support it). On a filesystem that does not, `close_log()` refuses
+  to publish (R16b) rather than fall back to a non-atomic path.
 - **matplotlib determinism.** SVG must be byte-stable across processes on one machine with pinned versions; PR 5
   proves it (R3) before the report depends on it. PNG is not required to be byte-stable. The plotly HTML is
   not byte-stable (element ids, inline plotly.js); R3b checks its data and its resource references, and a
@@ -388,11 +428,27 @@ C-04, C-05, C-15, C-18 and C-20. **All 20 are accepted** and folded in above; no
 | C-20 | medium | The rerun command had no owner; the interactive holdout was too broad | `astra mc rerun` in PR 6 (Q22); holdout narrowed to a UI or live plotting |
 | C-16 | low | The wall-clock invariant contradicted ADR-0023 | Invariant names ADR-0023's two sites |
 
+Verification pass: one fresh, read-only Codex task (`--effort high`, model `gpt-6-astra`, job
+`task-mumzg2dy-oub5fa`, thread `01a0ee53-ed26-7732-aa10-e6697fb799c2`) on `e807328` against `0d70568`; exit 0;
+verdict **rework**. Of the 20 findings, 3 resolved (C-16, C-17, C-20) and 17 partially resolved; 6 new (2 high,
+4 medium). Claude Code re-read every cited line. All six new findings are accepted and fixed in this revision;
+the partial findings' remaining gaps are the design points fixed here (C-01, C-03, C-05) and the per-PR
+obligations above.
+
+| # | Sev. | New finding (verified) | Resolution |
+|---|---|---|---|
+| N-01 | high | R16b kept a collided `.partial` and the foreign file while R18b deleted both | Who deletes what: the core never deletes; a tool deletes only files its run created, never a foreign file (contract, R18b) |
+| N-02 | high | Link-and-unlink is not atomic; a kill between the calls leaves both names | `renameat2(RENAME_NOREPLACE)` only; an unsupported filesystem refuses to publish (Q19, R16b) |
+| N-03 | medium | Blocks are per rate group, so "first multiple of 1024 frames" and "one flush per 1024 frames" were wrong for slower groups | Recovery is a row prefix per group; one flush per block of any group; a divisor-10 fixture in R16 and R18 |
+| N-04 | medium | R11 refused negative r while the contract accepted 0 < \|r\| < 1 | R11: negative r gives the same n; r = 0 or \|r\| >= 1 refused |
+| N-05 | medium | The benchmark timed `step()` only, where drains and flushes do not run, and landed after PR 2 | End-to-end logged timing in PR 2 (R19b) and in the benchmark (R19) |
+| N-06 | medium | A rerun that copies the summary row passed R15 | The rerun must recreate a deleted run log byte-identically (R15) |
+
 Joe's decisions (2026-09-29, planning session): Q2 both libraries, Q6 HTML, Q8 an in-house tree first, Q16 a Codex
 critique before approval, and, after the critique, Q17 to Q19 (ADR-0027 as recommended), Q20 units through
 `core/util/units`, Q21 the full gate on PR 1, Q22 `astra mc rerun` in M6. He raised no objection to the other
-recommendations. Open for Joe: approval of the spec and plan as a whole. PR #78 shows as ready for review rather
-than a draft; that is Joe's to change or leave.
+recommendations. Open for Joe: Q23, and approval of the spec and plan as a whole. PR #78 shows as ready for
+review rather than a draft; that is Joe's to change or leave.
 
 ## Done when
 
