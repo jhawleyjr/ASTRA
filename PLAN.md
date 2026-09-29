@@ -262,6 +262,12 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
       absurd `sim.frames`: preallocation throws `std::bad_alloc` at init instead of a `ConfigError` naming
       `sim.frames`, and `sim.frames` near `UINT64_MAX` wraps the capacity arithmetic in its constructor
       (`docs/reviews/m4-pr3-core-seam-human.md`). Not started.
+- [ ] Wall-clock scan, timed I/O waits (origin: M5 PR 10 review, Codex thread `01a0eb14-1425-7c02-bb04-44d54eb9960e`;
+      Joe's stop rule, 2026-09-28): `scripts/wallclock_scan.py`'s `multiplexing` family covers `select`, `pselect`,
+      `poll`, `ppoll`, `epoll_wait` and `epoll_pwait`, but not three more members of it that take a timeout:
+      `epoll_pwait2`, `aio_suspend` (and `aio_suspend64`) and `recvmmsg`. Each shows as an undefined symbol under
+      `nm -u -C` on clang++-18 and passes the scan today. Add anchored patterns and one compiled case per family.
+      The scan stays a tripwire, not a proof (its docstring and architecture §15 list the blind spots). Not started.
 - [ ] Evaluate Jev (TypeSafe AI) for workflow routing: model/effort selection at session launch and context
       selection, advisory with today's fixed settings as the fallback and file-path rules for Tier 3 kept
       (origin: Joe, 2026-09-26; owner: Joe, starting with console.typesafe.ai signup).
