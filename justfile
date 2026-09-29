@@ -15,7 +15,7 @@ default: check
 # building every preset four times; every preset then builds and tests; the Python package builds and
 # installs into the venv; then clang-tidy, pyright (strict on python/astra/), and pytest, each after the
 # build its own analysis needs. Same checks, same failure propagation -- only the order changed.
-check: format-check docs-check embedded-standalone hooks-test ruff (test "debug") (test "release") (test "static-plugins") (test "asan") python link-db tidy pyright pytest
+check: format-check docs-check embedded-standalone hooks-test ruff (test "debug") (test "release") (test "static-plugins") (test "asan") (wallclock-scan "debug") (wallclock-scan "release") (wallclock-scan "static-plugins") (wallclock-scan "asan") python link-db tidy pyright pytest
     @echo "check: OK"
 
 configure preset="asan":
@@ -28,6 +28,13 @@ build preset="asan": (configure preset)
 # --no-tests=error: a label or regex selector that matches nothing is a failure, not a silent pass.
 test preset="asan": (build preset)
     ctest --preset {{preset}} --parallel {{jobs}} --no-tests=error
+
+# The determinism guard's wall-clock symbol scan (docs/architecture.md §15, ADR-0010, ADR-0023): no
+# core/, plugins/, aircraft/ or embedded/ object references a wall-clock, sleep or timed-wait symbol
+# except the two ADR-0023 sites. Depends on the preset's build, so a fresh configure works: every
+# in-scope target is a default target (none is EXCLUDE_FROM_ALL), so its objects exist afterward.
+wallclock-scan preset="asan": (build preset)
+    python3 scripts/wallclock_scan.py build/{{preset}}
 
 # The Stop hook's fast subset (docs/process/workflow.md): every `unit`-labeled test, no physics oracles.
 test-unit preset="asan": (build preset)
