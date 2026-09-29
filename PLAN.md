@@ -199,6 +199,8 @@ takes them as a prefix.
       sizes a Monte Carlo from the question asked and the number of dispersed parameters; a run report with
       provenance; a frame-time benchmark; `astra run --strict`; the superseding ADR to ADR-0025's
       Finalization (Tier 3). Detail: [future work](docs/future-work.md#analysis-and-debugging-tools).
+  - Planning (#78): M6 spec, plan and ten-PR decomposition; Q1 to Q23 decided by Joe, after a Codex plan
+    critique and a verification pass. Plan: [plan](docs/plans/m6-analysis-tooling.md). Packet: none.
 - [ ] **M7 F-16 and the NESC oracle** — `aircraft/f16` built from the template; NESC atmospheric cases 11, 12,
       13.1 to 13.4, 15 and 16 against the participating simulations' trajectories in `docs/refs` (ADR-0013's
       ensemble as oracle); the tutorial and the generated config-key reference written from this path. The
