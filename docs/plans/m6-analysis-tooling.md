@@ -1,8 +1,7 @@
 # M6 Analysis tooling: spec, plan and PR decomposition
 
-Status: **draft, second revision** (Cowork planning session, 2026-09-29), after the Codex plan critique and its
-verification pass. Joe has decided Q2, Q6, Q8, Q16 and Q17 to Q22; approval of the spec and plan as a whole is
-pending.
+Status: **approved by Joe (spec and plan), 2026-09-29**, in the Cowork planning session, after the Codex plan
+critique and its verification pass; Q1 to Q23 decided as recorded under "Plan critique and decisions".
 Owner: Joe
 Risk: 3 overall. PR 1 records Tier 3 decisions (ADR-0027), PR 2 changes run-log finalization in `core/`, and
 PR 4 changes `core/util/units`; the rest are Tier 2 or lower. Each PR's tier is in the decomposition table.
@@ -326,7 +325,7 @@ enough. Blocks: the first PR that cannot start without it. Q17 to Q22 come from 
   PR 1 runs it too (about 17 minutes); the alternative is Joe's explicit waiver, recorded in the PR body.
 - **Q22. Rerun command (plan). Decided by Joe: yes.** `astra mc rerun` is in M6 (PR 6), since the future-work
   detail placed it with the correlation work and a flagged run is what a user wants to look at next.
-- **Q23. A third critique of this plan (plan).** Recommend none. The verification pass found the design issues
+- **Q23. A third critique of this plan (plan). Decided by Joe: none.** The verification pass found the design issues
   fixed above (N-01 to N-06, and the C-01, C-03 and C-05 gaps); what remains of C-06 to C-15, C-18 and C-19 is
   fixture and oracle detail that belongs to each PR's own plan ("Obligations carried to PR plans"), where each
   PR's Codex review checks it. ADR-0027's text gets a Tier 3 adversarial review in PR 1, which is the right place
@@ -447,8 +446,14 @@ obligations above.
 Joe's decisions (2026-09-29, planning session): Q2 both libraries, Q6 HTML, Q8 an in-house tree first, Q16 a Codex
 critique before approval, and, after the critique, Q17 to Q19 (ADR-0027 as recommended), Q20 units through
 `core/util/units`, Q21 the full gate on PR 1, Q22 `astra mc rerun` in M6. He raised no objection to the other
-recommendations. Open for Joe: Q23, and approval of the spec and plan as a whole. PR #78 shows as ready for
-review rather than a draft; that is Joe's to change or leave.
+recommendations. Q23: no third critique.
+
+**Spec and plan approved by Joe, 2026-09-29**, with Q1 to Q23 as recorded above (the ones not marked "Decided by
+Joe" approved as recommended). Approval of the plan does not approve any PR's diff; each PR still gets its
+tier's review and Joe's merge.
+
+Next owner: Joe launches PR 1 (ADR-0027 and architecture rev 10) in a new Claude Code session with the
+`docs/decisions/` guard armed.
 
 ## Done when
 
