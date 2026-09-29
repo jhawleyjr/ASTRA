@@ -1,30 +1,30 @@
-# STATE (rewritten once, at /wrap, never appended; ≤ 40 lines; says nothing that changes at merge)
+# STATE (rewritten once, at /wrap, never appended; ≤ 40 lines, says nothing that changes at merge)
 
 ## In flight
-M5 PR 10 (Tier 2): PR #72 (draft), branch `worktree-m5-pr10-cleanup` off `origin/main` `b1cae7f`, plan
-`docs/plans/m5-pr10-cleanup.md` (approved by Joe with three additions). Scope: the wall-clock symbol scan
-(`scripts/wallclock_scan.py`, `just wallclock-scan`, in `just check`, as anchored families), `astra.fgbridge`
-`pace=True` by default, Follow-up A's comment fixes, PLAN.md and architecture/validation doc updates.
-Stage: implementation, full gate and Codex review complete for the candidate; human review is next. The PR body
-records Joe's third-round exception and the stop rule he set for the last Codex pass.
+Follow-up B (Tier 0, comment-only): PR #74 (draft), branch `worktree-followup-b-citations` off `origin/main`
+`ffb395a`, no plan document (Tier 0). Corrects the Stevens & Lewis equation citations in
+`core/include/astra/util/frames.hpp` and the comments of `tests/golden/frames/adr0001_cases.hpp` (Joe armed the
+golden guard for the session), plus the half-angle citation in `python/astra/trim.py`, `python/astra/linearize.py`,
+`tests/python/test_trim.py` and `tests/python/test_linearize.py` (scope widened by Joe in the session).
+Stage: implementation, full gate and the single Codex pass are complete for the candidate; human review is next.
 
 ## Last verified result
-Run this session at `46185cb`: `./scripts/check-full.sh` exit 0, `check: OK`
-(`docs/reviews/evidence/46185cb-gate-summary.log`); `.venv/bin/pytest tests/python -k "wallclock or fgbridge"`
-exit 0. Later commits add only gate summaries, PLAN.md and STATE.md. Fresh-configure scan, default-target
-check, mutations and every Codex thread id are in the PR body.
+Run this session on `ed0d552`: `./scripts/check-full.sh` exit 0, `check: OK`
+(`docs/reviews/evidence/ed0d552-gate-summary.log`). Later commits add only that log, PLAN.md and this file.
+Also run this session: the comment-only equivalence check (C++ with comments stripped, Python AST minus
+docstrings; EQUAL on all six source files, both negative controls detected), `python3 scripts/docs_check.py`
+and `git diff --check origin/main` (re-run after this file's commit). The Codex verdict and thread id are in the
+PR body.
 
 ## Next step
-1. Joe: decide on PR #72. Before merge, rerun CI's `check` with `gh pr ready --undo`, then `gh pr ready`.
-   The last Codex pass found `epoll_pwait2`, `aio_suspend` and `recvmmsg` uncovered; per Joe's stop rule that is
-   a follow-up (PLAN.md open item "Wall-clock scan, timed I/O waits"), not a reopened round. Say so if you would
-   rather have it fixed in this PR.
-2. Then: M6 planning is Joe's to launch.
+1. Joe: decide on PR #74. Before merge, rerun CI's `check` with `gh pr ready --undo`, then `gh pr ready`.
+2. Then: M6 planning is Joe's to launch. Open items with owners are in PLAN.md (for example the wall-clock scan's
+   timed I/O waits).
 
 ## Tried / failed
-Three correction rounds (two under the standing budget, the third by Joe's exception) each followed by a full
-gate and a Codex verification; the counts and findings F1 to F4 are in the PR body. A lesson is in
-`docs/lessons.md` (2026-09-28). No failed integrations.
+A wrong first attempt at the comment-only check used `clang++-18 -fpreprocessed`, which clang does not have;
+`g++ -fpreprocessed -E -P` strips comments and was used instead. No correction rounds and no failed
+integrations; the counts are in the PR body.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.

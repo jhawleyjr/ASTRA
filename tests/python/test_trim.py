@@ -122,7 +122,7 @@ def test_two_runs_from_the_same_guess_are_bitwise_identical() -> None:
 
 
 def test_state_from_alpha_matches_the_real_quaternion_construction() -> None:
-    # frames.hpp::quaternion_from_euler (Stevens & Lewis eq. 1.8-16) collapses to
+    # frames.hpp::quaternion_from_euler (Stevens & Lewis Example 1.8-1 Eq. (1), p. 52) collapses to
     # [cos(alpha/2), 0, sin(alpha/2), 0] when psi=phi=0 -- checked here against the real
     # Simulation.from_config's own initial.state.euler_nb construction, not trusted by hand alone.
     physical = {

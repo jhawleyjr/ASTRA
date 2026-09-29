@@ -87,8 +87,8 @@ def _load_still_air_config(config_path: str | os.PathLike[str]) -> _core.Config:
 
 def _state_from_alpha(p_n: np.ndarray, true_airspeed_mps: float, alpha_rad: float) -> np.ndarray:
     """v_b = [V cos(alpha), 0, V sin(alpha)] (beta = 0); q_nb from euler_nb = [0, alpha, 0], which
-    collapses Stevens & Lewis eq. 1.8-16 (`frames.hpp::quaternion_from_euler`) to
-    [cos(alpha/2), 0, sin(alpha/2), 0] when psi = phi = 0 -- proved against the real binding by
+    collapses Stevens & Lewis Example 1.8-1 Eq. (1), p. 52 (`frames.hpp::quaternion_from_euler`)
+    to [cos(alpha/2), 0, sin(alpha/2), 0] when psi = phi = 0 -- proved against the real binding by
     `tests/python/test_trim.py::test_state_from_alpha_matches_the_real_quaternion_construction`.
     p_n and omega_b are otherwise fixed (position not solved; omega_b = 0 by scenario)."""
     state = np.zeros(_core.STATE_SIZE)

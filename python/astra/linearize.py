@@ -1,14 +1,15 @@
 """astra.linearize: central-difference linearization about astra.trim's cruise trim (M3 PR 7,
 docs/plans/pr7-linearize.md).
 
-State (D11, Euler-angle form, S&L eq. 1.8-16/1.4-4 -- not S&L Sec. 4.1, which is historical prose
-with no equations; see the plan's own citation correction): ``x = [u, v, w, p, q, r, phi, theta,
-psi]`` (9,) -- body velocity ``v_b``, body rate ``omega_b``, then Euler angles in ``(phi, theta,
-psi)`` order. Note the permutation trap: ``frames.hpp``'s own ``quaternion_from_euler`` (and this
-module's own port of it) takes the arguments in ``(psi, theta, phi)`` order -- ``x``'s own slice
-must be reversed, not passed straight through. Control vector ``u = [elevator, aileron, rudder,
-throttle]``, in ``Simulation.input_names()``'s own registration order (read from the registry, not
-hardcoded -- the PR 6 follow-up this PR also delivers, ``Simulation.input_names``).
+State (D11, Euler-angle form, S&L Example 1.8-1 Eq. (1), p. 52 and eq. 1.4-4 -- not S&L Sec. 4.1,
+which is historical prose with no equations; see the plan's own citation correction): ``x = [u, v,
+w, p, q, r, phi, theta, psi]`` (9,) -- body velocity ``v_b``, body rate ``omega_b``, then Euler
+angles in ``(phi, theta, psi)`` order. Note the permutation trap: ``frames.hpp``'s own
+``quaternion_from_euler`` (and this module's own port of it) takes the arguments in ``(psi, theta,
+phi)`` order -- ``x``'s own slice must be reversed, not passed straight through. Control vector
+``u = [elevator, aileron, rudder, throttle]``, in ``Simulation.input_names()``'s own registration
+order (read from the registry, not hardcoded -- the PR 6 follow-up this PR also delivers,
+``Simulation.input_names``).
 
 The function being differenced, ``f(x, u)`` (9,): build a full combined state from ``x`` (position
 held fixed at the trim's own value), write ``u`` through ``Simulation.write_input``, call
@@ -110,9 +111,9 @@ def control_step(name: str) -> float:
 
 
 def _quaternion_from_euler(psi_rad: float, theta_rad: float, phi_rad: float) -> np.ndarray:
-    """S&L eq. 1.8-16, ported line for line from `core/include/astra/util/frames.hpp::
-    quaternion_from_euler` (half angles a = phi/2, b = theta/2, c = psi/2) -- the single core-side
-    reference this port must match, checked directly by
+    """S&L Example 1.8-1 Eq. (1), p. 52, ported line for line from `core/include/astra/util/
+    frames.hpp::quaternion_from_euler` (half angles a = phi/2, b = theta/2, c = psi/2) -- the
+    single core-side reference this port must match, checked directly by
     tests/python/test_linearize.py::test_quaternion_from_euler_matches_the_real_construction against
     Simulation.from_config's own initial.state.euler_nb construction, the same convention
     astra.trim._state_from_alpha's own docstring already establishes for its collapsed special
@@ -149,9 +150,9 @@ def _euler_rate(omega_b: np.ndarray, phi_rad: float, theta_rad: float) -> np.nda
 def _state_from_x(base_state: np.ndarray, x: np.ndarray) -> np.ndarray:
     """Builds a full combined state (base_state's own shape, e.g. any state-owning model's own
     slice held fixed at the trim value D11 never perturbs) with the rigid-body block overwritten
-    from x: v_b/omega_b directly, q_nb via the ported eq. 1.8-16 from x's own (phi, theta, psi)
-    slice -- permuted to the (psi, theta, phi) argument order `_quaternion_from_euler` (and the real
-    `frames.hpp`) expect, not passed straight through."""
+    from x: v_b/omega_b directly, q_nb via the ported Example 1.8-1 Eq. (1) from x's (phi, theta,
+    psi) slice -- permuted to the (psi, theta, phi) argument order `_quaternion_from_euler` (and the
+    real `frames.hpp`) expect, not passed straight through."""
     state = base_state.copy()
     state[_core.VELOCITY : _core.VELOCITY + _core.VELOCITY_SIZE] = x[_U : _W + 1]
     state[_core.ANGULAR_RATE : _core.ANGULAR_RATE + _core.ANGULAR_RATE_SIZE] = x[_P : _R + 1]

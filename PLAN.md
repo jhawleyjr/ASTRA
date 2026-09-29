@@ -173,7 +173,11 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
     comment fixes in `tests/unit/icd/icd_pack_test.cpp`, and the Finalization item's F1 citation; those three
     open items (wall-clock symbol scan, `astra.fgbridge` pacing, Follow-up A) are removed. Plan:
     [plan](docs/plans/m5-pr10-cleanup.md). Packet: in the PR body.
-  - PR 11 (#73): `astra_add_plugin_test()`: a test executable opts into the plugin build order with one call in
+  - PR 11 (#74): Follow-up B: Stevens & Lewis equation citations corrected (comments only, Tier 0) in
+    `core/include/astra/util/frames.hpp` and the golden header `tests/golden/frames/adr0001_cases.hpp`, and the
+    half-angle citation in four Python files (scope widened by Joe); the Follow-up B open item is removed.
+    Plan: none (Tier 0). Packet: in the PR body.
+  - PR 12 (#73): `astra_add_plugin_test()`: a test executable opts into the plugin build order with one call in
     its own `CMakeLists.txt`, and `astra_finalize_plugins()`'s hardcoded test list is gone. Every listed target
     migrated; `aircraft/_template/tests/` carries the template's own tests, so a copy from `just new-aircraft`
     builds and runs them with no framework edit (architecture §18); `tests/python/test_new_aircraft_build.py`
@@ -250,11 +254,6 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
 - [ ] Remove the `OPTIONAL_GAIN_NAMES`/`kSideslip` support from `tests/python/autopilot_design.py` (origin: M4
       PR 5 follow-up, carried by PR 6; owner: whoever next touches the gains): `gains.hpp` defines no `kSideslip`
       and no sideslip term was needed at M4 acceptance. Not started.
-- [ ] Follow-up B (origin: M4 PR 2; Tier 0, authorized by Joe; Joe arms the golden guard for that session):
-      correct the equation citations in `core/include/astra/util/frames.hpp` and in the comments of
-      `tests/golden/frames/adr0001_cases.hpp` (comment-only, no data change): DCM Eq. (1.3-10), Euler from DCM
-      Eq. (1.3-11), half-angle Euler-to-quaternion Example 1.8-1 Eq. (1) p. 52, q to DCM Eq. (1.8-16)/(1.8-18).
-      Not started.
 - [ ] Follow-up C (origin: M4 PR 3; Joe 2026-09-25, not scheduled): `LockstepExchange` recorder sizing for an
       absurd `sim.frames`: preallocation throws `std::bad_alloc` at init instead of a `ConfigError` naming
       `sim.frames`, and `sim.frames` near `UINT64_MAX` wraps the capacity arithmetic in its constructor
@@ -304,6 +303,11 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
       closed loop. Not started.
 - [ ] Replaying a lockstep run (origin: M5 plan Q11; Joe's call): `astra.log.replay` refuses a log with a
       `transport` block, since replaying commands without the peer is a different feature. Not started.
+- [ ] A shared-build test executable that omits `astra_add_plugin_test()` is only caught by a targeted or clean
+      build (origin: M5 PR 12; Joe's call): the default in-tree build builds every plugin anyway, so the gate
+      cannot see the omission, and `tests/python/test_new_aircraft_build.py` checks only the template's own
+      target. Candidate check: `astra_finalize_plugins()` refuses a target with an `ASTRA_TEST_PLUGIN_DIR`
+      compile definition that is not registered. Not started.
 
 ## Recorded only here
 

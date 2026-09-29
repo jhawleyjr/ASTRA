@@ -73,7 +73,10 @@ copy gets no tests at all.
    tests. Two cases: shared plugins, and `-DASTRA_STATIC_PLUGINS=ON`.
 6. **Docs**: architecture §18 step 3 gains one sentence (the copy's `tests/` builds and runs under `ctest`
    through `astra_add_plugin_test()`; no framework file is edited). PLAN.md: remove the open item; add
-   "PR 11 (#NN)" under M5 after PR 10, in its format.
+   "PR 12 (#73)" under M5 after PR 11 (#74, which took the number while this PR was in review), in its format.
+   A second open item is added: a shared-build test executable that omits `astra_add_plugin_test()` is caught
+   only by a targeted or clean build; candidate check: finalize refuses a target with an `ASTRA_TEST_PLUGIN_DIR`
+   definition that is not registered. Not started.
 
 ## Approved adjustments (Joe, 2026-09-28)
 
