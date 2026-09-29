@@ -18,8 +18,11 @@ Pytest 473, which is 471 plus the two new cases. Also run this session:
   restored;
 - the Codex general pass on `c0c0439..d4895d5`: no findings, thread id in the PR body.
 Joe's Cowork session reported a scratch CMake project review with no findings; the cases are in the PR body.
-Every commit after `cb2853c` is docs-only (evidence, plan file, PLAN.md, `docs/lessons.md`, this file).
-`just docs-check` exits 0 on `7f64aff`. The full gate was not rerun for them, per Joe.
+Every commit after `cb2853c` is docs only (evidence, plan file, PLAN.md, `docs/lessons.md`, this file), except
+`60d4166`. That one is comment-only in `cmake/AstraPlugin.cmake` (it adds `-D` in `COMPILE_OPTIONS` to the
+blind spots). Joe waived the full gate for that comment alone. Its evidence, run this session: the
+`git diff 244a32f` shows comment lines only, `cmake --preset debug` exits 0, and `just docs-check` exits 0.
+The `cb2853c` gate covers the code. `origin/main` was still `c0c0439` at the last fetch.
 
 ## Next step
 1. Joe: decide on PR #75 (approval of the candidate). No adversarial Codex pass: Joe did not request one.
