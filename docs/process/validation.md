@@ -7,8 +7,9 @@ exit codes. Invoke them from any working directory by their relative or absolute
 | Command | Existing coverage |
 |---|---|
 | `./scripts/check-fast.sh` | `just test-unit`: configure/build `asan`, CTest label `unit`, fail if no tests match |
-| `./scripts/check-full.sh` | `just check`: debug, release, static-plugins, asan build/tests; Python editable install; compile database links; clang-tidy; format dry run; `embedded-standalone`; hook cases; ruff; strict pyright; pytest |
+| `./scripts/check-full.sh` | `just check`: debug, release, static-plugins, asan build/tests; the wall-clock symbol scan; Python editable install; compile database links; clang-tidy; format dry run; `embedded-standalone`; hook cases; ruff; strict pyright; pytest |
 | `just build [preset]` / `just test [preset]` | One CMake preset, default asan |
+| `just wallclock-scan [preset]` | Builds the preset, then `scripts/wallclock_scan.py` fails on any wall-clock, sleep or timed-wait symbol in a `core/`, `plugins/`, `aircraft/` or `embedded/` object outside ADR-0023's two sites; `just check` runs it for all four presets |
 | `ctest --preset asan -R <name> --no-tests=error` | Selected existing CTest cases after building |
 | `.venv/bin/pytest tests/python -k <name>` | Selected Python tests after `just python` |
 | `.venv/bin/pytest tests/scenarios` | Every scenario YAML (Release), one item each, run by `astra.scenario`; an invalid scenario is a collection error, and the run exits 2 |

@@ -168,6 +168,11 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
     replay, bridge pacing), the finalization item extended with the F1 residual, crash-readable log and
     load cross-check points, architecture §12 status. Plan: [plan](docs/plans/m5-tooling.md). Packet: in the
     PR body.
+  - PR 10 (#72): post-M5 cleanup: the wall-clock symbol scan (`scripts/wallclock_scan.py`, `just wallclock-scan`,
+    in `just check`; ADR-0023's two sites allowlisted), `astra.fgbridge` pacing on by default, Follow-up A's
+    comment fixes in `tests/unit/icd/icd_pack_test.cpp`, and the Finalization item's F1 citation; those three
+    open items (wall-clock symbol scan, `astra.fgbridge` pacing, Follow-up A) are removed. Plan:
+    [plan](docs/plans/m5-pr10-cleanup.md). Packet: in the PR body.
 
 ## Open items
 
@@ -248,9 +253,6 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
 - [ ] Remove the `OPTIONAL_GAIN_NAMES`/`kSideslip` support from `tests/python/autopilot_design.py` (origin: M4
       PR 5 follow-up, carried by PR 6; owner: whoever next touches the gains): `gains.hpp` defines no `kSideslip`
       and no sideslip term was needed at M4 acceptance. Not started.
-- [ ] Follow-up A (origin: M4 PR 2, comment-only): the CAS table test comment nits recorded in
-      `docs/reviews/m4-pr2-icd-pack-human.md` (Decision record, item (a)): the `|g''|` bound reads 0.808, the
-      0.029 m/s gap's attribution, and the "changed-gamma pair" mutant's meaning. Not started.
 - [ ] Follow-up B (origin: M4 PR 2; Tier 0, authorized by Joe; Joe arms the golden guard for that session):
       correct the equation citations in `core/include/astra/util/frames.hpp` and in the comments of
       `tests/golden/frames/adr0001_cases.hpp` (comment-only, no data change): DCM Eq. (1.3-10), Euler from DCM
@@ -260,10 +262,6 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
       absurd `sim.frames`: preallocation throws `std::bad_alloc` at init instead of a `ConfigError` naming
       `sim.frames`, and `sim.frames` near `UINT64_MAX` wraps the capacity arithmetic in its constructor
       (`docs/reviews/m4-pr3-core-seam-human.md`). Not started.
-- [ ] Wall-clock symbol scan (origin: architecture §15; not scheduled): the determinism guard "wall-clock APIs
-      not linked into any plugin" is prose only; a scan must allowlist the two ADR-0023 deadline sites (one
-      function in the shm transport, `plugins/sim/transport/shm/shm_wait.cpp`, one in the HAL's shm backend,
-      `embedded/hal/shm/hal_shm_wait.cpp`). Not started.
 - [ ] Evaluate Jev (TypeSafe AI) for workflow routing: model/effort selection at session launch and context
       selection, advisory with today's fixed settings as the fallback and file-path rules for Tier 3 kept
       (origin: Joe, 2026-09-26; owner: Joe, starting with console.typesafe.ai signup).
@@ -274,7 +272,7 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
          path). A driver that raises mid-run leaves its `Simulation` to GC and the destructor writes a
          consistent file with `complete = 1`, which `load`'s checks cannot tell apart. Until this lands, the
          PR 6 and PR 7 consumers assert `frames_run == duration/dt` and no unexpected halt;
-      b. PR 4 review finding F1's residual (`docs/reviews/evidence/baddd0a-gate-summary.log`'s candidate): the
+      b. PR 4 review finding F1's residual (`docs/reviews/m5-pr4-run-log-review.md`, Finding F1): the
          file's own close can fail after it writes `complete = 1`, which Joe accepts as a disclosed residual
          (2026-09-28). The fix is a rename-on-complete protocol: write to a temporary name and rename to
          `log.path` only after a successful close, so a file at the final path is complete by construction;
@@ -303,10 +301,6 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
       closed loop. Not started.
 - [ ] Replaying a lockstep run (origin: M5 plan Q11; Joe's call): `astra.log.replay` refuses a log with a
       `transport` block, since replaying commands without the peer is a different feature. Not started.
-- [ ] `astra.fgbridge` pacing (origin: M5 PR 8 review; Joe's call): pacing (`pace=True`) is off by default, so
-      a live bridge sends packets as fast as the sim runs, and a real FlightGear reading at a fixed 62.5 Hz
-      falls behind. Live use needs `pace=True` passed explicitly, or pacing becomes the default outside tests.
-      Not started.
 
 ## Recorded only here
 

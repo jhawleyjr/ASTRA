@@ -4,8 +4,8 @@ Spec: Joe's PR 10 instruction (2026-09-28, in session); PLAN.md open items "Wall
 "`astra.fgbridge` pacing", "Follow-up A", and the ADR-0025 Finalization item's point (b).
 Risk: Tier 2 (a new `just check` step and a changed public default). Plan critique: none, since ADR-0010,
 ADR-0023 and architecture §15 pin the design (Codex reviews the diff, per Tier 2).
-Status: **draft, plan approval pending (Joe).** Base `origin/main` `b1cae7f` (PR #71 merged), branch
-`worktree-m5-pr10-cleanup`. Nothing but this file is written until Joe approves.
+Status: **approved by Joe, 2026-09-28, in session, as written, with the three additions below.** Base `origin/main` `b1cae7f` (PR #71 merged), branch
+`worktree-m5-pr10-cleanup`.
 
 ## Repository findings
 
@@ -106,8 +106,32 @@ its test, the recipe, fgbridge, Follow-up A, PLAN.md and architecture, the gate 
 
 ## Plan critique and decisions
 
-None requested: the architecture pins the design (ADR-0023, §15). Pending Joe: the four decisions above,
-in particular 1 (embedded coverage) and 4 (architecture edits).
+None requested: the architecture pins the design (ADR-0023, §15). Joe approved all four decisions above
+(2026-09-28) and added three requirements, implemented as follows.
+
+1. **Sleep and timed-wait symbols.** Flagged: `nanosleep`, `clock_nanosleep`, `usleep`, `sleep`,
+   `pthread_cond_timedwait`, `sem_timedwait`, plus the names the toolchain shows for the libstdc++ calls. On
+   clang-18 with libstdc++, `std::this_thread::sleep_for` ends in `nanosleep`, `condition_variable::wait_for`
+   in `pthread_cond_clockwait` and `steady_clock::now()`, and `std::future::wait_for` in
+   `std::__atomic_futex_unsigned_base::_M_futex_wait_until_steady(...)`; none has a symbol of its own, so the
+   scan flags those (and the `clockwait`/`timedlock`/`timedjoin` variants of the same families). Every name is
+   compiled and seen under `nm` by a parametrized case in `tests/python/test_wallclock_scan.py`, including a
+   `sleep_for` case. The allowlist is per file and per symbol: `shm_wait.cpp` may reference `clock_gettime`,
+   `hal_shm_wait.cpp` may reference `clock_gettime` and `clock_nanosleep` (its bounded attach poll, capped at
+   the absolute deadline), which is all the two sites reference today. Nothing else in scope hit, on any
+   preset, so nothing needed reporting. The scanner's docstring and architecture §15 state what it cannot see:
+   inline assembly and intrinsics (`rdtsc`) and a raw `syscall()`, which stays unflagged.
+2. **Default-build targets.** A fresh configure of each of the four presets into a new directory: all 53
+   in-scope translation units of each compile database are commands of `ninja -t commands` with no target
+   named (the default set), and no `EXCLUDE_FROM_ALL` appears under `core/`, `plugins/`, `aircraft/` or
+   `embedded/` (the two EXCLUDE_FROM_ALL harnesses are under `tests/`). A missing object therefore means a
+   failed or skipped build, and the scan fails on it. A fresh-configure scan (`build/` deleted, then
+   `just wallclock-scan release`) passed; the result is in the PR body.
+3. **FlightGear citation.** The docstring cites `docs/refs/native_fdm.cxx` in the main checkout, FlightGear
+   2024.1.7, SHA-256 `de4ebc5ba3e17520b5eaaf32fe8b700cb93403e7293adb74e604e8cb81aff414`. Read: the `else`
+   branch at lines 120 to 125 (neither the file nor the DDS channel) loops `while ( io->read( buf, length ) ==
+   length )` at lines 121 to 124 and calls `FGFDM2Props` on each, so the newest packet wins. The file's line
+   numbers put the loop at 121, not 122; the citation uses what was read.
 
 ## Done when
 
