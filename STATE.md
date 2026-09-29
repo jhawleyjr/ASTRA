@@ -3,11 +3,8 @@
 ## In flight
 M6 PR 1 (Tier 3, docs only), PR #79, branch `worktree-m6-pr1-adr0027`, based on `origin/main` `be32cbb`. The PR
 plan is `docs/plans/m6-pr1-adr0027.md`, approved by Joe in plan mode, with changes, and it records his D1 to D7.
-Scope:
-- ADR-0027 (`docs/decisions/0027-run-log-finalization.md`, **proposed**), superseding ADR-0025's Finalization
-  section only;
-- architecture rev 10 (§1, §9, §12, §15, §16, with M6 features marked planned);
-- the PLAN.md M6 PR 1 line.
+Scope: ADR-0027 (`docs/decisions/0027-run-log-finalization.md`, **proposed**), superseding only ADR-0025's
+Finalization; architecture rev 10 (§1, §9, §12, §15, §16, M6 features marked planned); the PLAN.md PR 1 line.
 Stage: implementation, the full gate and the Tier 3 adversarial Codex review are complete for the candidate.
 Human review is next (step 10). The PR is a draft, and its body holds the checks, the review and the decisions.
 
@@ -22,11 +19,8 @@ commit after `574f9fe` is docs only (the evidence file, `docs/lessons.md`, this 
 The thread ids and the per-finding history are in the PR body and `docs/reviews/m6-pr1-adr0027-review.md`.
 
 ## Next step
-1. Joe:
-   - accept or reject ADR-0027 and architecture rev 10;
-   - note the recorded deviations from the M6 plan's wording (D1, D2, D7) and the R16 reading (F2);
-   - approve the candidate.
-   PR 2 (ADR-0027's implementation) cannot start until ADR-0027 is accepted.
+1. Joe: accept or reject ADR-0027 and architecture rev 10, note the deviations from the M6 plan's wording (D1,
+   D2, D7) and the R16 reading (F2), and approve the candidate. PR 2 cannot start before ADR-0027 is accepted.
 2. When ADR-0027 is accepted, its Status line changes from proposed to accepted under Joe's authorization, with
    the `docs/decisions/` guard armed by him. The architecture status line follows.
 3. Then M6 PR 2 in a new worktree. Its plan starts from ADR-0027's validation list (R16, R16b, R17, R18, R18b,
