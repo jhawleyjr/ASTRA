@@ -1,7 +1,6 @@
 # Tests (docs/architecture.md §16 row M0). GoogleTest from apt; test plugins built by the same helper a
-# user's aircraft uses, so the on-ramp is exercised by every build.
-find_package(GTest 1.14 REQUIRED CONFIG)
-include(GoogleTest)
+# user's aircraft uses, so the on-ramp is exercised by every build. enable_testing(), find_package(GTest) and
+# include(GoogleTest) run in the top-level CMakeLists.txt, ahead of plugin discovery.
 
 astra_discover_plugins(tests/plugins)
 add_subdirectory(unit)

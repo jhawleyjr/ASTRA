@@ -40,6 +40,7 @@ function(astra_lockstep_test target)
     "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""
     "ASTRA_ECHO_PEER_PATH=\"$<TARGET_FILE:astra_echo_peer>\"")
   add_dependencies(${target} astra_echo_peer)
+  astra_add_plugin_test(${target})
   set(properties LABELS ${ARG_LABEL} TIMEOUT 600)
   if(ARG_SERIAL)
     # Timing bounds (Joe's M4 Q3: 500 ms + max(20 ms, 10 %)) are asserted strictly; running these
@@ -82,6 +83,7 @@ function(astra_closed_loop_test target label)
     "ASTRA_SOURCE_DIR=\"${ASTRA_SOURCE_DIR}\""
     "ASTRA_ECHO_PEER_PATH=\"$<TARGET_FILE:astra_autopilot>\"")
   add_dependencies(${target} astra_autopilot)
+  astra_add_plugin_test(${target})
   gtest_discover_tests(${target} DISCOVERY_MODE PRE_TEST PROPERTIES LABELS ${label} TIMEOUT 600)
 endfunction()
 
