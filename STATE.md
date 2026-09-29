@@ -1,35 +1,30 @@
 # STATE (rewritten once, at /wrap, never appended; ≤ 40 lines; says nothing that changes at merge)
 
 ## In flight
-M5 PR 9 (Tier 0): PR #71 (draft), branch `worktree-m5-pr9-closeout` off `origin/main` `01a556f` (M5 PR 8,
-merged), plan `docs/plans/m5-tooling.md` PR 9 row. Scope: PLAN.md (M5 check-off with an evidence line per
-architecture §16 clause, PR 2/7/8 lines fixed to numbered form, the PR 9 line, seven new open items, the
-finalization-marker item extended with four points), `docs/architecture.md` §12's status line. Docs only; no
-code, test, golden, tolerance or ADR change. Stage: Codex review pending, then human review.
+M5 PR 10 (Tier 2): PR #72 (draft), branch `worktree-m5-pr10-cleanup` off `origin/main` `b1cae7f`, plan
+`docs/plans/m5-pr10-cleanup.md` (approved by Joe with three additions). Scope: the wall-clock symbol scan
+(`scripts/wallclock_scan.py`, `just wallclock-scan`, in `just check`, as anchored families), `astra.fgbridge`
+`pace=True` by default, Follow-up A's comment fixes, PLAN.md and architecture/validation doc updates.
+Stage: implementation, full gate and Codex review complete for the candidate; human review is next. The PR body
+records Joe's third-round exception and the stop rule he set for the last Codex pass.
 
 ## Last verified result
-This session, at `9644144` (plus a same-session PR-number fill-in, still `9644144`'s tree): `python3
-scripts/docs_check.py` exit 0, "docs-check: OK (25 Markdown files checked)"; `git diff --check` exit 0, clean;
-`git diff --stat origin/main` shows only `PLAN.md` and `docs/architecture.md`. No full gate: Tier 0, no
-execution/build/test/policy behavior changed (`docs/process/workflow.md`'s Tier 0 row). Every number added to
-PLAN.md's evidence block was re-grepped this session against its cited, already-committed
-`docs/reviews/evidence/<head>-gate-summary.log` (`baddd0a`, `3ff2eac`, `63777fc`, `b41bdcb`, `5d51da9`); each
-candidate was confirmed an ancestor of its PR's merged head, and every commit between them touches only
-STATE/PLAN/lessons/evidence.
+Run this session at `46185cb`: `./scripts/check-full.sh` exit 0, `check: OK`
+(`docs/reviews/evidence/46185cb-gate-summary.log`); `.venv/bin/pytest tests/python -k "wallclock or fgbridge"`
+exit 0. Later commits add only gate summaries, PLAN.md and STATE.md. Fresh-configure scan, default-target
+check, mutations and every Codex thread id are in the PR body.
 
 ## Next step
-1. Claude: `/review-cycle` — one Codex general pass on `origin/main..HEAD` (Tier 0). A factual-error finding is
-   fixed (one correction round available); anything else is a follow-up, not a correction, per the Tier 0 row.
-2. Claude: `/human-review` — update PR #71's body with the Codex verdict and thread id.
-3. Joe: decide on PR #71 (approval; the finalization item's four-point scope, in particular the rename-on-
-   complete framing; whether `astra.fgbridge` pacing should default on outside tests). Before merge, rerun
-   CI's `check` with `gh pr ready --undo`, then `gh pr ready`.
-4. After merge: M6 planning is Joe's to launch.
+1. Joe: decide on PR #72. Before merge, rerun CI's `check` with `gh pr ready --undo`, then `gh pr ready`.
+   The last Codex pass found `epoll_pwait2`, `aio_suspend` and `recvmmsg` uncovered; per Joe's stop rule that is
+   a follow-up (PLAN.md open item "Wall-clock scan, timed I/O waits"), not a reopened round. Say so if you would
+   rather have it fixed in this PR.
+2. Then: M6 planning is Joe's to launch.
 
 ## Tried / failed
-None. First pass this session: read PLAN.md, `docs/plans/m5-tooling.md`, `docs/architecture.md` §12/§16, each
-merged M5 PR's committed gate-summary logs and GitHub body directly (no recon subagents); edited PLAN.md and
-architecture.md; both docs checks passed on the first attempt; committed, pushed, opened the draft PR.
+Three correction rounds (two under the standing budget, the third by Joe's exception) each followed by a full
+gate and a Codex verification; the counts and findings F1 to F4 are in the PR body. A lesson is in
+`docs/lessons.md` (2026-09-28). No failed integrations.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.

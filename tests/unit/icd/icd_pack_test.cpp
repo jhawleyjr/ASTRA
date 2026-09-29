@@ -348,15 +348,20 @@ TEST(IcdPack, CasMatchesPublishedIsentropicTableAtTenKilometers) {
   // i.e. p/pt = 1/1.136815 = 0.879651; interpolating the printed p/pt column linearly between the
   // rows gives Mc = 0.43 + 0.01 * (0.8807 - 0.879651) / (0.8807 - 0.8755) = 0.432018, and
   // cas = Mc * a0, a0 = 340.29411 m/s (sqrt(1.4 * (8314.32/28.9644) * 288.15)): 147.013 m/s.
-  // Tolerance, in Mach then times a0. With g = p/pt, |g'| >= 0.511 and |g''| <= 0.807 on
+  // Tolerance, in Mach then times a0. With g = p/pt, |g'| >= 0.511 and |g''| <= 0.808 on
   // [0.43, 0.44]: (a) the rows' 4-decimal rounding, +/-5e-5 in g at either row, moves the
   // interpolated value by at most 5e-5, i.e. 5e-5 / 0.511 = 9.8e-5 in Mach; (b) the .6560
   // rounding (+/-5e-5 in p/pt at M = 0.8: pt/p +/-1.16e-4, qc/p0 +/-3.0e-5) moves the target g by
   // at most 2.35e-5, i.e. 4.6e-5 in Mach; (c) linear interpolation error <= (h^2 g''/8) / |g'| =
-  // (0.01^2 * 0.807 / 8) / 0.511 = 2.0e-5 in Mach. Sum 1.63e-4 Mach * 340.29 = 0.056 m/s, so
+  // (0.01^2 * 0.808 / 8) / 0.511 = 2.0e-5 in Mach. Sum 1.63e-4 Mach * 340.29 = 0.056 m/s, so
   // 0.06 m/s. (The implementation's exact M = 0.8 gives 146.984, 0.029 m/s below the printed-digit
-  // value, inside the budget: it is the .6560 rounding.) A wrong exponent pair (3.5 -> 3.4, or
-  // 2/7 -> 0.29) moves cas by more than 1 m/s here, so this test discriminates.
+  // value, inside the budget. |g''| reaches about 0.8074 on the interval. The gap is mostly the
+  // M 0.43/0.44 row rounding, about 0.026 m/s, with the .6560 rounding about 0.007 and the linear
+  // interpolation about -0.004.) A wrong exponent pair (3.5 -> 3.4, or 2/7 -> 0.29) moves cas by
+  // more than 1 m/s here, so this test discriminates. So does the "changed-gamma pair" mutant,
+  // which means matched exponents 3.4 and 1/3.4 with the 0.2 and 5 factors held. A fully
+  // consistent gamma change (1.41) moves cas by only 0.010 m/s, which this table test does not
+  // catch and which is physically negligible.
   constexpr double kA0 = 340.29411;
   constexpr double kRowLowMach = 0.43;
   constexpr double kRowLowRatio = 0.8807;   // p/pt at M = 0.43
