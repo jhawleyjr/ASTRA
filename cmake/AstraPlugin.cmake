@@ -78,6 +78,12 @@ endfunction()
 # clean build cannot run the test before the .so files exist. In the static build the plugins link into
 # astra_core, which the test already links, so the call only records the target. Nothing in this file
 # lists a test.
+#
+# Leaving the call out fails configure in every build: astra_finalize_plugins() refuses an executable whose
+# own COMPILE_DEFINITIONS carry ASTRA_TEST_PLUGIN_DIR and that is not registered. It sees nothing else, so
+# a test that finds its plugins another way (capture_cruise_regression reads the directory from its command
+# line), gets the macro from a directory, source file or linked library, or loads them from a support
+# library must still be registered by hand.
 function(astra_add_plugin_test target)
   if(NOT "${ARGN}" STREQUAL "")
     message(FATAL_ERROR "astra_add_plugin_test: unknown arguments '${ARGN}' (${CMAKE_CURRENT_SOURCE_DIR})")
@@ -102,12 +108,48 @@ function(astra_discover_plugins root)
   endforeach()
 endfunction()
 
-# Called once, last, from the top-level CMakeLists: writes the load-all list for the tests and, in the
-# static build, the registration table that goes into astra_core together with every plugin object.
+# Sets <out> to every build-system target defined in <dir> and, recursively, in its subdirectories. CMake
+# keeps no global target list, so astra_finalize_plugins() walks the directory tree from the root.
+function(_astra_collect_targets dir out)
+  get_property(collected DIRECTORY "${dir}" PROPERTY BUILDSYSTEM_TARGETS)
+  get_property(subdirs DIRECTORY "${dir}" PROPERTY SUBDIRECTORIES)
+  foreach(subdir IN LISTS subdirs)
+    _astra_collect_targets("${subdir}" subdir_targets)
+    list(APPEND collected ${subdir_targets})
+  endforeach()
+  set(${out} "${collected}" PARENT_SCOPE)
+endfunction()
+
+# Called once, last, from the top-level CMakeLists: refuses an unregistered plugin test, writes the load-all
+# list for the tests and, in the static build, the registration table that goes into astra_core together
+# with every plugin object.
 function(astra_finalize_plugins)
   get_property(paths GLOBAL PROPERTY ASTRA_PLUGIN_PATHS)
   get_property(targets GLOBAL PROPERTY ASTRA_PLUGIN_TARGETS)
   get_property(load_all GLOBAL PROPERTY ASTRA_LOAD_ALL_PATHS)
+  get_property(test_targets GLOBAL PROPERTY ASTRA_PLUGIN_TEST_TARGETS)
+
+  # An executable compiled with ASTRA_TEST_PLUGIN_DIR loads plugins by path. Unregistered, it passes the
+  # default build, which builds every plugin anyway, and races the .so files only in a targeted or clean
+  # shared build. Refused here in the static build too, since the same CMakeLists serves both.
+  _astra_collect_targets("${ASTRA_SOURCE_DIR}" all_targets)
+  set(unregistered "")
+  foreach(candidate IN LISTS all_targets)
+    get_target_property(type ${candidate} TYPE)
+    if(type STREQUAL "EXECUTABLE" AND NOT candidate IN_LIST test_targets)
+      get_target_property(definitions ${candidate} COMPILE_DEFINITIONS)
+      if(definitions MATCHES "(^|[^A-Za-z0-9_])ASTRA_TEST_PLUGIN_DIR([^A-Za-z0-9_]|$)")
+        get_target_property(dir ${candidate} SOURCE_DIR)
+        file(RELATIVE_PATH dir "${ASTRA_SOURCE_DIR}" "${dir}")
+        string(APPEND unregistered "\n  ${candidate} (${dir})")
+      endif()
+    endif()
+  endforeach()
+  if(unregistered)
+    message(FATAL_ERROR "astra_finalize_plugins: an executable compiled with ASTRA_TEST_PLUGIN_DIR loads "
+                        "plugins by path and must be registered with astra_add_plugin_test(<target>) after "
+                        "its add_executable. Not registered:${unregistered}")
+  endif()
 
   list(LENGTH load_all load_all_count)
   set(entries "")
@@ -176,7 +218,6 @@ std::span<const StaticPluginEntry> static_plugin_table() noexcept { return kTabl
     # opted in with astra_add_plugin_test() in its own directory; the dependency is added here, after
     # every plugin has registered, because a test under aircraft/a/ is declared before aircraft/b/'s
     # plugins exist.
-    get_property(test_targets GLOBAL PROPERTY ASTRA_PLUGIN_TEST_TARGETS)
     foreach(test_target IN LISTS test_targets)
       add_dependencies(${test_target} ${targets})
     endforeach()
