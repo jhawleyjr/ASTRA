@@ -138,6 +138,25 @@ SYMBOL_CASES = [
         "pthread_mutex_timedlock",
     ),
     (
+        "thrd_sleep",
+        _fn("threads.h ctime", "return thrd_sleep(t, nullptr);", "const timespec* t"),
+        "thrd_sleep",
+    ),
+    (
+        "cnd_timedwait",
+        _fn(
+            "threads.h ctime",
+            "return cnd_timedwait(c, m, t);",
+            "cnd_t* c, mtx_t* m, const timespec* t",
+        ),
+        "cnd_timedwait",
+    ),
+    (
+        "mtx_timedlock",
+        _fn("threads.h ctime", "return mtx_timedlock(m, t);", "mtx_t* m, const timespec* t"),
+        "mtx_timedlock",
+    ),
+    (
         "pthread_timedjoin_np",
         _fn(
             "pthread.h",

@@ -13,7 +13,8 @@ runs `nm -u -C` on the entry's object and flags any undefined reference to:
   system_clock in libstdc++, so it shows as that symbol);
 - a sleep or timed wait, which ties behavior to real time without reading a clock: nanosleep,
   clock_nanosleep, usleep, sleep, pthread_cond_timedwait, pthread_cond_clockwait, sem_timedwait,
-  sem_clockwait, the timed and clock variants of pthread mutex/rwlock/join locking, and libstdc++'s
+  sem_clockwait, the timed and clock variants of pthread mutex/rwlock/join locking, the C11
+  <threads.h> forms (thrd_sleep, cnd_timedwait, mtx_timedlock), and libstdc++'s
   std::__atomic_futex_unsigned_base::_M_futex_wait_until (what std::future::wait_for and
   wait_until call).
 
@@ -78,6 +79,9 @@ SLEEP_AND_WAIT_SYMBOLS = frozenset(
         "pthread_rwlock_clockwrlock",
         "pthread_timedjoin_np",
         "pthread_clockjoin_np",
+        "thrd_sleep",
+        "cnd_timedwait",
+        "mtx_timedlock",
     }
 )
 FLAGGED_SYMBOLS = WALL_CLOCK_SYMBOLS | SLEEP_AND_WAIT_SYMBOLS
