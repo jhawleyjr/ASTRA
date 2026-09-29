@@ -157,6 +157,66 @@ SYMBOL_CASES = [
         "mtx_timedlock",
     ),
     (
+        "sigtimedwait",
+        _fn(
+            "csignal ctime",
+            "return sigtimedwait(s, nullptr, t);",
+            "const sigset_t* s, const timespec* t",
+        ),
+        "sigtimedwait",
+    ),
+    (
+        "semtimedop",
+        _fn(
+            "sys/sem.h ctime",
+            "return semtimedop(id, ops, 1, t);",
+            "int id, sembuf* ops, const timespec* t",
+        ),
+        "semtimedop",
+    ),
+    (
+        "mq_timedsend",
+        _fn(
+            "mqueue.h ctime",
+            "return mq_timedsend(q, m, 1, 0, t);",
+            "mqd_t q, const char* m, const timespec* t",
+        ),
+        "mq_timedsend",
+    ),
+    (
+        "mq_timedreceive",
+        _fn(
+            "mqueue.h ctime",
+            "return mq_timedreceive(q, m, 1, nullptr, t);",
+            "mqd_t q, char* m, const timespec* t",
+        ),
+        "mq_timedreceive",
+    ),
+    ("alarm", _fn("unistd.h", "return alarm(1);"), "alarm"),
+    (
+        "setitimer",
+        _fn("sys/time.h", "itimerval v{}; return setitimer(ITIMER_REAL, &v, nullptr);"),
+        "setitimer",
+    ),
+    (
+        "timer_settime",
+        _fn(
+            "ctime",
+            "return timer_settime(id, 0, spec, nullptr);",
+            "timer_t id, const itimerspec* spec",
+        ),
+        "timer_settime",
+    ),
+    (
+        "timerfd_settime",
+        _fn(
+            "sys/timerfd.h",
+            "return timerfd_settime(fd, 0, spec, nullptr);",
+            "int fd, const itimerspec* spec",
+        ),
+        "timerfd_settime",
+    ),
+    (
         "pthread_timedjoin_np",
         _fn(
             "pthread.h",

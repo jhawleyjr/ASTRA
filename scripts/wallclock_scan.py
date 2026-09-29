@@ -14,7 +14,9 @@ runs `nm -u -C` on the entry's object and flags any undefined reference to:
 - a sleep or timed wait, which ties behavior to real time without reading a clock: nanosleep,
   clock_nanosleep, usleep, sleep, pthread_cond_timedwait, pthread_cond_clockwait, sem_timedwait,
   sem_clockwait, the timed and clock variants of pthread mutex/rwlock/join locking, the C11
-  <threads.h> forms (thrd_sleep, cnd_timedwait, mtx_timedlock), and libstdc++'s
+  <threads.h> forms (thrd_sleep, cnd_timedwait, mtx_timedlock), sigtimedwait, semtimedop, the POSIX
+  message-queue timed calls, the timer-arming calls (alarm, setitimer, timer_settime,
+  timerfd_settime), and libstdc++'s
   std::__atomic_futex_unsigned_base::_M_futex_wait_until (what std::future::wait_for and
   wait_until call).
 
@@ -34,7 +36,9 @@ What the scan cannot see (it reads undefined references of compiled objects):
 - a raw syscall(), e.g. syscall(SYS_clock_gettime, ...) or syscall(SYS_futex, ...) with a timeout
   (syscall itself is not flagged: it is too broad, and both ADR-0023 sites use it for the futex);
 - a symbol resolved at run time (dlsym), or a clock reached through a library another object links;
-- timeouts on poll/select/epoll_wait and similar, which are legitimate I/O calls;
+- timeouts on poll/select/epoll_wait, recvmmsg and similar I/O multiplexing, which are legitimate
+  I/O calls. The list covers sleeps, synchronization waits with a timeout, and timer arming. It is
+  an enumeration, so a real-time wait through an API not named here passes until it is added;
 - a source no target builds, and any translation unit outside core/, plugins/, aircraft/ and
   embedded/ (tests/ and the Python bindings are out of ADR-0010's scope).
 So it is a tripwire for the ordinary ways of reading a clock, not a proof; the ADR-0023 sites'
@@ -82,6 +86,14 @@ SLEEP_AND_WAIT_SYMBOLS = frozenset(
         "thrd_sleep",
         "cnd_timedwait",
         "mtx_timedlock",
+        "sigtimedwait",
+        "semtimedop",
+        "mq_timedsend",
+        "mq_timedreceive",
+        "alarm",
+        "setitimer",
+        "timer_settime",
+        "timerfd_settime",
     }
 )
 FLAGGED_SYMBOLS = WALL_CLOCK_SYMBOLS | SLEEP_AND_WAIT_SYMBOLS
