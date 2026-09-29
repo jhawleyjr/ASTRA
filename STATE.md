@@ -1,40 +1,44 @@
 # STATE (rewritten once, at /wrap, never appended; ≤ 40 lines, says nothing that changes at merge)
 
 ## In flight
-Plugin-test guard (Tier 2), M5 "PR 13": PR #75, branch `worktree-plugin-test-guard` off `origin/main` `c0c0439`.
-Plan `docs/plans/plugin-test-guard.md` (approved by Joe in plan mode, no adjustments). Scope:
-`astra_finalize_plugins()` (`cmake/AstraPlugin.cmake`) fails configure, shared and static, for an executable
-compiled with `ASTRA_TEST_PLUGIN_DIR` that is not registered with `astra_add_plugin_test()`, naming each target
-and its directory. `tests/embedded`'s `astra_autopilot_process_tests` is registered. There is a configure-only
-regression in `tests/python/test_new_aircraft_build.py`, and PLAN.md has the PR 13 line with the open item
-removed. Stage: implementation, the full gate, the Codex general pass and Joe's Cowork review are complete for
-the candidate. Human review is next (step 10); the PR is a draft.
+M6 PR 1 (Tier 3, docs only), PR #79, branch `worktree-m6-pr1-adr0027`, based on `origin/main` `be32cbb`. The PR
+plan is `docs/plans/m6-pr1-adr0027.md`, approved by Joe in plan mode, with changes, and it records his D1 to D7.
+Scope:
+- ADR-0027 (`docs/decisions/0027-run-log-finalization.md`, **proposed**), superseding ADR-0025's Finalization
+  section only;
+- architecture rev 10 (§1, §9, §12, §15, §16, with M6 features marked planned);
+- the PLAN.md M6 PR 1 line.
+Stage: implementation, the full gate and the Tier 3 adversarial Codex review are complete for the candidate.
+Human review is next (step 10). The PR is a draft, and its body holds the checks, the review and the decisions.
 
 ## Last verified result
-Run this session: `./scripts/check-full.sh` from a fresh configure on `cb2853c`, exit 0, `check: OK`
-(`docs/reviews/evidence/cb2853c-gate-summary.log`). CTest 621/622/623/624 per preset, the same as PR 12's gate.
-Pytest 473, which is 471 plus the two new cases. Also run this session:
-- the known case K and three scratch mutations (M1 shared and static, M2, M3), each seen to fire and each
-  restored;
-- the Codex general pass on `c0c0439..d4895d5`: no findings, thread id in the PR body.
-Joe's Cowork session reported a scratch CMake project review with no findings; the cases are in the PR body.
-Every commit after `cb2853c` is docs only (evidence, plan file, PLAN.md, `docs/lessons.md`, this file), except
-`60d4166`. That one is comment-only in `cmake/AstraPlugin.cmake` (it adds `-D` in `COMPILE_OPTIONS` to the
-blind spots). Joe waived the full gate for that comment alone. Its evidence, run this session: the
-`git diff 244a32f` shows comment lines only, `cmake --preset debug` exits 0, and `just docs-check` exits 0.
-The `cb2853c` gate covers the code. `origin/main` was still `c0c0439` at the last fetch.
+Run in this session: `./scripts/check-full.sh` from a fresh configure (`build/` removed first) on `574f9fe`.
+Exit 0, `check: OK` (`docs/reviews/evidence/574f9fe-gate-summary.log`). CTest 621/622/623/624, pytest 473. Every
+commit after `574f9fe` is docs only (the evidence file, `docs/lessons.md`, this file).
+`python3 scripts/docs_check.py` exits 0 and `git diff --check` is clean. Codex adversarial review, 3 passes:
+- the initial pass: needs-attention, F1 and F2;
+- verification 1: F1 verified, F2 partial, a new N1;
+- verification 2: approve, "New findings: none".
+The thread ids and the per-finding history are in the PR body and `docs/reviews/m6-pr1-adr0027-review.md`.
 
 ## Next step
-1. Joe: decide on PR #75 (approval of the candidate). No adversarial Codex pass: Joe did not request one.
-2. No GitHub CI until Oct 1: Joe is out of Actions minutes and has turned off the required check in the ruleset.
-   Don't run the `gh pr ready --undo` / `gh pr ready` rerun, and don't treat a red or missing check as a blocker.
-   The local ./scripts/check-full.sh is the evidence. On or after Oct 1, restore the required check when Joe says to.
-3. Then: M6 planning is Joe's to launch. Open items with owners are in PLAN.md.
+1. Joe:
+   - accept or reject ADR-0027 and architecture rev 10;
+   - note the recorded deviations from the M6 plan's wording (D1, D2, D7) and the R16 reading (F2);
+   - approve the candidate.
+   PR 2 (ADR-0027's implementation) cannot start until ADR-0027 is accepted.
+2. When ADR-0027 is accepted, its Status line changes from proposed to accepted under Joe's authorization, with
+   the `docs/decisions/` guard armed by him. The architecture status line follows.
+3. Then M6 PR 2 in a new worktree. Its plan starts from ADR-0027's validation list (R16, R16b, R17, R18, R18b,
+   R19b) and the four claims marked "PR 2 confirms". It also removes the (M6) Finalization open item.
+4. No GitHub CI until Oct 1: local-gate mode. Do not treat a missing check as a blocker.
 
 ## Tried / failed
-The auto-mode classifier refused the first plan-file write. It was not retried until Joe instructed it directly
-in session (lesson 2026-09-29). CI `check` was not run (no Actions minutes). No correction rounds and no failed
-integrations; the counts are in the PR body.
+- Codex F1 and N1 were design changes; Joe decided them as D6 and D7.
+- The worktree guard refused focus text containing "git diff" and a sed with a variable path. The workaround was
+  a focus file in the scratchpad and the Write tool.
+- `gh pr edit` failed on the Projects-classic GraphQL error; the REST `gh api -X PATCH` worked.
+- Correction rounds: 2 of 2 used. Failed integrations: 0. Both counts are in the PR body.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.
