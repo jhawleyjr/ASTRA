@@ -106,14 +106,13 @@ import yaml
 
 from astra import _core, _runkit, log
 
-# Shared with astra.montecarlo through astra._runkit; re-exported so both read one list.
+# Shared through astra._runkit, the trim names with astra.montecarlo and the warn counters and
+# health.* signals with astra.cli; re-exported so each reads one list.
+from astra._runkit import HEALTH_SIGNALS as HEALTH_SIGNALS
 from astra._runkit import TRIM_OWNED as TRIM_OWNED
 from astra._runkit import TRIM_RESIDUAL_BOUND as TRIM_RESIDUAL_BOUND
+from astra._runkit import WARN_COUNTERS as WARN_COUNTERS
 from astra._runkit import TrimSetpoint as TrimSetpoint
-
-# health_monitor.cpp registers these as counters; health.max_q_drift is a drift, not a count.
-WARN_COUNTERS = ("health.nan", "health.quaternion", "health.domain", "health.input")
-HEALTH_SIGNALS: frozenset[str] = frozenset((*WARN_COUNTERS, "health.max_q_drift"))
 
 # The counter each haltable check increments (health_monitor.cpp). TRANSPORT and LOG have none
 # and cannot be expected: a scenario has no transport, and a LOG halt describes the output.
