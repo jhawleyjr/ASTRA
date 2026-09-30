@@ -206,7 +206,7 @@ takes them as a prefix.
     and `rows_committed` after every block, what a killed run leaves, `load`'s states and cross-checks, and who
     deletes what. Also architecture rev 10 (§1, §9, §12, §15, §16 M6 row, with M6 features marked planned). The
     Finalization open item stays until PR 2. Plan: [plan](docs/plans/m6-pr1-adr0027.md). Packet: in the PR body.
-  - PR 2: ADR-0027 implemented. The core writes `<log.path>.partial` through a held directory descriptor, keeps an
+  - PR 2 (#80): ADR-0027 implemented. The core writes `<log.path>.partial` through a held directory descriptor, keeps an
     `O_PATH` descriptor to its file, flushes and sets `rows_committed` after every block, publishes only from
     `close_log()` by `renameat2(RENAME_NOREPLACE)` after an identity check, marks a dropped run `finalized_by =
     destructor`, and deletes only through `discard_log()` (bound) or a failing init; format version 2. `astra.log`
@@ -323,6 +323,8 @@ takes them as a prefix.
 - [ ] (M6) A CLI, `astra run` with `--strict` (origin: M5 plan Q24, architecture §15/§18; Joe's call): §16's M5 row
       does not require it; `--strict` exits non-zero on any halt or nonzero warn counter, as the scenario
       harness already does internally. Not started.
+- [ ] (M6) Architecture §9 and §12's `astra.log` bullet still mark ADR-0027 "(M6 PR 2, *planned*)"; PR 10's
+      closeout clears them with §12's status (origin: M6 PR 2; Joe 2026-09-29). Not started.
 - [ ] (M10) Retire the M4 `ExchangeRecorder` once a lockstep test compares HDF5 logs instead (origin: M5 plan Q12,
       ADR-0022; Joe's call): kept through M5 because M4's byte-identity acceptance tests
       (`closed_loop_acceptance_test.cpp`) read it; M5's log already carries `v0.controls.*` and `transport.*`
