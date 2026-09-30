@@ -459,6 +459,27 @@ std::uint64_t Object::attribute_uint64(std::string_view name) const {
   return value;
 }
 
+void Object::overwrite_attribute(std::string_view name, std::uint64_t value) {
+  const Where at{id(), file_path_, object_path_};
+  const std::string key{name};
+  const Handle attribute = open_attribute(at, key);
+  const Handle type{H5Aget_type(attribute.id()), &H5Tclose};
+  const Handle space{H5Aget_space(attribute.id()), &H5Sclose};
+  if (!type.valid() || !space.valid()) {
+    at.fail_hdf5("cannot inspect attribute '" + key + "'");
+  }
+  const htri_t same = H5Tequal(type.id(), H5T_STD_U64LE);
+  if (same < 0) {
+    at.fail_hdf5("cannot compare the type of attribute '" + key + "'");
+  }
+  if (same == 0 || H5Sget_simple_extent_type(space.id()) != H5S_SCALAR) {
+    at.fail("attribute '" + key + "' is not a scalar uint64");
+  }
+  if (H5Awrite(attribute.id(), H5T_NATIVE_UINT64, &value) < 0) {
+    at.fail_hdf5("cannot write attribute '" + key + "'");
+  }
+}
+
 // --- Location -----------------------------------------------------------------------------------
 
 Group Location::create_group(std::string_view name) {
@@ -870,6 +891,31 @@ std::size_t Dataset::rows() const {
   return dims[0];
 }
 
+Dataset::ChunkIndex Dataset::chunk_index() const {
+  const Where at{id(), file_path(), object_path()};
+  H5D_chunk_index_t index{};
+  if (H5Dget_chunk_index_type(at.id, &index) < 0) {
+    at.fail_hdf5("cannot read the dataset's chunk index type");
+  }
+  switch (index) {
+    case H5D_CHUNK_IDX_BTREE:
+      return ChunkIndex::kBtreeV1;
+    case H5D_CHUNK_IDX_SINGLE:
+      return ChunkIndex::kSingleChunk;
+    case H5D_CHUNK_IDX_NONE:
+      return ChunkIndex::kImplicit;
+    case H5D_CHUNK_IDX_FARRAY:
+      return ChunkIndex::kFixedArray;
+    case H5D_CHUNK_IDX_EARRAY:
+      return ChunkIndex::kExtensibleArray;
+    case H5D_CHUNK_IDX_BT2:
+      return ChunkIndex::kBtreeV2;
+    case H5D_CHUNK_IDX_NTYPES:
+      break;
+  }
+  return ChunkIndex::kUnknown;
+}
+
 void Dataset::append(std::span<const double> values) {
   append_rows(values.data(), values.size(), ElementType::kFloat64);
 }
@@ -955,8 +1001,11 @@ std::vector<std::uint64_t> Dataset::read_uint64() const {
 
 // --- File ---------------------------------------------------------------------------------------
 
-File File::create(const std::filesystem::path& path) {
-  std::string file = path.string();
+File File::create(const std::filesystem::path& path) { return create(path, path.string()); }
+
+File File::create(const std::filesystem::path& path, std::string display) {
+  const std::string name = path.string();
+  std::string file = std::move(display);
   if (!kOwnsTeardown) {
     fail(file, "",
          "refusing to write: libhdf5 was initialized before libastra_core was loaded, so its own "
@@ -972,7 +1021,7 @@ File File::create(const std::filesystem::path& path) {
       H5Pset_obj_track_times(creation.id(), false) < 0) {
     fail_hdf5(file, "", "cannot build the file's creation and access properties");
   }
-  Handle handle{H5Fcreate(file.c_str(), H5F_ACC_EXCL, creation.id(), access.id()), &H5Fclose};
+  Handle handle{H5Fcreate(name.c_str(), H5F_ACC_EXCL, creation.id(), access.id()), &H5Fclose};
   if (!handle.valid()) {
     fail_hdf5(file, "",
               "cannot create the file (it must not already exist, and its directory must exist "
@@ -1000,6 +1049,16 @@ void File::flush() {
   if (H5Fflush(at.id, H5F_SCOPE_LOCAL) < 0) {
     at.fail_hdf5("cannot flush the file");
   }
+}
+
+int File::vfd_descriptor() const {
+  const Where at{id(), file_path(), object_path()};
+  void* handle = nullptr;
+  if (H5Fget_vfd_handle(at.id, H5P_DEFAULT, &handle) < 0 || handle == nullptr) {
+    at.fail_hdf5("cannot read the file's POSIX descriptor");
+  }
+  // The sec2 driver's handle is a pointer to its int descriptor.
+  return *static_cast<const int*>(handle);
 }
 
 void File::close() {

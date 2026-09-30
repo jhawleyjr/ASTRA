@@ -6,7 +6,9 @@
 // dataset-and-attribute-equality fallback. Every file lives in a per-test temporary directory.
 #include "astra/signals/hdf5_file.hpp"
 
+#include <fcntl.h>
 #include <gtest/gtest.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <chrono>
@@ -19,6 +21,7 @@
 #include <iterator>
 #include <string>
 #include <thread>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -150,6 +153,36 @@ TEST_F(Hdf5File, AFlushedFileSurvivesAProcessThatNeverClosesIt) {
             (std::vector<std::uint64_t>{7, 8, 9, 10, 11}));
 }
 
+// M6 PR 2 (ADR-0027 item 1): create() through another name reports the display name, and the
+// sec2 descriptor HDF5 holds is the created file itself.
+TEST_F(Hdf5File, CreateThroughAnotherNameReportsTheDisplayNameAndExposesItsDescriptor) {
+  const int directory = ::open(path("").c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC);
+  ASSERT_GE(directory, 0);
+  const fs::path via_proc =
+      fs::path{"/proc/self/fd"} / std::to_string(directory) / "run.h5.partial";
+  {
+    File file = File::create(via_proc, "configured/run.h5");
+    EXPECT_EQ(file.file_path(), "configured/run.h5");
+    struct stat by_descriptor {};
+    struct stat by_name {};
+    ASSERT_EQ(::fstat(file.vfd_descriptor(), &by_descriptor), 0);
+    ASSERT_EQ(::stat(path("run.h5.partial").c_str(), &by_name), 0);
+    EXPECT_EQ(by_descriptor.st_dev, by_name.st_dev);
+    EXPECT_EQ(by_descriptor.st_ino, by_name.st_ino);
+    file.close();
+  }
+  try {
+    static_cast<void>(File::create(via_proc, "configured/run.h5"));
+    FAIL() << "create() of an existing file did not throw";
+  } catch (const Hdf5Error& error) {
+    EXPECT_EQ(error.file_path(), "configured/run.h5");
+    // The message leads with the display name; HDF5's own stack detail after it may quote the
+    // name it opened.
+    EXPECT_TRUE(std::string{error.what()}.starts_with("hdf5 'configured/run.h5': ")) << error.what();
+  }
+  ::close(directory);
+}
+
 // --- Hdf5Group --------------------------------------------------------------------------------
 
 using Hdf5Group = Hdf5Test;
@@ -272,6 +305,23 @@ TEST_F(Hdf5Dataset, AppendToAReadOnlyFileThrowsAndLeavesTheRowsAsTheyWere) {
   EXPECT_EQ(values.read_float64(), (std::vector<double>{1.0, 2.0}));
 }
 
+// ADR-0027 item 5: under the 1.8 low bound an appendable chunked dataset is indexed by a
+// version-1 B-tree, the index whose node splits the stated limit names.
+TEST_F(Hdf5Dataset, AppendableDatasetsUseTheVersionOneBTreeChunkIndex) {
+  {
+    File file = File::create(path("run.h5"));
+    Dataset series = file.create_series("frame", ElementType::kUint64, 4);
+    Dataset table = file.create_table("values", ElementType::kFloat64, 3, 4);
+    EXPECT_EQ(series.chunk_index(), Dataset::ChunkIndex::kBtreeV1);
+    EXPECT_EQ(table.chunk_index(), Dataset::ChunkIndex::kBtreeV1);
+    const std::vector<std::uint64_t> frames(40, 1);
+    series.append(frames);
+  }
+  const File file = File::open_read_only(path("run.h5"));
+  EXPECT_EQ(file.open_dataset("frame").chunk_index(), Dataset::ChunkIndex::kBtreeV1);
+  EXPECT_EQ(file.open_dataset("values").chunk_index(), Dataset::ChunkIndex::kBtreeV1);
+}
+
 TEST_F(Hdf5Dataset, CreateRefusesZeroColumnsZeroChunkRowsOrADuplicateName) {
   File file = File::create(path("run.h5"));
   EXPECT_THROW(static_cast<void>(file.create_table("values", ElementType::kFloat64, 0, 4)),
@@ -329,6 +379,41 @@ TEST_F(Hdf5Attribute, SettingAnExistingAttributeReplacesItsValueAndType) {
   const File file = File::open_read_only(path("run.h5"));
   EXPECT_EQ(file.attribute_uint64("complete"), 1U);
   EXPECT_EQ(file.attribute_string("note"), "now a string");
+}
+
+// M6 PR 2 (ADR-0027 item 2): rows_committed is rewritten in place; a missing attribute or one of
+// another type is refused, never created.
+TEST_F(Hdf5Attribute, OverwriteWritesAnExistingUint64InPlaceAndRefusesAnythingElse) {
+  {
+    File file = File::create(path("run.h5"));
+    Group rate = file.create_group("rate_1");
+    rate.set_attribute("rows_committed", std::uint64_t{0});
+    rate.set_attribute("dt", 0.001);
+    rate.overwrite_attribute("rows_committed", std::uint64_t{1024});
+    rate.overwrite_attribute("rows_committed", std::uint64_t{2048});
+    EXPECT_THROW(rate.overwrite_attribute("missing", std::uint64_t{1}), Hdf5Error);
+    EXPECT_THROW(rate.overwrite_attribute("dt", std::uint64_t{1}), Hdf5Error);
+    EXPECT_FALSE(rate.has_attribute("missing"));
+    EXPECT_EQ(rate.attribute_float64("dt"), 0.001);
+  }
+  const File file = File::open_read_only(path("run.h5"));
+  EXPECT_EQ(file.open_group("rate_1").attribute_uint64("rows_committed"), 2048U);
+}
+
+// Two files whose only difference is how often an attribute was overwritten are byte-identical:
+// an in-place write leaves no trace of the earlier values (ADR-0027 item 2 relies on the call
+// sequence, not on the attribute's history, for byte identity).
+TEST_F(Hdf5Attribute, OverwritingInPlaceLeavesNoTraceOfEarlierValues) {
+  for (const auto& [name, writes] : {std::pair{"once.h5", 1}, std::pair{"many.h5", 50}}) {
+    File file = File::create(path(name));
+    Group rate = file.create_group("rate_1");
+    rate.set_attribute("rows_committed", std::uint64_t{0});
+    for (int i = 0; i < writes; ++i) {
+      rate.overwrite_attribute("rows_committed", static_cast<std::uint64_t>(i + 1));
+    }
+    rate.overwrite_attribute("rows_committed", std::uint64_t{7});
+  }
+  EXPECT_TRUE(read_bytes(path("once.h5")) == read_bytes(path("many.h5")));
 }
 
 TEST_F(Hdf5Attribute, AMissingAttributeTheWrongTypeOrANulCharacterThrows) {
