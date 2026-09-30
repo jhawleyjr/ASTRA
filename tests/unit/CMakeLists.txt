@@ -12,6 +12,7 @@ add_executable(astra_unit_tests
   kernel/aero_propulsion_seam_test.cpp
   kernel/clock_test.cpp
   kernel/derived_signals_test.cpp
+  kernel/run_log_finalization_test.cpp
   kernel/run_log_test.cpp
   kernel/loopback_transport_test.cpp
   kernel/scheduler_test.cpp

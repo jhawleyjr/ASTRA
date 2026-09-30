@@ -101,9 +101,10 @@ class Hdf5Error : public Error {
   std::string object_path_;
 };
 
-// A run-log finalization failure (ADR-0025): Simulation::close_log() could not complete the file.
-// what() names the file and the write that failed ("/summary", "drain of /rate_1", "complete"), and
-// carries the underlying HDF5 message. A file whose close_log() threw never has complete = 1.
+// A run-log finalization failure (ADR-0025, ADR-0027): Simulation::close_log() could not complete
+// or publish the file. what() names the file and the write that failed ("/summary", "the rows of
+// /rate_1", "complete", "the publication"), and carries the underlying message. A close_log() that
+// threw never put a file at log.path; a refused publication leaves a .partial holding complete = 1.
 class LogError : public Error {
  public:
   LogError(std::string_view file_path, std::string_view write, std::string_view message);

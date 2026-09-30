@@ -732,6 +732,7 @@ std::filesystem::path fresh_log_path(std::string_view name) {
                                ("astra_transport_log_" + std::to_string(::getpid()) + "_" +
                                 info->name() + "_" + std::string{name} + ".h5");
   std::filesystem::remove(path);
+  std::filesystem::remove(path.string() + ".partial");  // ADR-0027: an unclosed log
   return path;
 }
 
@@ -767,6 +768,7 @@ TEST(SimulationTransport, ALogHaltIsStickyStoredByTheExchangeAndPublishesNothing
   EXPECT_EQ(sim.transport_fault(), TransportFault::kNone);
   EXPECT_EQ(sim.transport_close_reason(), CloseReason::kAfterFailure);
   std::filesystem::remove(path);
+  std::filesystem::remove(path.string() + ".partial");  // ADR-0027: an unclosed log
 }
 
 // A failed handshake happens after the log file is created (a log path problem is a config error,
@@ -783,7 +785,9 @@ TEST(SimulationTransport, AFailedHandshakeLeavesNoLogFile) {
   } catch (const astra::ConfigError& error) {
     EXPECT_EQ(error.config_path(), "transport");
   }
+  // ADR-0027 item 8: the .partial this call created is deleted, after the identity check.
   EXPECT_FALSE(std::filesystem::exists(path));
+  EXPECT_FALSE(std::filesystem::exists(path.string() + ".partial"));
 }
 
 // Logging adds a stage but changes nothing the exchange sends or records: the recorder bytes of
@@ -805,6 +809,7 @@ TEST(SimulationTransport, LoggingChangesNoRecorderByte) {
   EXPECT_EQ(dump(""), dump(log_block(path, 32)));
   EXPECT_TRUE(std::filesystem::exists(path));
   std::filesystem::remove(path);
+  std::filesystem::remove(path.string() + ".partial");  // ADR-0027: an unclosed log
 }
 
 }  // namespace

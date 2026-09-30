@@ -206,6 +206,13 @@ takes them as a prefix.
     and `rows_committed` after every block, what a killed run leaves, `load`'s states and cross-checks, and who
     deletes what. Also architecture rev 10 (§1, §9, §12, §15, §16 M6 row, with M6 features marked planned). The
     Finalization open item stays until PR 2. Plan: [plan](docs/plans/m6-pr1-adr0027.md). Packet: in the PR body.
+  - PR 2 (#80): ADR-0027 implemented. The core writes `<log.path>.partial` through a held directory descriptor, keeps an
+    `O_PATH` descriptor to its file, flushes and sets `rows_committed` after every block, publishes only from
+    `close_log()` by `renameat2(RENAME_NOREPLACE)` after an identity check, marks a dropped run `finalized_by =
+    destructor`, and deletes only through `discard_log()` (bound) or a failing init; format version 2. `astra.log`
+    reports the three states and refuses `.partial` names, with the cross-checks and certified rows; replay follows
+    `out`'s rules; one cleanup rule through `_runkit`; `Session` publishes on its normal close. Plan:
+    [plan](docs/plans/m6-pr2-finalization.md). Packet: in the PR body.
 - [ ] **M7 F-16 and the NESC oracle** — `aircraft/f16` built from the template; NESC atmospheric cases 11, 12,
       13.1 to 13.4, 15 and 16 against the participating simulations' trajectories in `docs/refs` (ADR-0013's
       ensemble as oracle); the tutorial and the generated config-key reference written from this path. The
@@ -310,30 +317,14 @@ takes them as a prefix.
 - [ ] (unscheduled) Evaluate Jev (TypeSafe AI) for workflow routing: model/effort selection at session launch and context
       selection, advisory with today's fixed settings as the fallback and file-path rules for Tier 3 kept
       (origin: Joe, 2026-09-26; owner: Joe, starting with console.typesafe.ai signup).
-- [ ] (M6) One superseding ADR to ADR-0025's Finalization (origin: M5 PR 5; Joe 2026-09-27; extended by M5 PR 9,
-      2026-09-28; Tier 3, scheduling is Joe's call), covering four points:
-      a. record how a run log was finalized: `close_log()` versus the `Simulation` destructor, so
-         `astra.log.load` can flag, not refuse, a destructor-finalized log (`Session` relies on the destructor
-         path). A driver that raises mid-run leaves its `Simulation` to GC and the destructor writes a
-         consistent file with `complete = 1`, which `load`'s checks cannot tell apart. Until this lands, the
-         PR 6 and PR 7 consumers assert `frames_run == duration/dt` and no unexpected halt;
-      b. PR 4 review finding F1's residual (`docs/reviews/m5-pr4-run-log-review.md`, Finding F1): the
-         file's own close can fail after it writes `complete = 1`, which Joe accepts as a disclosed residual
-         (2026-09-28). The fix is a rename-on-complete protocol: write to a temporary name and rename to
-         `log.path` only after a successful close, so a file at the final path is complete by construction;
-         this also covers a killed run;
-      c. a crash-readable log: the writer keeps HDF5 metadata in memory until `close_log()`, so a killed or
-         failed run leaves a file no reader can open, and `load`'s `allow_incomplete` never recovers a real
-         run. Needs a flush at drain;
-      d. minor: `load`'s optional cross-checks, `final_state.frame == frames_run` and the rate groups' signal
-         names against `/summary`'s min/max names. These catch only hand-edited files.
-      Not started.
 - [ ] (M11) `RealTime` mode's logger writer thread (origin: M5 plan §9/architecture §9, held-out scope; Joe's call):
       M5's logger drains only inline (`AsFastAsPossible`); `RealTime` mode itself is not built, so the
       separate non-RT drain thread architecture §9 describes has nothing to run on yet. Not started.
 - [ ] (M6) A CLI, `astra run` with `--strict` (origin: M5 plan Q24, architecture §15/§18; Joe's call): §16's M5 row
       does not require it; `--strict` exits non-zero on any halt or nonzero warn counter, as the scenario
       harness already does internally. Not started.
+- [ ] (M6) Architecture §9 and §12's `astra.log` bullet still mark ADR-0027 "(M6 PR 2, *planned*)"; PR 10's
+      closeout clears them with §12's status (origin: M6 PR 2; Joe 2026-09-29). Not started.
 - [ ] (M10) Retire the M4 `ExchangeRecorder` once a lockstep test compares HDF5 logs instead (origin: M5 plan Q12,
       ADR-0022; Joe's call): kept through M5 because M4's byte-identity acceptance tests
       (`closed_loop_acceptance_test.cpp`) read it; M5's log already carries `v0.controls.*` and `transport.*`

@@ -163,13 +163,24 @@ class Simulation {
   // log: does nothing. After a kLog halt: returns it and drains nothing. A failed drain write
   // halts kLog, sticky. Not on the per-frame path; never throws.
   [[nodiscard]] HaltReason flush_log() noexcept;
-  // ADR-0025: drains the rings, writes /summary (frames run, the last call's halt, health counters,
-  // per-signal min/max) and /final_state (the combined state after the last call, its frame, and
-  // whether that call halted), sets the root attribute complete = 1 and closes the file. Throws
-  // LogError naming the write that failed (complete is then never set). Idempotent: a second call
-  // does nothing after a success and throws the same LogError after a failure. No log: does
-  // nothing. The destructor closes an open log the same way, best effort.
+  // ADR-0025 and ADR-0027 item 3: drains the rings, writes /summary (frames run, the last call's
+  // halt, health counters, per-signal min/max) and /final_state (the combined state after the last
+  // call, its frame, and whether that call halted), sets the root attribute complete = 1, closes
+  // the file and publishes it from "<log.path>.partial" to log.path (renameat2 RENAME_NOREPLACE,
+  // after checking the .partial is still this run's file). Throws LogError naming the write that
+  // failed (complete is then never set) or the publication's refusal (nothing renamed, the
+  // .partial kept). Idempotent: a second call does nothing after a success and throws the same
+  // LogError after a failure; after discard_log() it throws "discarded". No log: does nothing.
+  // The destructor instead marks an open log finalized_by = "destructor" and never publishes it
+  // (ADR-0027 item 4).
   void close_log();
+  // ADR-0027 item 8: the only way a tool deletes a log file. Stops writing (an open log is closed
+  // with no tail and no marker), then unlinks the file where it now lives, the .partial before the
+  // publication and log.path after it, only if that name is still this run's file; otherwise it
+  // deletes nothing and the result says why. Idempotent: returns the first result again.
+  // Afterwards close_log() throws "discarded" and step() halts kLog. No log: kNoLog. Not on the
+  // per-frame path.
+  [[nodiscard]] LogDiscardResult discard_log();
   // Whether a "log" block configured a run log.
   [[nodiscard]] bool has_log() const noexcept { return log_ != nullptr; }
   // Test-only (M5 PR 4): makes one run-log write fail as if HDF5 had. Same public-but-named posture
@@ -177,6 +188,14 @@ class Simulation {
   void inject_log_fault_for_testing(RunLog::Fault fault) noexcept {
     if (log_ != nullptr) {
       log_->inject_fault_for_testing(fault);
+    }
+  }
+  // Test-only (M6 PR 2): the process kills itself with SIGKILL the occurrence-th time the log
+  // reaches `point` (ADR-0027's kill tests). Never bound to Python.
+  void inject_log_kill_for_testing(RunLog::KillPoint point, std::uint64_t occurrence = 1,
+                                   std::uint32_t divisor = 0) noexcept {
+    if (log_ != nullptr) {
+      log_->inject_kill_for_testing(point, occurrence, divisor);
     }
   }
 

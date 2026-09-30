@@ -8,10 +8,16 @@ Private: each tool documents the rules it takes from here in its own docstring.
 - ``TRIM_OWNED``: the leaves trim sets or assumes (``astra.scenario``'s docstring says why).
 - ``apply_trim``: trims a copy of a config without its ``log`` block and writes the result back.
 - ``run_logged``: builds, drives and closes a ``Simulation`` whose log is at a given path, reads
-  the log back strictly, and removes the log if anything raises before it loads.
-- ``run_length_failures``: the consumer assertion on ``frames_run`` (PLAN.md's
-  finalization-marker open item): ``duration / dt`` frames without a halt, the halt's own frame
-  with one.
+  the log back strictly and accepts it, all while the ``Simulation`` is alive; if anything after
+  the build raises, the log is discarded (``discard_on_failure``).
+- ``discard_on_failure``: the one cleanup rule of ``astra.scenario``, ``astra.montecarlo`` and
+  ``astra.log.replay`` (ADR-0027 item 8): a tool deletes only its own run's log file, only while
+  handling a failure, and only through ``Simulation.discard_log()`` while that ``Simulation`` is
+  alive. It never deletes by name, never a file whose construction was refused, and never a file
+  that collided with or replaced its own; once the ``Simulation`` is gone it deletes nothing.
+- ``run_length_failures``: a consumer assertion on ``frames_run`` (kept from M5 as a check of the
+  driver, beside ADR-0027's finalization): ``duration / dt`` frames without a halt, the halt's own
+  frame with one.
 """
 
 from __future__ import annotations
@@ -231,6 +237,17 @@ def apply_trim(
     controls["throttle"] = result.throttle
 
 
+def discard_on_failure(sim: _core.Simulation, error: BaseException) -> None:
+    """ADR-0027 item 8's tool rule, for a failure being handled while ``sim`` is alive: discards
+    the run's own log (the ``.partial``, or ``log.path`` once published) through
+    ``Simulation.discard_log()``, which deletes only after checking the name is still this run's
+    file. When it deletes nothing (``MISSING``, ``MISMATCH`` or ``FAILED``), every file is left as
+    it is and ``error`` carries a note naming the result."""
+    result = sim.discard_log()
+    if not result.deleted:
+        error.add_note(f"astra: discard_log() deleted nothing: {result!r}")
+
+
 def run_logged(
     data: dict[str, Any],
     log_path: Path,
@@ -239,30 +256,32 @@ def run_logged(
     plugin_dir: str | Path | None,
     drive: Callable[[_core.Simulation], None],
     close: Callable[[_core.Simulation], None],
+    accept: Callable[[log.RunLog], None] | None = None,
 ) -> log.RunLog:
     """Builds a ``Simulation`` from ``data`` plus a ``log`` block naming ``log_path`` (which must
-    not exist), calls ``drive`` and then ``close`` (which must call ``close_log()``), and reads the
-    log back strictly while the ``Simulation`` is still alive, so a missing close shows as a
-    refused log, never as one the destructor finalized with ``complete = 1``. If anything raises
-    between building the ``Simulation`` and reading its log, the log is removed."""
+    not exist), calls ``drive`` and then ``close`` (which must call ``close_log()``), reads the log
+    back strictly and passes it to ``accept`` (which raises to reject it), all while the
+    ``Simulation`` is still alive, so a missing close shows as a refused log (nothing is published
+    without ``close_log()``). If ``from_config`` raises, the core has already deleted the
+    ``.partial`` it created; if anything after it raises, the log is discarded
+    (``discard_on_failure``) and the error re-raised."""
     if log_path.exists():
         raise FileExistsError(f"{log_path}: the run's log path already exists")
     if "log" in data:
         raise RuntimeError(f"{origin}: the config already has a log block")
     config = _core.Config.from_dict({**data, "log": {"path": str(log_path)}}, origin=origin)
     directory = _core.default_plugin_dir() if plugin_dir is None else str(plugin_dir)
-    sim: _core.Simulation | None = None
+    sim = _core.Simulation.from_config(config, directory)
     try:
-        # Inside the try: a from_config that fails after opening the log leaves a file that the
-        # check above proves is this run's own.
-        sim = _core.Simulation.from_config(config, directory)
         drive(sim)
         close(sim)
-        return log.load(log_path)  # sim is still alive here: no destructor close yet
-    except BaseException:
-        sim = None  # the destructor closes the file before it is removed
-        log_path.unlink(missing_ok=True)
+        run_log = log.load(log_path)  # sim is still alive: nothing has been dropped
+        if accept is not None:
+            accept(run_log)
+    except BaseException as error:
+        discard_on_failure(sim, error)
         raise
+    return run_log
 
 
 # --- the consumer assertion ---------------------------------------------------------------------

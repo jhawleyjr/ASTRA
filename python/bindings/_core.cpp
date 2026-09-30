@@ -181,6 +181,23 @@ void check_built_against_this_core() {
   throw nb::import_error(message.c_str());
 }
 
+// M6 PR 2: LogDiscardOutcome's Python name, for LogDiscardResult's repr.
+std::string_view discard_outcome_name(astra::LogDiscardOutcome outcome) {
+  switch (outcome) {
+    case astra::LogDiscardOutcome::kNoLog:
+      return "NO_LOG";
+    case astra::LogDiscardOutcome::kDeleted:
+      return "DELETED";
+    case astra::LogDiscardOutcome::kMissing:
+      return "MISSING";
+    case astra::LogDiscardOutcome::kMismatch:
+      return "MISMATCH";
+    case astra::LogDiscardOutcome::kFailed:
+      return "FAILED";
+  }
+  return "?";
+}
+
 }  // namespace
 
 NB_MODULE(_core, m) {
@@ -355,6 +372,30 @@ NB_MODULE(_core, m) {
       .value("TRANSPORT", astra::HealthCheck::kTransport)  // M4 PR 3, ADR-0022
       .value("LOG", astra::HealthCheck::kLog);             // M5 PR 4, ADR-0025
 
+  // M6 PR 2 (ADR-0027 item 8): what Simulation.discard_log() did.
+  nb::enum_<astra::LogDiscardOutcome>(m, "LogDiscardOutcome",
+                                      "What Simulation.discard_log() did (ADR-0027 item 8).")
+      .value("NO_LOG", astra::LogDiscardOutcome::kNoLog)
+      .value("DELETED", astra::LogDiscardOutcome::kDeleted)
+      .value("MISSING", astra::LogDiscardOutcome::kMissing)
+      .value("MISMATCH", astra::LogDiscardOutcome::kMismatch)
+      .value("FAILED", astra::LogDiscardOutcome::kFailed);
+
+  nb::class_<astra::LogDiscardResult>(
+      m, "LogDiscardResult",
+      "Simulation.discard_log()'s result: outcome, the path it acted on (the .partial before the "
+      "publication, log.path after it; empty without a log) and, when nothing was deleted, why.")
+      .def_ro("outcome", &astra::LogDiscardResult::outcome)
+      .def_ro("path", &astra::LogDiscardResult::path)
+      .def_ro("detail", &astra::LogDiscardResult::detail)
+      .def_prop_ro("deleted", &astra::LogDiscardResult::deleted,
+                   "Whether this run's own file was unlinked.")
+      .def("__repr__", [](const astra::LogDiscardResult& result) {
+        // For a note a tool attaches to the exception it re-raises (astra._runkit).
+        return "LogDiscardResult(outcome=" + std::string{discard_outcome_name(result.outcome)} +
+               ", path='" + result.path + "', detail='" + result.detail + "')";
+      });
+
   nb::class_<PyHaltReason>(
       m, "HaltReason",
       "Why a step()/run() call halted, if it did -- falsy (bool(reason) is False) when it "
@@ -465,10 +506,22 @@ NB_MODULE(_core, m) {
           "LOG halt once there is one (a full ring, or a failed drain write, which this call "
           "itself can cause); falsy otherwise, and always without a log block.")
       .def("close_log", &astra::Simulation::close_log,
-           "Finalizes the run log: drains it, writes /summary and /final_state, sets complete = 1 "
-           "and closes the file. Raises LogError naming the write that failed (complete is then "
-           "never set). A second call does nothing after a success and raises the same LogError "
-           "after a failure; without a log block it does nothing. A step() after it halts LOG.")
+           "Finalizes the run log (ADR-0027): drains it, writes /summary and /final_state, sets "
+           "complete = 1, closes the file and publishes it from '<log.path>.partial' to log.path "
+           "with a no-replace rename, after checking the .partial is still this run's file. Raises "
+           "LogError naming the write that failed (complete is then never set) or why the "
+           "publication was refused (nothing renamed, the .partial kept). A second call does "
+           "nothing after a success and raises the same LogError after a failure, or 'discarded' "
+           "after discard_log(); without a log block it does nothing. A step() after it halts LOG. "
+           "A Simulation dropped without it leaves only the .partial, marked finalized_by = "
+           "'destructor'.")
+      .def("discard_log", &astra::Simulation::discard_log,
+           "ADR-0027 item 8, the only way a tool deletes a log file: stops writing (an open log is "
+           "closed with no tail and no marker), then unlinks the file where it now lives (the "
+           ".partial before the publication, log.path after it) only if that name is still this "
+           "run's file; otherwise it deletes nothing and the result says why. Idempotent: returns "
+           "the first result again. Afterwards close_log() raises 'discarded' and step() halts "
+           "LOG. Without a log block: outcome NO_LOG.")
       .def_prop_ro("has_log", &astra::Simulation::has_log,
                    "Whether a log block configured a run log.")
       .def_prop_ro(

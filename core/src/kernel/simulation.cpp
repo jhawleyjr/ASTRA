@@ -506,7 +506,8 @@ void Simulation::open_log_and_transport(const Config& config,
     exchange_->open(vehicles_.front(), clock_.frame(), config.origin());
   } catch (...) {
     if (log_ != nullptr) {
-      log_->discard();  // this call created it; no run ever wrote to it
+      // ADR-0027 item 8: this call created the .partial and is failing; the checked delete.
+      log_->discard_after_failed_init();
     }
     throw;
   }
@@ -615,8 +616,15 @@ Simulation Simulation::for_testing(const PluginLoader& loader,
 }
 
 Simulation::~Simulation() {
-  if (log_ != nullptr && !log_->closed()) {
-    log_->close_best_effort(log_end());
+  if (log_ == nullptr || log_->closed()) {
+    return;
+  }
+  // ADR-0027 item 4: after a kLog halt (a full ring, or a failed drain) the destructor writes
+  // nothing more and sets no marker; otherwise it marks the log, and never publishes it.
+  if (log_halt_) {
+    log_->close_after_log_halt();
+  } else {
+    log_->finalize_by_destructor(log_end());
   }
 }
 
@@ -687,6 +695,13 @@ void Simulation::close_log() {
   if (log_ != nullptr) {
     log_->close(log_end());
   }
+}
+
+LogDiscardResult Simulation::discard_log() {
+  if (log_ == nullptr) {
+    return {};
+  }
+  return log_->discard();
 }
 
 // This frame's environment sample (docs/architecture.md §5, environment_sample.hpp), latched

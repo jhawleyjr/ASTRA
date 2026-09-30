@@ -81,6 +81,12 @@ class Object {
   [[nodiscard]] std::int64_t attribute_int64(std::string_view name) const;
   [[nodiscard]] std::uint64_t attribute_uint64(std::string_view name) const;
 
+  // Writes value into the existing scalar uint64 attribute `name` in place (H5Awrite on the open
+  // attribute): no delete and re-create, so the attribute is never absent and the object header
+  // does not churn (ADR-0027's rows_committed, rewritten after every block). Throws Hdf5Error if
+  // the attribute is missing or is not a scalar uint64.
+  void overwrite_attribute(std::string_view name, std::uint64_t value);
+
   // Closes the object now; throws Hdf5Error if HDF5 refuses. Closing a closed object does
   // nothing. Every other call on a closed object throws.
   void close();
@@ -168,6 +174,20 @@ class Dataset : public Object {
   [[nodiscard]] std::size_t columns() const noexcept { return columns_; }
   [[nodiscard]] std::size_t rows() const;
 
+  // The index HDF5 keeps over this chunked dataset's chunks (H5Dget_chunk_index_type). Every
+  // dataset create() writes under the 1.8 low bound is expected to use kBtreeV1 (ADR-0027 item 5;
+  // tests/unit/signals/hdf5_file_test.cpp confirms it).
+  enum class ChunkIndex : std::uint8_t {
+    kBtreeV1,
+    kSingleChunk,
+    kImplicit,
+    kFixedArray,
+    kExtensibleArray,
+    kBtreeV2,
+    kUnknown,  // an index type this wrapper does not know
+  };
+  [[nodiscard]] ChunkIndex chunk_index() const;
+
   // Appends values.size() / columns() whole rows, row-major. An empty span appends nothing.
   // Throws Hdf5Error, leaving the dataset's extent as it was, on a type that is not this
   // dataset's, a size that is not a whole number of rows, or a failed extend. After a failed
@@ -200,11 +220,20 @@ class File : public Location {
   // Creates path, which must not exist. Throws Hdf5Error naming path if it exists, its directory
   // is missing or unwritable, or HDF5 refuses.
   static File create(const std::filesystem::path& path);
+  // As above, but every error message and file_path() name `display` instead of `path`: for a
+  // create through a descriptor path such as /proc/self/fd/<dirfd>/<name> (ADR-0027 item 1), whose
+  // messages should name the configured file.
+  static File create(const std::filesystem::path& path, std::string display);
   // Opens an existing file read-only; throws Hdf5Error naming path on any failure.
   static File open_read_only(const std::filesystem::path& path);
 
   // Writes HDF5's buffered data and metadata to disk; the file stays open.
   void flush();
+
+  // The POSIX descriptor HDF5's sec2 driver holds for this file (H5Fget_vfd_handle). HDF5 owns it:
+  // never close it. ADR-0027 item 1 reopens it through /proc/self/fd to keep a descriptor of its
+  // own.
+  [[nodiscard]] int vfd_descriptor() const;
 
   // Closes the file. Throws Hdf5Error, leaving the file open, if any group, dataset or attribute
   // opened from it is still open, and Hdf5Error if HDF5 fails to close it. Idempotent. The

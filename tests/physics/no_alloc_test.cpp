@@ -338,6 +338,7 @@ std::filesystem::path log_path(std::string_view name) {
                                ("astra_no_alloc_log_" + std::to_string(::getpid()) + "_" +
                                 info->name() + "_" + std::string{name} + ".h5");
   std::filesystem::remove(path);
+  std::filesystem::remove(path.string() + ".partial");  // ADR-0027: an unclosed log
   return path;
 }
 
@@ -389,6 +390,7 @@ TEST(NoAlloc, ZeroHeapAllocationsOverOneThousandLoggedFrames) {
       sim.close_log();
     }
     std::filesystem::remove(path);
+    std::filesystem::remove(path.string() + ".partial");  // ADR-0027: an unclosed log
   }
 }
 
@@ -434,6 +436,7 @@ TEST(NoAlloc, ZeroHeapAllocationsOnALogHaltAndItsStickyRepeats) {
       EXPECT_EQ(after, before) << "zero allocations filling the ring, halting and re-stepping";
     }
     std::filesystem::remove(path);
+    std::filesystem::remove(path.string() + ".partial");  // ADR-0027: an unclosed log
   }
 }
 

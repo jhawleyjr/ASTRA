@@ -349,31 +349,82 @@ def test_frames_run_must_equal_the_expected_halt_frame(
 def test_a_run_without_an_explicit_close_log_is_refused_and_leaves_no_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # The harness keeps its Simulation alive until load() returns, so without close_log() the file
-    # is still open and not complete. load() refuses it, and the run never falls back to the
-    # destructor's complete = 1.
+    # Without close_log() nothing is published (ADR-0027), so load() finds no file at log.path;
+    # the harness then discards its own .partial through discard_log().
     monkeypatch.setattr(harness, "_close_log", lambda _sim: None)
     path = tmp_path / "run.h5"
     scenario = dataclasses.replace(_load(FIXTURES / "violated_check.yaml"), checks=())
     with pytest.raises((log.LogFormatError, log.IncompleteLogError)):
         harness.run(scenario, path)
     assert not path.exists()
+    assert not path.with_name("run.h5.partial").exists()
 
 
 def test_an_aborted_run_leaves_no_log_that_could_look_complete(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # A harness failure mid-run drops the Simulation, whose destructor would finalize the file
-    # with complete = 1 (PLAN.md's finalization-marker open item), so the harness removes it.
+    # A harness failure mid-run: the harness discards its own open log through discard_log()
+    # (ADR-0027 item 8), so neither name is left.
     def broken(sim: Any, scenario: Any) -> None:
         assert not sim.run(10)
         raise RuntimeError("harness bug")
 
     monkeypatch.setattr(harness, "_drive", broken)
     path = tmp_path / "run.h5"
-    with pytest.raises(RuntimeError, match="harness bug"):
+    with pytest.raises(RuntimeError, match="harness bug") as caught:
         harness.run(_load(FIXTURES / "violated_check.yaml"), path)
     assert not path.exists()
+    assert not path.with_name("run.h5.partial").exists()
+    assert not getattr(caught.value, "__notes__", [])  # the discard deleted: nothing to note
+
+
+def test_a_log_collision_leaves_the_foreign_file_and_discards_only_the_runs_partial(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # R18b through astra.scenario: a file appears at log.path during the run.
+    path = tmp_path / "run.h5"
+    real = harness._drive  # pyright: ignore[reportPrivateUsage]
+
+    def collide(sim: Any, scenario: Any) -> None:
+        real(sim, scenario)
+        path.write_bytes(b"someone else's file")
+
+    monkeypatch.setattr(harness, "_drive", collide)
+    scenario = dataclasses.replace(_load(FIXTURES / "violated_check.yaml"), checks=())
+    with pytest.raises(_core.LogError, match="EEXIST"):
+        harness.run(scenario, path)
+    assert path.read_bytes() == b"someone else's file"
+    assert not path.with_name("run.h5.partial").exists()
+
+
+def test_a_log_replaced_during_a_failing_run_is_left_alone_and_noted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # R18b's mismatch case through astra.scenario: discard_log() finds another file at the
+    # .partial name and deletes nothing; the error carries the result.
+    path = tmp_path / "run.h5"
+    partial = path.with_name("run.h5.partial")
+
+    def replace_then_fail(sim: Any, scenario: Any) -> None:
+        assert not sim.run(10)
+        partial.rename(tmp_path / "moved.h5.partial")
+        partial.write_bytes(b"a replacement")
+        raise RuntimeError("harness bug")
+
+    monkeypatch.setattr(harness, "_drive", replace_then_fail)
+    with pytest.raises(RuntimeError, match="harness bug") as caught:
+        harness.run(_load(FIXTURES / "violated_check.yaml"), path)
+    assert partial.read_bytes() == b"a replacement"
+    assert (tmp_path / "moved.h5.partial").exists()
+    assert any("MISMATCH" in note for note in caught.value.__notes__)
+
+
+def test_a_clean_scenario_run_leaves_no_partial(tmp_path: Path) -> None:
+    path = tmp_path / "run.h5"
+    scenario = dataclasses.replace(_load(FIXTURES / "violated_check.yaml"), checks=())
+    harness.run(scenario, path)
+    assert log.load(path).published
+    assert not path.with_name("run.h5.partial").exists()
 
 
 def test_a_run_refuses_an_existing_log_path_and_leaves_it_alone(tmp_path: Path) -> None:

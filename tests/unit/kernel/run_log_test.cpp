@@ -154,6 +154,9 @@ bool has_complete(const fs::path& path) {
   return File::open_read_only(path).has_attribute("complete");
 }
 
+// ADR-0027 item 1: where a log lives until close_log() publishes it.
+fs::path partial(const fs::path& path) { return fs::path{path.string() + ".partial"}; }
+
 class RunLogTest : public ::testing::Test {
  protected:
   void SetUp() override {
@@ -324,7 +327,7 @@ TEST_F(RunLogRows, EachRateGroupHasItsOwnDatasetsAndDueFrames) {
   registry.add("second", &sources[1], "s", 2);
   registry.add("third", &sources[2], "1", 3);
   registry.freeze();
-  const astra::RunLogSettings settings{path("rates.h5"), 4, "rates"};
+  const astra::RunLogSettings settings{path("rates.h5"), 4, "rates", {}};
   {
     RunLog log(settings, registry, {}, astra::RunLogProvenance{"{}\n", 0.001, {}});
     for (std::uint64_t frame = 0; frame < 12; ++frame) {
@@ -528,7 +531,9 @@ TEST_F(RunLogFailure, AFailedDrainWriteHaltsKLogAndCloseThrowsNamingIt) {
   } catch (const astra::LogError& error) {
     EXPECT_EQ(std::string{error.what()}, first_message);
   }
-  EXPECT_FALSE(has_complete(path("run.h5")));
+  // ADR-0027: a failed close publishes nothing; the file stays at its .partial, never complete.
+  EXPECT_FALSE(fs::exists(path("run.h5")));
+  EXPECT_FALSE(has_complete(partial(path("run.h5"))));
 }
 
 // R6, organically: the file may not grow past its size at init plus 4 KiB (RLIMIT_FSIZE, SIGXFSZ
@@ -539,7 +544,7 @@ TEST_F(RunLogFailure, AFailedDrainWriteHaltsKLogAndCloseThrowsNamingIt) {
 // wrapper's exit handler and RunLog's abandon() avoid; see hdf5_file.hpp).
 TEST_F(RunLogFailure, ARealWriteErrorHaltsKLogThenCloseThrowsAndNeverSetsComplete) {
   Simulation sim = build(with_log(kRich, path("run.h5"), "  buffer_frames: 64\n"));
-  const auto size = static_cast<rlim_t>(fs::file_size(path("run.h5")));
+  const auto size = static_cast<rlim_t>(fs::file_size(partial(path("run.h5"))));
   rlimit saved{};
   ASSERT_EQ(::getrlimit(RLIMIT_FSIZE, &saved), 0);
   const auto previous = std::signal(SIGXFSZ, SIG_IGN);
@@ -560,7 +565,8 @@ TEST_F(RunLogFailure, ARealWriteErrorHaltsKLogThenCloseThrowsAndNeverSetsComplet
   EXPECT_EQ(halt.check, HealthCheck::kLog);
   EXPECT_EQ(halt.source, "log");
   std::cout << "run halted kLog at frame " << halt.frame << "\n";
-  EXPECT_FALSE(has_complete(path("run.h5")));
+  EXPECT_FALSE(fs::exists(path("run.h5")));
+  EXPECT_FALSE(has_complete(partial(path("run.h5"))));
 }
 
 // --- RunLogClose --------------------------------------------------------------------------------
@@ -582,7 +588,10 @@ TEST_F(RunLogClose, WritesProvenancePluginsWritesSummaryFinalStateAndComplete) {
 
   const File file = File::open_read_only(path("run.h5"));
   EXPECT_EQ(file.attribute_int64("complete"), 1);
-  EXPECT_EQ(file.attribute_uint64("log_format_version"), RunLog::kFormatVersion);
+  EXPECT_FALSE(file.has_attribute("finalized_by")) << "a published log carries no such attribute";
+  EXPECT_FALSE(fs::exists(partial(path("run.h5")))) << "publication leaves no .partial";
+  EXPECT_EQ(file.attribute_uint64("log_format_version"), 2U);
+  EXPECT_EQ(RunLog::kFormatVersion, 2U);
   EXPECT_EQ(file.attribute_string("git_describe"), astra::git_describe());
   EXPECT_EQ(file.attribute_string("core_version"), astra::core_version());
   EXPECT_EQ(file.attribute_uint64("core_api_version"), astra::kCoreApiVersion);
@@ -735,24 +744,56 @@ TEST_F(RunLogClose, AFailedFinalizationWriteThrowsNamingItAndNeverSetsComplete) 
     } catch (const astra::LogError& error) {
       EXPECT_EQ(std::string{error.what()}, message);
     }
-    EXPECT_FALSE(has_complete(target));
+    EXPECT_FALSE(fs::exists(target));
+    EXPECT_FALSE(has_complete(partial(target)));
   }
 }
 
-// The destructor completes a log nobody closed, and never after a failure.
-TEST_F(RunLogClose, TheDestructorCompletesAnOpenLogButNeverAfterAFailure) {
+// ADR-0027 item 4: the destructor finishes a log nobody closed and marks it finalized_by =
+// "destructor", but never sets complete and never publishes it; after a failure it sets no marker.
+TEST_F(RunLogClose, TheDestructorMarksAnOpenLogWithoutPublishingItAndNeverAfterAFailure) {
   {
     Simulation sim = build(with_log(kRich, path("open.h5")));
     ASSERT_FALSE(sim.run(10));
   }
-  EXPECT_EQ(File::open_read_only(path("open.h5")).attribute_int64("complete"), 1);
-  EXPECT_EQ(read_table(path("open.h5")).frames.size(), 10U);
+  EXPECT_FALSE(fs::exists(path("open.h5")));
+  {
+    const File file = File::open_read_only(partial(path("open.h5")));
+    EXPECT_EQ(file.attribute_string("finalized_by"), "destructor");
+    EXPECT_FALSE(file.has_attribute("complete"));
+    EXPECT_EQ(file.open_group("summary").attribute_uint64("frames_run"), 10U);
+    EXPECT_EQ(file.open_group("rate_1").attribute_uint64("rows_committed"), 10U);
+  }
+  EXPECT_EQ(read_table(partial(path("open.h5"))).frames.size(), 10U);
   {
     Simulation sim = build(with_log(kRich, path("failed.h5")));
     ASSERT_FALSE(sim.run(10));
     sim.inject_log_fault_for_testing(RunLog::Fault::kSummary);
   }
-  EXPECT_FALSE(has_complete(path("failed.h5")));
+  EXPECT_FALSE(fs::exists(path("failed.h5")));
+  const File failed = File::open_read_only(partial(path("failed.h5")));
+  EXPECT_FALSE(failed.has_attribute("complete"));
+  EXPECT_FALSE(failed.has_attribute("finalized_by"));
+}
+
+// ADR-0027 item 4 (Codex review of M6 PR 2, F1): after a full-ring kLog halt, which records no
+// write failure in the log, the destructor still writes nothing more: no tail, no /summary and no
+// marker, so the .partial is incomplete. Its certified rows are whatever blocks were written.
+TEST_F(RunLogClose, TheDestructorWritesNothingAfterAFullRingLogHalt) {
+  {
+    Simulation sim = build(with_log(kRich, path("full.h5"), "  buffer_frames: 10\n"));
+    for (int k = 0; k < 10; ++k) {
+      ASSERT_FALSE(sim.step()) << k;
+    }
+    ASSERT_EQ(sim.step().check, HealthCheck::kLog);
+  }
+  EXPECT_FALSE(fs::exists(path("full.h5")));
+  const File file = File::open_read_only(partial(path("full.h5")));
+  EXPECT_FALSE(file.has_attribute("complete"));
+  EXPECT_FALSE(file.has_attribute("finalized_by"));
+  EXPECT_EQ(file.open_group("rate_1").attribute_uint64("rows_committed"), 0U);
+  EXPECT_EQ(file.open_group("rate_1").open_dataset("frame").rows(), 0U) << "no tail was written";
+  EXPECT_THROW(static_cast<void>(file.open_group("summary")), astra::Hdf5Error);
 }
 
 // A moved-from Simulation owns no log; the moved-to one closes it once.
