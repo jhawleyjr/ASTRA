@@ -10,12 +10,8 @@ checks, the review, the waivers and the decisions.
 ## Last verified result
 Run this session: `./scripts/check-full.sh` from a fresh configure (`build/` removed first) on `574f9fe`: exit 0,
 `check: OK` (`docs/reviews/evidence/574f9fe-gate-summary.log`); CTest 621/622/623/624, pytest 473.
-Every commit after `574f9fe` is docs only:
-- the evidence file;
-- STATE and two lessons;
-- `c11c41d`: Joe's human-review wording (strict replay input, the reopen failure, one path wording, the
-  `discard_log()` kill row, the stated-limit sentence);
-- `3371d07`: ADR-0027 accepted, architecture rev 10 accepted, and "(proposed)" dropped from PLAN.md.
+Every commit after `574f9fe` is docs only: the evidence file, STATE and two lessons; `c11c41d` (Joe's
+human-review wording); `3371d07` (ADR-0027 and rev 10 accepted, "(proposed)" dropped from PLAN.md).
 
 `python3 scripts/docs_check.py` exit 0 and `git diff --check` clean on `c11c41d` and on `3371d07`. For both
 commits Joe waived a full-gate rerun and a further Codex pass. The Codex adversarial review (3 passes, final
@@ -25,13 +21,9 @@ verdict approve, no new findings) covers the text through `574f9fe`. The thread 
 ## Next step
 1. Next task: M6 PR 2 (Tier 3), ADR-0027's implementation, in a new worktree off `origin/main` once #79 is
    in `main`. Its plan starts from ADR-0027's validation list (R16, R16b with the three `.partial`-replacement
-   cases, R17, R18, R18b with the `discard_log()` cases, R19b) and four claims marked "PR 2 confirms":
-   - the chunk index type;
-   - the `frame` column for halted runs;
-   - `load(log.path)` while the `Simulation` is alive;
-   - `kCoreApiVersion` unchanged.
-
-   PR 2 also removes the (M6) Finalization open item from PLAN.md. PR 4 (units) and PR 9 (benchmark) depend
+   cases, R17, R18, R18b with the `discard_log()` cases, R19b) and the four "PR 2 confirms" claims (chunk index
+   type, `frame` column for halted runs, `load(log.path)` while the `Simulation` is alive, `kCoreApiVersion`
+   unchanged). PR 2 also removes the (M6) Finalization open item from PLAN.md. PR 4 (units) and PR 9 (benchmark) depend
    only on PR 1 (the M6 plan's decomposition).
 2. No GitHub CI until Oct 1 (local-gate mode). Do not treat a missing check as a blocker.
 
