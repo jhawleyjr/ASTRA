@@ -213,6 +213,10 @@ takes them as a prefix.
     reports the three states and refuses `.partial` names, with the cross-checks and certified rows; replay follows
     `out`'s rules; one cleanup rule through `_runkit`; `Session` publishes on its normal close. Plan:
     [plan](docs/plans/m6-pr2-finalization.md). Packet: in the PR body.
+  - PR 3 (#81): the `astra` console script (`astra.cli`). `astra run <config> [--strict] [--log PATH]` runs open
+    loop, closes the log with `close_log()`, prints §15's summary plus wall time and real-time factor, and exits
+    per §15's table; it refuses a `transport` block (65) and deletes no log file. `astra trim` prints the trim and
+    its config fragment as exact YAML. Plan: [plan](docs/plans/m6-pr3-cli.md). Packet: in the PR body.
 - [ ] **M7 F-16 and the NESC oracle** — `aircraft/f16` built from the template; NESC atmospheric cases 11, 12,
       13.1 to 13.4, 15 and 16 against the participating simulations' trajectories in `docs/refs` (ADR-0013's
       ensemble as oracle); the tutorial and the generated config-key reference written from this path. The
@@ -320,11 +324,11 @@ takes them as a prefix.
 - [ ] (M11) `RealTime` mode's logger writer thread (origin: M5 plan §9/architecture §9, held-out scope; Joe's call):
       M5's logger drains only inline (`AsFastAsPossible`); `RealTime` mode itself is not built, so the
       separate non-RT drain thread architecture §9 describes has nothing to run on yet. Not started.
-- [ ] (M6) A CLI, `astra run` with `--strict` (origin: M5 plan Q24, architecture §15/§18; Joe's call): §16's M5 row
-      does not require it; `--strict` exits non-zero on any halt or nonzero warn counter, as the scenario
-      harness already does internally. Not started.
-- [ ] (M6) Architecture §9 and §12's `astra.log` bullet still mark ADR-0027 "(M6 PR 2, *planned*)"; PR 10's
-      closeout clears them with §12's status (origin: M6 PR 2; Joe 2026-09-29). Not started.
+- [ ] (M6) Architecture §9 and §12's `astra.log` bullet still mark ADR-0027 "(M6 PR 2, *planned*)", and §15's
+      exit-code table still marks `astra run` "(M6 PR 3, *planned*; no `astra` command exists yet)"; PR 10's
+      closeout clears them with §12's status (origin: M6 PR 2 and PR 3; Joe 2026-09-29 and 2026-09-30). When §15's
+      marker is cleared, its table also takes the two codes M6 PR 3 added outside it (plan D3, D4): 70
+      (`EX_SOFTWARE`) for an internal error, and 74 for a failed write of the summary to stdout. Not started.
 - [ ] (M10) Retire the M4 `ExchangeRecorder` once a lockstep test compares HDF5 logs instead (origin: M5 plan Q12,
       ADR-0022; Joe's call): kept through M5 because M4's byte-identity acceptance tests
       (`closed_loop_acceptance_test.cpp`) read it; M5's log already carries `v0.controls.*` and `transport.*`

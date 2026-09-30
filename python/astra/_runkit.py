@@ -6,6 +6,10 @@ Private: each tool documents the rules it takes from here in its own docstring.
 - Leaf rules (``numeric_leaf``, ``set_numeric_leaf``): an existing numeric leaf only, reached by
   a dotted path whose integer segments index lists; never a new key.
 - ``TRIM_OWNED``: the leaves trim sets or assumes (``astra.scenario``'s docstring says why).
+- ``WARN_COUNTERS`` and ``HEALTH_SIGNALS``: the health counters a ``warn`` action leaves nonzero,
+  and every ``health.*`` signal, shared by ``astra.scenario`` and ``astra.cli`` (M6 PR 3).
+- ``trim_fragment``: the initial state and controls a trim result sets, in the order
+  ``apply_trim`` writes them; ``astra trim`` prints the same fragment (M6 PR 3).
 - ``apply_trim``: trims a copy of a config without its ``log`` block and writes the result back.
 - ``run_logged``: builds, drives and closes a ``Simulation`` whose log is at a given path, reads
   the log back strictly and accepts it, all while the ``Simulation`` is alive; if anything after
@@ -53,6 +57,10 @@ TRIM_OWNED = (
 
 # D8's trim residual bound (docs/plans/pr6-trim.md), the bound cruise.yaml's trim was held to.
 TRIM_RESIDUAL_BOUND = 1e-6
+
+# health_monitor.cpp registers these as counters; health.max_q_drift is a drift, not a count.
+WARN_COUNTERS = ("health.nan", "health.quaternion", "health.domain", "health.input")
+HEALTH_SIGNALS: frozenset[str] = frozenset((*WARN_COUNTERS, "health.max_q_drift"))
 
 # The temporary directory apply_trim writes its still-air copy into. The copy's path is its Config
 # origin, so it can reach an error message; astra.montecarlo replaces it with a placeholder.
@@ -220,21 +228,35 @@ def apply_trim(
         raise RuntimeError(
             f"{origin}: trim residual {worst:.3e} exceeds D8's {TRIM_RESIDUAL_BOUND:g}"
         )
-    state = [float(v) for v in result.state]
+    state_values, control_values = trim_fragment(result)
     initial = cast(dict[str, Any], data.setdefault("initial", {}))
     values = cast(dict[str, Any], initial.setdefault("state", {}))
-    values.pop("q_nb", None)  # the trim fixes the attitude; euler_nb below states it
-    values["p_n"] = state[_core.POSITION : _core.POSITION + _core.POSITION_SIZE]
-    values["v_b"] = state[_core.VELOCITY : _core.VELOCITY + _core.VELOCITY_SIZE]
-    values["euler_nb"] = [0.0, result.alpha_rad, 0.0]  # [psi, theta, phi]; theta = alpha
-    values["omega_b"] = [0.0, 0.0, 0.0]
+    values.pop("q_nb", None)  # the trim fixes the attitude; euler_nb states it
+    values.update(state_values)
     vehicle = cast(dict[str, Any], data.setdefault("vehicle", {}))
     controls = cast(
         dict[str, Any],
         cast(dict[str, Any], vehicle.setdefault("initial_controls", {})).setdefault("controls", {}),
     )
-    controls["elevator"] = result.elevator_rad  # astra.trim's own control names (its D10)
-    controls["throttle"] = result.throttle
+    controls.update(control_values)
+
+
+def trim_fragment(
+    result: astra.trim.TrimResult,
+) -> tuple[dict[str, list[float]], dict[str, float]]:
+    """The ``initial.state`` entries and the ``vehicle.initial_controls.controls`` entries a trim
+    sets, in the order ``apply_trim`` writes them: ``p_n``, ``v_b``, ``euler_nb`` (``[0, alpha,
+    0]``, so the config's ``q_nb`` must go), ``omega_b``; then ``elevator``, ``throttle``."""
+    state = [float(v) for v in result.state]
+    values = {
+        "p_n": state[_core.POSITION : _core.POSITION + _core.POSITION_SIZE],
+        "v_b": state[_core.VELOCITY : _core.VELOCITY + _core.VELOCITY_SIZE],
+        "euler_nb": [0.0, result.alpha_rad, 0.0],  # [psi, theta, phi]; theta = alpha
+        "omega_b": [0.0, 0.0, 0.0],
+    }
+    # astra.trim's own control names (its D10).
+    controls = {"elevator": result.elevator_rad, "throttle": result.throttle}
+    return values, controls
 
 
 def discard_on_failure(sim: _core.Simulation, error: BaseException) -> None:

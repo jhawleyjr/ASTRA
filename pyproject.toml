@@ -14,6 +14,10 @@ description = "Vehicle-agnostic 6-DoF simulation framework that runs real embedd
 requires-python = ">=3.12"
 dependencies = ["numpy>=2"]
 
+[project.scripts]
+# M6 PR 3 (docs/plans/m6-pr3-cli.md): `astra run` and `astra trim`; later M6 PRs add the other subcommands.
+astra = "astra.cli:console"
+
 [dependency-groups]
 # What the gate needs, pinned: `just venv` installs this group. The analysis libraries joined when a milestone used
 # them.
