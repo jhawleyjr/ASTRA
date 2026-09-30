@@ -1,0 +1,19 @@
+# M6 PR 3 (tests/python/test_cli.py, T3): a halt that follows warnings. The polar approach of
+# tests/unit/kernel/simulation_halt_test.cpp (1e-5 rad below earth/round's latitude limit, northbound at
+# 100 m/s) is counted under sim.health.domain: warn, so health.domain is nonzero before the NaN wrench
+# from frame 1500 halts NON_FINITE_WRENCH (sim.health.nan keeps its default, halt).
+sim:
+  dt: 0.001
+  frames: 2000
+  health: { domain: warn }
+vehicle:
+  models:
+    - { plugin: tests/plugins/nan_wrench, nan_frame: 1500 }
+physical:
+  earth: plugins/physical/earth/round
+  gravity: plugins/physical/gravity/constant
+  mass: { plugin: plugins/physical/mass/constant, mass: 1.0, ixx: 1.0, iyy: 1.0, izz: 1.0 }
+initial:
+  state:
+    p_n: [1.5707853267948966, 0.0, 1000.0]  # pi/2 - 1e-6 - 1e-5 rad, lon 0, altitude 1000 m
+    v_b: [100.0, 0.0, 0.0]
