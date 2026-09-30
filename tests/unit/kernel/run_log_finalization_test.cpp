@@ -466,9 +466,12 @@ enum class Drain : std::uint8_t { kRun, kStepFlushEveryFrame, kSmallRing, kIrreg
 // Runs `frames` frames of `base` under `drain` and closes the log. Returns the halt that ended it.
 HaltReason drive(const std::string& base, const fs::path& target, std::uint64_t frames,
                  Drain drain) {
-  const std::string extra = drain == Drain::kSmallRing   ? "  buffer_frames: 3\n"
-                            : drain == Drain::kIrregular ? "  buffer_frames: 7\n"
-                                                         : "";
+  std::string extra;
+  if (drain == Drain::kSmallRing) {
+    extra = "  buffer_frames: 3\n";
+  } else if (drain == Drain::kIrregular) {
+    extra = "  buffer_frames: 7\n";
+  }
   Simulation sim = build(with_log(base, target, extra));
   HaltReason halt;
   if (drain == Drain::kRun || drain == Drain::kSmallRing) {

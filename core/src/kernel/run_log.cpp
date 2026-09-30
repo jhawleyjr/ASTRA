@@ -663,8 +663,9 @@ LogDiscardResult RunLog::discard() {
     closed_ = true;
     abandon();  // no tail, no marker: the file is being deleted
   }
-  discarded_ = checked_unlink(published_ ? name_ : partial_name_, kept_.get());
-  return *discarded_;
+  LogDiscardResult result = checked_unlink(published_ ? name_ : partial_name_, kept_.get());
+  discarded_ = result;
+  return result;
 }
 
 void RunLog::discard_after_failed_init() noexcept {
@@ -672,7 +673,10 @@ void RunLog::discard_after_failed_init() noexcept {
   closed_ = true;
   try {
     static_cast<void>(checked_unlink(partial_name_, kept_.get()));
-  } catch (...) {  // an allocation failure while building the result: nothing more to do
+  } catch (...) {
+    // Only an allocation failure while building the result can land here: the delete itself
+    // either ran or was refused. Recorded; the failing init reports its own error.
+    note_failure("the init-failure delete could not report its result");
   }
 }
 

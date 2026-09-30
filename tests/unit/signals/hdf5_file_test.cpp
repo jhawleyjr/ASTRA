@@ -410,7 +410,7 @@ TEST_F(Hdf5Attribute, OverwritingInPlaceLeavesNoTraceOfEarlierValues) {
     Group rate = file.create_group("rate_1");
     rate.set_attribute("rows_committed", std::uint64_t{0});
     for (int i = 0; i < writes; ++i) {
-      rate.overwrite_attribute("rows_committed", static_cast<std::uint64_t>(i + 1));
+      rate.overwrite_attribute("rows_committed", static_cast<std::uint64_t>(i) + 1U);
     }
     rate.overwrite_attribute("rows_committed", std::uint64_t{7});
   }
