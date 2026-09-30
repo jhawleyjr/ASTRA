@@ -1,7 +1,14 @@
 #include "astra/kernel/run_log.hpp"
 
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include <algorithm>
+#include <cerrno>
 #include <cmath>
+#include <csignal>
+#include <cstdio>
 #include <exception>
 #include <functional>
 #include <limits>
@@ -22,6 +29,44 @@ namespace astra {
 namespace {
 
 constexpr std::string_view kHealthPrefix = "health.";
+constexpr std::string_view kPublication = "the publication";
+constexpr std::string_view kProcFd = "/proc/self/fd/";
+
+std::string errno_text(int error) {
+  return std::error_code(error, std::generic_category()).message();
+}
+
+// ADR-0027 item 1's identity check: is `name` in `directory` the file `reference` is open on?
+// fstatat never follows a symlink, so a symlink at the name is never this run's file.
+enum class Identity : std::uint8_t { kSame, kMissing, kOther, kError };
+
+Identity identify(int directory, const std::string& name, int reference, const std::string& shown,
+                  std::string& detail) {
+  struct stat ours {};
+  if (::fstat(reference, &ours) != 0) {
+    detail = "cannot read this run's own file: " + errno_text(errno);
+    return Identity::kError;
+  }
+  struct stat named {};
+  if (::fstatat(directory, name.c_str(), &named, AT_SYMLINK_NOFOLLOW) != 0) {
+    const int error = errno;
+    if (error == ENOENT) {
+      detail = "nothing is at '" + shown + "'";
+      return Identity::kMissing;
+    }
+    detail = "cannot read '" + shown + "': " + errno_text(error);
+    return Identity::kError;
+  }
+  if (S_ISLNK(named.st_mode)) {
+    detail = "'" + shown + "' is a symlink";
+    return Identity::kOther;
+  }
+  if (named.st_dev != ours.st_dev || named.st_ino != ours.st_ino) {
+    detail = "'" + shown + "' is another file";
+    return Identity::kOther;
+  }
+  return Identity::kSame;
+}
 
 std::string rate_group_name(std::uint32_t divisor) { return "rate_" + std::to_string(divisor); }
 
@@ -113,14 +158,18 @@ std::optional<RunLogSettings> RunLog::read_settings(const Config& config) {
     throw ConfigError(config.origin(), "log.buffer_frames", "must be at least 1");
   }
   settings.buffer_frames = static_cast<std::size_t>(buffer_frames);
-  // ADR-0025 Q5: never overwritten. A dangling symlink counts as existing too. A status that
-  // cannot be read is left to the create in the constructor, which then fails naming log.path.
-  std::error_code error;
-  const std::filesystem::file_type type =
-      std::filesystem::symlink_status(settings.path, error).type();
-  if (type != std::filesystem::file_type::not_found && type != std::filesystem::file_type::none) {
+  // ADR-0027 item 1: the name must be a file's, and never the unpublished name a log is written
+  // under. Whether log.path or its .partial exists is the constructor's check, through the
+  // directory descriptor it then keeps.
+  const std::string name = settings.path.filename().string();
+  if (name.empty() || name == "." || name == "..") {
+    throw ConfigError(config.origin(), "log.path", "'" + path + "' does not name a file");
+  }
+  if (name.ends_with(kPartialSuffix)) {
     throw ConfigError(config.origin(), "log.path",
-                      "'" + path + "' already exists; a run log never overwrites a file");
+                      "'" + path +
+                          "' ends in .partial, the name a run log has until close_log() publishes "
+                          "it (ADR-0027)");
   }
   return settings;
 }
@@ -130,7 +179,8 @@ RunLog::RunLog(const RunLogSettings& settings, const SignalRegistry& registry,
     : path_(settings.path),
       origin_(settings.origin),
       capacity_(settings.buffer_frames),
-      high_water_(std::max<std::size_t>(1, settings.buffer_frames / 2)) {
+      high_water_(std::max<std::size_t>(1, settings.buffer_frames / 2)),
+      kill_(settings.test_hooks) {
   try {
     build_rings(registry, vehicles);
   } catch (const std::bad_alloc&) {
@@ -140,23 +190,145 @@ RunLog::RunLog(const RunLogSettings& settings, const SignalRegistry& registry,
   }
   // Hashed before the file exists, so a plugin that cannot be read leaves no file behind.
   const std::vector<hdf5::RecordField> plugins = plugin_records(provenance.plugins);
+  open_directory();
+  refuse_existing(name_);
+  refuse_existing(partial_name_);
+  create_file();
   try {
-    file_.emplace(hdf5::File::create(path_));
-  } catch (const Hdf5Error& error) {
-    throw ConfigError(origin_, "log.path", error.what());
-  }
-  try {
+    if (settings.test_hooks.init_fault == Fault::kProvenance) {
+      writing_ = "the provenance";
+      injected_fired_ = true;
+      throw Hdf5Error(display(partial_name_), "", "injected failure (test)");
+    }
     write_provenance(provenance);
-    open_handle(file_, path_).write_records("plugins", plugins);
+    hdf5::File& file = open_handle(file_, path_);
+    file.write_records("plugins", plugins);
+    file.flush();
   } catch (const Hdf5Error& error) {
     note_failure(error.what());
-    discard();
+    abandon();
+    closed_ = true;
+    // ADR-0027 item 8: this call created the .partial, and it is failing: the one delete by the
+    // core outside discard_log(), after the identity check.
+    const LogDiscardResult removed = checked_unlink(partial_name_, kept_.get());
     throw ConfigError(origin_, "log.path",
-                      std::string{"cannot write the log's provenance: "} + error.what());
+                      std::string{"cannot write the log's provenance: "} + error.what() +
+                          (removed.deleted() ? "" : "; the .partial was left: " + removed.detail));
   }
+  kill_point(KillPoint::kAfterProvenanceFlush);
 }
 
 RunLog::~RunLog() = default;
+
+RunLog::Descriptor::~Descriptor() {
+  if (fd_ >= 0) {
+    static_cast<void>(::close(fd_));
+  }
+}
+
+RunLog::Descriptor::Descriptor(Descriptor&& other) noexcept : fd_(other.fd_) { other.fd_ = -1; }
+
+RunLog::Descriptor& RunLog::Descriptor::operator=(Descriptor&& other) noexcept {
+  if (this != &other) {
+    if (fd_ >= 0) {
+      static_cast<void>(::close(fd_));
+    }
+    fd_ = other.fd_;
+    other.fd_ = -1;
+  }
+  return *this;
+}
+
+std::string RunLog::display(const std::string& name) const {
+  return (path_.parent_path() / name).string();
+}
+
+// ADR-0027 item 1: the directory is held once, here, and every later operation by name goes
+// through it, so neither a chdir nor a rename of an ancestor redirects the create, the rename or a
+// delete. A relative log.path is resolved against the working directory at this call.
+void RunLog::open_directory() {
+  std::filesystem::path parent = path_.parent_path();
+  if (parent.empty()) {
+    parent = ".";
+  }
+  const int fd = ::open(parent.c_str(), O_PATH | O_DIRECTORY | O_CLOEXEC);
+  if (fd < 0) {
+    const int error = errno;
+    throw ConfigError(origin_, "log.path",
+                      "cannot open the directory '" + parent.string() + "' of '" + path_.string() +
+                          "': " + errno_text(error));
+  }
+  directory_ = Descriptor{fd};
+  name_ = path_.filename().string();
+  partial_name_ = name_ + std::string{kPartialSuffix};
+}
+
+// ADR-0025 Q5 and ADR-0027 item 1: never overwritten, and a stale .partial is the user's. A
+// dangling symlink counts as existing (no follow).
+void RunLog::refuse_existing(const std::string& name) const {
+  struct stat info {};
+  if (::fstatat(directory_.get(), name.c_str(), &info, AT_SYMLINK_NOFOLLOW) == 0) {
+    if (name == name_) {
+      throw ConfigError(
+          origin_, "log.path",
+          "'" + path_.string() + "' already exists; a run log never overwrites a file");
+    }
+    throw ConfigError(origin_, "log.path",
+                      "'" + display(name) +
+                          "' already exists: a stale partial log belongs to the user, and ASTRA "
+                          "never opens, changes or deletes it (ADR-0027); move it aside or choose "
+                          "another log.path");
+  }
+  const int error = errno;
+  if (error != ENOENT) {
+    throw ConfigError(origin_, "log.path",
+                      "cannot check whether '" + display(name) + "' exists: " + errno_text(error));
+  }
+}
+
+// ADR-0027 item 1: the exclusive create of the .partial through the directory descriptor, then a
+// descriptor of the log's own, reopened from HDF5's through /proc/self/fd: a separate open file
+// description (never a dup(), which would share HDF5's file lock), O_PATH (no read permission
+// needed, no lock), O_CLOEXEC (never inherited by a lockstep peer).
+void RunLog::create_file() {
+  const std::string via =
+      std::string{kProcFd} + std::to_string(directory_.get()) + "/" + partial_name_;
+  try {
+    file_.emplace(hdf5::File::create(via, display(partial_name_)));
+  } catch (const Hdf5Error& error) {
+    throw ConfigError(origin_, "log.path", error.what());
+  }
+  int hdf5_fd = -1;
+  try {
+    hdf5_fd = open_handle(file_, path_).vfd_descriptor();
+  } catch (const Hdf5Error& error) {
+    // No descriptor to check the name against, so nothing is deleted (ADR-0027 item 8).
+    file_.reset();
+    closed_ = true;
+    throw ConfigError(
+        origin_, "log.path",
+        std::string{error.what()} + "; the .partial was left: '" + display(partial_name_) + "'");
+  }
+  int kept = -1;
+  int error = EMFILE;
+  if (kill_.init_fault != Fault::kReopen) {
+    kept = ::open((std::string{kProcFd} + std::to_string(hdf5_fd)).c_str(), O_PATH | O_CLOEXEC);
+    error = errno;
+  }
+  if (kept < 0) {
+    // ADR-0027 item 1: the identity check runs against HDF5's own descriptor, still open here.
+    const LogDiscardResult removed = checked_unlink(partial_name_, hdf5_fd);
+    file_.reset();  // the file itself is sound: it closes normally
+    closed_ = true;
+    throw ConfigError(origin_, "log.path",
+                      "cannot keep a descriptor to the created file (a reopen through "
+                      "/proc/self/fd: " +
+                          errno_text(error) + ")" +
+                          (removed.deleted() ? "" : "; the .partial was left: " + removed.detail));
+  }
+  kept_ = Descriptor{kept};
+  kill_point(KillPoint::kAfterCreate);
+}
 
 void RunLog::build_rings(const SignalRegistry& registry, std::span<const Vehicle> vehicles) {
   const std::span<const Signal> signals = registry.signals();
@@ -240,6 +412,7 @@ void RunLog::write_provenance(const RunLogProvenance& provenance) {
     }
     open_handle(ring.values_dataset, path_).set_attribute("names", names);
     open_handle(ring.values_dataset, path_).set_attribute("units", units);
+    open_handle(ring.group, path_).set_attribute("rows_committed", std::uint64_t{0});
   }
 }
 
@@ -331,13 +504,21 @@ void RunLog::move_rows_to_blocks() {
   }
 }
 
+// ADR-0027 item 2: values, frame, a flush, then rows_committed. A value set after the flush names
+// only rows already on disk, so it stays true even if HDF5 writes it before the next flush.
 void RunLog::write_block(Ring& ring) {
   writing_ = ring.write_label;
   check_injected(Fault::kDrainWrite);
   open_handle(ring.values_dataset, path_)
       .append(std::span<const double>{ring.block_values.data(), ring.block_count * ring.columns});
+  kill_point(KillPoint::kBlockAfterValues, ring.divisor);
   open_handle(ring.frame_dataset, path_)
       .append(std::span<const std::uint64_t>{ring.block_frames.data(), ring.block_count});
+  open_handle(file_, path_).flush();
+  kill_point(KillPoint::kBlockAfterFlush, ring.divisor);
+  ring.rows_written += ring.block_count;
+  open_handle(ring.group, path_).overwrite_attribute("rows_committed", ring.rows_written);
+  kill_point(KillPoint::kBlockAfterCommitted, ring.divisor);
   ring.block_count = 0;
 }
 
@@ -348,6 +529,9 @@ void RunLog::record_write(std::uint64_t frame, std::string_view name, double val
 }
 
 void RunLog::close(const RunLogEnd& end) {
+  if (discarded_.has_value()) {
+    throw LogError(path_.string(), "close_log()", "the log was discarded by discard_log()");
+  }
   if (closed_) {
     if (failed()) {
       throw LogError(path_.string(), failed_write_, failure_);
@@ -359,59 +543,166 @@ void RunLog::close(const RunLogEnd& end) {
     throw LogError(path_.string(), failed_write_, failure_);
   }
   try {
-    move_rows_to_blocks();
-    for (Ring& ring : rings_) {
-      if (ring.block_count != 0) {
-        write_block(ring);
-      }
-    }
-    writing_ = "/writes";
-    check_injected(Fault::kWrites);
-    write_writes();
-    writing_ = "/summary";
-    check_injected(Fault::kSummary);
-    write_summary(end);
-    writing_ = "/final_state";
-    check_injected(Fault::kFinalState);
-    write_final_state(end);
-    // Codex review round 1, F1: every object but the file is closed, and everything is flushed,
-    // before the marker, so complete = 1 is the last write and certifies only data already on
-    // disk. It reaches the disk inside the file's own close; if that close fails, close_log()
-    // throws and whether the marker landed is undetermined (the one window a single HDF5 file
-    // leaves; see the PR 4 description).
-    writing_ = "the close of the rate groups";
-    close_ring_handles();
-    writing_ = "the flush before complete";
-    open_handle(file_, path_).flush();
-    writing_ = "complete";
-    check_injected(Fault::kComplete);
-    open_handle(file_, path_).set_attribute("complete", std::int64_t{1});
-    writing_ = "the file's close";
-    open_handle(file_, path_).close();
+    finish_file(end, Marker::kComplete);
   } catch (const std::exception& error) {
     note_failure(error.what());
     abandon();
     throw LogError(path_.string(), failed_write_, failure_);
   }
+  publish();
 }
 
-void RunLog::close_best_effort(const RunLogEnd& end) noexcept {
-  // Best effort by contract (Simulation's destructor): close() has already recorded the failure
-  // in failure() and never set complete; there is no caller to tell.
+void RunLog::finish_file(const RunLogEnd& end, Marker marker) {
+  move_rows_to_blocks();
+  for (Ring& ring : rings_) {
+    if (ring.block_count != 0) {
+      write_block(ring);
+    }
+  }
+  kill_point(KillPoint::kCloseAfterTails);
+  writing_ = "/writes";
+  check_injected(Fault::kWrites);
+  write_writes();
+  writing_ = "/summary";
+  check_injected(Fault::kSummary);
+  write_summary(end);
+  writing_ = "/final_state";
+  check_injected(Fault::kFinalState);
+  write_final_state(end);
+  kill_point(KillPoint::kCloseAfterFinalObjects);
+  // Codex review round 1 (M5 PR 4), F1: every object but the file is closed, and everything is
+  // flushed, before the marker, so the marker is the last write and certifies only data already on
+  // disk. A file close that fails after it leaves only the .partial (ADR-0027 item 3).
+  writing_ = "the close of the rate groups";
+  close_ring_handles();
+  writing_ = "the flush before the marker";
+  open_handle(file_, path_).flush();
+  if (marker == Marker::kComplete) {
+    writing_ = "complete";
+    check_injected(Fault::kComplete);
+    open_handle(file_, path_).set_attribute("complete", std::int64_t{1});
+  } else {
+    writing_ = "finalized_by";
+    open_handle(file_, path_).set_attribute("finalized_by", std::string_view{"destructor"});
+  }
+  kill_point(KillPoint::kCloseAfterMarker);
+  writing_ = "the file's close";
+  open_handle(file_, path_).close();
+}
+
+// ADR-0027 item 3, steps 6 and 7. The successful rename is the publication point.
+void RunLog::publish() {
+  writing_ = kPublication;
+  std::string detail;
+  if (identify(directory_.get(), partial_name_, kept_.get(), display(partial_name_), detail) !=
+      Identity::kSame) {
+    refuse_publication("the .partial is no longer this run's file (" + detail +
+                       "); nothing was renamed or touched");
+  }
+  kill_point(KillPoint::kCloseBeforeRename);
+  int result = -1;
+  int error = EINVAL;
+  if (injected_ == Fault::kRenameUnsupported) {
+    injected_fired_ = true;
+  } else {
+    result = ::renameat2(directory_.get(), partial_name_.c_str(), directory_.get(), name_.c_str(),
+                         RENAME_NOREPLACE);
+    error = errno;
+  }
+  if (result != 0) {
+    if (error == EEXIST) {
+      refuse_publication("a file appeared at '" + path_.string() +
+                         "' during the run (EEXIST); it is left untouched, and the .partial is "
+                         "kept");
+    }
+    if (error == EINVAL || error == ENOSYS) {
+      refuse_publication(
+          "renameat2(RENAME_NOREPLACE) is not supported by this filesystem or "
+          "kernel (" +
+          errno_text(error) + "); nothing was published, and the .partial is kept");
+    }
+    refuse_publication("renameat2 failed (" + errno_text(error) +
+                       "); nothing was published, and the .partial is kept");
+  }
+  published_ = true;
+  kill_point(KillPoint::kCloseAfterRename);
+}
+
+void RunLog::refuse_publication(std::string_view reason) {
+  writing_ = kPublication;
+  note_failure(reason);
+  throw LogError(path_.string(), failed_write_, failure_);
+}
+
+void RunLog::finalize_by_destructor(const RunLogEnd& end) noexcept {
+  // Best effort by contract (Simulation's destructor): there is no caller to tell. After an
+  // earlier failure nothing more is written and no marker is set.
+  if (closed_) {
+    return;
+  }
+  closed_ = true;
+  if (failed()) {
+    return;
+  }
   try {
-    close(end);
+    finish_file(end, Marker::kDestructor);
   } catch (const std::exception& error) {
     note_failure(error.what());
+    abandon();
   } catch (...) {
     note_failure("unknown exception");
+    abandon();
   }
 }
 
-void RunLog::discard() noexcept {
+LogDiscardResult RunLog::discard() {
+  if (discarded_.has_value()) {
+    return *discarded_;
+  }
+  if (!closed_) {
+    closed_ = true;
+    abandon();  // no tail, no marker: the file is being deleted
+  }
+  discarded_ = checked_unlink(published_ ? name_ : partial_name_, kept_.get());
+  return *discarded_;
+}
+
+void RunLog::discard_after_failed_init() noexcept {
   abandon();
   closed_ = true;
-  std::error_code ignored;
-  std::filesystem::remove(path_, ignored);
+  try {
+    static_cast<void>(checked_unlink(partial_name_, kept_.get()));
+  } catch (...) {  // an allocation failure while building the result: nothing more to do
+  }
+}
+
+LogDiscardResult RunLog::checked_unlink(const std::string& name, int reference) const {
+  LogDiscardResult result;
+  result.path = display(name);
+  std::string detail;
+  switch (identify(directory_.get(), name, reference, result.path, detail)) {
+    case Identity::kMissing:
+      result.outcome = LogDiscardOutcome::kMissing;
+      result.detail = detail + "; nothing was deleted";
+      return result;
+    case Identity::kOther:
+      result.outcome = LogDiscardOutcome::kMismatch;
+      result.detail = detail + ", not this run's file; nothing was deleted";
+      return result;
+    case Identity::kError:
+      result.outcome = LogDiscardOutcome::kFailed;
+      result.detail = detail + "; nothing was deleted";
+      return result;
+    case Identity::kSame:
+      break;
+  }
+  if (::unlinkat(directory_.get(), name.c_str(), 0) != 0) {
+    result.outcome = LogDiscardOutcome::kFailed;
+    result.detail = "unlinkat of '" + result.path + "' failed: " + errno_text(errno);
+    return result;
+  }
+  result.outcome = LogDiscardOutcome::kDeleted;
+  return result;
 }
 
 void RunLog::write_writes() {
@@ -507,8 +798,17 @@ void RunLog::note_failure(std::string_view message) noexcept {
   }
 }
 
+void RunLog::kill_point(KillPoint point, std::uint32_t divisor) noexcept {
+  if (kill_.kill != point || (kill_.kill_divisor != 0 && divisor != kill_.kill_divisor)) {
+    return;
+  }
+  if (++kill_seen_ == kill_.kill_occurrence) {
+    static_cast<void>(std::raise(SIGKILL));
+  }
+}
+
 void RunLog::check_injected(Fault fault) {
-  if (injected_ == fault) {
+  if (injected_ == fault && fault != Fault::kNone) {
     injected_fired_ = true;
     throw Hdf5Error(path_.string(), writing_, "injected failure (test)");
   }
