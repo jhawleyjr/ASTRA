@@ -82,9 +82,9 @@ class Object {
   [[nodiscard]] std::uint64_t attribute_uint64(std::string_view name) const;
 
   // Writes value into the existing scalar uint64 attribute `name` in place (H5Awrite on the open
-  // attribute): no delete and re-create, so the attribute is never absent and the object header does
-  // not churn (ADR-0027's rows_committed, rewritten after every block). Throws Hdf5Error if the
-  // attribute is missing or is not a scalar uint64.
+  // attribute): no delete and re-create, so the attribute is never absent and the object header
+  // does not churn (ADR-0027's rows_committed, rewritten after every block). Throws Hdf5Error if
+  // the attribute is missing or is not a scalar uint64.
   void overwrite_attribute(std::string_view name, std::uint64_t value);
 
   // Closes the object now; throws Hdf5Error if HDF5 refuses. Closing a closed object does
@@ -231,7 +231,8 @@ class File : public Location {
   void flush();
 
   // The POSIX descriptor HDF5's sec2 driver holds for this file (H5Fget_vfd_handle). HDF5 owns it:
-  // never close it. ADR-0027 item 1 reopens it through /proc/self/fd to keep a descriptor of its own.
+  // never close it. ADR-0027 item 1 reopens it through /proc/self/fd to keep a descriptor of its
+  // own.
   [[nodiscard]] int vfd_descriptor() const;
 
   // Closes the file. Throws Hdf5Error, leaving the file open, if any group, dataset or attribute

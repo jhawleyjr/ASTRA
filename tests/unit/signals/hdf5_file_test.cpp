@@ -178,7 +178,8 @@ TEST_F(Hdf5File, CreateThroughAnotherNameReportsTheDisplayNameAndExposesItsDescr
     EXPECT_EQ(error.file_path(), "configured/run.h5");
     // The message leads with the display name; HDF5's own stack detail after it may quote the
     // name it opened.
-    EXPECT_TRUE(std::string{error.what()}.starts_with("hdf5 'configured/run.h5': ")) << error.what();
+    EXPECT_TRUE(std::string{error.what()}.starts_with("hdf5 'configured/run.h5': "))
+        << error.what();
   }
   ::close(directory);
 }
