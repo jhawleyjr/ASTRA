@@ -246,6 +246,15 @@ def _with_log(config_path: Path, log: str) -> _core.Config:
     return config
 
 
+def _existing_log_path(config: _core.Config) -> str:
+    """The config's own ``log.path`` for D2's message, never raising: the conflict is 64 whatever
+    the block holds (Codex review R-001: a nonscalar path made ``text()`` raise, exit 70)."""
+    try:
+        return repr(config.text("log.path")) if config.has("log.path") else "<none>"
+    except _core.ConfigError:
+        return "<not a string>"
+
+
 def _run(args: argparse.Namespace, parser: _Parser) -> int:
     config_path = Path(args.config)
     try:
@@ -254,11 +263,10 @@ def _run(args: argparse.Namespace, parser: _Parser) -> int:
         _say("run", f"config error: {error}")
         return EX_DATAERR
     if args.log is not None and config.has("log"):
-        existing = config.text("log.path") if config.has("log.path") else "<no path>"
         return _usage(
             parser,
             f"--log {args.log!r}: {config_path} already has a log block (log.path "
-            f"{existing!r}); remove one of the two",
+            f"{_existing_log_path(config)}); remove one of the two",
         )
     if config.has("transport"):
         _say("run", f"config error: {_TRANSPORT_REFUSAL.format(config_path)}")
@@ -407,6 +415,11 @@ def _trim(args: argparse.Namespace, parser: _Parser) -> int:
     except _core.ConfigError as error:
         _say("trim", f"config error: {error}")
         return EX_DATAERR
+    if not config.is_map():
+        # astra.trim reads the file itself and expects a map (Codex review R-002: an empty or a
+        # list document reached it and raised, exit 70).
+        _say("trim", f"config error: config '{config_path}': the document must be a map")
+        return EX_DATAERR
     if config.has("transport"):
         _say("trim", f"config error: {_TRANSPORT_REFUSAL.format(config_path)}")
         return EX_DATAERR
@@ -435,6 +448,9 @@ def _trim(args: argparse.Namespace, parser: _Parser) -> int:
         return EX_DATAERR
     except ValueError as error:  # astra.trim's refusal of a flat Earth (physical.earth)
         _say("trim", f"config error: {error}")
+        return EX_DATAERR
+    except yaml.YAMLError as error:  # astra.trim's own read of the file (YAML 1.1)
+        _say("trim", f"config error: {config_path}: {error}")
         return EX_DATAERR
     except _core.Error:
         raise  # any other core error is not a failed trim: a defect (70)

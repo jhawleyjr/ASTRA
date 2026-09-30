@@ -486,17 +486,26 @@ def test_usage_error_exits_64_from_the_script(tmp_path: Path) -> None:
     assert result.stderr.startswith("usage: astra run")
 
 
-def test_log_option_against_a_config_log_block_exits_64_naming_both_paths(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+@pytest.mark.parametrize(
+    ("block", "named"),
+    [
+        ("log:\n  path: own.h5\n", "(log.path 'own.h5')"),
+        ("log:\n  path: []\n", "(log.path <not a string>)"),  # Codex review R-001
+        ("log:\n  buffer_frames: 8\n", "(log.path <none>)"),
+        ("log: 3\n", "(log.path <none>)"),
+    ],
+    ids=["path", "nonscalar-path", "no-path", "scalar-block"],
+)
+def test_log_option_against_a_config_log_block_exits_64_whatever_it_holds(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], block: str, named: str
 ) -> None:
     config = tmp_path / "logged.yaml"
-    config.write_text(
-        DUMMY.read_text(encoding="utf-8") + "log:\n  path: own.h5\n", encoding="utf-8"
-    )
+    config.write_text(DUMMY.read_text(encoding="utf-8") + block, encoding="utf-8")
     code, stdout, stderr = run_main(capsys, "run", config, "--log", tmp_path / "cli.h5")
     assert code == 64
     assert stdout == ""
-    assert "'own.h5'" in stderr
+    assert stderr.startswith("usage: astra run")
+    assert named in stderr
     assert f"'{tmp_path / 'cli.h5'}'" in stderr
     assert files(tmp_path) == {"logged.yaml"}
 
@@ -781,6 +790,24 @@ def test_trim_config_errors_exit_65(
     assert stdout == ""
     assert stderr.startswith("astra trim: config error: ")
     assert names in stderr
+
+
+@pytest.mark.parametrize(
+    "setpoint", [[], ["--airspeed", "100", "--altitude", "0"]], ids=["default", "explicit"]
+)
+@pytest.mark.parametrize(
+    "text", ["", "- 1\n- 2\n", "just a scalar\n"], ids=["empty", "list", "scalar"]
+)
+def test_trim_of_a_document_that_is_not_a_map_exits_65(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], text: str, setpoint: list[str]
+) -> None:
+    # Codex review R-002: astra.trim reads the file itself and raised on these (exit 70).
+    config = tmp_path / "config.yaml"
+    config.write_text(text, encoding="utf-8")
+    code, stdout, stderr = run_main(capsys, "trim", config, *setpoint)
+    assert code == 65
+    assert stdout == ""
+    assert stderr == f"astra trim: config error: config '{config}': the document must be a map\n"
 
 
 def test_trim_above_the_residual_bound_exits_1(
