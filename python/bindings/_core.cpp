@@ -36,6 +36,7 @@
 #include "astra/plugin/descriptor.hpp"
 #include "astra/plugin/loader.hpp"
 #include "astra/signals/signal_registry.hpp"
+#include "astra/util/units.hpp"
 
 namespace nb = nanobind;
 
@@ -181,6 +182,38 @@ void check_built_against_this_core() {
   throw nb::import_error(message.c_str());
 }
 
+// M6 PR 4 (ADR-0002, docs/plans/m6-pr4-units.md): one core/util/units conversion over a 1-D float64
+// array, so a whole log column converts with no Python-side multiply and no per-sample Python loop.
+// Element i of the result is Convert(element i), the very function the float overload binds, so
+// it is bitwise what the float form returns. Any strides are read in place (a strided or reversed
+// view, a column of a 2-D array); the result is a new C-contiguous array, never a view of the
+// input. The argument is bound noconvert(): anything but a native-byte-order float64 1-D array is
+// refused, never cast, so no rounding hides in an implicit dtype conversion.
+template <double (*Convert)(double) noexcept>
+nb::ndarray<nb::numpy, double, nb::ndim<1>> convert_array(
+    const nb::ndarray<const double, nb::ndim<1>, nb::device::cpu>& values) {
+  const std::size_t size = values.shape(0);
+  auto* data = new double[size];  // NOLINT(cppcoreguidelines-owning-memory)
+  const auto view = values.view();
+  for (std::size_t i = 0; i < size; ++i) {
+    data[i] = Convert(view(i));  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+  }
+  nb::capsule owner(data, [](void* p) noexcept {
+    delete[] static_cast<double*>(p);  // NOLINT(cppcoreguidelines-owning-memory)
+  });
+  return {data, {size}, owner};
+}
+
+// The float overload first, so a Python float binds in nanobind's first (no-conversion) pass; the
+// array overload second. A numpy scalar, int, bool or 0-d array reaches the float overload in the
+// conversion pass; an ndim >= 1 array the array overload refused cannot, because numpy raises
+// TypeError converting it to a float.
+template <double (*Convert)(double) noexcept>
+void def_conversion(nb::module_& m, const char* name, const char* arg, const char* doc) {
+  m.def(name, Convert, nb::arg(arg), doc);
+  m.def(name, &convert_array<Convert>, nb::arg(arg).noconvert(), doc);
+}
+
 // M6 PR 2: LogDiscardOutcome's Python name, for LogDiscardResult's repr.
 std::string_view discard_outcome_name(astra::LogDiscardOutcome outcome) {
   switch (outcome) {
@@ -238,6 +271,24 @@ NB_MODULE(_core, m) {
         "A new state vector at rest at the origin with identity attitude: zero except q_nb.w = "
         "1.0 -- the rigid-body block only, not a vehicle's own combined state (see "
         "Simulation.derivative for that).");
+
+  // M6 PR 4: the boundary conversions of core/util/units (ADR-0002), float -> float, or a 1-D
+  // float64 array -> a new float64 array element by element. The constants are deliberately not
+  // bound: a bound constant invites the Python-side multiply ADR-0002 forbids.
+  def_conversion<&astra::units::feet_to_meters>(m, "feet_to_meters", "feet",
+                                                "Feet to meters (core/util/units, ADR-0002).");
+  def_conversion<&astra::units::meters_to_feet>(m, "meters_to_feet", "meters",
+                                                "Meters to feet (core/util/units, ADR-0002).");
+  def_conversion<&astra::units::knots_to_meters_per_second>(
+      m, "knots_to_meters_per_second", "knots",
+      "Knots to meters per second (core/util/units, ADR-0002).");
+  def_conversion<&astra::units::meters_per_second_to_knots>(
+      m, "meters_per_second_to_knots", "meters_per_second",
+      "Meters per second to knots (core/util/units, ADR-0002).");
+  def_conversion<&astra::units::degrees_to_radians>(
+      m, "degrees_to_radians", "degrees", "Degrees to radians (core/util/units, ADR-0002).");
+  def_conversion<&astra::units::radians_to_degrees>(
+      m, "radians_to_degrees", "radians", "Radians to degrees (core/util/units, ADR-0002).");
 
   // Init-time errors (errors.hpp). Each object exists for its constructor's side effect, which
   // registers the Python type and its translator. nanobind runs translators

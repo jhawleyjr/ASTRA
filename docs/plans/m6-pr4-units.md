@@ -6,6 +6,7 @@ conversion is a named function in `core/util/units` with a unit test"). ADR-0009
 Risk: **Tier 3** (`core/util`). Base: `origin/main` `daea24d` (#81). New worktree/branch `worktree-m6-pr4-units`.
 Does not touch `docs/decisions/`, `tests/golden/**` (the FlightGear table keeps its own constants), tolerance
 files, `core/include/astra/core_api.hpp.in`, or `tests/python/test_fgbridge.py`.
+Correction made during implementation: fgbridge has ten foot fields, not eleven as first written.
 Status: **approved by Joe, 2026-09-30, in plan mode, with his revisions 1 to 5 folded in below** (outcomes, not
 only bytes, for packet identity; the knot pin and M6/M7; the reference packer replacing the SHA-256 pin; the size-1
 int64 and `'>f8'` refusals; the scalar/array asymmetry in D2).
@@ -30,7 +31,7 @@ This PR adds the angle pair, binds the set, and moves fgbridge onto it with byte
 - nanobind's `double` caster (`load_f64`): pass 1 accepts only an exact `float`; the convert pass uses
   `PyFloat_AsDouble` (numpy scalars, `int`, 0-d arrays). numpy 2.5.3 raises `TypeError` converting an ndim ≥ 1
   array to a scalar (run: `float(np.array([1]))`), so a 1-D array can never fall through to the float overload.
-- `python/astra/fgbridge.py:124-125` `FOOT`/`KNOT`; used only in `pack()` (lines 200, 216-223): eleven
+- `python/astra/fgbridge.py:124-125` `FOOT`/`KNOT`; used only in `pack()` (lines 200, 216-223): ten
   `/ FOOT` and one `/ KNOT`, each a single Python float division, then `struct` packs float32. `pack` receives
   Python floats from both sources (`send_log` line 85 `float(...)`; `LiveBridge` from the registry). Every other
   float literal in the module is `0.0` (AST scan run).
@@ -86,7 +87,7 @@ constant invites exactly the Python-side multiply ADR-0002 forbids. Each name ha
 PR 5 calls `_core.radians_to_degrees(frame[name].to_numpy())` (float64, possibly a strided view): no Python
 multiply, no per-sample loop, and each plotted value is bitwise the scalar function's.
 
-**fgbridge.** `FOOT`/`KNOT` removed; `pack()` calls `_core.meters_to_feet(x)` (eleven fields) and
+**fgbridge.** `FOOT`/`KNOT` removed; `pack()` calls `_core.meters_to_feet(x)` (ten fields) and
 `_core.meters_per_second_to_knots(d["cas"])`; docstring's "Constants:" sentence becomes a pointer to
 `core/util/units` through `astra._core` (ADR-0002). Scalar overload first, so a Python float hits pass 1.
 
@@ -157,7 +158,7 @@ Python's own `x*c`, `x/c` against this oracle over 200k values.)
 - *holds no conversion constant*: `ast` scan of `fgbridge.py`: every float literal is `0.0`; no `/` or `*` has a
   numeric-literal operand, except the zero tail's tuple repetition (`(0.0,) * 36`); no `FOOT`/`KNOT`
   attribute; no `degrees`/`radians`/`deg2rad`/`rad2deg` access.
-- *dispatch*: monkeypatch `_core.meters_to_feet` and `meters_per_second_to_knots` to sentinels; the eleven ft
+- *dispatch*: monkeypatch `_core.meters_to_feet` and `meters_per_second_to_knots` to sentinels; the ten ft
   fields and `vcas` carry them, the rest do not change.
 - *packet identity against a reference packer* (D4). The test holds its own packer, as `test_fgbridge.py`
   holds its own constants. It computes each converted field as `x / 0.3048` or `x / (1852.0 / 3600.0)` in Python

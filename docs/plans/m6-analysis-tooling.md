@@ -367,7 +367,7 @@ the findings below and says how its tests close each one; its Codex review check
 | 2 (finalization) | C-01, C-02, C-03, C-04, C-05, C-18 (tests: R16, R16b, R17, R18, R18b, R19b) |
 | 3 (CLI) | C-14 |
 | 4 (units) | C-15 |
-| 5 (plots) | C-11, C-12 |
+| 5 (plots) | C-11, C-12, C-15's display-unit dispatch (a log unit string mapped to the right bound function; PR 4 closed the angle values, D6 of its plan) |
 | 6 (analysis) | C-06, C-07, C-10, N-06 |
 | 7 (sizing, planted cause) | C-08, C-09, N-04 |
 | 8 (report) | C-11, C-12, C-13 |
