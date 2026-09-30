@@ -31,8 +31,8 @@ ADR-0025's Finalization has `close_log()` write `/summary`, `/final_state` and `
 
 ## Decision
 
-**1. Where a log is written.** At construction, `log.path` is made absolute, or its parent directory is held
-open as a directory descriptor (PR 2 chooses). The create, the publication rename and item 8's delete all go
+**1. Where a log is written.** At construction, `log.path` is made absolute, or its parent directory held as a
+directory descriptor (PR 2 chooses). The create, the publication rename and item 8's delete all go
 through it, so a change of working directory during a run cannot redirect publication or deletion. Each of
 these is a `ConfigError` naming `log.path`, raised before anything is created:
 - a `log.path` that exists, a dangling symlink included (ADR-0025, unchanged);
@@ -47,7 +47,10 @@ flushes. A missing or unwritable directory fails the create, and that is a `Conf
 *The run's own file.* Right after the exclusive create, the log keeps its own descriptor to the file it created.
 It reopens HDF5's descriptor (`H5Fget_vfd_handle`, sec2 driver) through `/proc/self/fd`, which gives a
 separate open file description. It is never a `dup()`, which would share HDF5's description and let HDF5's
-file lock outlive HDF5's close, and never a second open of the name. The log holds this descriptor from the
+file lock outlive HDF5's close, and never a second open of the name. If the reopen fails (for example no
+`/proc`, `EMFILE`, or `EACCES` under a restrictive umask), init fails with a `ConfigError` naming `log.path`.
+Item 8's init-failure delete then runs its identity check against HDF5's own descriptor, which is still open
+at that point. The log holds this descriptor from the
 create until the `Simulation` is destroyed: through a successful rename, a publication refusal, a failed close
 and `discard_log()` (item 8). Only the destructor closes it, and it deletes nothing. When `from_config` fails,
 the log is destroyed with it. Holding the descriptor also keeps the inode number from being reused. PR 2 tests
@@ -138,6 +141,7 @@ so power loss and an OS crash are out of scope. Where the kill lands decides wha
 | During a block write, its flush or its `rows_committed` write | The stated limit, guarded by item 6 |
 | During close before the publication point, or during the destructor | The stated limit, guarded by item 6, and no `log.path` |
 | After the publication point, before `close_log()` returns | The complete, published log at `log.path`, and no `.partial` |
+| During `discard_log()` (item 8) | An incomplete `.partial`, or nothing, and no `log.path` if the log was not yet published. After a publication refusal the `.partial` left behind is the refused one, unchanged; after publication, `log.path` is either still there or gone |
 
 The M6 plan's R16 ("every outcome is no `log.path`") covers kills before the publication point. A kill after
 it leaves exactly what a clean close leaves, and PR 2's kill tests accept that outcome.
@@ -148,8 +152,8 @@ some metadata in place: inserting a chunk can split a node of the chunk index. U
 index is expected to be a version-1 B-tree; PR 2 confirms which index these datasets get. So a kill inside
 those windows can in principle damage rows that were already certified. **"Never wrong data" holds for a kill
 outside a block write, its flush, close and the destructor.** Inside those windows it is guarded by `load`'s
-checks (item 6), which turn every failure this record can name into a typed refusal. PR 2's kill tests (R16)
-are evidence for this, not proof.
+checks (item 6), which refuse the failures named here; wrong data inside these windows is not ruled out.
+PR 2's kill tests (R16) are evidence for this, not proof.
 
 **6. `load`.** `astra.log.load` reports one of three finalization states: *complete* (`complete = 1`),
 *destructor* (`finalized_by = "destructor"`, no `complete`) or *incomplete* (neither). It also reports whether
@@ -178,8 +182,10 @@ A finalized log's `frame` column is expected to be exactly 0, d, 2d, … below `
 halted run that is stepped again after its halt; PR 2 confirms it.
 
 **7. Replay.** `astra.log.replay` refuses a log whose state is not complete, naming the state it found. A
-destructor or incomplete log is not a replayable record. This is in addition to ADR-0025's transport and `kLog`
-refusals. `out` follows item 1's rules: it is made absolute, and an existing `out`, an existing
+destructor or incomplete log is not a replayable record. Replay loads its input strictly, so an unpublished
+`.partial`, even one holding `complete = 1`, is refused, naming "not published by close_log()". This is in
+addition to ADR-0025's transport and `kLog` refusals. `out` follows item 1's rules: it is made absolute, or its
+parent directory held as a directory descriptor (PR 2 chooses), and an existing `out`, an existing
 `<out>.partial` and a name ending in `.partial` are each refused. Replay closes with `close_log()`, which
 publishes to `out`. If the new file does not meet the determinism criterion, replay deletes the `out` it
 published through `discard_log()` (item 8).
