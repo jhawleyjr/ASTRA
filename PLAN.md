@@ -201,7 +201,7 @@ takes them as a prefix.
       Finalization (Tier 3). Detail: [future work](docs/future-work.md#analysis-and-debugging-tools).
   - Planning (#78): M6 spec, plan and ten-PR decomposition; Q1 to Q23 decided by Joe, after a Codex plan
     critique and a verification pass. Plan: [plan](docs/plans/m6-analysis-tooling.md). Packet: none.
-  - PR 1 (#79): ADR-0027 (proposed), superseding ADR-0025's Finalization: the `.partial` and its exclusive create,
+  - PR 1 (#79): ADR-0027, superseding ADR-0025's Finalization: the `.partial` and its exclusive create,
     publication by `renameat2(RENAME_NOREPLACE)`, the destructor's `finalized_by` marker without a rename, a flush
     and `rows_committed` after every block, what a killed run leaves, `load`'s states and cross-checks, and who
     deletes what. Also architecture rev 10 (§1, §9, §12, §15, §16 M6 row, with M6 features marked planned). The

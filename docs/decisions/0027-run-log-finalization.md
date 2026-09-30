@@ -1,6 +1,6 @@
 # ADR-0027: Run-log finalization
 
-Status: proposed
+Status: **accepted**, 2026-09-29
 Date: 2026-09-29
 Owner: Joe
 Related/supersedes: supersedes the **Finalization** section of ADR-0025 (HDF5 run log and replay), and only that
@@ -309,4 +309,4 @@ filesystems without `RENAME_NOREPLACE` (they refuse to publish).
 
 ## Approval
 
-Proposed. Awaiting Joe's decision.
+Accepted by Joe, 2026-09-29.
