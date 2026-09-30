@@ -329,6 +329,15 @@ takes them as a prefix.
       closeout clears them with §12's status (origin: M6 PR 2 and PR 3; Joe 2026-09-29 and 2026-09-30). When §15's
       marker is cleared, its table also takes the two codes M6 PR 3 added outside it (plan D3, D4): 70
       (`EX_SOFTWARE`) for an internal error, and 74 for a failed write of the summary to stdout. Not started.
+- [ ] (M6) Configs round-tripped through PyYAML (YAML 1.1: `yaml.safe_load`, then `Config.from_dict`) in
+      `astra.montecarlo`, `astra.scenario`, `astra.trim` and `astra.lockstep` are read differently from the core's
+      yaml-cpp (origin: M6 PR 3 review; Joe 2026-09-30). Probed on M6 PR 3's build: `on`/`off`/`yes`/`no` become
+      booleans, which the core then reads as `true`/`false` (so `sim.health.nan: off` is refused); `010` is 8 (the
+      core reads 10); `1:30` is 90 and `1_000` is 1000 (the core reads neither as a number). `astra run --log`
+      avoids the round trip. Not started.
+- [ ] (M7) §18 step 4 fails on a template copy: `aircraft/_template/configs/cruise.yaml` uses `earth/flat`, which
+      `astra.trim` refuses (altitude is geodetic only), so `astra trim` on a new aircraft exits 65 (origin: M6 PR 3;
+      Joe 2026-09-30). M7 builds the F-16 from the template. Not started.
 - [ ] (M10) Retire the M4 `ExchangeRecorder` once a lockstep test compares HDF5 logs instead (origin: M5 plan Q12,
       ADR-0022; Joe's call): kept through M5 because M4's byte-identity acceptance tests
       (`closed_loop_acceptance_test.cpp`) read it; M5's log already carries `v0.controls.*` and `transport.*`

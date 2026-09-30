@@ -60,10 +60,11 @@ Subcommands: ``run`` and ``trim``. ``plot``, ``report`` and ``mc`` come with the
     ``residual``, and the ``initial.state`` and ``vehicle.initial_controls.controls`` fragment
     ``_runkit.apply_trim`` writes (``euler_nb`` replaces any ``q_nb``). Floats are written by
     ``yaml.safe_dump``, whose text reads back exactly. Codes: 64 a usage error (a non-finite value,
-    or an airspeed not above zero); 65 a config error (including a ``transport`` block, a flat
-    Earth, and a zero default airspeed); 1 not trimmed (no convergence, or a residual above
-    ``_runkit.TRIM_RESIDUAL_BOUND``); 74 stdout could not be written; 70 an internal error; 0
-    trimmed.
+    or an airspeed not above zero); 65 a config error (including a document that is not a map, a
+    ``transport`` block, a flat Earth, a zero default airspeed, and a file ``astra.trim``'s own
+    YAML 1.1 read refuses); 1 not trimmed (``astra.trim``'s non-convergence, or a residual above
+    ``_runkit.TRIM_RESIDUAL_BOUND``); 74 stdout could not be written; 70 an internal error,
+    including any other ``ValueError`` or ``RuntimeError`` from a trim; 0 trimmed.
 """
 
 from __future__ import annotations
@@ -99,6 +100,10 @@ _TRANSPORT_REFUSAL = (
 # complete = 1 (ADR-0027 item 3).
 _PUBLICATION = "': the publication failed: "
 _IDENTITY = "the .partial is no longer this run's file"
+# astra.trim's two expected failures (trim.py, trim_straight_and_level): its refusal of a flat Earth
+# and scipy's non-convergence. Every other ValueError or RuntimeError from a trim is a defect (70).
+_TRIM_FLAT_EARTH = "trim_straight_and_level: 'physical.earth' is "
+_TRIM_NOT_CONVERGED = "trim_straight_and_level did not converge: "
 
 
 class _Parser(argparse.ArgumentParser):
@@ -446,15 +451,17 @@ def _trim(args: argparse.Namespace, parser: _Parser) -> int:
     except _core.PluginError as error:
         _say("trim", f"plugin error: {error}")
         return EX_DATAERR
-    except ValueError as error:  # astra.trim's refusal of a flat Earth (physical.earth)
-        _say("trim", f"config error: {error}")
-        return EX_DATAERR
     except yaml.YAMLError as error:  # astra.trim's own read of the file (YAML 1.1)
         _say("trim", f"config error: {config_path}: {error}")
         return EX_DATAERR
-    except _core.Error:
-        raise  # any other core error is not a failed trim: a defect (70)
-    except RuntimeError as error:  # astra.trim: no convergence
+    except ValueError as error:
+        if not str(error).startswith(_TRIM_FLAT_EARTH):
+            raise  # any other ValueError is a defect (70), not a config error
+        _say("trim", f"config error: {error}")
+        return EX_DATAERR
+    except RuntimeError as error:
+        if not str(error).startswith(_TRIM_NOT_CONVERGED):
+            raise  # any other RuntimeError, a core Error included, is a defect (70)
         _say("trim", f"not trimmed: {error}")
         return NOT_TRIMMED
     worst = float(np.max(np.abs(result.residual)))

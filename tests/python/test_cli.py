@@ -824,26 +824,60 @@ def test_trim_above_the_residual_bound_exits_1(
 
 
 @pytest.mark.parametrize(
-    ("raised", "code"),
+    ("raised", "code", "reason"),
     [
-        (RuntimeError("trim_straight_and_level did not converge: injected"), 1),
-        (_core.Error("x"), 70),
+        (
+            RuntimeError("trim_straight_and_level did not converge: injected"),
+            1,
+            "astra trim: not trimmed: trim_straight_and_level did not converge: injected\n",
+        ),
+        (RuntimeError("an unrelated failure"), 70, "RuntimeError: an unrelated failure"),
+        (ValueError("an unrelated bad value"), 70, "ValueError: an unrelated bad value"),
+        (_core.Error("a core error"), 70, "a core error"),
     ],
-    ids=["no-convergence", "core-error-is-a-defect"],
+    ids=["no-convergence", "other-runtime-error", "other-value-error", "core-error"],
 )
 def test_trim_failures_map_to_their_codes(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     raised: Exception,
     code: int,
+    reason: str,
 ) -> None:
+    # Only astra.trim's non-convergence (1) and its flat-Earth refusal (65, the real one in
+    # test_trim_config_errors_exit_65) are expected failures; anything else is a defect (70).
     def fail(*_args: object, **_kwargs: object) -> astra.trim.TrimResult:
         raise raised
 
     monkeypatch.setattr(astra.trim, "trim_straight_and_level", fail)
-    exit_code, stdout, _stderr = run_main(capsys, "trim", CRUISE)
+    exit_code, stdout, stderr = run_main(capsys, "trim", CRUISE)
     assert exit_code == code
     assert stdout == ""
+    if code == 1:
+        assert stderr == reason
+    else:
+        assert stderr.startswith("astra trim: internal error (a defect):\n")
+        assert reason in stderr
+
+
+@pytest.mark.parametrize(
+    "setpoint", [[], ["--airspeed", "230", "--altitude", "10000"]], ids=["default", "explicit"]
+)
+def test_trim_of_a_file_pyyaml_cannot_read_exits_65(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], setpoint: list[str]
+) -> None:
+    # A BEL (0x07) in a comment: yaml-cpp (Config.from_file) accepts the file, and astra.trim's own
+    # YAML 1.1 read (PyYAML) refuses it, so the yaml.YAMLError clause is reached.
+    config = tmp_path / "bell.yaml"
+    config.write_text(
+        "# a bell \x07 in a comment\n" + CRUISE.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    assert _core.Config.from_file(config).is_map()
+    code, stdout, stderr = run_main(capsys, "trim", config, *setpoint)
+    assert code == 65
+    assert stdout == ""
+    assert stderr.startswith(f"astra trim: config error: {config}: ")
+    assert "#x0007" in stderr
 
 
 def test_trim_stdout_failure_exits_74(tmp_path: Path) -> None:
