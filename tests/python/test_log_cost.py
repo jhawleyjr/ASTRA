@@ -1,10 +1,10 @@
-"""R19b (M6 PR 2, docs/plans/m6-pr2-finalization.md; ADR-0027 item 2): the end-to-end cost of a logged
-run, measured before and after the per-block flush. Wall clock in the test, the median of three
-repeats, printed; no speed is asserted.
+"""R19b (M6 PR 2, docs/plans/m6-pr2-finalization.md; ADR-0027 item 2): the end-to-end cost of a
+logged run, measured before and after the per-block flush. Wall clock in the test, the median of
+three repeats, printed; no speed is asserted.
 
-Opt-in (Joe's J10): the module skips unless ``ASTRA_MEASURE_LOG_COST=1`` is set, so the full gate and
-the acceptance filter do not run it and the gate time recorded against the M6 plan's 1001 s and
-59.3 s is PR 2's own cost, not this benchmark's. Run it with::
+Opt-in (Joe's J10): the module skips unless ``ASTRA_MEASURE_LOG_COST=1`` is set, so the full gate
+and the acceptance filter do not run it and the gate time recorded against the M6 plan's 1001 s
+and 59.3 s is PR 2's own cost, not this benchmark's. Run it with::
 
     ASTRA_MEASURE_LOG_COST=1 .venv/bin/pytest tests/python/test_log_cost.py -s
 

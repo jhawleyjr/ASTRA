@@ -79,6 +79,10 @@ def _logs(directory: Path) -> list[Path]:
     return sorted(directory.glob("run_*.h5"))
 
 
+def _partials(directory: Path) -> list[Path]:
+    return sorted(directory.glob("run_*.h5.partial"))
+
+
 # --- R14: the Q19 case --------------------------------------------------------------------------
 
 
@@ -282,13 +286,14 @@ def _alive(pid: int) -> bool:
 def _abort_batch_when_running(
     out: Path, action: Any, seen: set[int], fired: threading.Event
 ) -> threading.Thread:
-    """A thread that waits for a run's log to appear (a worker is mid-run), records the workers,
-    and fires ``action``."""
+    """A thread that waits for a run's log to appear under its unpublished name (a worker is
+    mid-run: ADR-0027 writes ``run_<i>.h5.partial`` until close_log()), records the workers, and
+    fires ``action``."""
 
     def watch() -> None:
         deadline = time.monotonic() + 60.0
         while time.monotonic() < deadline:
-            if out.exists() and any(out.glob("run_*.h5")):
+            if out.exists() and any(out.glob("run_*.h5.partial")):
                 seen.update(_children())
                 if seen:
                     action(seen)
@@ -301,21 +306,39 @@ def _abort_batch_when_running(
     return thread
 
 
-def _assert_aborted(out: Path, spec: montecarlo.Spec, incomplete: tuple[int, ...], seen: set[int]):
+def _assert_aborted(
+    out: Path,
+    spec: montecarlo.Spec,
+    error: montecarlo.BatchError | montecarlo.BatchInterrupted,
+    seen: set[int],
+) -> None:
+    """ADR-0027 item 8 (R18b): an abort deletes nothing. Every run in flight was SIGKILLed and left
+    its .partial (named by the error) or, killed after its publication, a complete log; a
+    completed run's log stays, complete."""
+    incomplete = error.incomplete
     assert incomplete
     assert not (out / montecarlo.SUMMARY).exists()
-    for index in incomplete:
-        assert not (out / montecarlo.log_name(index)).exists(), index
+    partials = sorted(out.glob("run_*.h5.partial"))
+    assert partials, "the killed runs' .partial files are left in place"
+    assert sorted(error.partials) == partials
+    for path in partials:
+        assert int(path.name.split("_")[1].split(".")[0]) in incomplete, path
+        assert path.name in str(error)
+        with pytest.raises(log.IncompleteLogError, match="not published by close_log"):
+            log.load(path)
     for path in _logs(out):  # a completed run's log stays, and it is complete
-        assert int(path.stem.split("_")[1]) not in incomplete
-        assert log.load(path).frames_run == spec.frames
+        run = log.load(path)
+        index = int(path.stem.split("_")[1])
+        if index in incomplete:  # killed after its publication point (ADR-0027 item 5)
+            assert not path.with_name(f"{path.name}.partial").exists()
+        assert run.frames_run == spec.frames
     assert not any(_alive(pid) for pid in seen)
     assert not _children()
 
 
 def test_montecarlo_a_killed_worker_fails_the_batch_naming_incomplete_runs(tmp_path: Path) -> None:
-    # A killed worker leaves a partial HDF5 file h5py cannot read (PR 5); the batch removes the log
-    # of every run not completed, so what remains on disk is complete logs only.
+    # ADR-0027: the batch deletes nothing; every run in flight (the dead worker's and each one the
+    # stop killed) leaves its run_<i>.h5.partial, named by the error. M5 removed them.
     spec = _spec(tmp_path, trim=False, duration="300.0", runs=6, seed=3)
     out = tmp_path / "batch"
     seen: set[int] = set()
@@ -330,7 +353,7 @@ def test_montecarlo_a_killed_worker_fails_the_batch_naming_incomplete_runs(tmp_p
     thread.join()
     assert fired.is_set()
     assert "died (exit code -9) during run " in str(caught.value)
-    _assert_aborted(out, spec, caught.value.incomplete, seen)
+    _assert_aborted(out, spec, caught.value, seen)
 
 
 def test_montecarlo_an_interrupt_fails_the_batch_naming_incomplete_runs(tmp_path: Path) -> None:
@@ -349,7 +372,7 @@ def test_montecarlo_an_interrupt_fails_the_batch_naming_incomplete_runs(tmp_path
         montecarlo.run(spec, out, workers=2)
     thread.join()
     assert fired.is_set()
-    _assert_aborted(out, spec, c.value.incomplete, seen)
+    _assert_aborted(out, spec, c.value, seen)
 
 
 # --- R16: the sampler ---------------------------------------------------------------------------
@@ -487,6 +510,7 @@ def test_montecarlo_a_run_without_an_explicit_close_log_is_an_error_row_with_no_
     assert row["status"] == "error"
     assert row["error_type"] in {"IncompleteLogError", "LogFormatError"}
     assert _logs(tmp_path) == []
+    assert _partials(tmp_path) == []
 
 
 def test_montecarlo_a_run_reads_its_log_strictly(
@@ -522,16 +546,60 @@ def test_montecarlo_a_run_that_raises_mid_run_is_an_error_row_with_no_log(
         "driver bug",
     )
     assert _logs(tmp_path) == []
+    assert _partials(tmp_path) == []
+
+
+def test_montecarlo_a_log_collision_is_an_error_row_that_leaves_the_foreign_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # R18b through astra.montecarlo: a file appears at the run's log path during the run.
+    foreign = tmp_path / montecarlo.log_name(0)
+
+    def collide(sim: Any, frames: int) -> None:
+        sim.run(frames)
+        foreign.write_bytes(b"someone else's file")
+
+    monkeypatch.setattr(montecarlo, "_drive", collide)
+    row = montecarlo.run_one(_spec(tmp_path), 0, tmp_path)
+    assert (row["status"], row["error_type"]) == ("error", "LogError")
+    assert "EEXIST" in row["error_message"]
+    assert foreign.read_bytes() == b"someone else's file"
+    assert _partials(tmp_path) == []
+
+
+def test_montecarlo_a_log_replaced_mid_run_is_left_alone_and_the_row_says_so(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # R18b's mismatch case: discard_log() finds another file at the .partial name, deletes
+    # nothing, and the error row carries its result.
+    partial = tmp_path / f"{montecarlo.log_name(0)}.partial"
+
+    def replace_then_fail(sim: Any, frames: int) -> None:
+        assert not sim.run(10)
+        partial.rename(tmp_path / "moved.partial")
+        partial.write_bytes(b"a replacement")
+        raise RuntimeError("driver bug")
+
+    monkeypatch.setattr(montecarlo, "_drive", replace_then_fail)
+    row = montecarlo.run_one(_spec(tmp_path), 0, tmp_path)
+    assert (row["status"], row["error_type"]) == ("error", "RuntimeError")
+    assert "discard_log() deleted nothing" in row["error_message"]
+    assert "MISMATCH" in row["error_message"]
+    assert partial.read_bytes() == b"a replacement"
+    assert (tmp_path / "moved.partial").exists()
 
 
 def test_montecarlo_a_short_run_fails_the_consumer_assertion(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # R18b's published-then-discarded case: the log was published by close_log(), and the
+    # consumer assertion, run while the Simulation is alive, discards it by discard_log().
     monkeypatch.setattr(montecarlo, "_drive", lambda sim, frames: sim.run(frames - 1))
     row = montecarlo.run_one(_spec(tmp_path), 0, tmp_path)
     assert (row["status"], row["error_type"]) == ("error", "RunLengthError")
     assert row["error_message"] == "frames_run is 49, not duration / dt = 50 frames"
     assert _logs(tmp_path) == []
+    assert _partials(tmp_path) == []
 
 
 def _ceiling_spec(tmp_path: Path) -> montecarlo.Spec:
@@ -547,6 +615,13 @@ def _ceiling_spec(tmp_path: Path) -> montecarlo.Spec:
     path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
     dispersion = "dispersions:\n  initial.state.p_n.2: {uniform: {lo: 85950.0, hi: 85951.0}}\n"
     return _spec(tmp_path, config=str(path), trim=False, duration="1.0", dispersions=dispersion)
+
+
+def test_montecarlo_a_clean_run_leaves_its_published_log_and_no_partial(tmp_path: Path) -> None:
+    row = montecarlo.run_one(_spec(tmp_path), 0, tmp_path)
+    assert row["status"] == "ok"
+    assert log.load(tmp_path / montecarlo.log_name(0)).published
+    assert _partials(tmp_path) == []
 
 
 def test_montecarlo_a_halt_is_a_row_with_its_halt_and_its_log(tmp_path: Path) -> None:

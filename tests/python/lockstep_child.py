@@ -359,8 +359,10 @@ def proc_state(pid: int) -> str:
 def log_case(case: str, session: ls.Session, log_path: Path) -> dict[str, Any]:
     """M5 PR 4 (ADR-0025, plan R6b through Session): the run log through ``astra.lockstep``.
     Reading the file is PR 5's (``astra.log``); "complete" in its bytes is the root attribute's
-    name, present exactly when close_log() finished."""
+    name, present exactly when close_log() finished. Until close_log() publishes it the file is
+    ``<log_path>.partial`` (ADR-0027)."""
     facts: dict[str, Any] = {}
+    partial = log_path.with_name(log_path.name + ".partial")
     if case == "log-normal":
         # Session.step() drains at each call, so a 64-row ring never fills over 300 steps.
         facts["step_halts"] = [halt_dict(session.step()) for _ in range(300)].count(None)
@@ -372,12 +374,17 @@ def log_case(case: str, session: ls.Session, log_path: Path) -> dict[str, Any]:
         session.close_log()  # a no-op after a success
         facts["second_close_unchanged"] = log_path.read_bytes() == first
         facts["log_complete_marker"] = b"complete" in first
+    elif case == "log-session-close":
+        # M6 PR 2 (ADR-0027 item 4): the body never calls close_log(); lockstep_session's normal
+        # close does, so the log reaches log_path.
+        facts["step_halts"] = [halt_dict(session.step()) for _ in range(200)].count(None)
+        facts["published_during_body"] = log_path.exists()
     elif case == "log-close-failure":
         # A real write failure: the file may not grow past its size plus 4 KiB (this process
         # only; the peer was launched before the limit).
         signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
         saved = resource.getrlimit(resource.RLIMIT_FSIZE)
-        resource.setrlimit(resource.RLIMIT_FSIZE, (log_path.stat().st_size + 4096, saved[1]))
+        resource.setrlimit(resource.RLIMIT_FSIZE, (partial.stat().st_size + 4096, saved[1]))
         try:
             facts["halt"] = halt_dict(session.run(3000))
             errors: list[str | None] = []
@@ -390,7 +397,8 @@ def log_case(case: str, session: ls.Session, log_path: Path) -> dict[str, Any]:
             facts["close_errors"] = errors
         finally:
             resource.setrlimit(resource.RLIMIT_FSIZE, saved)
-        facts["log_complete_marker"] = b"complete" in log_path.read_bytes()
+        facts["log_complete_marker"] = b"complete" in partial.read_bytes()
+        facts["published"] = log_path.exists()
     return facts
 
 

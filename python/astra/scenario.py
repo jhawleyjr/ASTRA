@@ -66,12 +66,13 @@ the times, an unknown signal or input, and a config that does not build. ``load`
 ``Simulation`` from the resolved config, with no log and no trim, to learn the signal and input
 names.
 
-Run (``run``). It writes the log at the given path and calls ``close_log()`` explicitly. It keeps
-the ``Simulation`` alive until ``astra.log.load`` has read the file, so a missing close shows as a
-refused log, never as one the destructor finalized with ``complete = 1`` (PLAN.md's
-finalization-marker open item). The log is read strictly, never with ``allow_incomplete``. If
-anything raises between building the ``Simulation`` and reading its log, the log file is removed,
-so an aborted run never leaves a log that looks complete.
+Run (``run``). It writes the log at the given path (as ``<path>.partial`` until ``close_log()``
+publishes it, ADR-0027) and calls ``close_log()`` explicitly. It keeps the ``Simulation`` alive
+until ``astra.log.load`` has read the file, so a missing close shows as a refused log: nothing is
+published without ``close_log()``. The log is read strictly, never with ``allow_incomplete``. If
+anything raises after the ``Simulation`` is built, its log is discarded through ``discard_log()``
+(``astra._runkit.discard_on_failure``: only the run's own file, never by name), so an aborted run
+leaves no log of its own.
 
 Verification (``verify``) reads only the log and asserts:
 - ``frames_run`` equals ``duration / dt``, exactly; with ``expect_halt``, it equals the halt's
@@ -457,7 +458,7 @@ def run(
 ) -> ScenarioResult:
     """Runs ``scenario`` with its log at ``log_path`` (which must not exist), finalizes the log
     explicitly, reads it back strictly and verifies it (module docstring). Raises for a harness or
-    setup failure, after removing the log; returns the failed assertions otherwise."""
+    setup failure, after discarding the run's own log; returns the failed assertions otherwise."""
     log_path = Path(log_path)
     if log_path.exists():
         raise FileExistsError(f"{log_path}: the scenario's log path already exists")

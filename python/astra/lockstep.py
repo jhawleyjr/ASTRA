@@ -537,6 +537,9 @@ class Session:
         self._sim: _core.Simulation | None = sim
         self.peer = peer
         self.segment = segment
+        # Set before the session's first close_log() call, successful or not, so the normal
+        # close in lockstep_session neither repeats a close the body made nor re-raises its error.
+        self._log_close_called = False
 
     def _live(self) -> _core.Simulation:
         if self._sim is None:
@@ -566,11 +569,15 @@ class Session:
         return _halt(self._live().flush_log())
 
     def close_log(self) -> None:
-        """Finalizes the run log (``Simulation.close_log``): raises ``astra._core.LogError`` naming
-        the write that failed, never setting ``complete``; a second call does nothing after a
-        success and raises the same error after a failure. Without it, the ``Simulation``'s
-        destructor completes the log best effort when the session ends."""
-        self._live().close_log()
+        """Finalizes and publishes the run log (``Simulation.close_log``, ADR-0027): raises
+        ``astra._core.LogError`` naming the write that failed or why the publication was refused;
+        a second call does nothing after a success and raises the same error after a failure.
+        Without it, ``lockstep_session`` calls it on a normal close; a session whose body raised
+        leaves the log to the destructor, which marks it ``finalized_by = destructor`` and never
+        publishes it."""
+        sim = self._live()
+        self._log_close_called = True
+        sim.close_log()
 
     @property
     def frame(self) -> int:
@@ -618,7 +625,10 @@ def lockstep_session(
     awaited up to ``peer_timeout_ms`` + 1 s after a body that returned; anything else, or a late
     peer, is stopped), and unlinks the segment name. Each cleanup step runs whatever the previous
     one
-    did; the body's exception is re-raised with any cleanup error attached as a note.
+    did; the body's exception is re-raised with any cleanup error attached as a note. A body that
+    returned has its run log closed with ``close_log()`` first (ADR-0027: publishing it to
+    ``log.path``), unless the body already called ``Session.close_log``; a failed close is a
+    cleanup error.
 
     ``pass_fds`` are inherited by the peer; the caller closes its own copies right after launch
     (``on_peer_launched`` runs then, before the handshake).
@@ -650,6 +660,13 @@ def lockstep_session(
         errors: list[BaseException] = []
         leaked = False
 
+        def close_log() -> None:
+            if session is None or session._sim is None:  # pyright: ignore[reportPrivateUsage]
+                return
+            if session._log_close_called:  # pyright: ignore[reportPrivateUsage]
+                return
+            session.close_log()
+
         def close_simulation() -> None:
             nonlocal leaked
             if session is None or session._sim is None:  # pyright: ignore[reportPrivateUsage]
@@ -667,6 +684,7 @@ def lockstep_session(
                 peer.stop(stop_grace_s)  # runs even if the clean wait raised (R-002)
 
         if body_error is None:
+            _record_cleanup_error(errors, close_log)
             _record_cleanup_error(errors, close_simulation)
             _record_cleanup_error(errors, reap_peer)
         else:

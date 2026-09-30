@@ -265,21 +265,7 @@ def _write_past_frames_run(f: Any) -> None:
     f["writes"][...] = writes
 
 
-@pytest.mark.parametrize(
-    ("edit", "named"),
-    [
-        (_drop_last_row, r"/rate_1/frame is not 0, 1, \.\.\. below frames_run 40 \(39 rows"),
-        (_frame_gap, r"/rate_1/frame is not 0, 1, \.\.\. below frames_run 40 \(40 rows"),
-        (_frames_run_plus_one, r"below frames_run 41 \(40 rows, expected 41\)"),
-        (_no_complete, r"no complete = 1"),
-        (_halt_before_frames_run, r"the halt is at frame 3, not at frames_run 40"),
-        (_writes_decrease, r"/writes frames decrease"),
-        (_write_past_frames_run, r"a /writes frame is past frames_run 40"),
-    ],
-)
-def test_load_refuses_a_log_inconsistent_with_its_summary_unless_allowed(
-    tmp_path: Path, edit: Callable[[Any], None], named: str
-) -> None:
+def _forty_frame_log(tmp_path: Path) -> Path:
     base = tmp_path / "run.h5"
     sim = _sim(CRUISE, base)
     sim.write_input("controls.throttle", 0.55)
@@ -288,19 +274,53 @@ def test_load_refuses_a_log_inconsistent_with_its_summary_unless_allowed(
     assert not sim.run(30)
     sim.close_log()
     assert log.load(base).frames_run == 40  # the untampered file is accepted
+    return base
 
-    copy = _tampered(base, tmp_path / "copy.h5", edit)
+
+@pytest.mark.parametrize(
+    ("edit", "named"),
+    [
+        (_drop_last_row, r"/rate_1/frame is not 0, 1, \.\.\. below frames_run 40 \(39 rows"),
+        (_frame_gap, r"/rate_1/frame is not 0, 1, \.\.\. below frames_run 40 \(40 rows"),
+        (_frames_run_plus_one, r"below frames_run 41 \(40 rows, expected 41\)"),
+        (_halt_before_frames_run, r"the halt is at frame 3, not at frames_run 40"),
+        (_writes_decrease, r"/writes frames decrease"),
+        (_write_past_frames_run, r"a /writes frame is past frames_run 40"),
+    ],
+)
+def test_load_refuses_a_finalized_log_inconsistent_with_its_summary_in_either_mode(
+    tmp_path: Path, edit: Callable[[Any], None], named: str
+) -> None:
+    # ADR-0027 item 6: allow_incomplete reads a finalized file whole only with the cross-checks.
+    copy = _tampered(_forty_frame_log(tmp_path), tmp_path / "copy.h5", edit)
     with pytest.raises(log.IncompleteLogError, match=named):
         log.load(copy)
-    assert log.load(copy, allow_incomplete=True).rates[1].shape[1] > 1
+    with pytest.raises(log.IncompleteLogError, match=named):
+        log.load(copy, allow_incomplete=True)
+
+
+def test_load_refuses_an_incomplete_log_strictly_and_reads_its_certified_rows_if_allowed(
+    tmp_path: Path,
+) -> None:
+    copy = _tampered(_forty_frame_log(tmp_path), tmp_path / "copy.h5", _no_complete)
+    with pytest.raises(log.IncompleteLogError, match="finalization state incomplete"):
+        log.load(copy)
+    run = log.load(copy, allow_incomplete=True)
+    assert (run.state, run.published, run.complete) == ("incomplete", True, False)
+    assert run.rows_committed == {1: 40}
+    assert len(run.rates[1]) == 40
+    # Anything written at close is ignored in an incomplete file.
+    assert run.frames_run is None
+    assert run.writes is None
+    assert run.final_state == {}
 
 
 def _synthetic(path: Path, rate_10_frames: list[int]) -> Path:
-    # No registered signal has a divisor other than 1 today, so the multi-rate arithmetic is
-    # checked on a file written directly in ADR-0025's layout.
+    # The multi-rate arithmetic on a file written directly in ADR-0025's layout (version 2, with
+    # ADR-0027's rows_committed); tests/plugins/slow_rate reaches it through a real run below.
     text = h5py.string_dtype()
     with h5py.File(path, "w") as f:
-        f.attrs["log_format_version"] = np.uint64(1)
+        f.attrs["log_format_version"] = np.uint64(2)
         f.attrs["config"] = "sim:\n  dt: 0.001\n"
         f.attrs["git_describe"] = "synthetic"
         f.attrs["core_version"] = _core.VERSION
@@ -313,9 +333,13 @@ def _synthetic(path: Path, rate_10_frames: list[int]) -> Path:
             values = group.create_dataset("values", data=np.ones((len(frames), 1)))
             values.attrs.create("names", [name], dtype=text)
             values.attrs.create("units", ["1"], dtype=text)
+            group.attrs["rows_committed"] = np.uint64(len(frames))
         summary = f.create_group("summary")
         summary.attrs["frames_run"] = np.uint64(25)
         summary.attrs["halt_check"] = "NONE"
+        minimum = summary.create_dataset("min", data=np.zeros(2))
+        minimum.attrs.create("names", ["fast", "slow"], dtype=text)
+        f.create_group("final_state").attrs["frame"] = np.uint64(25)
         f["writes"] = np.zeros(0, dtype=[("frame", "<u8"), ("name", text), ("value", "<f8")])
     return path
 
@@ -353,7 +377,7 @@ sim = _core.Simulation.from_config(_core.Config.from_dict(d), _core.default_plug
 # A real write failure: the file may not grow past its size plus 4 KiB (PR 4's lockstep_child.py).
 signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
 soft, hard = resource.getrlimit(resource.RLIMIT_FSIZE)
-resource.setrlimit(resource.RLIMIT_FSIZE, (path.stat().st_size + 4096, hard))
+resource.setrlimit(resource.RLIMIT_FSIZE, (Path(f"{path}.partial").stat().st_size + 4096, hard))
 halt = sim.run(3000)
 try:
     sim.close_log()
@@ -365,19 +389,31 @@ print(json.dumps({"halt": halt.check.name if halt else None, "error": error}))
 """
 
 
-def test_load_refuses_a_log_whose_close_log_failed(tmp_path: Path) -> None:
-    # Plan R6b, the load half (PR 4 covered the core and Session halves).
+def test_load_refuses_a_log_whose_close_log_failed_and_reads_its_certified_rows(
+    tmp_path: Path,
+) -> None:
+    # Plan R6b, the load half (PR 4 covered the core and Session halves). ADR-0027: the failed
+    # close published nothing, and the per-block flush left the .partial readable: its certified
+    # rows (M5's file did not open at all).
     path = tmp_path / "run.h5"
     facts = _child(_CLOSE_FAILS, str(path), str(CRUISE))
     assert facts["halt"] == "LOG"
     assert facts["error"] is not None
     assert "File too large" in facts["error"]
-    # This file opens as HDF5 but its root object cannot be read, so the refusal names that
-    # rather than the missing marker.
-    with pytest.raises(log.IncompleteLogError, match="not closed cleanly"):
-        log.load(path)
-    with pytest.raises(log.IncompleteLogError, match="not closed cleanly"):
-        log.load(path, allow_incomplete=True)
+    assert not path.exists()
+    partial = tmp_path / "run.h5.partial"
+    with pytest.raises(log.IncompleteLogError, match="not published by close_log"):
+        log.load(partial)
+    run = log.load(partial, allow_incomplete=True)
+    assert (run.state, run.published) == ("incomplete", False)
+    certified = run.rows_committed[1]
+    assert certified % 1024 == 0  # whole blocks only
+    assert len(run.rates[1]) == certified
+    reference = _cruise_log(tmp_path / "reference.h5", frames=3000)
+    expected = log.load(reference).rates[1].iloc[:certified]
+    assert np.array_equal(
+        run.rates[1].to_numpy().view(np.uint64), expected.to_numpy().view(np.uint64)
+    )
 
 
 _DROPPED_MID_RUN = """
@@ -402,18 +438,37 @@ print(json.dumps({"failure": failure}))
 """
 
 
-def test_a_log_whose_simulation_was_dropped_mid_run_loads_as_complete(tmp_path: Path) -> None:
-    # The disclosed gap (Joe, M5 PR 5): a driver that raises mid-run leaves its Simulation to GC,
-    # and the destructor finalizes the log. The file is a consistent record of the frames that ran,
-    # with complete = 1, so load() cannot tell; a caller compares frames_run and halt itself.
+def test_a_dropped_simulation_leaves_only_a_destructor_partial_that_load_and_replay_refuse(
+    tmp_path: Path,
+) -> None:
+    # ADR-0027 item 4 (R16): a driver that raises mid-run leaves its Simulation to GC; the
+    # destructor finishes the file as <log.path>.partial, marked finalized_by = destructor,
+    # never complete and never published (M5 left a complete-looking log at log.path).
     path = tmp_path / "run.h5"
     facts = _child(_DROPPED_MID_RUN, str(path), str(CRUISE), "600")
     assert facts["failure"] == "the driver failed mid-run"
-    run = log.load(path)
-    assert run.complete
+    assert not path.exists()
+    partial = tmp_path / "run.h5.partial"
+    with pytest.raises(log.IncompleteLogError, match="not published by close_log"):
+        log.load(partial)
+    run = log.load(partial, allow_incomplete=True)
+    assert (run.state, run.published, run.complete) == ("destructor", False, False)
     assert run.frames_run == 600  # the config's sim.frames is 1000
+    assert run.final_frame == 600
     assert run.halt is None
     assert len(run.rates[1]) == 600
+    assert run.rows_committed == {1: 600}
+    with pytest.raises(log.IncompleteLogError, match="not published by close_log"):
+        log.replay(partial, tmp_path / "replay.h5")
+    # Under a published-looking name it is still refused, now naming its state.
+    renamed = tmp_path / "renamed.h5"
+    shutil.copyfile(partial, renamed)
+    with pytest.raises(log.IncompleteLogError, match="finalization state destructor"):
+        log.load(renamed)
+    with pytest.raises(log.IncompleteLogError, match="finalization state destructor"):
+        log.replay(renamed, tmp_path / "replay.h5")
+    assert not (tmp_path / "replay.h5").exists()
+    assert not (tmp_path / "replay.h5.partial").exists()
 
 
 # --- R9: replay ---------------------------------------------------------------------------------

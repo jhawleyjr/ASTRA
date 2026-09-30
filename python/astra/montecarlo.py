@@ -49,23 +49,28 @@ only on the spec and its index, never on the worker count or the completion orde
 
 A run (``run_one``). Its drawn values replace the leaves of a copy of the base config; then trim,
 if set; then the run, through the run pattern ``astra.scenario`` uses: the ``Simulation`` is built
-with its log at ``out_dir/run_<i>.h5``, runs ``duration / dt`` frames or to a halt, and its log is
-finalized by an explicit ``close_log()`` (never the destructor) and read back strictly with
-``astra.log.load`` (never ``allow_incomplete``) while the ``Simulation`` is alive. If anything
-raises before the log loads, the log is removed. Every drawn value lands in the run's stored
-config text (the log's ``config`` attribute) and in the summary. The row's ``status`` is:
+with its log at ``out_dir/run_<i>.h5`` (written as ``run_<i>.h5.partial`` until ``close_log()``
+publishes it, ADR-0027), runs ``duration / dt`` frames or to a halt, and its log is finalized by
+an explicit ``close_log()`` (never the destructor) and read back strictly with ``astra.log.load``
+(never ``allow_incomplete``) while the ``Simulation`` is alive, then checked (the run-length and
+``LOG``-halt checks below) while it is still alive. If anything raises after the ``Simulation`` is
+built, its log is discarded through ``discard_log()`` (``astra._runkit.discard_on_failure``: only
+the run's own file, never by name). Every drawn value lands in the run's stored config text (the
+log's ``config`` attribute) and in the summary. The row's ``status`` is:
 
 - ``ok``: ran ``duration / dt`` frames without a halt.
 - ``halt``: halted, with ``halt_check``, ``halt_source``, ``halt_frame`` and ``halt_vehicle``. A
   halt is a result, not a batch failure; its log is kept.
 - ``error``: a failure before or outside the simulation, with ``error_type`` and
-  ``error_message``, and no log counted (none is left on disk). That covers a ``ConfigError`` from a
-  drawn value, a trim that misses D8's residual bound, a log write or close failure, a log the
-  strict load refuses, a ``LOG`` halt (a log write failure, ``LogHaltError``), and a failed consumer
-  assertion (``RunLengthError``: ``frames_run`` must equal ``duration / dt`` without a halt, or the
-  halt's own frame with one; PLAN.md's finalization-marker open item, ``astra._runkit``). A message
-  naming ``out_dir`` has that prefix replaced by ``<out_dir>``, and one naming trim's temporary
-  copy has its random directory replaced by ``<trim_copy>``, so the summary depends on neither.
+  ``error_message``, and no log counted (none is left on disk, unless ``discard_log()`` found the
+  name no longer the run's own file, which its note in the message says). That covers a
+  ``ConfigError`` from a drawn value, a trim that misses D8's residual bound, a log write or close
+  failure, a log the strict load refuses, a ``LOG`` halt (a log write failure,
+  ``LogHaltError``), and a failed consumer assertion (``RunLengthError``: ``frames_run`` must
+  equal ``duration / dt`` without a halt, or the halt's own frame with one; ``astra._runkit``). A
+  message naming ``out_dir`` has that prefix replaced by ``<out_dir>``, and one naming trim's
+  temporary copy has its random directory replaced by ``<trim_copy>``, so the summary depends on
+  neither.
 
 The batch (``run``, Q20). ``out_dir`` is created if missing and must be empty. Runs are spread over
 ``workers`` processes (default ``os.cpu_count()``, never more than ``runs``) started with the
@@ -75,10 +80,14 @@ point up to ``run``'s return (writing the summary and printing included), every 
 and joined, no ``summary.parquet`` is left, and ``BatchError`` (or ``BatchInterrupted``, a
 ``KeyboardInterrupt``) is raised naming the runs not completed. While workers start and while they
 are stopped, SIGINT is deferred to the end of that step, so an interrupt can neither leave a
-started worker untracked nor abandon a stop half done (review R-003). The log of
-every run not completed is removed: a killed worker leaves a partial HDF5 file that h5py cannot
-read (PR 5's finding), and a later reader must never mistake it for a result. The logs of completed
-runs stay, and each of them is complete and was loaded strictly.
+started worker untracked nor abandon a stop half done (review R-003). An abort deletes nothing
+(ADR-0027 item 8: once a run's ``Simulation`` is gone, no tool deletes its log). The stop SIGKILLs
+every live worker, so **every run in flight leaves its ``run_<i>.h5.partial``**, not only a dead
+worker's run: a killed run's file, which strict ``load`` refuses by name, and which
+``load(allow_incomplete=True)`` reads as its certified rows. A run killed after its publication
+leaves a complete ``run_<i>.h5``. The error names each leftover ``.partial`` (``partials``). This
+changes M5, which removed the log of every run not completed. The logs of completed runs stay, and
+each of them is complete and was loaded strictly.
 
 ``summary.parquet``: rows sorted by ``run``; columns ``run`` (int64), ``seed`` (uint64, the run's
 seed), ``status``, one column per dispersion named by its path (float64, or int64 for ``seed``),
@@ -116,7 +125,7 @@ import pyarrow  # pyright: ignore[reportMissingTypeStubs] -- pyarrow 25.0.1 ship
 import pyarrow.parquet  # pyright: ignore[reportMissingTypeStubs]
 import yaml
 
-from astra import _core, _runkit
+from astra import _core, _runkit, log
 from astra._runkit import TrimSetpoint
 
 _pa = cast(Any, pyarrow)
@@ -163,19 +172,26 @@ class LogHaltError(Exception):
 
 
 class BatchError(Exception):
-    """A worker died or the parent failed; the batch wrote no summary."""
+    """A worker died or the parent failed; the batch wrote no summary. ``partials``: the
+    ``run_<i>.h5.partial`` files the runs in flight left (module docstring, The batch)."""
 
-    def __init__(self, message: str, incomplete: tuple[int, ...]) -> None:
+    def __init__(
+        self, message: str, incomplete: tuple[int, ...], partials: tuple[Path, ...] = ()
+    ) -> None:
         super().__init__(message)
         self.incomplete = incomplete
+        self.partials = partials
 
 
 class BatchInterrupted(KeyboardInterrupt):
-    """The batch was interrupted; it wrote no summary."""
+    """The batch was interrupted; it wrote no summary. ``partials`` as for ``BatchError``."""
 
-    def __init__(self, message: str, incomplete: tuple[int, ...]) -> None:
+    def __init__(
+        self, message: str, incomplete: tuple[int, ...], partials: tuple[Path, ...] = ()
+    ) -> None:
         super().__init__(message)
         self.incomplete = incomplete
+        self.partials = partials
 
 
 @dataclasses.dataclass(frozen=True)
@@ -457,6 +473,18 @@ def run_one(spec: Spec, index: int, out_dir: str | Path) -> dict[str, Any]:
     """Draws, trims (if set), runs and reads back run ``index`` with its log in ``out_dir``, and
     returns its summary row (module docstring, A run). Only an ``ok`` or ``halt`` row leaves a
     log."""
+
+    def accept(run_log: log.RunLog) -> None:
+        # While the Simulation is alive, so a rejected log is discarded through discard_log().
+        problems = _runkit.run_length_failures(run_log, spec.frames)
+        if problems:
+            raise RunLengthError("; ".join(problems))
+        halt = run_log.halt
+        if halt is not None and halt.check == _core.HealthCheck.LOG.name:
+            raise LogHaltError(
+                f"the run halted LOG ({halt.source}) at frame {halt.frame}: its log write failed"
+            )
+
     out_dir = Path(out_dir).resolve()  # absolute, so _error_row replaces one exact prefix
     seed, values = draw(spec, index)
     row: dict[str, Any] = {"run": index, "seed": seed, "status": "ok", **values}
@@ -475,19 +503,11 @@ def run_one(spec: Spec, index: int, out_dir: str | Path) -> dict[str, Any]:
             # Late-bound lambdas: a test replaces _drive or _close_log on this module.
             drive=lambda sim: _drive(sim, spec.frames),
             close=lambda sim: _close_log(sim),
+            accept=accept,
         )
     except Exception as error:
         return _error_row(row, error, out_dir)
-    problems = _runkit.run_length_failures(run_log, spec.frames)
-    failure: Exception | None = RunLengthError("; ".join(problems)) if problems else None
     halt = run_log.halt
-    if failure is None and halt is not None and halt.check == _core.HealthCheck.LOG.name:
-        failure = LogHaltError(
-            f"the run halted LOG ({halt.source}) at frame {halt.frame}: its log write failed"
-        )
-    if failure is not None:
-        log_path.unlink(missing_ok=True)  # no log is counted for an error row
-        return _error_row(row, failure, out_dir)
     row["frames_run"] = run_log.frames_run
     if halt is not None:
         row.update(
@@ -522,7 +542,8 @@ def _error_row(row: dict[str, Any], error: Exception, out_dir: Path) -> dict[str
     """``out_dir`` is absolute (``run_one`` resolves it), so exactly one prefix is replaced, and a
     relative name cannot rewrite unrelated text. The trim copy's random temporary directory is
     replaced too (review R-001)."""
-    message = str(error).replace(str(out_dir), OUT_DIR_PLACEHOLDER)
+    message = "\n".join([str(error), *getattr(error, "__notes__", [])])
+    message = message.replace(str(out_dir), OUT_DIR_PLACEHOLDER)
     message = _TRIM_COPY.sub(TRIM_COPY_PLACEHOLDER, message)
     row.update(status="error", error_type=type(error).__name__, error_message=message)
     return row
@@ -702,29 +723,48 @@ def _abort(
     rows: dict[int, dict[str, Any]],
     error: BaseException,
 ) -> None:
-    """Kills the pool, removes every log of a run not completed, and raises naming those runs."""
+    """Kills the pool and raises naming the runs not completed and the ``.partial`` files the runs
+    in flight left. Deletes nothing (module docstring, The batch)."""
     incomplete = tuple(index for index in range(spec.runs) if index not in rows)
     with _sigint_deferred(reraise=False) as pending:
         _stop(processes, conns)
-        for index in incomplete:
-            (out_dir / log_name(index)).unlink(missing_ok=True)
-    raise _batch_error(spec, incomplete, error, interrupted=bool(pending)) from error
+    partials = tuple(
+        path
+        for index in incomplete
+        if (path := out_dir / f"{log_name(index)}{log.PARTIAL_SUFFIX}").exists()
+    )
+    interrupted = bool(pending)
+    raise _batch_error(
+        spec, incomplete, error, interrupted=interrupted, partials=partials
+    ) from error
 
 
 def _batch_error(
-    spec: Spec, incomplete: tuple[int, ...], error: BaseException, *, interrupted: bool
+    spec: Spec,
+    incomplete: tuple[int, ...],
+    error: BaseException,
+    *,
+    interrupted: bool,
+    partials: tuple[Path, ...] = (),
 ) -> BatchError | BatchInterrupted:
     runs = ", ".join(str(index) for index in incomplete) or "none"
+    left = (
+        f"; left in place, not published: {', '.join(path.name for path in partials)}"
+        if partials
+        else ""
+    )
     if interrupted or isinstance(error, KeyboardInterrupt):
         return BatchInterrupted(
-            f"{spec.path}: the batch was interrupted; runs not completed: {runs}; no summary "
-            "was written",
+            f"{spec.path}: the batch was interrupted; runs not completed: {runs}{left}; no "
+            "summary was written",
             incomplete,
+            partials,
         )
     return BatchError(
         f"{spec.path}: the batch failed ({type(error).__name__}: {error}); runs not completed: "
-        f"{runs}; no summary was written",
+        f"{runs}{left}; no summary was written",
         incomplete,
+        partials,
     )
 
 

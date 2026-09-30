@@ -1035,8 +1035,34 @@ def test_session_log_write_failure_halts_and_close_log_raises(
     assert "File too large" in first
     assert second == first
     assert not facts["log_complete_marker"]
-    with pytest.raises(log.IncompleteLogError):  # M5 PR 5: astra.log refuses the file
-        log.load(tmp_path / "run.h5")
+    # ADR-0027: a failed close publishes nothing, and the session's normal close (which the body's
+    # own close_log() calls already made) does not retry it.
+    assert not facts["published"]
+    assert not (tmp_path / "run.h5").exists()
+    partial = tmp_path / "run.h5.partial"
+    with pytest.raises(log.IncompleteLogError, match="not published by close_log"):
+        log.load(partial)
+    # ADR-0027: the per-block flush left it readable; M5's file did not open at all.
+    run = log.load(partial, allow_incomplete=True)
+    assert (run.state, run.published) == ("incomplete", False)
+    assert len(run.rates[1]) == run.rows_committed[1]
+
+
+def test_session_log_is_published_by_the_sessions_normal_close(
+    reaper: Reaper, binaries: dict[str, str], tmp_path: Path
+) -> None:
+    """M6 PR 2 (ADR-0027 item 4, R16): a body that never calls close_log() still publishes its log,
+    because lockstep_session's normal close calls it; nothing is at log.path during the body."""
+    facts = _lifecycle(reaper, binaries, "log-session-close", tmp_path)
+    assert "exception" not in facts, facts
+    assert facts["step_halts"] == 200
+    assert not facts["published_during_body"]
+    assert facts["peer_returncode"] == 0
+    assert not (tmp_path / "run.h5.partial").exists()
+    run = log.load(tmp_path / "run.h5")
+    assert run.state == "complete"
+    assert run.published
+    assert run.frames_run == 200
 
 
 def test_session_missing_executable(
