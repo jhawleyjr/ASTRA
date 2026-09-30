@@ -1,38 +1,45 @@
 # STATE (rewritten once, at /wrap, never appended; ≤ 40 lines, says nothing that changes at merge)
 
 ## In flight
-M6 PR 1 (Tier 3, docs only), PR #79, branch `worktree-m6-pr1-adr0027`, based on `origin/main` `be32cbb`. The PR
-plan is `docs/plans/m6-pr1-adr0027.md`, approved by Joe in plan mode, with changes, and it records his D1 to D7.
-Scope: ADR-0027 (`docs/decisions/0027-run-log-finalization.md`, **proposed**), superseding only ADR-0025's
-Finalization; architecture rev 10 (§1, §9, §12, §15, §16, M6 features marked planned); the PLAN.md PR 1 line.
-Stage: implementation, the full gate and the Tier 3 adversarial Codex review are complete for the candidate.
-Human review is next (step 10). The PR is a draft, and its body holds the checks, the review and the decisions.
+M6 PR 1 (Tier 3, docs only), PR #79, draft, branch `worktree-m6-pr1-adr0027`, base `origin/main` `be32cbb`.
+PR plan: `docs/plans/m6-pr1-adr0027.md` (Joe's D1 to D7). ADR-0027 (`docs/decisions/0027-run-log-finalization.md`,
+superseding only ADR-0025's Finalization) and architecture rev 10 were **accepted by Joe on 2026-09-29**.
+Stage: human review done (step 10). Every gate the tier requires is met, or waived by Joe. The PR body holds the
+checks, the review, the waivers and the decisions.
 
 ## Last verified result
-Run in this session: `./scripts/check-full.sh` from a fresh configure (`build/` removed first) on `574f9fe`.
-Exit 0, `check: OK` (`docs/reviews/evidence/574f9fe-gate-summary.log`). CTest 621/622/623/624, pytest 473. Every
-commit after `574f9fe` is docs only (the evidence file, `docs/lessons.md`, this file).
-`python3 scripts/docs_check.py` exits 0 and `git diff --check` is clean. Codex adversarial review, 3 passes:
-- the initial pass: needs-attention, F1 and F2;
-- verification 1: F1 verified, F2 partial, a new N1;
-- verification 2: approve, "New findings: none".
-The thread ids and the per-finding history are in the PR body and `docs/reviews/m6-pr1-adr0027-review.md`.
+Run this session: `./scripts/check-full.sh` from a fresh configure (`build/` removed first) on `574f9fe`: exit 0,
+`check: OK` (`docs/reviews/evidence/574f9fe-gate-summary.log`); CTest 621/622/623/624, pytest 473.
+Every commit after `574f9fe` is docs only:
+- the evidence file;
+- STATE and two lessons;
+- `c11c41d`: Joe's human-review wording (strict replay input, the reopen failure, one path wording, the
+  `discard_log()` kill row, the stated-limit sentence);
+- `3371d07`: ADR-0027 accepted, architecture rev 10 accepted, and "(proposed)" dropped from PLAN.md.
+
+`python3 scripts/docs_check.py` exit 0 and `git diff --check` clean on `c11c41d` and on `3371d07`. For both
+commits Joe waived a full-gate rerun and a further Codex pass. The Codex adversarial review (3 passes, final
+verdict approve, no new findings) covers the text through `574f9fe`. The thread ids are in the PR body and in
+`docs/reviews/m6-pr1-adr0027-review.md`.
 
 ## Next step
-1. Joe: accept or reject ADR-0027 and architecture rev 10, note the deviations from the M6 plan's wording (D1,
-   D2, D7) and the R16 reading (F2), and approve the candidate. PR 2 cannot start before ADR-0027 is accepted.
-2. When ADR-0027 is accepted, its Status line changes from proposed to accepted under Joe's authorization, with
-   the `docs/decisions/` guard armed by him. The architecture status line follows.
-3. Then M6 PR 2 in a new worktree. Its plan starts from ADR-0027's validation list (R16, R16b, R17, R18, R18b,
-   R19b) and the four claims marked "PR 2 confirms". It also removes the (M6) Finalization open item.
-4. No GitHub CI until Oct 1: local-gate mode. Do not treat a missing check as a blocker.
+1. Next task: M6 PR 2 (Tier 3), ADR-0027's implementation, in a new worktree off `origin/main` once #79 is
+   in `main`. Its plan starts from ADR-0027's validation list (R16, R16b with the three `.partial`-replacement
+   cases, R17, R18, R18b with the `discard_log()` cases, R19b) and four claims marked "PR 2 confirms":
+   - the chunk index type;
+   - the `frame` column for halted runs;
+   - `load(log.path)` while the `Simulation` is alive;
+   - `kCoreApiVersion` unchanged.
+
+   PR 2 also removes the (M6) Finalization open item from PLAN.md. PR 4 (units) and PR 9 (benchmark) depend
+   only on PR 1 (the M6 plan's decomposition).
+2. No GitHub CI until Oct 1 (local-gate mode). Do not treat a missing check as a blocker.
 
 ## Tried / failed
-- Codex F1 and N1 were design changes; Joe decided them as D6 and D7.
-- The worktree guard refused focus text containing "git diff" and a sed with a variable path. The workaround was
-  a focus file in the scratchpad and the Write tool.
-- `gh pr edit` failed on the Projects-classic GraphQL error; the REST `gh api -X PATCH` worked.
-- Correction rounds: 2 of 2 used. Failed integrations: 0. Both counts are in the PR body.
+Codex F1 and N1 were design changes, decided by Joe as D6 and D7. The worktree guard refused focus text
+containing "git diff" and a sed with a variable path; the workaround was a scratchpad focus file and the Write
+tool. `gh pr edit` failed on Projects classic, so the body was updated with `gh api -X PATCH`. Correction rounds:
+2 of 2; failed integrations: 0 (PR body).
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.
