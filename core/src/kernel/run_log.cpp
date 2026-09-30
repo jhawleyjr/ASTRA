@@ -655,6 +655,17 @@ void RunLog::finalize_by_destructor(const RunLogEnd& end) noexcept {
   }
 }
 
+void RunLog::close_after_log_halt() noexcept {
+  // Codex review of M6 PR 2, F1: a full ring halts kLog in Simulation without a write failure, so
+  // finalize_by_destructor()'s failure guard would not stop it. HDF5's own close of the handles
+  // still writes its cached metadata (the certified structure); ASTRA writes nothing more.
+  if (closed_) {
+    return;
+  }
+  closed_ = true;
+  abandon();
+}
+
 LogDiscardResult RunLog::discard() {
   if (discarded_.has_value()) {
     return *discarded_;

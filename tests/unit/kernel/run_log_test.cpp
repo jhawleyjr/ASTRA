@@ -776,6 +776,26 @@ TEST_F(RunLogClose, TheDestructorMarksAnOpenLogWithoutPublishingItAndNeverAfterA
   EXPECT_FALSE(failed.has_attribute("finalized_by"));
 }
 
+// ADR-0027 item 4 (Codex review of M6 PR 2, F1): after a full-ring kLog halt, which records no
+// write failure in the log, the destructor still writes nothing more: no tail, no /summary and no
+// marker, so the .partial is incomplete. Its certified rows are whatever blocks were written.
+TEST_F(RunLogClose, TheDestructorWritesNothingAfterAFullRingLogHalt) {
+  {
+    Simulation sim = build(with_log(kRich, path("full.h5"), "  buffer_frames: 10\n"));
+    for (int k = 0; k < 10; ++k) {
+      ASSERT_FALSE(sim.step()) << k;
+    }
+    ASSERT_EQ(sim.step().check, HealthCheck::kLog);
+  }
+  EXPECT_FALSE(fs::exists(path("full.h5")));
+  const File file = File::open_read_only(partial(path("full.h5")));
+  EXPECT_FALSE(file.has_attribute("complete"));
+  EXPECT_FALSE(file.has_attribute("finalized_by"));
+  EXPECT_EQ(file.open_group("rate_1").attribute_uint64("rows_committed"), 0U);
+  EXPECT_EQ(file.open_group("rate_1").open_dataset("frame").rows(), 0U) << "no tail was written";
+  EXPECT_THROW(static_cast<void>(file.open_group("summary")), astra::Hdf5Error);
+}
+
 // A moved-from Simulation owns no log; the moved-to one closes it once.
 TEST_F(RunLogClose, AMovedSimulationCarriesItsLog) {
   Simulation first = build(with_log(kRich, path("run.h5")));

@@ -421,6 +421,26 @@ def test_log_replay_raises_when_its_mismatch_discard_deletes_nothing(
     assert (tmp_path / "moved.h5").exists()
 
 
+def test_log_replay_discards_its_published_out_when_the_comparison_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Codex review of M6 PR 2, F2: the byte comparison runs after the publication; its failure is
+    # handled like any other, through discard_log().
+    source = _closed_log(_data(CRUISE), tmp_path / "run.h5", 300)
+    out = tmp_path / "replay.h5"
+
+    def unreadable(published: Path, _path: Path) -> bool:
+        assert published.exists()  # published before the comparison
+        raise OSError("the source could not be read")
+
+    monkeypatch.setattr(log, "_identical", unreadable)
+    with pytest.raises(OSError, match="the source could not be read") as caught:
+        log.replay(source, out)
+    assert not out.exists()
+    assert not _partial(out).exists()
+    assert not getattr(caught.value, "__notes__", [])
+
+
 def test_log_replay_leaves_a_collided_out_and_discards_only_its_own_partial(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

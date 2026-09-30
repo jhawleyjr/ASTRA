@@ -616,8 +616,15 @@ Simulation Simulation::for_testing(const PluginLoader& loader,
 }
 
 Simulation::~Simulation() {
-  if (log_ != nullptr && !log_->closed()) {
-    log_->finalize_by_destructor(log_end());  // ADR-0027 item 4: marks it, never publishes
+  if (log_ == nullptr || log_->closed()) {
+    return;
+  }
+  // ADR-0027 item 4: after a kLog halt (a full ring, or a failed drain) the destructor writes
+  // nothing more and sets no marker; otherwise it marks the log, and never publishes it.
+  if (log_halt_) {
+    log_->close_after_log_halt();
+  } else {
+    log_->finalize_by_destructor(log_end());
   }
 }
 

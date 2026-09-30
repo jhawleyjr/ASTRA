@@ -192,6 +192,10 @@ class RunLog {
   // finalized_by = "destructor" in place of complete, and never a rename. After an earlier failure
   // it writes nothing. Never throws.
   void finalize_by_destructor(const RunLogEnd& end) noexcept;
+  // ADR-0027 item 4, for Simulation's destructor after a kLog halt (a full ring, which records no
+  // write failure here): closes every handle and writes nothing more, no tail, no closing object
+  // and no marker, so the file is left incomplete. Never throws.
+  void close_after_log_halt() noexcept;
   // ADR-0027 item 8, Simulation::discard_log(): stops writing (an open file is closed with no tail
   // and no marker), then unlinks the file where it now lives, "<log.path>.partial" before the
   // publication and log.path after it, only if that name is still this run's file. Idempotent:

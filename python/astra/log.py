@@ -223,10 +223,13 @@ def replay(path: str | Path, out: str | Path, *, plugin_dir: str | Path | None =
     try:
         _rerun(path, log, sim)
         sim.close_log()
+        # Inside the cleanup scope (Codex review of M6 PR 2, F2): a comparison that fails (a read
+        # error, an interrupt) discards the published out like any other failure.
+        identical = _identical(out, path)
     except BaseException as error:
         _runkit.discard_on_failure(sim, error)
         raise
-    if _identical(out, path):
+    if identical:
         return True
     result = sim.discard_log()
     if not result.deleted:
