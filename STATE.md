@@ -1,37 +1,40 @@
 # STATE (rewritten once, at /wrap, never appended; ≤ 40 lines, says nothing that changes at merge)
 
 ## In flight
-M6 PR 1 (Tier 3, docs only), PR #79, draft, branch `worktree-m6-pr1-adr0027`, base `origin/main` `be32cbb`.
-PR plan: `docs/plans/m6-pr1-adr0027.md` (Joe's D1 to D7). ADR-0027 (`docs/decisions/0027-run-log-finalization.md`,
-superseding only ADR-0025's Finalization) and architecture rev 10 were **accepted by Joe on 2026-09-29**.
-Stage: human review done (step 10). Every gate the tier requires is met, or waived by Joe. The PR body holds the
-checks, the review, the waivers and the decisions.
+M6 PR 2 (Tier 3), ADR-0027's implementation: PR #80, draft, branch `worktree-m6-pr2-finalization`, base
+`origin/main` `02bddfa` (#79). Plan: `docs/plans/m6-pr2-finalization.md` (approved by Joe in plan mode with J1 to
+J12; J12's byte-scan criterion corrected by Joe mid-task). Stage: human review (step 10). Every gate the tier
+requires is met: the acceptance commands, the fresh full gate, and the Codex adversarial review with its fix
+verification. The PR body holds the checks, R19b's before and after numbers, the four confirmations, the kill
+evidence, the review, the M5 behavior changes and the decisions for Joe.
 
 ## Last verified result
-Run this session: `./scripts/check-full.sh` from a fresh configure (`build/` removed first) on `574f9fe`: exit 0,
-`check: OK` (`docs/reviews/evidence/574f9fe-gate-summary.log`); CTest 621/622/623/624, pytest 473.
-Every commit after `574f9fe` is docs only: the evidence file, STATE and two lessons; `c11c41d` (Joe's
-human-review wording); `3371d07` (ADR-0027 and rev 10 accepted, "(proposed)" dropped from PLAN.md).
+Run this session:
+- `./scripts/check-full.sh` from a fresh configure (`build/` removed first) on `ede0cf3`: exit 0, `check: OK`,
+  1003 s (`docs/reviews/evidence/ede0cf3-gate-summary.log`); CTest 649/650/651/652, pytest 510 passed, 5 skipped.
+- The acceptance commands on `ede0cf3`'s content: ASan `RunLog|Hdf5|NoAlloc` 89/89; the pytest `-k` filter 237
+  passed, 5 skipped; release `NotionalTransportCruiseRegression` 2/2.
+- Codex: pass 1 (`01a0f00a-7bc3-7932-a47c-19a987810f50`) needs-attention, R-001 and R-002, both fixed in
+  `ede0cf3`; the verification (`01a0f01e-82fd-7ef0-b9a0-ef2caf4b20d9`) approve, new findings none.
 
-`python3 scripts/docs_check.py` exit 0 and `git diff --check` clean on `c11c41d` and on `3371d07`. For both
-commits Joe waived a full-gate rerun and a further Codex pass. The Codex adversarial review (3 passes, final
-verdict approve, no new findings) covers the text through `574f9fe`. The thread ids are in the PR body and in
-`docs/reviews/m6-pr1-adr0027-review.md`.
+Every commit after `ede0cf3` is docs only: the gate summary, then this STATE and four lessons.
 
 ## Next step
-1. Next task: M6 PR 2 (Tier 3), ADR-0027's implementation, in a new worktree off `origin/main` once #79 is
-   in `main`. Its plan starts from ADR-0027's validation list (R16, R16b with the three `.partial`-replacement
-   cases, R17, R18, R18b with the `discard_log()` cases, R19b) and the four "PR 2 confirms" claims (chunk index
-   type, `frame` column for halted runs, `load(log.path)` while the `Simulation` is alive, `kCoreApiVersion`
-   unchanged). PR 2 also removes the (M6) Finalization open item from PLAN.md. PR 4 (units) and PR 9 (benchmark) depend
-   only on PR 1 (the M6 plan's decomposition).
-2. No GitHub CI until Oct 1 (local-gate mode). Do not treat a missing check as a blocker.
+1. Joe reads the diff and tests. The PR body's "Needs Joe's decision" has two items: approval of the candidate,
+   and R-001's reading that HDF5's own close after a `kLog` halt is no ASTRA write.
+2. Before merge, rerun CI's `check` with `gh pr ready --undo` then `gh pr ready` (no GitHub CI until Oct 1: local
+   gate mode).
+3. Follow-up (J8): `docs/architecture.md` §9 and §12 still mark ADR-0027 "(M6 PR 2, *planned*)". The M6 plan's
+   PR 10 row names only §12, so §9 needs an owner.
+4. Next M6 task: PR 3 (the `astra` CLI) depends on PR 2; PR 4 (units) and PR 9 (benchmark) depend only on PR 1.
 
 ## Tried / failed
-Codex F1 and N1 were design changes, decided by Joe as D6 and D7. The worktree guard refused focus text
-containing "git diff" and a sed with a variable path; the workaround was a scratchpad focus file and the Write
-tool. `gh pr edit` failed on Projects classic, so the body was updated with `gh api -X PATCH`. Correction rounds:
-2 of 2; failed integrations: 0 (PR body).
+- J12's literal "no BTHD" failed on dense attribute storage; Joe gave the corrected criterion.
+- Confirmation 4's first attempt read `.o.d` files, found none (ninja folds them into `.ninja_deps`), and was
+  discarded; `ninja -t deps` gave the real set, in which `errors.hpp` (a comment-only change) reaches plugins.
+- The seeded close-window kills flaked 1 in 20 until they got a ring the run never drains.
+- The worktree guard refuses compound commands carrying regex or filter arguments; the workaround is scripts in
+  the scratchpad (the 2026-09-27 lesson). Correction rounds and failed integrations are in the PR body (1 of 2; 0).
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.
