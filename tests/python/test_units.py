@@ -14,6 +14,7 @@ from __future__ import annotations
 import math
 import random
 import struct
+import warnings
 from collections.abc import Callable
 from decimal import Decimal
 from fractions import Fraction
@@ -194,26 +195,87 @@ def test_the_array_form_is_the_float_form_element_by_element(name: str, layout: 
     assert np.array_equal(values.view(np.uint64), before.view(np.uint64))  # the input is untouched
 
 
+PACKED = np.dtype([("tag", "u1"), ("angle", "f8")])  # a float64 field at a 9-byte stride
+
+
 @pytest.mark.parametrize("name", NAMES)
 @pytest.mark.parametrize(
     "refused",
     [
         np.array([1, 2], dtype=np.int64),
-        # Size 1: the float overload's float() fallback must not take it.
+        # Size 1: the float overload's float() fallback must not take any of these (R-001).
         np.array([3], dtype=np.int64),
+        np.array([True]),
+        np.array([1.5], dtype=np.float32),
+        np.array([1.5], dtype=">f8"),
+        np.ones((1, 1)),
         np.array([True, False]),
         np.array([1.0, 2.0], dtype=np.float32),
         np.array([1.0, 2.0], dtype=">f8"),  # big-endian: refused, never byte-swapped
         np.ones((2, 2)),
         [1.0, 2.0],
+        # A stride that is not a whole number of elements, forward and reversed (R-002, D7).
+        np.array([(1, 1.125), (2, -3.0)], dtype=PACKED)["angle"],
+        np.array([(1, 1.125), (2, -3.0)], dtype=PACKED)["angle"][::-1],
     ],
-    ids=["int64", "int64_size_1", "bool", "float32", "big_endian_float64", "two_d", "list"],
+    ids=[
+        "int64",
+        "int64_size_1",
+        "bool_size_1",
+        "float32_size_1",
+        "big_endian_size_1",
+        "two_d_1x1",
+        "bool",
+        "float32",
+        "big_endian_float64",
+        "two_d",
+        "list",
+        "packed_field_stride_9",
+        "packed_field_stride_minus_9",
+    ],
 )
 def test_other_arrays_are_refused(name: str, refused: object) -> None:
+    # DeprecationWarning ignored: numpy before 2.4 (pyproject allows numpy>=2) converts a size-1
+    # array to a float with only that warning, so the refusal must not depend on it being an error.
     result: object = None
-    with pytest.raises(TypeError):
-        result = _convert(name)(refused)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        with pytest.raises(TypeError):
+            result = _convert(name)(refused)
     assert result is None
+
+
+class _ArrayShaped:
+    """What numpy < 2.4 presents to the float overload for a size-1 array: an ndim, and a
+    __float__ that succeeds. Independent of the installed numpy's version (R-001)."""
+
+    def __init__(self, ndim: object) -> None:
+        self.ndim = ndim
+
+    def __float__(self) -> float:
+        return 1.0
+
+
+@pytest.mark.parametrize("name", NAMES)
+@pytest.mark.parametrize("ndim", [1, 2, "1", 1.0])
+def test_an_object_with_a_nonzero_ndim_never_reaches_the_float_overload(
+    name: str, ndim: object
+) -> None:
+    with pytest.raises(TypeError):
+        _convert(name)(_ArrayShaped(ndim))
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_an_object_with_ndim_zero_converts_like_a_float(name: str) -> None:
+    convert = _convert(name)
+    assert _bits(convert(_ArrayShaped(0))) == _bits(convert(1.0))
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_a_size_one_packed_field_is_accepted_because_its_stride_is_never_used(name: str) -> None:
+    field = np.array([(1, 1.125)], dtype=PACKED)["angle"]
+    convert = _convert(name)
+    assert _bits(float(convert(field)[0])) == _bits(convert(1.125))
 
 
 def test_the_constants_are_not_bound() -> None:

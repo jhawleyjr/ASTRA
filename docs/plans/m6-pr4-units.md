@@ -6,7 +6,10 @@ conversion is a named function in `core/util/units` with a unit test"). ADR-0009
 Risk: **Tier 3** (`core/util`). Base: `origin/main` `daea24d` (#81). New worktree/branch `worktree-m6-pr4-units`.
 Does not touch `docs/decisions/`, `tests/golden/**` (the FlightGear table keeps its own constants), tolerance
 files, `core/include/astra/core_api.hpp.in`, or `tests/python/test_fgbridge.py`.
-Correction made during implementation: fgbridge has ten foot fields, not eleven as first written.
+Corrections made during implementation and review: fgbridge has ten foot fields, not eleven as first written.
+Codex pass 1 ([review](../reviews/m6-pr4-units-review.md)): R-001, the float overload now refuses any `ndim` not 0
+itself, since numpy before 2.4 (allowed by `numpy>=2`) only warns; R-002, "any strides" means any stride that is a
+whole number of elements, and a packed-field view (9-byte stride) is refused (D7, pending Joe).
 Status: **approved by Joe, 2026-09-30, in plan mode, with his revisions 1 to 5 folded in below** (outcomes, not
 only bytes, for packet identity; the knot pin and M6/M7; the reference packer replacing the SHA-256 pin; the size-1
 int64 and `'>f8'` refusals; the scalar/array asymmetry in D2).
@@ -60,7 +63,7 @@ constant invites exactly the Python-side multiply ADR-0002 forbids. Each name ha
 
 1. `(x: float) -> float`: the C++ function. Accepts what every `_core` float parameter accepts (float, `int`,
    numpy scalars, a 0-d array), converted by Python's float protocol first.
-2. `(x: NDArray[float64], 1-D) -> NDArray[float64]`, argument `noconvert()`: any strides (strided, reversed,
+2. `(x: NDArray[float64], 1-D) -> NDArray[float64]`, argument `noconvert()`: any stride that is a whole number of elements (strided, reversed,
    a column of a 2-D array, read-only), read in place; returns a **new** C-contiguous float64 array of the same
    length, element i = the C++ scalar function of element i (one template helper
    `convert_array<&astra::units::f>` looping over `in.view()`). Empty in, empty out. NaN, ±inf, -0.0,
@@ -199,7 +202,7 @@ changing no existing declaration, and dryden's calls are untouched. Evidence: no
 ## Decisions for Joe (approving the plan approves these)
 
 - D1: top-level names in `astra._core`; constants not bound.
-- D2: the array overload takes 1-D native-byte-order float64 only, any strides, with no implicit cast, and
+- D2: the array overload takes 1-D native-byte-order float64 only, any whole-element stride, with no implicit cast, and
   refuses every other array dtype, byte order or shape. Asymmetry: the float overload accepts `int`, `bool` and
   numpy integer scalars (converted by Python's float protocol); the array overload refuses integer and bool arrays.
 - D3: `tests/python/test_fgbridge.py` stays byte-unchanged; new fgbridge tests in their own file.
@@ -209,6 +212,9 @@ changing no existing declaration, and dryden's calls are untouched. Evidence: no
 - D5: architecture §12's "(M6 PR 4, *planned*)" marker is left for PR 10, as PR 2 and PR 3 did.
 - D6: C-15's display-unit dispatch half (a unit string mapped to the right function) belongs to `astra.plot`,
   so it is carried to PR 5's plan; this PR closes the independent angle values half.
+- D7 (added after Codex pass 1, R-002; **pending Joe**): an array whose stride is not a whole number of elements (a
+  float64 field of a packed structured dtype) is refused with `TypeError`, not supported through a hand-written
+  byte-stride reader. No consumer produces one; log columns have whole-element strides.
 
 ## Verification and process
 
