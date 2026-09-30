@@ -527,6 +527,8 @@ import yaml
 from astra import _core
 d = yaml.safe_load(open(sys.argv[2]))
 d["log"] = {"path": sys.argv[1]}
+if int(sys.argv[4]) > 0:
+    d["log"]["buffer_frames"] = int(sys.argv[4])
 sim = _core.Simulation.from_config(_core.Config.from_dict(d), _core.default_plugin_dir())
 print("built", flush=True)
 started = time.perf_counter()
@@ -564,6 +566,10 @@ print(json.dumps({"outcome": "wrong" if wrong else "ok", "wrong": wrong, "state"
 """
 
 _KILL_FRAMES = 60000
+# A ring whose high-water mark (half its rows) the run never reaches: run() never drains, so every
+# block (and its flush and rows_committed) is written inside close_log(), and a kill after
+# "closing" lands in the close.
+_CLOSE_RING = 2 * _KILL_FRAMES + 2
 
 
 def _read_killed(path: Path, reference: Path) -> dict[str, Any]:
@@ -577,11 +583,12 @@ def _read_killed(path: Path, reference: Path) -> dict[str, Any]:
     return json.loads(child.stdout.strip().splitlines()[-1])
 
 
-def _kill_at(path: Path, delay: float, after: str) -> dict[str, Any]:
-    """Starts the kill child, waits for its ``after`` line (``built`` or ``closing``), sleeps
-    ``delay`` s and SIGKILLs it. Returns what it printed before the kill."""
+def _kill_at(path: Path, delay: float, after: str, ring: int) -> dict[str, Any]:
+    """Starts the kill child (``ring``: its buffer_frames, 0 for the default), waits for its
+    ``after`` line (``built`` or ``closing``), sleeps ``delay`` s and SIGKILLs it. Returns what it
+    printed before the kill."""
     process = subprocess.Popen(
-        [sys.executable, "-c", _KILL_CHILD, str(path), str(FAST), str(_KILL_FRAMES)],
+        [sys.executable, "-c", _KILL_CHILD, str(path), str(FAST), str(_KILL_FRAMES), str(ring)],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -606,25 +613,35 @@ def _kill_at(path: Path, delay: float, after: str) -> dict[str, Any]:
 def test_log_seeded_kills_leave_a_correct_prefix_a_typed_refusal_or_the_published_log(
     tmp_path: Path,
 ) -> None:
-    # A calibration run: the reference file (the killed runs' prefixes are compared to it, and a
-    # kill after the publication must leave exactly its bytes) and the run and close times.
-    reference = tmp_path / "reference.h5"
-    calibration = _run_child(_KILL_CHILD, str(reference), str(FAST), str(_KILL_FRAMES))
-    assert calibration.returncode == 0, calibration.stderr
-    timing = {
-        line.split()[0]: float(line.split()[1]) for line in calibration.stdout.splitlines()[1:]
-    }
-    run_s, close_s = timing["closing"], timing["closed"]
-    print(f"R16 seeded kills: run {run_s * 1e3:.1f} ms, close {close_s * 1e3:.2f} ms")
+    # Calibration runs: the reference file (the killed runs' prefixes are compared to it, and a
+    # kill after the publication must leave exactly its bytes; R18 makes it the same for both ring
+    # sizes) and the run and close times of each child.
+    timings: dict[int, dict[str, float]] = {}
+    for ring in (0, _CLOSE_RING):
+        reference = tmp_path / f"reference_{ring}.h5"
+        calibration = _run_child(
+            _KILL_CHILD, str(reference), str(FAST), str(_KILL_FRAMES), str(ring)
+        )
+        assert calibration.returncode == 0, calibration.stderr
+        lines = calibration.stdout.splitlines()[1:]
+        timings[ring] = {line.split()[0]: float(line.split()[1]) for line in lines}
+    reference = tmp_path / "reference_0.h5"
+    assert reference.read_bytes() == (tmp_path / f"reference_{_CLOSE_RING}.h5").read_bytes()
+    run_s, close_s = timings[0]["closing"], timings[0]["closed"]
+    close_all_s = timings[_CLOSE_RING]["closed"]
+    print(
+        f"R16 seeded kills: run {run_s * 1e3:.1f} ms, close {close_s * 1e3:.2f} ms, close with "
+        f"every block {close_all_s * 1e3:.1f} ms"
+    )
     draws = random.Random(20260929)
-    plan = [("built", draws.uniform(0.0, run_s + close_s)) for _ in range(12)]
-    plan += [("closing", draws.uniform(0.0, close_s)) for _ in range(4)]
+    plan = [("built", draws.uniform(0.0, run_s + close_s), 0) for _ in range(12)]
+    plan += [("closing", draws.uniform(0.0, close_all_s), _CLOSE_RING) for _ in range(4)]
     outcomes: list[str] = []
     certified_rate1 = 0
     in_close = 0
-    for index, (after, delay) in enumerate(plan):
+    for index, (after, delay, ring) in enumerate(plan):
         path = tmp_path / f"kill_{index:02d}.h5"
-        killed = _kill_at(path, delay, after)
+        killed = _kill_at(path, delay, after, ring)
         lines = killed["lines"]
         if "closing" in lines and "closed" not in lines:
             in_close += 1
