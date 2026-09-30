@@ -1,0 +1,20 @@
+# M6 PR 2 (docs/plans/m6-pr2-finalization.md): a fast logged fixture with a divisor-10 rate group,
+# for ADR-0027's kill tests (R16) and byte-identity tests (R18). tests/plugins/slow_rate registers
+# slow_rate.value at its entry's divisor, so the log has /rate_1 and /rate_10; Dryden draws from its
+# RNG every frame. The climb keeps the altitude inside ISA 1976's range for 30 000 frames
+# (10 000 m + 150 t - 4.9 t^2 stays between 10 000 m and 11 150 m).
+sim:
+  dt: 0.001
+  frames: 30000
+vehicle:
+  models:
+    - { plugin: tests/plugins/nan_wrench, force_x: 1.0 }
+    - { plugin: tests/plugins/slow_rate, divisor: 10 }
+physical:
+  earth: plugins/physical/earth/flat
+  gravity: plugins/physical/gravity/constant
+  atmosphere: plugins/physical/atmosphere/isa1976
+  wind: { plugin: plugins/physical/wind/dryden, seed: 7, w20_knots: 15.0, sigma_high: 3.0 }
+  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 }
+initial:
+  state: { p_n: [0.0, 0.0, -10000.0], v_b: [60.0, 0.0, -150.0] }
