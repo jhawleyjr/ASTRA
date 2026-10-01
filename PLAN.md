@@ -13,38 +13,45 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
       `core_api_version`, static-plugins build passes the same test; ICD static asserts hold under clang-18 and
       `gcc -std=c11`; hooks fire; LSPs resolve symbols; CI runs `just check` on PRs and `main` requires it;
       ADR-0001…0011 accepted. Evidence: the PRs below (no retained packet).
-  - PR 1 (#1): bootstrap files, ADR-0001…0011, oracle-guard hook. Plan: none. Packet: none.
+  - PR 1 (#1): bootstrap files, ADR-0001…0011, oracle-guard hook. Plan:
+    [plan](docs/plans/m0-kickoff.md). Packet: none.
   - PR 2 (#2): CMake presets, `justfile`, core skeleton, plugin loader + dummy plugin, `icd/`, GitHub Actions
-    (job `check`), hook test runner in `just check`. Plan: none. Packet: none.
+    (job `check`), hook test runner in `just check`. Plan:
+    [plan](docs/plans/m0-pr2-build-core-skeleton.md). Packet: none.
   - PR 3 (#6): Python package (`astra._core` via nanobind, stubs), pyright/ruff/pytest, clangd config. Plan:
-    none. Packet: none.
-  - PR 4 (#9): Stop hook (fast check), Codex review wired, `check` required in the ruleset. Plan: none. Packet:
-    none.
+    [plan](docs/plans/m0-pr3-python-package.md). Packet: none.
+  - PR 4 (#9): Stop hook (fast check), Codex review wired, `check` required in the ruleset. Plan:
+    [plan](docs/plans/m0-pr4-stop-hook-ci.md). Packet: none.
 - [x] **M1 Rigid body** — EOM + integrators + mass properties + flat Earth; torque-free energy/angular-momentum
       drift < 1e-9 over 1000 s, |q| within 1e-12, ballistic arc closed form, RK4 vs Euler order shown, zero
       allocations over 1000 frames; health monitor halts on injected NaN and broken quaternion, naming the source.
       Evidence: the PRs below and their tests under `tests/physics/` and `tests/unit/` (no retained packet).
   - PR 1 (#15): `core/include/astra/util/frames.hpp` (quaternion ↔ DCM ↔ 3-2-1 Euler, `q_nb` kinematics), the kernel
-    `Integrator` (Euler, RK4, post-step renormalize); ADR-0001 sign-pinning test. Plan: none. Packet: none.
+    `Integrator` (Euler, RK4, post-step renormalize); ADR-0001 sign-pinning test. Plan:
+    [plan](docs/plans/m1-pr1-frames-integrator.md). Packet: none.
   - PR 2 (#16): `Config`, `SignalRegistry`, `VirtualClock`, `Scheduler`, `Vehicle`, `Simulation`; ctest labels
-    `unit`/`physics`. Plan: none. Packet: none.
+    `unit`/`physics`. Plan: [plan](docs/plans/m1-pr2-config-scheduler.md). Packet: none.
   - PR 3 (#19): `EarthModel` (`earth/flat`), `GravityModel` (`gravity/constant`), `MassPropertiesModel`
-    (`mass/constant`), `Eom`; torque-free, ballistic and precession physics tests. Plan: none. Packet: none.
-  - PR 4 (#21): `HealthMonitor` (NaN/Inf, |q| drift > 1e-6), typed halt reason, allocation counter. Plan: none.
-    Packet: none.
+    (`mass/constant`), `Eom`; torque-free, ballistic and precession physics tests. Plan:
+    [plan](docs/plans/m1-pr3-earth-gravity-mass.md). Packet: none.
+  - PR 4 (#21): `HealthMonitor` (NaN/Inf, |q| drift > 1e-6), typed halt reason, allocation counter. Plan:
+    [plan](docs/plans/m1-pr4-health-monitor.md). Packet: none.
 - [x] **M2 Environment** — ISA-1976, gravity (constant / inverse-square / WGS-84 J2), wind + Dryden, Earth
       (flat / round / WGS-84 rotating); NASA check cases 1–10 within NESC tolerances; ISA table points exact.
       Evidence: all ten cases pass under all four presets, PR 3c's gate
       ([packet](docs/reviews/pr3c-substage-wrench-human.md), ADR-0016).
   - PR 1 (#22): `earth/{round, wgs84_rotating}`, `gravity/{inverse_square, wgs84_j2}`, position-representation
-    check, `cppcoreguidelines-no-malloc`. Plan: none. Packet: none.
-  - PR 1b (#24): `AtmosphereModel` + `atmosphere/isa1976`, ISA golden table. Plan: none. Packet: none.
+    check, `cppcoreguidelines-no-malloc`. Plan: [plan](docs/plans/m2-pr1-earth-gravity.md). Packet: none.
+  - PR 1b (#24): `AtmosphereModel` + `atmosphere/isa1976`, ISA golden table. Plan:
+    [plan](docs/plans/m2-pr1b-atmosphere.md). Packet: none.
   - PR 2 (#25): `WindModel` + `wind/uniform` + the `EnvironmentSample` latch; `Simulation::for_testing`. Plan:
-    none. Packet: none.
-  - PR 2b (#26): `core/include/astra/util/random.hpp` + `wind/dryden` (MIL-F-8785C), Dryden PSD test. Plan: none. Packet: none.
-  - PR 2c (#27): per-frame domain validity (ADR-0012), plus ADR-0013. Plan: none. Packet: none.
+    [plan](docs/plans/m2-pr2-wind.md). Packet: none.
+  - PR 2b (#26): `core/include/astra/util/random.hpp` + `wind/dryden` (MIL-F-8785C), Dryden PSD test. Plan:
+    [plan](docs/plans/m2-pr2b-random-units-dryden.md). Packet: none.
+  - PR 2c (#27): per-frame domain validity (ADR-0012), plus ADR-0013. Plan:
+    [plan](docs/plans/m2-pr2c-domain-validity.md). Packet: none.
   - PR 3a (#29): `EnvironmentSample::atmosphere`, `earth/round rotating`, `wind/table`, `tests/plugins/nesc_aero`.
-    Plan: none. Packet: none.
+    Plan: [plan](docs/plans/m2-pr3-nesc-split.md). Packet: none.
   - PR 3b (#31): the NESC ten-case harness (ADR-0014). Spec: [spec](docs/specs/nesc-harness.md). Plan:
     [plan](docs/plans/nesc-harness.md). Packet: [packet](docs/reviews/nesc-harness-human.md).
   - ADR-0015 (#32): drop `tol_rel`, exclude SIM 2 from cases 4/5. Plan:
@@ -100,7 +107,8 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
       `docs/reviews/evidence/4e418e1-*` logs (`4e418e1-full-gate.log`, `4e418e1-a6-pytest.log`,
       `4e418e1-a6-ctest-asan.log`, `4e418e1-a6-reports.json`, `4e418e1-r4-timings.json`). Spec and plan:
       [plan](docs/plans/m4-lockstep.md).
-  - PR 1 (#51): ADR-0022/0023/0024 and architecture rev 8. Plan: [plan](docs/plans/m4-lockstep.md). Packet:
+  - PR 1 (#51): ADR-0022/0023/0024 and architecture rev 8. Plans:
+    [milestone](docs/plans/m4-lockstep.md), [PR](docs/plans/m4-pr1-adrs.md). Packet:
     [packet](docs/reviews/m4-pr1-adrs-human.md).
   - PR 2 (#52): ICD truth packing (`icd_pack.hpp`, `status_flags` bits, oracle tests; R12a). Plan:
     [plan](docs/plans/m4-lockstep.md). Packet: [packet](docs/reviews/m4-pr2-icd-pack-human.md).
@@ -137,7 +145,8 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
   - Planning (#62): M5 spec, plan and nine-PR decomposition; Q1 to Q24 decided by Joe. Plan:
     [plan](docs/plans/m5-tooling.md). Packet: none.
   - PR 1 (#63): ADR-0025 (run log and replay), ADR-0026 (derived signals), architecture rev 9, AGENTS.md
-    wall-clock scope. Plan: [plan](docs/plans/m5-tooling.md). Packet: in the PR body.
+    wall-clock scope. Plans: [milestone](docs/plans/m5-tooling.md), [PR](docs/plans/m5-pr1-adrs.md). Packet: in
+    the PR body.
   - PR 2 (#64): HDF5 RAII wrapper in `core/signals/` (`Hdf5Error`, time tracking off, version bounds fixed at
     1.8 to 1.10), byte-identity and LSan tests. Plan: [plan](docs/plans/m5-tooling.md). Packet: in the PR body.
   - PR 3 (#65): derived flight-condition signals `v<i>.derived.*` (ADR-0026), a separate frame-start
@@ -149,25 +158,26 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
     the PR body.
   - PR 5 (#67): `astra.log`: `load` (pandas per rate group; refuses a log without `complete = 1` or inconsistent
     with its `/summary`), `replay` (byte identity; refuses transport and `LOG`-halted logs); h5py and pandas
-    pinned. Plan: [plan](docs/plans/m5-tooling.md). Packet: in the PR body.
+    pinned. Plans: [milestone](docs/plans/m5-tooling.md), [PR](docs/plans/m5-pr5-log-load-replay.md). Packet:
+    in the PR body.
   - PR 6 (#68): `astra.scenario` and `tests/scenarios/` (one item per YAML; invalid is a collection error),
     `cruise_still_air.yaml`, five Q15 seed scenarios; reads each run's own log strictly (frames_run, halt,
-    warn counters: the finalization open item's consumer assertion). Plan: [plan](docs/plans/m5-tooling.md).
-    Packet: in the PR body.
+    warn counters: the finalization open item's consumer assertion). Plans:
+    [milestone](docs/plans/m5-tooling.md), [PR](docs/plans/m5-pr6-scenario.md). Packet: in the PR body.
   - PR 7 (#69): `astra.montecarlo` (spawn pool, SHA-256 per-run seeds, in-house sampler, `summary.parquet`;
     halts are rows, failures are `error` rows, a dead worker fails the batch), helpers shared with
-    `astra.scenario` in `astra._runkit`, pyarrow pinned, the Q19 64-run case under `just check`. Plan:
-    [plan](docs/plans/m5-tooling.md). Packet: in the PR body.
+    `astra.scenario` in `astra._runkit`, pyarrow pinned, the Q19 64-run case under `just check`. Plans:
+    [milestone](docs/plans/m5-tooling.md), [PR](docs/plans/m5-pr7-montecarlo.md). Packet: in the PR body.
   - PR 8 (#70): `astra.fgbridge` (FGNetFDM v24 over UDP from a live `Simulation` or a strictly loaded log, one
     packet per `frame % divisor == 0`, flat Earth refused), the transcribed table
     `tests/golden/flightgear/fgnetfdm_v24.py` (FlightGear 2024.1.7) and its by-hand g++ cross-check
-    `scripts/fgnetfdm_layout_check.py`, a table-built decoder test over a real socket. Plan:
-    [plan](docs/plans/m5-tooling.md). Packet: in the PR body.
+    `scripts/fgnetfdm_layout_check.py`, a table-built decoder test over a real socket. Plans:
+    [milestone](docs/plans/m5-tooling.md), [PR](docs/plans/m5-pr8-fgbridge.md). Packet: in the PR body.
   - PR 9 (#71): M5 closeout: PLAN.md check-off with evidence links, open items for the held-out scope
     (writer thread, CLI, recorder retirement, wind events, closed-loop scenarios/Monte Carlo, lockstep
     replay, bridge pacing), the finalization item extended with the F1 residual, crash-readable log and
-    load cross-check points, architecture §12 status. Plan: [plan](docs/plans/m5-tooling.md). Packet: in the
-    PR body.
+    load cross-check points, architecture §12 status. Plans: [milestone](docs/plans/m5-tooling.md),
+    [PR](docs/plans/m5-pr9-closeout.md). Packet: in the PR body.
   - PR 10 (#72): post-M5 cleanup: the wall-clock symbol scan (`scripts/wallclock_scan.py`, `just wallclock-scan`,
     in `just check`; ADR-0023's two sites allowlisted), `astra.fgbridge` pacing on by default, Follow-up A's
     comment fixes in `tests/unit/icd/icd_pack_test.cpp`, and the Finalization item's F1 citation; those three
@@ -176,7 +186,7 @@ the PR titled "Workflow calibration": read it with `git show <that commit>^:PLAN
   - PR 11 (#74): Follow-up B: Stevens & Lewis equation citations corrected (comments only, Tier 0) in
     `core/include/astra/util/frames.hpp` and the golden header `tests/golden/frames/adr0001_cases.hpp`, and the
     half-angle citation in four Python files (scope widened by Joe); the Follow-up B open item is removed.
-    Plan: none (Tier 0). Packet: in the PR body.
+    Plan: [plan](docs/plans/follow-up-b-citations.md). Packet: in the PR body.
   - PR 12 (#73): `astra_add_plugin_test()`: a test executable opts into the plugin build order with one call in
     its own `CMakeLists.txt`, and `astra_finalize_plugins()`'s hardcoded test list is gone. Every listed target
     migrated; `aircraft/_template/tests/` carries the template's own tests, so a copy from `just new-aircraft`
@@ -200,7 +210,8 @@ takes them as a prefix.
       provenance; a frame-time benchmark; `astra run --strict`; the superseding ADR to ADR-0025's
       Finalization (Tier 3). Detail: [future work](docs/future-work.md#analysis-and-debugging-tools).
   - Planning (#78): M6 spec, plan and ten-PR decomposition; Q1 to Q23 decided by Joe, after a Codex plan
-    critique and a verification pass. Plan: [plan](docs/plans/m6-analysis-tooling.md). Packet: none.
+    critique and a verification pass. Plans: [milestone](docs/plans/m6-analysis-tooling.md),
+    [critique](docs/plans/m6-plan-critique.md). Packet: none.
   - PR 1 (#79): ADR-0027, superseding ADR-0025's Finalization: the `.partial` and its exclusive create,
     publication by `renameat2(RENAME_NOREPLACE)`, the destructor's `finalized_by` marker without a rename, a flush
     and `rows_committed` after every block, what a killed run leaves, `load`'s states and cross-checks, and who
@@ -225,6 +236,10 @@ takes them as a prefix.
   - Workflow (#83): plan-mode drafts land in the session's `docs/plans/` (`plansDirectory`), with the rule for
     renaming, committing or deleting them in `docs/agents/claude-code.md` and `/wrap`; 27 never-committed plans
     recovered from `~/.claude/plans`. Plan: [plan](docs/plans/claude-plans-directory.md). Packet: in the PR body.
+  - Follow-ups from #83 (#85): `.claude/settings.local.json` ignored; workflow.md's model sentence matches
+    `.claude/settings.json`; `docs/agents/claude-code.md` says a worktree-guard refusal is rerun or written with
+    Write/Edit, never asked; recovered plans linked from their PR lines above. Plan:
+    [plan](docs/plans/followups-83.md). Packet: in the PR body.
 - [ ] **M7 F-16 and the NESC oracle** — `aircraft/f16` built from the template; NESC atmospheric cases 11, 12,
       13.1 to 13.4, 15 and 16 against the participating simulations' trajectories in `docs/refs` (ADR-0013's
       ensemble as oracle); the tutorial and the generated config-key reference written from this path. The

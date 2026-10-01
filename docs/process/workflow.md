@@ -311,8 +311,8 @@ removed and no retro ceremony blocks a milestone. Add automation only for demons
 
 ## Model and effort
 
-`.claude/settings.json` pins `opusplan` at `high` with Sonnet subagents; who changes it, and the
-no-recon-subagents rule, are in AGENTS.md. Rationale: physics correctness comes from independent oracles
+`.claude/settings.json` pins `"model": "opus"` at `"effortLevel": "high"`, with subagents on
+`"CLAUDE_CODE_SUBAGENT_MODEL": "opus"`; who changes it, and the no-recon-subagents rule, are in AGENTS.md. Rationale: physics correctness comes from independent oracles
 and review, not effort; a recon subagent costs tokens (`docs/lessons.md`, 2026-09-14) and hands the planner
 a secondhand account instead of a first-hand read. One PR per context; log verbose output. Templates record
 the assigned provider/model without changing provider settings. No new agent service or dependency is needed.

@@ -6,6 +6,7 @@ Provider-specific procedures; shared rules remain in [AGENTS.md](../../AGENTS.md
   blocks `git push` to `main` and any commit/merge/rebase while `main` is checked out. Commit, push and draft-PR
   rules are in AGENTS.md. A push after the PR opens does not re-run CI's `check`: see the
   `gh pr ready --undo` / `gh pr ready` rerun in [workflow](../process/workflow.md#human-approval-and-mergerelease-gates).
+- Never ask Joe about a worktree-guard refusal: rerun as plain separate commands or use Write/Edit; note it in the PR body.
 - Model and effort: [workflow](../process/workflow.md#model-and-effort); physics diffs are checked by Joe reading them, not by effort.
 - Prefer the existing clangd/pyright LSP tools for symbol navigation; diagnostics are feedback, not the gate.
 - Keep the context small: build/test output to a file, show the tail; one PR per session.
@@ -25,8 +26,7 @@ Provider-specific procedures; shared rules remain in [AGENTS.md](../../AGENTS.md
   session's root (a session started at a worktree root wrote into that worktree's `docs/plans/`, 2026-09-30).
   A session started in the main checkout that plans and then enters a worktree (EnterWorktree) writes its draft
   to the main checkout's `docs/plans/`, untracked (inferred from that check, not observed): `mv` the draft into
-  the worktree's `docs/plans/` before renaming it, and leave nothing untracked in the main checkout. If the
-  worktree guard refuses the move, ask Joe.
+  the worktree's `docs/plans/` before renaming it, and leave nothing untracked in the main checkout.
 - Follow [review dispatch](review-dispatch.md): select working-tree versus committed-branch scope
   explicitly. A dirty candidate plus earlier commits needs combined coverage. Codex is read-only;
   the built-in Claude reviewer and automatic stop-time model reviews do not replace it.
