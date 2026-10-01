@@ -56,13 +56,14 @@ ASTRA is a vehicle-agnostic 6-DoF framework: C++23 core, Python bindings, real e
 
 - **Frames** (ADR-0001): body FRD (x fwd, y right, z down); nav NED; `q_nb` rotates n→b, Hamilton, scalar-first
   `(w,x,y,z)`, renormalized after every integrator step. Euler angles are 3-2-1 (ψ,θ,φ) derived outputs, never state.
-- **State vector** (ADR-0003): 13 doubles, fixed layout `p_n(3) v_b(3) q_nb(4) ω_b(3)`. Position representation is
-  owned by the Earth model (NED metres for flat; lat/lon rad + altitude for round/WGS-84). Mass is not state in v1.
+- **State vector** (ADR-0003, ADR-0021): the rigid-body block is 13 doubles, fixed layout `p_n(3) v_b(3) q_nb(4) ω_b(3)`,
+  first in a buffer models may extend with their own states. Position representation is owned by the Earth model
+  (NED meters for flat; lat/lon rad + altitude for round/WGS-84). Mass is not state in v1.
 - **Units** (ADR-0002): SI everywhere inside `core/`, `plugins/`, `aircraft/` (m, s, kg, rad, N, Pa, K). Conversions
   only at boundaries. Signal names carry no unit suffix; the unit string lives in the SignalRegistry metadata.
 - **Time** (ADR-0010): integer `frame` counter is the source of truth; `t = frame * dt` derived, never accumulated.
   Fixed `dt = 1 ms`; every rate is an integer divisor of the major frame. In `core/`, `plugins/` and `aircraft/`, wall-clock access is restricted to the `RealTime` pacer (ADR-0010) and the lockstep transport timeout (ADR-0023); it never supplies simulation time.
-- **Per-frame path** (`step`, `compute`, integrator, transport exchange, logger sample): no heap allocation, no
+- **Per-frame path** (`step`, `wrench_b`, integrator, transport exchange, logger sample): no heap allocation, no
   exceptions, no blocking I/O, no `std::string`, no `dlopen`. Init may allocate and throw typed errors naming the
   config path. Step-time model errors go through status flags, not exceptions.
 - **Randomness**: `std::mt19937_64` with in-house Box-Muller/uniform transforms (the standard distributions are not portable across libstdc++/libc++). Every stochastic plugin takes a seed from config; the seed is logged.
