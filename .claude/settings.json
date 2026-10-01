@@ -1,6 +1,7 @@
 {
   "model": "opus",
   "effortLevel": "high",
+  "plansDirectory": "docs/plans",
   "env": {
     "CLAUDE_CODE_SUBAGENT_MODEL": "opus"
   },

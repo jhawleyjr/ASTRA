@@ -66,7 +66,11 @@ to wrap. If later changes invalidate evidence, mark the affected gate pending an
 Under the standing authorization ([AGENTS.md](../../../AGENTS.md#commands-and-boundaries)), commit
 the coherent work, push the task branch, and open the draft PR if none exists, or update its body with the
 handoff, description and results if one does. Results go in the body, not in a record-only commit. Preserve
-unrelated changes and never sweep them into the commit. A push after the PR opens
+unrelated changes and never sweep them into the commit. A random-named plan-mode draft in `docs/plans/` is never
+committed as is: move a draft left in the main checkout's `docs/plans/` into the worktree's first (`mv`; leave
+nothing untracked there; ask Joe if the guard refuses), rename it to its conventional name, and if Joe has not yet
+decided, commit it with a status line saying it awaits his approval (never "approved"); delete only a draft he
+rejected ([procedure](../../../docs/agents/claude-code.md)). A push after the PR opens
 does not re-run CI's `check`; note the `gh pr ready --undo` / `gh pr ready` rerun as a pre-merge step, per the
 workflow. Inspect and record the result of every action (`gh pr view --json body`); never replace a PR body
 with a claim that unrun checks passed. A blocked or dirty-tree handoff is still valid: push what is coherent

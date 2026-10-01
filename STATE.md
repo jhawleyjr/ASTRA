@@ -1,37 +1,37 @@
 # STATE (rewritten once, at /wrap, never appended; ≤ 40 lines, says nothing that changes at merge)
 
 ## In flight
-M6 PR 3 (Tier 2), the `astra` CLI (`astra run`, `astra trim`): PR #81, draft, branch `worktree-m6-pr3-cli`, base
-`origin/main` `da52239` (#80). Plan: `docs/plans/m6-pr3-cli.md` (approved by Joe in plan mode with J1 to J6).
-Stage: human review (step 10), second look. Joe reviewed `4bb7607` and asked for three changes; all three are in
-the code candidate `e1a8dec` (the review file updated; H-1, `astra trim` catching only `astra.trim`'s two expected
-failures; two PLAN.md open items). Later commits are evidence and this handoff only. Every gate the tier requires
-is met on `e1a8dec`. The PR body holds the checks, the R14 test map, J4's evidence, the review and D1 to D8.
+Plans into the repo (Tier 2, workflow config and docs): PR #83, draft, branch `worktree-claude-plans-dir`, base
+`origin/main` `7f61ac1` (#82). Plan: `docs/plans/claude-plans-directory.md` (approved by Joe with four additions).
+Stage: human review, second look. Joe reviewed `ac16597` and asked for six changes; all are in the candidate
+`ae2f04c` (`b9f1519`: #49 provenance, the m2-pr2b title, the main-checkout draft move in `docs/agents/claude-code.md`
+and `/wrap` labeled inferred, eight American spellings; `ae2f04c`: e26b recovered as
+`docs/plans/m4-planning-session.md`). 27 never-committed ASTRA plans are recovered; `~/.claude/plans` holds only
+the 43 other-project drafts. The PR body holds the facts, Joe's check, the sorting table, the checks and Codex.
 
 ## Last verified result
 Run this session:
-- `./scripts/check-full.sh` from a fresh configure (`build/` removed first) on `e1a8dec`: exit 0, `check: OK`,
-  1035 s (`docs/reviews/evidence/e1a8dec-gate-summary.log`); CTest 649/650/651/652, pytest 579 passed, 5 skipped.
-- `.venv/bin/pytest tests/python -k cli` on `e1a8dec`: 72 passed.
-- Codex: pass 1 (`01a0f374-1ac6-77a0-ad62-3026dd421a53`) needs-attention, R-001 and R-002; their verification
-  (`01a0f385-55b8-7853-9bb3-db5d7ec6efc4`) approve; H-1's verification (`01a0f3d9-81c1-74d2-a276-f740635a9d5f`,
-  `5b8305f` to `e1a8dec`) approve, new findings none. `docs/reviews/m6-pr3-cli-review.md` still shows H-1 as
-  pending (no record-only update); the PR body holds its verification.
-- The YAML 1.1 readings behind the new (M6) open item were probed on this build (on/off/yes/no, 010, 1:30, 1_000).
+- Joe's check: a plan-mode session started at the worktree root wrote its draft to the worktree's
+  `docs/plans/` (outcome 1). That test draft was deleted.
+- `./scripts/check-full.sh` from a fresh configure on `ac16597`: exit 0, `check: OK`, about 1048 s
+  (`docs/reviews/evidence/ac16597-gate-summary.log`). No re-gate after the docs-only review fixes (Joe's call).
+- On `ae2f04c`: `python3 scripts/docs_check.py` exit 0; `git diff --check` clean. On `9dc924e`:
+  `python3 -m json.tool .claude/settings.json` exit 0; `git diff 7f61ac1 -- .claude/settings.json` is one line.
+- Codex: `review --base 7f61ac1` (`01a0f55d-a5be-7802-b1fd-3513f8f6a22a`) no actionable defects; verification
+  `adversarial-review --base ac16597` (`01a0f57e-4993-7081-b552-b891910961da`) approve, six items PASS, new findings none.
 
 ## Next step
-1. Joe reads the H-1 delta (`4bb7607..e1a8dec`) and decides approval of the candidate and D1 to D8 (PR body).
-2. Before merge, rerun CI's `check` with `gh pr ready --undo` then `gh pr ready` (local gate mode).
-3. Next M6 task: PR 4 (units, Tier 3) or PR 9 (benchmark) depend only on PR 1; PR 5 (plots) needs PR 3 and PR 4.
+1. Joe decides approval of `ae2f04c` (PR body).
+2. Before merge, rerun CI's `check` with `gh pr ready --undo` then `gh pr ready`.
+3. Next M6 task: PR 5 (plots; PR 3 and PR 4 are in `main`) or PR 9 (benchmark), per `docs/plans/m6-analysis-tooling.md`.
 
 ## Tried / failed
-- Correction rounds and failed integrations are in the PR body (1 of 2; 0). H-1 is Joe's change, not a round.
-- The worktree guard refused compound commands, heredocs with escapes, `$(...)` arithmetic and the main
-  checkout's venv; the workaround was scripts in the scratchpad (the 2026-09-27 lesson).
-- `gh pr edit --body-file` failed on the classic-Projects GraphQL error; the REST PATCH worked (2026-09-29 lesson).
-- A `q_nb` variant for J4 was dropped: the core does not read `initial.state.q_nb`, so that config is invalid.
-- A real trim non-convergence was not found (1 m/s and 20 m/s converge); exit 1 is shown by a real early stop
-  (`xtol=0.1`, residual 3.2e-5) and the non-convergence mapping by a raise with `astra.trim`'s own message.
+- Correction rounds and failed integrations are in the PR body (0 of 2; 0). Joe's six items are his review, not a round.
+- The worktree guard refused compound commands naming git and a `git -C` read (worked around per lesson
+  2026-09-27), and one write: the first e26b recovery, a Python heredoc whose text mentioned git. Not retried;
+  Joe chose `cp` plus an Edit-tool provenance line, checked with `diff` before the draft was deleted.
+- No `~/.claude/plans` draft matched a `docs/plans/` blob byte for byte, so all 77 were read, guided by a
+  line-similarity score against every historical `docs/plans/` and `docs/specs/` blob.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.
