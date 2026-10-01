@@ -16,8 +16,8 @@ struct MassProps {
   Eigen::Matrix3d inertia_b = Eigen::Matrix3d::Zero();
 };
 
-// noexcept strengthens §7's sketch: get() is called from inside Eom::operator(), which the
-// StateDerivative concept (core/kernel/integrator.hpp) forces to be noexcept end to end, so a
+// noexcept strengthens §7's sketch: get() is called from inside
+// RigidBody6DofDynamics::begin_frame(), which is noexcept, on the per-frame path (ADR-0021), so a
 // throwing override would terminate the process regardless.
 class MassPropertiesModel : public Model {
  public:

@@ -33,9 +33,9 @@ Simulation load(const Config& config) {
 }
 
 // A minimal physical section (flat earth, constant gravity, constant mass) so Vehicle::integrate
-// has a real Eom and actually calls wrench_b() -- WrenchSource::wrench_b is only ever called when
-// eom_.has_value() (core/src/kernel/vehicle.cpp), unlike bind_inputs()/latch(), which run
-// unconditionally.
+// has a real RigidBody6DofDynamics and calls wrench_b() -- WrenchSource::wrench_b is only ever
+// called when rigid_body_.has_value() (core/src/kernel/vehicle.cpp), unlike bind_inputs()/latch(),
+// which run unconditionally.
 constexpr std::string_view kPhysical = R"(
 physical:
   earth: plugins/physical/earth/flat

@@ -24,7 +24,7 @@ Subcommands: ``run`` and ``trim``. ``plot``, ``report`` and ``mc`` come with the
       ``health.max_q_drift`` is a drift, not a count).
     - 0: otherwise.
 
-    Outside §15's table (PLAN.md's open item on §15): 70 (``EX_SOFTWARE``) for an internal error, a
+    Also in §15's table: 70 (``EX_SOFTWARE``) for an internal error, a
     defect, with its traceback on stderr (D3), never 1, which would read as a halt. A strict load of
     the log ``close_log()`` just published that raises is one.
 

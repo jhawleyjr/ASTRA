@@ -7,7 +7,7 @@ exit codes. Invoke them from any working directory by their relative or absolute
 | Command | Existing coverage |
 |---|---|
 | `./scripts/check-fast.sh` | `just test-unit`: configure/build `asan`, CTest label `unit`, fail if no tests match |
-| `./scripts/check-full.sh` | `just check`: debug, release, static-plugins, asan build/tests; the wall-clock symbol scan; Python editable install; compile database links; clang-tidy; format dry run; `embedded-standalone`; hook cases; ruff; strict pyright; pytest |
+| `./scripts/check-full.sh` | `just check`: format check; docs check; `embedded-standalone`; hook cases; ruff; debug, release, static-plugins, asan build/tests; the wall-clock symbol scan; Python editable install; compile database links; clang-tidy; strict pyright; pytest |
 | `just build [preset]` / `just test [preset]` | One CMake preset, default asan |
 | `just wallclock-scan [preset]` | Builds the preset, then `scripts/wallclock_scan.py` fails on any wall-clock, sleep or timed-wait symbol in a `core/`, `plugins/`, `aircraft/` or `embedded/` object outside ADR-0023's two sites; `just check` runs it for all four presets |
 | `ctest --preset asan -R <name> --no-tests=error` | Selected existing CTest cases after building |
@@ -33,7 +33,7 @@ when required by a task; do not claim these categories are covered by a green fu
 
 Use the existing [Ubuntu setup](../../scripts/setup-ubuntu.sh) for provisioning, not as part of each
 check. It installs system packages and requires sudo. CMake presets use Ninja/clang-18; C++23 core,
-C11 ICD, and the planned separate embedded example is C++17. Python requires 3.12+; `just venv` installs
+C11 ICD, and the separate embedded example (`embedded/`, ADR-0008) is C++17. Python requires 3.12+; `just venv` installs
 the dev group and `just python` builds nanobind/scikit-build-core editable bindings. Initial setup may
 need network access. The justfile clears `PYTHONPATH` to avoid ROS leaking into the venv.
 
@@ -85,8 +85,8 @@ the summary log, and the acceptance criteria exercised. Approval and check evide
 candidate they evaluated.
 
 For workflow edits, run `just docs-check` (`scripts/docs_check.py`): Markdown links/anchors across
-`docs/process/`, `docs/agents/`, `docs/templates/`, `.claude/skills/`, the root instruction files and
-`PLAN.md` (links only);
+`docs/process/`, `docs/agents/`, `docs/templates/`, `.claude/skills/`, the root instruction files,
+`README.md`, `docs/README.md`, `docs/reviews/README.md` and `PLAN.md` (links only);
 `.claude/skills/*/SKILL.md` frontmatter and name-matches-directory; the AGENTS.md+CLAUDE.md line
 budget; `just`/`./scripts/` command names referenced from those docs; `bash -n` on each wrapper
 separately (`bash -n a b` only parses `a`; `b` becomes an unused positional argument, not a second
@@ -126,7 +126,7 @@ Non-standard conventions.
    - **RK4 coupling** (ADR-0004): a changed derivative must be correct at all four stages, not only
      evaluated once at the frame boundary.
    - **Per-frame constraints**: no heap allocation, exceptions, blocking I/O, `std::string`, or
-     `dlopen` on the `step`/`compute`/integrator/transport/logger path (`no_alloc_test.cpp`-style
+     `dlopen` on the `step`/`wrench_b`/integrator/transport/logger path (`no_alloc_test.cpp`-style
      coverage is the existing check).
 3. Never invent or relax a threshold. Accepted tolerances and their rationale live in the committed
    golden/tolerance data and the ADR that accepted it (e.g. ADR-0013's ensemble-band `k = 3`); a

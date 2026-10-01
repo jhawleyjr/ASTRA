@@ -307,7 +307,8 @@ current decision and checks (his own squash-merge may record that decision); onl
 
 Use [task status](../templates/task-status.md) for multiple packages; otherwise STATE/PR suffice.
 Use the revised [`/wrap`](../../.claude/skills/wrap/SKILL.md) when Claude pauses or finishes meaningful
-work at any stage, including a blocked-validation handoff. It records the first unfinished
+work at any stage, including a blocked-validation handoff. It brings the docs current (branch scope by
+default, repo scope when Joe asks and at every milestone closeout), and it records the first unfinished
 gate, actual evidence, Codex findings/retry counts, human decisions and next action; it prepares the
 PR description when appropriate and writes STATE once. It pushes the task branch and opens or updates the
 draft PR; it does not move to the next milestone while the current task is unfinished. Append lessons only when something actually

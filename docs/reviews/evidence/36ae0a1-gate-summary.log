@@ -1,0 +1,26 @@
+date: 2026-10-01T21:21:04Z (start 2026-10-01T21:03:38Z; 17 min 26 s)
+command: rm -rf build && ./scripts/check-full.sh (fresh configure)
+base: bca4be08bf421fa68cbe70642c70cfe21dfefe9f
+head: 36ae0a173f6984c6b7b2431d5bbf4b3b6f4e6e2b
+exit: 0
+working tree: clean
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 144 passed, 0 failed
+All checks passed!
+Test project build/debug
+100% tests passed, 0 tests failed out of 658
+Test project build/release
+100% tests passed, 0 tests failed out of 659
+Test project build/static-plugins
+100% tests passed, 0 tests failed out of 660
+Test project build/asan
+100% tests passed, 0 tests failed out of 661
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+0 errors, 0 warnings, 0 informations
+1204 passed, 5 skipped in 93.34s (0:01:33)
+check: OK

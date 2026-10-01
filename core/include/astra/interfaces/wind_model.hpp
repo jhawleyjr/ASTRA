@@ -27,10 +27,12 @@
 //                             it cannot itself advance anything, because a const method cannot
 //                             write to a non-mutable member (compiler-enforced). An earlier draft
 //                             of this design instead left wind_n non-const, reasoning that
-//                             Eom::operator() being const noexcept would then be unable to call it
-//                             -- that reasoning does not hold: Eom holds EarthModel&/GravityModel&
-//                             as reference members, and a reference member does not propagate the
-//                             enclosing object's constness to the referent, so a const Eom could
+//                             the const noexcept derivative (Eom::operator() then,
+//                             RigidBody6DofDynamics::derivative() under ADR-0021) would then be
+//                             unable to call it -- that reasoning does not hold: the derivative's
+//                             class holds EarthModel&/GravityModel& as reference members, and a
+//                             reference member does not propagate the enclosing object's
+//                             constness to the referent, so a const derivative could
 //                             still call a non-const method through one (verified directly against
 //                             a minimal reproduction). wind_n's own constness, not its caller's, is
 //                             the real guarantee, and it is why the split above puts all mutation
@@ -55,12 +57,13 @@ class WindModel : public Model {
   ~WindModel() override;
 
   // Per-frame, per-vehicle evolution hook, called once per vehicle by Simulation::step immediately
-  // before wind_n for that same vehicle -- mirroring Eom::begin_frame's "latch what this frame's
-  // evaluations need" role (core/include/astra/kernel/eom.hpp), but per-vehicle rather than
-  // per-Eom. This is the ONLY place a WindModel may use a VehicleState to evolve internal state:
-  // Model::step(const StepContext&) has no VehicleState to offer, and wind_n below is const and
-  // cannot evolve anything. Non-const and kernel-driven only -- nothing outside Simulation::step
-  // calls it, so evolution still does not depend on how many WrenchSources later read wind_n.
+  // before wind_n for that same vehicle -- mirroring RigidBody6DofDynamics::begin_frame's "latch
+  // what this frame's evaluations need" role
+  // (core/include/astra/kernel/rigid_body_6dof_dynamics.hpp), per vehicle. This is the ONLY place a
+  // WindModel may use a VehicleState to evolve internal state: Model::step(const StepContext&) has
+  // no VehicleState to offer, and wind_n below is const and cannot evolve anything. Non-const and
+  // kernel-driven only -- nothing outside Simulation::step calls it, so evolution still does not
+  // depend on how many WrenchSources later read wind_n.
   //
   // altitude_m is exactly whatever the configured EarthModel::altitude() returns for vs -- height
   // above that Earth model's own reference surface, the same value AtmosphereModel::at() takes

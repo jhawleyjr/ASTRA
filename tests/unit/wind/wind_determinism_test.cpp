@@ -16,10 +16,10 @@
 //   identical config -- exactly the claim PLAN.md's PR 2b line makes ("two same-seed runs bitwise
 //   identical on the gust sequence and the registry snapshot").
 //
-// There is no logger until M5 (ADR-0005), and docs/architecture.md §16 puts "bit-identical log
-// across two runs" under M4, not M2 -- this is the honest M2 substitute: the SignalRegistry is
-// exactly what the M5 logger will sample (signal_registry.hpp's own header comment), so a bitwise
-// registry snapshot is the closest analogue that compiles today, with no log and no golden file.
+// Written in M2, before the M5 logger existed (ADR-0005), and docs/architecture.md §16 puts
+// "bit-identical log across two runs" under M4, not M2 -- this was the honest M2 substitute: the
+// SignalRegistry is exactly what the M5 logger samples (signal_registry.hpp's own header comment),
+// so a bitwise registry snapshot needs no log and no golden file.
 #include <gtest/gtest.h>
 
 #include <bit>

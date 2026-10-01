@@ -28,8 +28,8 @@ ROOT_INSTRUCTION_LINE_BUDGET = 100
 # The workflow's own documentation surface (docs/process/validation.md's "for workflow
 # edits" scope): process/agent/template docs and skills. Deliberately excludes
 # docs/architecture.md and docs/decisions/** -- Joe-owned design docs that may intentionally
-# reference a future/planned command (e.g. architecture.md's `just new-aircraft`) not yet in
-# the justfile; those are not "workflow edits" and a mechanical check should not flag them.
+# reference a future/planned command not yet in the justfile (as `just new-aircraft` was before
+# M3 PR 1); those are not "workflow edits" and a mechanical check should not flag them.
 WORKFLOW_DOC_ROOTS = [
     "AGENTS.md",
     "CLAUDE.md",

@@ -24,9 +24,9 @@ Simulation load(const Config& config) {
   return Simulation::from_config(config, ASTRA_TEST_PLUGIN_DIR);
 }
 
-// A minimal physical section so Vehicle::integrate() has a real Eom and actually calls wrench_b()
-// (simulation_input_seam_test.cpp's own precedent, kPhysical), plus physical.atmosphere -- the
-// real requirement AeroModel/PropulsionModel both declare (ADR-0018).
+// A minimal physical section so Vehicle::integrate() has a real RigidBody6DofDynamics and calls
+// wrench_b() (simulation_input_seam_test.cpp's own precedent, kPhysical), plus physical.atmosphere
+// -- the real requirement AeroModel/PropulsionModel both declare (ADR-0018).
 std::string fixture(std::string_view atmosphere_plugin, double elevator) {
   return "sim: { dt: 0.001, frames: 1 }\n"
          "vehicle:\n"

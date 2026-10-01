@@ -508,11 +508,12 @@ physical:
 // (p_n + dt * p_n_dot(state)), but the Integrator's RK4 stages nest ACCELERATION into a position
 // estimate at 0.5 * |a| * dt^2 -- a state within that band of a boundary, at near-zero velocity
 // toward it, can have an RK4 stage evaluate singular math before check_domain ever runs. This
-// test pins that magnitude against the REAL Eom + Integrator (round Earth, constant gravity, at
-// rest, one RK4 step) rather than a hand-derived duplicate of the formula, so the disclosed gap's
-// size changes visibly, not silently, if dt (ADR-0010) or the integrator (ADR-0004) ever changes.
-// Started at altitude 0.0, not some large value, so the difference below is not itself lost to
-// floating-point cancellation between two ~1e3-magnitude doubles that agree to 1 part in 1e8.
+// test pins that magnitude against the REAL RigidBody6DofDynamics + Integrator (round Earth,
+// constant gravity, at rest, one RK4 step) rather than a hand-derived duplicate of the formula, so
+// the disclosed gap's size changes visibly, not silently, if dt (ADR-0010) or the integrator
+// (ADR-0004) ever changes. Started at altitude 0.0, not some large value, so the difference below
+// is not itself lost to floating-point cancellation between two ~1e3-magnitude doubles that agree
+// to 1 part in 1e8.
 //
 // Exact under this fixture's own dynamics, not merely approximate: with zero horizontal velocity
 // and round Earth non-rotating, every rate-of-transport term (p_n_dot's lat/lon components,
