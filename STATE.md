@@ -27,7 +27,8 @@ Run this session:
 - Correction rounds and failed integrations are in the PR body (1 of 2; 0).
 - The Monte Carlo snippet first failed without a `__main__` guard (spawned workers re-import the script); the
   add-an-aircraft trim first failed until `just python` rebuilt `build/python`. Both are now in the README.
-- The worktree guard refused five commands; each was rerun split without asking. The PR body lists them.
+- The worktree guard refused six commands; each was rerun split, or done with Write/Edit, without asking. The PR
+  body lists them.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.
