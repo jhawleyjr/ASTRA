@@ -97,7 +97,9 @@ The Python snippets run from the repository root, with `.venv` active after `jus
 
 `astra run <config> [--strict] [--log PATH]` runs `sim.frames` frames, closes the log and prints the summary. It
 exits 0, or 1 on a halt, 2 under `--strict` when a warn counter is nonzero, 64 on a usage error, 65 on a config
-error and 74 on a log error ([python/astra/cli.py](python/astra/cli.py)). From Python:
+or plugin error, 70 on an internal error (`EX_SOFTWARE`, a defect, with its traceback on stderr) and 74 when the
+log cannot be written, closed or published or the summary cannot be written to stdout
+([python/astra/cli.py](python/astra/cli.py)). From Python:
 
 ```python
 from astra import _core

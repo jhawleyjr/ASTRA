@@ -8,13 +8,13 @@ Scope: committed branch diff `367a84a` (origin/main) to `3b574bc` (PR #86): `REA
 `docs/process/workflow.md`, `docs/plans/readme-rewrite.md`; worktree clean.
 Validation: every README command and Python snippet run once in the worktree; `python3 scripts/docs_check.py` and
 `git diff --check` clean. Results are in the PR body.
-Round: pass 1 (thread `01a0f5fa-dc82-7651-bfe8-36271dec070e`, needs-attention); fix 1 (this commit), its Codex
-verification pending.
+Round: pass 1 (thread `01a0f5fa-dc82-7651-bfe8-36271dec070e`, needs-attention); fix 1 (`437db3c`); fix verification
+(thread `01a0f5fe-14a3-7b13-9fb6-ff8000921eb9`, approve, no new findings).
 
 ## Finding [R-001]
 
 Severity: minor (Codex: medium)
-Status: fixed-unverified
+Status: verified
 Location: `README.md:105-108` at `3b574bc` ("Run a config", the Python example)
 Requirement/ADR: [ADR-0027](../decisions/0027-run-log-finalization.md) (only `close_log()` publishes); the plan's
 "Run from a config" item names `close_log()`.
@@ -24,13 +24,14 @@ Requested outcome: call `sim.close_log()` after `sim.run()`.
 Builder response: fixed. The example calls `sim.close_log()` after `run()`, with a comment saying it publishes the
 log when there is a `log` block. Verified: the snippet exits 0 on `cruise.yaml` (no log block), and with a `log`
 block appended the run publishes and `astra.log.load` reports state `complete`.
-Verification: pending (Codex fix verification).
-History: pass 1, open; fix 1, fixed-unverified.
+Verification: Codex fix verification on `367a84a..437db3c`, thread
+`01a0f5fe-14a3-7b13-9fb6-ff8000921eb9`: approve; the fix is verified, no new findings.
+History: pass 1, open; fix 1, fixed-unverified; fix verification, verified.
 
 ## Finding [R-002]
 
 Severity: minor (Codex: medium)
-Status: fixed-unverified
+Status: verified
 Location: `README.md:261-263` at `3b574bc` ("Write a plugin", step 4)
 Requirement/ADR: `pyproject.toml` (`build-dir = "build/python"`, `editable.rebuild = false`); the README's own
 add-an-aircraft steps.
@@ -40,8 +41,9 @@ runs its old binary. The aircraft check in this PR hit the same refusal (`no lib
 exit 65) until `just python` ran.
 Requested outcome: add `just python` before using the plugin from Python or the CLI.
 Builder response: fixed. Step 4 now reads `just build`, then `just python`, and says why.
-Verification: pending (Codex fix verification).
-History: pass 1, open; fix 1, fixed-unverified.
+Verification: Codex fix verification on `367a84a..437db3c`, thread
+`01a0f5fe-14a3-7b13-9fb6-ff8000921eb9`: approve; the fix is verified, no new findings.
+History: pass 1, open; fix 1, fixed-unverified; fix verification, verified.
 
 ## Completion
 
