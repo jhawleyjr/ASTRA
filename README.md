@@ -105,6 +105,7 @@ from astra import _core
 config = _core.Config.from_file("aircraft/notional_transport/configs/cruise.yaml")
 sim = _core.Simulation.from_config(config, _core.default_plugin_dir())
 halt = sim.run()
+sim.close_log()  # publishes the log when the config has a log block; without it, no log is published
 print(sim.clock.frame, halt.check.name if halt else "no halt")
 ```
 
@@ -260,7 +261,9 @@ If one needs more than it says, that is a framework bug.
 2. Export one descriptor: `ASTRA_PLUGIN_EXPORT const astra::PluginDescriptor* astra_plugin()`.
 3. Put `astra_add_plugin(SOURCES my_model.cpp)` in the directory's `CMakeLists.txt`, under `plugins/<kind>/` or
    `aircraft/<name>/<kind>/`. The plugin's path is derived from its directory.
-4. `just build`, then name the path in a config, for example `atmosphere: plugins/physical/atmosphere/isa1976`.
+4. `just build`, then `just python`, because Python and the `astra` command load plugins from `build/python`,
+   which `just build` does not rebuild. Then name the path in a config, for example
+   `atmosphere: plugins/physical/atmosphere/isa1976`.
 
 [plugins/physical/atmosphere/isa1976/](plugins/physical/atmosphere/isa1976/) is a complete example. `step()` and
 `wrench_b()` must not allocate, throw or do I/O. Init may do all three, and its errors name the config key. A
