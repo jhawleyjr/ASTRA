@@ -85,8 +85,8 @@ every historical `docs/plans/` and `docs/specs/` blob as a guide). `docs/plans/`
   of them were normalized to American English at Joe's review, as their provenance lines say.
 - **Left, another project (43):** the Algorithmic-Trader repo's drafts (its `plans/`, `runs/`, `src/journal`,
   IBKR, autopilot and classifier work): the 25 `t0-*`/`t1-*` drafts and 18 others listed in the PR body.
-- **Left for Joe (1):** `pasted-content-id-e26b-m3-complete-whimsical-sketch.md`, the M4 planning session's plan.
-  It contains an early version of `m4-lockstep.md`'s content plus that session's own steps, so it is neither
-  clearly an earlier draft of the committed plan nor clearly a separate plan.
+- **Left for Joe, then recovered at his review (1):** `pasted-content-id-e26b-m3-complete-whimsical-sketch.md`,
+  the M4 planning session's plan. It contains an early version of `m4-lockstep.md`'s content plus that session's
+  own steps; Joe had it recovered as `m4-planning-session.md` (copied, provenance line added) and the draft deleted.
 - This plan's own draft (`pasted-content-id-b36c-plans-into-streamed-puzzle.md`) is deleted once this file is
   committed.
