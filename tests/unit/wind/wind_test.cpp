@@ -511,11 +511,12 @@ TEST(WindMultiVehicle, EachVehicleWrenchSourceReceivesItsOwnEnvironmentSample) {
   wind->init(Config::from_string("{}\n", "counting-wind-fixture"), wind_registry);
   astra::SignalRegistry earth_registry;
   earth->init(Config::from_string("{}\n", "earth-flat-fixture"), earth_registry);
-  // WrenchSource::wrench_b is only ever called when Vehicle::integrate has a real Eom
-  // (eom_.has_value(), core/src/kernel/vehicle.cpp) -- so this test needs physics configured, not
-  // just wind/earth, or wind_consumer would never run at all and both signals would silently read
-  // their untouched zero default (caught by this test itself before this fix: vehicle 0's expected
-  // value happened to be zero too, so only vehicle 1's assertion failed).
+  // WrenchSource::wrench_b is only ever called when Vehicle::integrate has a real
+  // RigidBody6DofDynamics (rigid_body_.has_value(), core/src/kernel/vehicle.cpp) -- so this test
+  // needs physics configured, not just wind/earth, or wind_consumer would never run at all and both
+  // signals would silently read their untouched zero default (caught by this test itself before
+  // this fix: vehicle 0's expected value happened to be zero too, so only vehicle 1's assertion
+  // failed).
   astra::LoadedPlugin gravity_loaded = loader.load("plugins/physical/gravity/constant");
   auto* const gravity = dynamic_cast<astra::GravityModel*>(gravity_loaded.model.get());
   astra::SignalRegistry gravity_registry;
@@ -606,8 +607,8 @@ TEST(WindMultiVehicle, RejectsGravityWithoutMassSpec) {
 }
 
 // Same finding: gravity + mass_spec supplied without earth used to reach Vehicle::init's
-// eom_.emplace(*physics->earth, ...) (vehicle.cpp) with a null earth -- undefined behavior, not a
-// thrown error, since Vehicle::PhysicsSpec::earth was never checked before this fix.
+// rigid_body_.emplace(*physics->earth, ...) (vehicle.cpp) with a null earth -- undefined behavior,
+// not a thrown error, since Vehicle::PhysicsSpec::earth was never checked before this fix.
 TEST(WindMultiVehicle, RejectsGravityAndMassSpecWithoutEarth) {
   const astra::PluginLoader loader{ASTRA_TEST_PLUGIN_DIR};
   astra::LoadedPlugin gravity_loaded = loader.load("plugins/physical/gravity/constant");

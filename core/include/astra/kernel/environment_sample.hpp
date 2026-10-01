@@ -1,6 +1,6 @@
 // One vehicle's environment for one major frame, sampled by Simulation::step in the environment
 // stage (docs/architecture.md §5) and held constant through that vehicle's wrench and EOM stages --
-// the same latching discipline Eom::begin_frame and Eom::set_applied_wrench already use.
+// the same latching discipline RigidBody6DofDynamics::begin_frame and set_applied_wrench use.
 #pragma once
 
 #include <Eigen/Core>

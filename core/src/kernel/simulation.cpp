@@ -344,14 +344,14 @@ Simulation Simulation::from_config(const Config& config, std::filesystem::path p
   // are shared across vehicles, and nothing here may assume there is exactly one).
   WindModel* wind = nullptr;
   std::string wind_plugin_path;
-  // Physics is opt-in. The three required slots -- earth, gravity, mass -- are the Eom's own
-  // inputs: all three or none (a config with no "physical" section, PR 2's dummy-plugin fixture,
-  // runs exactly as before this PR, with no Eom and Vehicle::integrate a no-op). Atmosphere and
-  // wind (M2 PR 2) are optional environment models, loaded only when the config names them --
-  // nothing in the EOM reads them, and the M2 NESC dragless cases have no atmosphere at all. A
-  // wrench source that requires one and finds none is an init error naming physical.atmosphere or
-  // physical.wind, never a silent rho = 0 or a silent zero wind (Vehicle::init's requirement check,
-  // wrench_source.hpp).
+  // Physics is opt-in. The three required slots -- earth, gravity, mass -- are
+  // RigidBody6DofDynamics's own inputs (ADR-0021): all three or none (a config with no "physical"
+  // section, PR 2's dummy-plugin fixture, runs with no rigid-body dynamics and Vehicle::integrate
+  // a no-op). Atmosphere and wind (M2 PR 2) are optional environment models, loaded only when the
+  // config names them -- nothing in the EOM reads them, and the M2 NESC dragless cases have no
+  // atmosphere at all. A wrench source that requires one and finds none is an init error naming
+  // physical.atmosphere or physical.wind, never a silent rho = 0 or a silent zero wind
+  // (Vehicle::init's requirement check, wrench_source.hpp).
   if (config.has("physical")) {
     const Config physical = config.at("physical");
     const Vehicle::ModelSpec earth_spec = resolve_model_spec(physical.at("earth"));
@@ -520,13 +520,13 @@ Simulation Simulation::for_testing(const PluginLoader& loader,
                                    const Vehicle::ModelSpec* mass_spec, std::uint64_t frames) {
   // Adversarial-review finding (Cowork re-review round 2, "high"): has_physics used to be computed
   // from gravity/mass_spec alone, so a caller supplying both without earth reached Vehicle::init's
-  // eom_.emplace(*physics->earth, ...) (vehicle.cpp) with a null earth -- undefined behavior, not a
-  // thrown error, and caught only by review, since nothing in this tree had called for_testing that
-  // way. earth, gravity, and mass_spec are Vehicle::PhysicsSpec's three required fields together
-  // (vehicle.hpp); rejecting a partial combination here is enforcing that existing invariant, not a
-  // new domain-validity design decision of the kind this round's Cowork review already declined to
-  // add for_testing (check_position_representation, validate_p_n, the atmosphere valid_range check
-  // remain unenforced, per for_testing's own doc comment above).
+  // rigid_body_.emplace(*physics->earth, ...) (vehicle.cpp) with a null earth -- undefined
+  // behavior, not a thrown error, and caught only by review, since nothing in this tree had called
+  // for_testing that way. earth, gravity, and mass_spec are Vehicle::PhysicsSpec's three required
+  // fields together (vehicle.hpp); rejecting a partial combination here is enforcing that existing
+  // invariant, not a new domain-validity design decision of the kind this round's Cowork review
+  // already declined to add for_testing (check_position_representation, validate_p_n, the
+  // atmosphere valid_range check remain unenforced, per for_testing's own doc comment above).
   if ((gravity != nullptr) != (mass_spec != nullptr)) {
     throw Error(
         "Simulation::for_testing: gravity and mass_spec must both be supplied or both be null -- "
@@ -705,15 +705,15 @@ LogDiscardResult Simulation::discard_log() {
 }
 
 // This frame's environment sample (docs/architecture.md §5, environment_sample.hpp), latched
-// here at frame-start state, before the wrench stage -- the same discipline Eom::begin_frame
-// and Vehicle::integrate's own VehicleState latch already use. wind and atmosphere are sampled
-// together, from the same frame-start VehicleState and the same single earth_->altitude(vs)
-// call, but they remain independent slots: either may be configured without the other (M2 PR
-// 3). This altitude_m is deliberately a different call than the post-step altitude ADR-0012's
-// domain check in step_frame takes -- that one runs after integration, on a different state, and
-// has nothing to share with this one. M4 PR 3: step_frame's own former inline block, moved here
-// unchanged (clang-tidy's readability-function-cognitive-complexity threshold, once the exchange
-// call joined step_frame). Per-frame path: no allocation, no exceptions.
+// here at frame-start state, before the wrench stage -- the same discipline
+// RigidBody6DofDynamics::begin_frame and Vehicle::integrate's own VehicleState latch already use.
+// wind and atmosphere are sampled together, from the same frame-start VehicleState and the same
+// single earth_->altitude(vs) call, but they remain independent slots: either may be configured
+// without the other (M2 PR 3). This altitude_m is deliberately a different call than the post-step
+// altitude ADR-0012's domain check in step_frame takes -- that one runs after integration, on a
+// different state, and has nothing to share with this one. M4 PR 3: step_frame's own former inline
+// block, moved here unchanged (clang-tidy's readability-function-cognitive-complexity threshold,
+// once the exchange call joined step_frame). Per-frame path: no allocation, no exceptions.
 EnvironmentSample Simulation::sample_environment(const StepContext& ctx,
                                                  const Vehicle& vehicle) noexcept {
   EnvironmentSample sample;  // wind zero / atmosphere all-NaN by default

@@ -95,17 +95,18 @@ class Simulation {
   //
   // gravity/mass_spec default to null (no physics, matching a config with no "physical" section):
   // Vehicle::integrate is then a no-op, and NO WrenchSource is ever called at all (it is gated on
-  // eom_.has_value(), core/src/kernel/vehicle.cpp), the same as from_config's own physics-off path.
-  // A test needing a WrenchSource actually invoked (e.g. to check what EnvironmentSample it
-  // received) must supply both, mirroring Vehicle::PhysicsSpec exactly (mass is loaded fresh per
-  // vehicle from mass_spec, the same way from_config's own single vehicle gets its own mass model;
-  // gravity, like earth and wind, is shared across every vehicle here) -- and, like wind/earth just
-  // above, THIS combination is enforced too: gravity and mass_spec must both be null or both be
-  // non-null, and if both are non-null, earth must be too (Error, not ConfigError -- for_testing
-  // takes no Config to name a path in). This closes a real gap adversarial review found, not a
-  // disclosed one: gravity+mass_spec without earth used to build a Vehicle::PhysicsSpec holding a
-  // null EarthModel*, which Vehicle::init then dereferenced unconditionally
-  // (eom_.emplace(*physics->earth, ...), vehicle.cpp) -- undefined behavior, not a thrown error.
+  // rigid_body_.has_value(), core/src/kernel/vehicle.cpp), the same as from_config's own
+  // physics-off path. A test needing a WrenchSource actually invoked (e.g. to check what
+  // EnvironmentSample it received) must supply both, mirroring Vehicle::PhysicsSpec exactly (mass
+  // is loaded fresh per vehicle from mass_spec, the same way from_config's own single vehicle gets
+  // its own mass model; gravity, like earth and wind, is shared across every vehicle here) -- and,
+  // like wind/earth just above, THIS combination is enforced too: gravity and mass_spec must both
+  // be null or both be non-null, and if both are non-null, earth must be too (Error, not
+  // ConfigError -- for_testing takes no Config to name a path in). This closes a real gap
+  // adversarial review found, not a disclosed one: gravity+mass_spec without earth used to build a
+  // Vehicle::PhysicsSpec holding a null EarthModel*, which Vehicle::init then dereferenced
+  // unconditionally (rigid_body_.emplace(*physics->earth, ...), vehicle.cpp) -- undefined behavior,
+  // not a thrown error.
   //
   // frames defaults to 0, matching a freshly constructed Simulation's own frames_ default: a caller
   // that only ever uses step()/run(N) explicitly, as every test before this parameter existed does,
@@ -307,7 +308,8 @@ class Simulation {
   // this is that same model retained past init, the same way earth_/wind_ already are).
   AtmosphereModel* atmosphere_ = nullptr;
   // What a domain halt on atmosphere names -- atmosphere_'s own plugin_path, kept alongside it for
-  // the same reason earth_plugin_path_/gravity_plugin_path_ travel alongside Vehicle's Eom.
+  // the same reason earth_plugin_path_/gravity_plugin_path_ travel alongside Vehicle's
+  // RigidBody6DofDynamics (ADR-0021).
   std::string atmosphere_plugin_path_;
   // unique_ptr, not by value: from_config returns Simulation by value, and HealthMonitor::init
   // registers &counter_ pointers into registry_, so the monitor's address must survive every move

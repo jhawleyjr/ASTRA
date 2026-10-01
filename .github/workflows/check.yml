@@ -4,10 +4,10 @@
 #
 # GATE is the one knob.
 #
-#   local (current, M2-M3)  The authoritative gate is `just check` on Joe's machine, run once after the
-#                           task and before the push. CI runs only what the local gate cannot cover as
-#                           cheaply -- today that is nothing but the hook cases -- and says so in the run
-#                           summary. A green `check` here means "not tested in CI", not "tested".
+#   local (current)         The authoritative gate is `just check` on Joe's machine, run once after the
+#                           task and before the push. CI runs only what needs no toolchain -- today the
+#                           hook cases and docs-check, each when the diff touches its surface -- and says
+#                           so in the run summary. A green `check` here means "not tested in CI", not "tested".
 #   full                    CI runs `just check` itself, the original arrangement.
 #
 # Why local, decided 2026-09-16: `ctest` is ~556 s real per preset (the 7 `physics` tests are ~95% of
