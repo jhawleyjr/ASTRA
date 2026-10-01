@@ -223,7 +223,12 @@ approval, AI review, validation, merge, and release are separate states (approva
   tool — recognizes a literal `git push`/`commit`/`merge`/`rebase`/... touching `main`; nothing
   outside this session, and no `gh`-based route (below).
 - *Checked-in host configuration*: `.github/rulesets/main.json` — a record of the intended rules,
-  not proof they are live.
+  not proof they are live. Beyond the rules listed below, it requires a pull request for every change
+  to `main`. The file is the ruleset. It was applied once, from a terminal where `gh` is logged in, with
+  `gh api -X POST repos/jhawleyjr/ASTRA/rulesets --input .github/rulesets/main.json`. After an
+  authorized edit, re-apply it with
+  `gh api -X PUT repos/jhawleyjr/ASTRA/rulesets/<id> --input .github/rulesets/main.json`
+  (`gh api repos/jhawleyjr/ASTRA/rulesets` lists the id).
 - *Verified live host enforcement*, checked directly against the GitHub API, 2026-09-17 (re-verify
   periodically; host settings can change without this doc updating): the checked-in file matches
   the live, active `protect-main` ruleset on `refs/heads/main` exactly. Deletion and non-fast-forward
