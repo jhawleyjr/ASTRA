@@ -166,8 +166,7 @@ from pathlib import Path
 
 from astra import montecarlo
 
-spec = Path("build/mc_spec.yaml")
-spec.write_text("""\
+SPEC = """\
 config: aircraft/notional_transport/configs/cruise.yaml
 trim: {true_airspeed: 230.0, altitude: 10000.0}
 duration: 5.0
@@ -177,9 +176,15 @@ dispersions:
   physical.mass.mass: {normal: {sigma: 0.02, mode: relative, clip: 3.0}}
   physical.wind.seed: seed
 signals: [v0.derived.altitude]
-""")
-montecarlo.run(spec, "build/mc_batch", workers=4)  # run_0000.h5 ... and summary.parquet
+"""
+
+if __name__ == "__main__":  # the workers are spawned processes, which re-import this script
+    spec = Path("build/mc_spec.yaml")
+    spec.write_text(SPEC)
+    montecarlo.run(spec, "build/mc_batch", workers=4)  # run_0000.h5 ... and summary.parquet
 ```
+
+Run it as a script: the workers start with `spawn`, so the batch must sit under a `__main__` guard.
 
 The spec format is in [montecarlo.py](python/astra/montecarlo.py)'s docstring. The 64-run acceptance case is
 [cruise_64.yaml](tests/python/montecarlo_fixtures/cruise_64.yaml).
@@ -224,10 +229,26 @@ architecture §10 and §11 ([architecture.md](docs/architecture.md)) and
 ```sh
 just new-aircraft my_aircraft   # copies aircraft/_template, rewriting plugin paths and namespaces
 just build                      # discovers aircraft/my_aircraft and builds its plugins and tests
+just python                     # rebuilds build/python, whose plugins the astra command loads
+astra trim aircraft/my_aircraft/configs/cruise.yaml
+astra run aircraft/my_aircraft/configs/cruise.yaml
 ```
 
-Fill in the models in `aircraft/my_aircraft/physical/{aero,mass}` and `hardware/propulsion`. The template's
-numbers are zeroed and marked `TODO`. AIRCRAFT_TRIM_NOTE
+Before the last two commands, fill in your aircraft. The template's numbers are zeroed and marked `TODO`, and
+zeros are refused at init. Its models live in `aircraft/my_aircraft/physical/{aero,mass}` and
+`hardware/propulsion`, and their parameters are set in `configs/cruise.yaml`.
+
+The template's config uses a flat Earth, which `astra run` accepts and `astra trim` refuses, because trim reads
+altitude from a geodetic position ([PLAN.md](PLAN.md)'s open M7 item). For `astra trim`, make these edits to
+`configs/cruise.yaml`:
+
+1. `physical.earth: plugins/physical/earth/wgs84_rotating`, in place of `plugins/physical/earth/flat`.
+2. `initial.state.p_n: [0.0, 0.0, 10000.0]`. Under this Earth model it reads as latitude (rad), longitude
+   (rad) and altitude (m).
+3. A nonzero `initial.state.v_b`, such as `[230.0, 0.0, 0.0]`, or pass `--airspeed 230` to `astra trim`.
+
+`gravity/constant` can stay. `astra trim` prints the trimmed `initial.state` and controls to paste back into the
+config.
 
 The steps are [architecture §18](docs/architecture.md#18-how-a-user-adds-an-aircraft-the-on-ramp-this-design-must-keep-true).
 If one needs more than it says, that is a framework bug.
