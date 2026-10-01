@@ -240,6 +240,10 @@ takes them as a prefix.
     `.claude/settings.json`; `docs/agents/claude-code.md` says a worktree-guard refusal is rerun or written with
     Write/Edit, never asked; recovered plans linked from their PR lines above. Plan:
     [plan](docs/plans/followups-83.md). Packet: in the PR body.
+  - README rewrite (#86): `README.md` as a top-level README (what ASTRA is, features, quick start, how-tos,
+    architecture, layout, verification, roadmap, development, references); the ruleset commands moved into
+    workflow.md's enforcement bullets; `docs/README.md`'s stale unbuilt-paths line fixed. Plan:
+    [plan](docs/plans/readme-rewrite.md). Packet: in the PR body.
 - [ ] **M7 F-16 and the NESC oracle** — `aircraft/f16` built from the template; NESC atmospheric cases 11, 12,
       13.1 to 13.4, 15 and 16 against the participating simulations' trajectories in `docs/refs` (ADR-0013's
       ensemble as oracle); the tutorial and the generated config-key reference written from this path. The

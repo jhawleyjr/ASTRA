@@ -1,35 +1,33 @@
 # STATE (rewritten once, at /wrap, never appended; ≤ 40 lines, says nothing that changes at merge)
 
 ## In flight
-Follow-ups from #83 (Tier 1, `.gitignore` and docs): PR #85, draft, branch `worktree-followups-83`, base
-`origin/main` `d5f6e73` (#83). Plan: `docs/plans/followups-83.md` (approved by Joe in plan mode; item 5 added by
-him mid-session). Stage: human review. Done: `.claude/settings.local.json` ignored; workflow.md's model sentence
-quotes `.claude/settings.json`; recovered plans linked from their PLAN.md PR lines (mapping in the PR body); the
-worktree-guard rule line in `docs/agents/claude-code.md`, with the plan-mode bullet's "ask Joe" on a guard refusal
-deleted (Joe's call). Item 3 was dropped by Joe; the "inferred" sentence stays. The PR body holds the checks,
-Codex, the mapping and the decisions requested.
+README rewrite (Tier 0, docs only): PR #86, draft, branch `worktree-readme`, base `origin/main` `367a84a`. Plan:
+`docs/plans/readme-rewrite.md` (approved by Joe in plan mode, with his added add-an-aircraft trim check). Stage:
+human review. Done: `README.md` rewritten; the ruleset `gh api` commands moved into workflow.md's "Checked-in host
+configuration" bullet; `docs/README.md`'s stale line fixed. The PR body holds the content map, every command and
+snippet with its exit status, Codex, and the decisions requested (license, setup-ubuntu.sh not run).
 
 ## Last verified result
 Run this session:
-- `rm -rf build && ./scripts/check-full.sh` on `e56579c`: exit 0, `check: OK`, about 985 s
-  (`docs/reviews/evidence/e56579c-gate-summary.log`). Earlier, the same on `f297076`: exit 0, `check: OK`.
-- `git check-ignore -v .claude/settings.local.json` names `.gitignore:19`. All 27 linked plan paths exist.
-- `python3 scripts/docs_check.py` exit 0 and `git diff --check` clean, on `e56579c` and again on the wrap commit.
-- Codex `review --base d5f6e73`: on `e56579c` (`01a0f5b2-dce2-7310-bdc8-bd892b8a4890`), no actionable defects.
-  Earlier on `3240a2e` (`01a0f5b0-867a-70e0-bf20-289ce925cddb`), no actionable defects.
-- After the gate and Codex: the wrap commit (STATE.md, this PR's PLAN.md line), then the one-sentence deletion
-  in `docs/agents/claude-code.md` with docs_check and `git diff --check` only. Joe waived re-gate and Codex for it.
+- Every README command and snippet run once in this worktree; per-item exit statuses in the PR body.
+  `./scripts/setup-ubuntu.sh` not run (no passwordless sudo); FlightGear not installed, so `fgfs` not run.
+- `./scripts/check-full.sh` started on `3b574bc`: exit 0, `check: OK`, 1024 s (a README command check, not a Tier 0
+  requirement; no evidence log committed).
+- `python3 scripts/docs_check.py` exit 0 and `git diff --check` clean, on `9ab9551` and on the wrap commit.
+- Codex adversarial review on `3b574bc` (`01a0f5fa-dc82-7651-bfe8-36271dec070e`): R-001 and R-002, fixed in
+  `437db3c`; fix verification (`01a0f5fe-14a3-7b13-9fb6-ff8000921eb9`): approve, no new findings.
+- After Codex: `9ab9551` (one word, "metres" to "meters") and the wrap commit (STATE.md, this PR's PLAN.md line).
 
 ## Next step
-1. Joe decides approval of the current head (PR body).
+1. Joe decides approval of the current head and the license question (PR body).
 2. Before merge, rerun CI's `check` with `gh pr ready --undo` then `gh pr ready`.
 3. Next M6 task: PR 5 (plots) or PR 9 (benchmark), per `docs/plans/m6-analysis-tooling.md`.
 
 ## Tried / failed
-- Correction rounds and failed integrations are in the PR body (0 of 2; 0).
-- The worktree guard refused four commands; the PR body lists them. The first, a PLAN.md rewrap, was rerun
-  split before asking Joe, which broke the prompt's "ask Joe" rule. Joe has since made a new rule: rerun
-  split or use Write/Edit, never ask (now in `docs/agents/claude-code.md`).
+- Correction rounds and failed integrations are in the PR body (1 of 2; 0).
+- The Monte Carlo snippet first failed without a `__main__` guard (spawned workers re-import the script); the
+  add-an-aircraft trim first failed until `just python` rebuilt `build/python`. Both are now in the README.
+- The worktree guard refused five commands; each was rerun split without asking. The PR body lists them.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.
