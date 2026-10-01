@@ -52,9 +52,9 @@ Decisions (Joe, 2026-09-29):
 
 - **Plotting.** Time histories from the HDF5 run logs, and an easy way to define plot packages: named,
   reusable sets of plots for one purpose (longitudinal, lateral, controls, health, a debugging view)
-  applied to any log. Output to files. The plotting dependency is Joe's decision. Architecture §1 lists
-  visualization as already present; today only `astra.fgbridge` exists, and M4's trace SVGs came from a
-  scratch script.
+  applied to any log. Output to files. The plotting dependency is Joe's decision. Architecture §1 marks
+  visualization *planned* for M6 (PRs 5, 6 and 8); today only `astra.fgbridge` exists, and M4's trace SVGs
+  came from a scratch script.
 - **Monte Carlo visualization.** Distributions of each dispersed parameter's draws, draws against each
   other colored by outcome, and trajectory envelopes (percentile bands) across runs.
 - **Correlating failures to draws.** `summary.parquet` already holds, per run, every drawn value, the
@@ -152,7 +152,7 @@ loop-at-a-time margins for the gains that ship.
 ## Documentation
 
 - A tutorial path: add a model, add an aircraft, write a scenario, run a Monte Carlo. Architecture §18
-  promises this on-ramp; nothing walks through it yet.
+  promises this on-ramp; README.md's how-tos sketch each step, but no tutorial walks through it yet (M7).
 
 ## Workflow
 
@@ -160,7 +160,9 @@ loop-at-a-time margins for the gains that ship.
   Record it in the workflow's "Model and effort" section, and have PR bodies record the effort beside the
   model for each Codex pass.
 - Plan approval: have `/plan-feature` commit the plan as a draft, with Joe's approval recorded only on his
-  explicit instruction (lesson 2026-09-29 on the refused plan-file write).
+  explicit instruction (lesson 2026-09-29 on the refused plan-file write). Partly done by #83: a plan-mode
+  draft still awaiting Joe's decision at `/wrap` is committed with an awaiting-approval status line
+  (`docs/agents/claude-code.md`); `/plan-feature` itself does not commit a draft yet.
 
 ## Considered and set aside
 
