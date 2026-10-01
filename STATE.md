@@ -1,34 +1,32 @@
 # STATE (rewritten once, at /wrap, never appended; ≤ 40 lines, says nothing that changes at merge)
 
 ## In flight
-README rewrite (Tier 0, docs only): PR #86, draft, branch `worktree-readme`, base `origin/main` `367a84a`. Plan:
-`docs/plans/readme-rewrite.md` (approved by Joe in plan mode, with his added add-an-aircraft trim check). Stage:
-human review. Done: `README.md` rewritten; the ruleset `gh api` commands moved into workflow.md's "Checked-in host
-configuration" bullet; `docs/README.md`'s stale line fixed. The PR body holds the content map, every command and
-snippet with its exit status, Codex, and the decisions requested (license, setup-ubuntu.sh not run).
+Leftovers from #86, plus the plan-mode default: PR #87, draft, branch `worktree-readme-leftovers`, base
+`origin/main` `61c028d`. Plan: `docs/plans/readme-leftovers.md` (approved by Joe in plan mode; he added the
+claude-code.md item afterward). Tier 0 (docs only), with one exception Joe chose: `.claude/settings.json` gains
+`permissions.defaultMode: "plan"`. Joe waived the full gate and Codex. Stage: human review. Done: README exit
+codes match `cli.py` (70 added); R-001/R-002 marked verified in `docs/reviews/readme-rewrite-review.md`; `/wrap`'s
+"ask Joe if the guard refuses" removed; claude-code.md's draft-location note is now observed; the settings change
+and workflow.md's clause for it.
 
 ## Last verified result
-Run this session:
-- Every README command and snippet run once in this worktree; per-item exit statuses in the PR body.
-  `./scripts/setup-ubuntu.sh` not run (no passwordless sudo); FlightGear not installed, so `fgfs` not run.
-- `./scripts/check-full.sh` started on `3b574bc`: exit 0, `check: OK`, 1024 s (a README command check, not a Tier 0
-  requirement; no evidence log committed).
-- `python3 scripts/docs_check.py` exit 0 and `git diff --check` clean, on `9ab9551` and on the wrap commit.
-- Codex adversarial review on `3b574bc` (`01a0f5fa-dc82-7651-bfe8-36271dec070e`): R-001 and R-002, fixed in
-  `437db3c`; fix verification (`01a0f5fe-14a3-7b13-9fb6-ff8000921eb9`): approve, no new findings.
-- After Codex: `9ab9551` (one word, "metres" to "meters") and the wrap commit (STATE.md, this PR's PLAN.md line).
+Run this session, on `bacbe6e` and on the wrap commit:
+- `python3 scripts/docs_check.py`: exit 0, `docs-check: OK`. `git diff --cached --check`: clean.
+- `.claude/settings.json` parses; `permissions` is `{'defaultMode': 'plan'}`.
+- Not run: `./scripts/check-full.sh` and Codex (both waived by Joe). Plan mode as the default takes effect only in a
+  new session; no session has run under it yet.
 
 ## Next step
-1. Joe decides approval of the current head and the license question (PR body).
+1. Joe decides whether to approve the current head, including the settings change in a Tier 0 PR (PR body).
 2. Before merge, rerun CI's `check` with `gh pr ready --undo` then `gh pr ready`.
-3. Next M6 task: PR 5 (plots) or PR 9 (benchmark), per `docs/plans/m6-analysis-tooling.md`.
+3. Next M6 task: PR 5 (plots) or PR 9 (benchmark), per `docs/plans/m6-analysis-tooling.md`. The next session should
+   start in plan mode; if it does not, note that in its PR.
 
 ## Tried / failed
-- Correction rounds and failed integrations are in the PR body (1 of 2; 0).
-- The Monte Carlo snippet first failed without a `__main__` guard (spawned workers re-import the script); the
-  add-an-aircraft trim first failed until `just python` rebuilt `build/python`. Both are now in the README.
-- The worktree guard refused six commands; each was rerun split, or done with Write/Edit, without asking. The PR
-  body lists them.
+- Correction rounds and failed integrations are in the PR body (0 of 2; 0).
+- The first scripted edit of the wrap skill missed because the phrase spans a line break; it was rerun on the
+  in-line fragment. The line was not reflowed, to honor "no other wording changes".
+- No guard refusals.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.
