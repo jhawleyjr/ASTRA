@@ -1,7 +1,7 @@
 # Follow-ups from #83 (Tier 1 mini PR)
 
 Risk: Tier 1 (`.gitignore` and docs; no interface or numerical effect).
-Status: **approved by Joe, 2026-09-30, in plan mode**; item 3 held for his main-checkout check.
+Status: **approved by Joe, 2026-09-30, in plan mode**. Item 3 dropped by Joe; its "inferred" sentence stays.
 
 ## Context
 Joe set this scope on 2026-09-30 as four follow-ups from #83. It is Tier 1: the `.gitignore` line changes what
@@ -15,7 +15,8 @@ session-start reports, with no interface or numerical effect. Branch `worktree-f
    `"model": "opus"`, `"effortLevel": "high"`, `env.CLAUDE_CODE_SUBAGENT_MODEL: "opus"`. New first sentence:
    "`.claude/settings.json` pins `model` `opus` at `effortLevel` `high`, with `CLAUDE_CODE_SUBAGENT_MODEL` `opus`
    for subagents; who changes it, and the no-recon-subagents rule, are in AGENTS.md." The rest stays as is.
-3. **`docs/agents/claude-code.md`**: **on hold.** The bracket in the prompt was an unfilled placeholder, and the
+3. **`docs/agents/claude-code.md`**: **dropped by Joe** after the hold below. The "inferred" sentence stays as is.
+   The bracket in the prompt was an unfilled placeholder, and the
    main-checkout check has not run, so nothing has been observed. This file stays unchanged until Joe gives the
    real path. If he gives one in the main checkout's `docs/plans/`, I replace "(inferred from that check, not
    observed)" with his observation, written the way line 25 writes its own. If he gives any other path, I change
@@ -45,7 +46,8 @@ session-start reports, with no interface or numerical effect. Branch `worktree-f
 
 5. **`docs/agents/claude-code.md`** (Joe added this mid-session, 2026-09-30): one line saying a
    worktree-guard refusal is never a question for Joe. Rerun the command as plain separate commands or use
-   Write/Edit, and note it in the PR body.
+   Write/Edit, and note it in the PR body. Joe later had the plan-mode bullet's "If the worktree guard refuses
+   the move, ask Joe." deleted, so the new rule covers that case. He waived the Codex pass for that sentence.
 
 ## Sequence
 Commit 1: this plan, renamed with `mv` to `docs/plans/followups-83.md` before its first add, plus items 1 and 2.
