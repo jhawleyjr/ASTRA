@@ -2,6 +2,9 @@
   "model": "opus",
   "effortLevel": "high",
   "plansDirectory": "docs/plans",
+  "permissions": {
+    "defaultMode": "plan"
+  },
   "env": {
     "CLAUDE_CODE_SUBAGENT_MODEL": "opus"
   },

@@ -244,6 +244,10 @@ takes them as a prefix.
     architecture, layout, verification, roadmap, development, references); the ruleset commands moved into
     workflow.md's enforcement bullets; `docs/README.md`'s stale unbuilt-paths line fixed. Plan:
     [plan](docs/plans/readme-rewrite.md). Packet: in the PR body.
+  - Leftovers from #86 (#87): README's `astra run` exit codes match `cli.py` (70 added); the #86 review record's
+    R-001/R-002 verified; `/wrap` no longer asks Joe about a guard refusal; claude-code.md's main-checkout draft
+    location observed; sessions start in plan mode (`permissions.defaultMode`). Plan:
+    [plan](docs/plans/readme-leftovers.md). Packet: in the PR body.
 - [ ] **M7 F-16 and the NESC oracle** — `aircraft/f16` built from the template; NESC atmospheric cases 11, 12,
       13.1 to 13.4, 15 and 16 against the participating simulations' trajectories in `docs/refs` (ADR-0013's
       ensemble as oracle); the tutorial and the generated config-key reference written from this path. The
