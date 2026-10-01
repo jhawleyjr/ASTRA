@@ -43,6 +43,10 @@ session-start reports, with no interface or numerical effect. Branch `worktree-f
    [plan](docs/plans/followups-83.md). Packet: in the PR body.` `#NN` comes from the draft PR, which opens at the
    first commit.
 
+5. **`docs/agents/claude-code.md`** (Joe added this mid-session, 2026-09-30): one line saying a
+   worktree-guard refusal is never a question for Joe. Rerun the command as plain separate commands or use
+   Write/Edit, and note it in the PR body.
+
 ## Sequence
 Commit 1: this plan, renamed with `mv` to `docs/plans/followups-83.md` before its first add, plus items 1 and 2.
 Push and open the draft PR. Commit 2: the PLAN.md links plus this PR's line. Item 3 waits for Joe; if it arrives
