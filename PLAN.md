@@ -217,6 +217,11 @@ takes them as a prefix.
     loop, closes the log with `close_log()`, prints §15's summary plus wall time and real-time factor, and exits
     per §15's table; it refuses a `transport` block (65) and deletes no log file. `astra trim` prints the trim and
     its config fragment as exact YAML. Plan: [plan](docs/plans/m6-pr3-cli.md). Packet: in the PR body.
+  - PR 4 (#82): units. `core/util/units` gains `degrees_to_radians`/`radians_to_degrees` by one named constant,
+    `kRadiansPerDegree`, with exact and near identities pinned. `astra._core` binds all six conversions, float
+    and 1-D float64 array, bitwise equal element by element, with the constants unbound. `astra.fgbridge` holds
+    no conversion constant, and its packets are unchanged. Plan: [plan](docs/plans/m6-pr4-units.md). Packet: in
+    the PR body.
 - [ ] **M7 F-16 and the NESC oracle** — `aircraft/f16` built from the template; NESC atmospheric cases 11, 12,
       13.1 to 13.4, 15 and 16 against the participating simulations' trajectories in `docs/refs` (ADR-0013's
       ensemble as oracle); the tutorial and the generated config-key reference written from this path. The
@@ -324,11 +329,12 @@ takes them as a prefix.
 - [ ] (M11) `RealTime` mode's logger writer thread (origin: M5 plan §9/architecture §9, held-out scope; Joe's call):
       M5's logger drains only inline (`AsFastAsPossible`); `RealTime` mode itself is not built, so the
       separate non-RT drain thread architecture §9 describes has nothing to run on yet. Not started.
-- [ ] (M6) Architecture §9 and §12's `astra.log` bullet still mark ADR-0027 "(M6 PR 2, *planned*)", and §15's
-      exit-code table still marks `astra run` "(M6 PR 3, *planned*; no `astra` command exists yet)"; PR 10's
-      closeout clears them with §12's status (origin: M6 PR 2 and PR 3; Joe 2026-09-29 and 2026-09-30). When §15's
-      marker is cleared, its table also takes the two codes M6 PR 3 added outside it (plan D3, D4): 70
-      (`EX_SOFTWARE`) for an internal error, and 74 for a failed write of the summary to stdout. Not started.
+- [ ] (M6) Architecture §9 and §12's `astra.log` bullet still mark ADR-0027 "(M6 PR 2, *planned*)", §15's
+      exit-code table still marks `astra run` "(M6 PR 3, *planned*; no `astra` command exists yet)", and §12's
+      "Units at the boundary" bullet still marks M6 PR 4 *planned*; PR 10's closeout clears them with §12's status
+      (origin: M6 PR 2, PR 3 and PR 4; Joe 2026-09-29 and 2026-09-30). When §15's marker is cleared, its table
+      also takes the two codes M6 PR 3 added outside it (plan D3, D4): 70 (`EX_SOFTWARE`) for an internal error,
+      and 74 for a failed write of the summary to stdout. Not started.
 - [ ] (M6) Configs round-tripped through PyYAML (YAML 1.1: `yaml.safe_load`, then `Config.from_dict`) in
       `astra.montecarlo`, `astra.scenario`, `astra.trim` and `astra.lockstep` are read differently from the core's
       yaml-cpp (origin: M6 PR 3 review; Joe 2026-09-30). Probed on M6 PR 3's build: `on`/`off`/`yes`/`no` become

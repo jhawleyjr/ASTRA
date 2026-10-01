@@ -1,0 +1,25 @@
+date: 2026-09-30T23:46:38Z
+command: ./scripts/check-full.sh (fresh configure: build/ removed first)
+base: daea24d3da0c9d331968c8cf943c797eb4d0f5d4
+head: c2fc49f21d2cb8e261c2aa4bb8f719ca14f0df4f
+exit: 0
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 144 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr4-units/build/debug
+100% tests passed, 0 tests failed out of 658
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr4-units/build/release
+100% tests passed, 0 tests failed out of 659
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr4-units/build/static-plugins
+100% tests passed, 0 tests failed out of 660
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr4-units/build/asan
+100% tests passed, 0 tests failed out of 661
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+0 errors, 0 warnings, 0 informations
+1132 passed, 5 skipped in 73.58s (0:01:13)
+check: OK

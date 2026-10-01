@@ -36,8 +36,54 @@
 #include "astra/plugin/descriptor.hpp"
 #include "astra/plugin/loader.hpp"
 #include "astra/signals/signal_registry.hpp"
+#include "astra/util/units.hpp"
 
 namespace nb = nanobind;
+
+namespace {
+
+// M6 PR 4, review finding R-001: the argument of the unit conversions' float overloads. nanobind's
+// own double caster falls back to PyFloat_AsDouble in its conversion pass, and numpy before 2.4
+// (pyproject allows numpy>=2) converts a size-1 array of any dtype or shape there with only a
+// DeprecationWarning. So an array the array overload refused (int, bool, float32, big-endian,
+// 2-D) would come back as a Python float. This caster refuses anything whose ndim is not 0 before
+// that fallback, whatever numpy's version. A float, an int, a bool, a numpy scalar and a 0-d array
+// still convert as every other _core float parameter does.
+struct UnitsScalar {
+  double value;
+};
+
+}  // namespace
+
+namespace nanobind::detail {
+
+template <>
+struct type_caster<UnitsScalar> {
+  NB_TYPE_CASTER(UnitsScalar, const_name("float"))
+
+  bool from_python(handle src, uint8_t flags, cleanup_list* cleanup) noexcept {
+    if (PyFloat_CheckExact(src.ptr()) == 0) {
+      const object ndim = getattr(src, "ndim", none());
+      long dims = -1;
+      if (!ndim.is_none() && (!try_cast(ndim, dims) || dims != 0)) {
+        return false;
+      }
+    }
+    make_caster<double> inner;
+    if (!inner.from_python(src, flags, cleanup)) {
+      return false;
+    }
+    value.value = inner.value;
+    return true;
+  }
+
+  static handle from_cpp(UnitsScalar src, rv_policy /*policy*/,
+                         cleanup_list* /*cleanup*/) noexcept {
+    return PyFloat_FromDouble(src.value);
+  }
+};
+
+}  // namespace nanobind::detail
 
 namespace {
 
@@ -181,6 +227,40 @@ void check_built_against_this_core() {
   throw nb::import_error(message.c_str());
 }
 
+// M6 PR 4 (ADR-0002, docs/plans/m6-pr4-units.md): one core/util/units conversion over a 1-D float64
+// array, so a whole log column converts with no Python-side multiply and no per-sample Python loop.
+// Element i of the result is Convert(element i), the very function the float overload binds, so
+// it is bitwise what the float form returns. Any stride that is a whole number of elements is read
+// in place (a strided or reversed view, a column of a 2-D array); the result is a new C-contiguous
+// array, never a view of the input. The argument is bound noconvert(): anything but a
+// native-byte-order float64 1-D array is refused, never cast, so no rounding hides in an implicit
+// dtype conversion. A stride that is not a whole number of elements (a float64 field of a packed
+// structured dtype, 9 bytes) is refused too: nanobind's importer cannot express it (R-002, D7).
+template <double (*Convert)(double) noexcept>
+nb::ndarray<nb::numpy, double, nb::ndim<1>> convert_array(
+    const nb::ndarray<const double, nb::ndim<1>, nb::device::cpu>& values) {
+  const std::size_t size = values.shape(0);
+  auto* data = new double[size];  // NOLINT(cppcoreguidelines-owning-memory)
+  const auto view = values.view();
+  for (std::size_t i = 0; i < size; ++i) {
+    data[i] = Convert(view(i));  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+  }
+  nb::capsule owner(data, [](void* p) noexcept {
+    delete[] static_cast<double*>(p);  // NOLINT(cppcoreguidelines-owning-memory)
+  });
+  return {data, {size}, owner};
+}
+
+// The float overload first, so a Python float binds in nanobind's first (no-conversion) pass; the
+// array overload second. A numpy scalar, int, bool or 0-d array reaches the float overload in the
+// conversion pass; an ndim >= 1 array the array overload refused cannot, because UnitsScalar
+// refuses it (R-001), so the call raises TypeError.
+template <double (*Convert)(double) noexcept>
+void def_conversion(nb::module_& m, const char* name, const char* arg, const char* doc) {
+  m.def(name, [](UnitsScalar x) { return Convert(x.value); }, nb::arg(arg), doc);
+  m.def(name, &convert_array<Convert>, nb::arg(arg).noconvert(), doc);
+}
+
 // M6 PR 2: LogDiscardOutcome's Python name, for LogDiscardResult's repr.
 std::string_view discard_outcome_name(astra::LogDiscardOutcome outcome) {
   switch (outcome) {
@@ -238,6 +318,24 @@ NB_MODULE(_core, m) {
         "A new state vector at rest at the origin with identity attitude: zero except q_nb.w = "
         "1.0 -- the rigid-body block only, not a vehicle's own combined state (see "
         "Simulation.derivative for that).");
+
+  // M6 PR 4: the boundary conversions of core/util/units (ADR-0002), float -> float, or a 1-D
+  // float64 array -> a new float64 array element by element. The constants are deliberately not
+  // bound: a bound constant invites the Python-side multiply ADR-0002 forbids.
+  def_conversion<&astra::units::feet_to_meters>(m, "feet_to_meters", "feet",
+                                                "Feet to meters (core/util/units, ADR-0002).");
+  def_conversion<&astra::units::meters_to_feet>(m, "meters_to_feet", "meters",
+                                                "Meters to feet (core/util/units, ADR-0002).");
+  def_conversion<&astra::units::knots_to_meters_per_second>(
+      m, "knots_to_meters_per_second", "knots",
+      "Knots to meters per second (core/util/units, ADR-0002).");
+  def_conversion<&astra::units::meters_per_second_to_knots>(
+      m, "meters_per_second_to_knots", "meters_per_second",
+      "Meters per second to knots (core/util/units, ADR-0002).");
+  def_conversion<&astra::units::degrees_to_radians>(
+      m, "degrees_to_radians", "degrees", "Degrees to radians (core/util/units, ADR-0002).");
+  def_conversion<&astra::units::radians_to_degrees>(
+      m, "radians_to_degrees", "radians", "Radians to degrees (core/util/units, ADR-0002).");
 
   // Init-time errors (errors.hpp). Each object exists for its constructor's side effect, which
   // registers the Python type and its translator. nanobind runs translators

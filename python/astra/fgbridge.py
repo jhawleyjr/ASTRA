@@ -36,8 +36,9 @@ fast as the run produces packets; the tests use it so that none waits on the wal
 Units. Every source value is SI (ADR-0002). Conversion happens here and nowhere else, to the unit
 FlightGear reads each field in. The transcribed oracle is
 ``tests/golden/flightgear/fgnetfdm_v24.py`` (FlightGear 2024.1.7's ``net_fdm.hxx``, checked
-against ``FGFDM2Props<FGNetFDM>``). Constants: 1 ft = 0.3048 m and 1 kt = 1852/3600 m/s, both
-exact by definition.
+against ``FGFDM2Props<FGNetFDM>``). The conversions are ``core/util/units``'s named functions
+(ADR-0002), called through ``astra._core``: ``meters_to_feet`` and ``meters_per_second_to_knots``.
+This module holds no conversion constant.
 
 Fields, in packet order, with their sources (``d.x`` is ``v<i>.derived.x``):
 
@@ -121,9 +122,6 @@ DEFAULT_DIVISOR = 16
 STATUS_ACCEL_INVALID = 0x1
 STATUS_LATLON_NOT_MODELED = 0x2
 
-FOOT = 0.3048  # m, exact
-KNOT = 1852.0 / 3600.0  # m/s, exact
-
 # The derived fields the packet reads, without the "v<i>.derived." prefix.
 FIELDS = (
     "lon",
@@ -193,11 +191,12 @@ class BridgeError(Exception):
 def pack(derived: Mapping[str, float]) -> bytes:
     """One FGNetFDM v24 packet from one frame's derived values (``FIELDS``, SI, no prefix)."""
     d = derived
+    to_feet = _core.meters_to_feet
     flags = _flags(d["status_flags"])
     if flags & STATUS_ACCEL_INVALID:
         accel = (0.0, 0.0, 0.0)
     else:
-        accel = (d["ax"] / FOOT, d["ay"] / FOOT, d["az"] / FOOT)
+        accel = (to_feet(d["ax"]), to_feet(d["ay"]), to_feet(d["az"]))
     return _STRUCT.pack(
         FG_NET_FDM_VERSION,
         0,
@@ -213,14 +212,14 @@ def pack(derived: Mapping[str, float]) -> bytes:
         0.0,
         0.0,
         0.0,
-        d["cas"] / KNOT,
-        d["vertical_speed"] / FOOT,
-        d["v_n_0"] / FOOT,
-        d["v_n_1"] / FOOT,
-        d["v_n_2"] / FOOT,
-        d["u"] / FOOT,
-        d["v"] / FOOT,
-        d["w"] / FOOT,
+        _core.meters_per_second_to_knots(d["cas"]),
+        to_feet(d["vertical_speed"]),
+        to_feet(d["v_n_0"]),
+        to_feet(d["v_n_1"]),
+        to_feet(d["v_n_2"]),
+        to_feet(d["u"]),
+        to_feet(d["v"]),
+        to_feet(d["w"]),
         *accel,
         *_ZERO_TAIL,
     )
