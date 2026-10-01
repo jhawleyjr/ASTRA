@@ -237,7 +237,8 @@ takes them as a prefix.
     renaming, committing or deleting them in `docs/agents/claude-code.md` and `/wrap`; 27 never-committed plans
     recovered from `~/.claude/plans`. Plan: [plan](docs/plans/claude-plans-directory.md). Packet: in the PR body.
   - Follow-ups from #83 (#85): `.claude/settings.local.json` ignored; workflow.md's model sentence matches
-    `.claude/settings.json`; recovered plans linked from their PR lines above. Plan:
+    `.claude/settings.json`; `docs/agents/claude-code.md` says a worktree-guard refusal is rerun or written with
+    Write/Edit, never asked; recovered plans linked from their PR lines above. Plan:
     [plan](docs/plans/followups-83.md). Packet: in the PR body.
 - [ ] **M7 F-16 and the NESC oracle** — `aircraft/f16` built from the template; NESC atmospheric cases 11, 12,
       13.1 to 13.4, 15 and 16 against the participating simulations' trajectories in `docs/refs` (ADR-0013's
