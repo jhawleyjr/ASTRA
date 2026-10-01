@@ -288,7 +288,7 @@ Conventions that are easy to get wrong:
 |---|---|
 | Frames | Body FRD (x forward, y right, z down); navigation NED |
 | Attitude | `q_nb` rotates n to b; Hamilton, scalar-first `(w, x, y, z)`; Euler angles 3-2-1, outputs only |
-| State | `p_n(3) v_b(3) q_nb(4) ω_b(3)`; `p_n` is NED metres on a flat Earth, geodetic latitude, longitude (rad) and altitude (m) on a round one |
+| State | `p_n(3) v_b(3) q_nb(4) ω_b(3)`; `p_n` is NED meters on a flat Earth, geodetic latitude, longitude (rad) and altitude (m) on a round one |
 | Units | SI inside the core, plugins and aircraft; signal names carry no unit suffix, the registry carries the unit |
 | Time | `t = frame × dt`, never accumulated; `dt = 1 ms`, and every rate is an integer divisor of it |
 | Randomness | `std::mt19937_64` with in-house transforms; every stochastic plugin takes a seed from config |
