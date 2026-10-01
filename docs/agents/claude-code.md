@@ -16,6 +16,13 @@ Provider-specific procedures; shared rules remain in [AGENTS.md](../../AGENTS.md
 - Use [`/plan-feature`](../../.claude/skills/plan-feature/SKILL.md) for specs, repository-aware plans and
   packages; [`/review-cycle`](../../.claude/skills/review-cycle/SKILL.md) for Codex dispatch and bounded
   fixes; [`/human-review`](../../.claude/skills/human-review/SKILL.md) for the PR description Joe reviews.
+- Plan-mode drafts land in the session's own `docs/plans/` under a random name (`plansDirectory` in
+  `.claude/settings.json`). Once Joe approves a plan, rename the draft (`git mv`, or `mv` before its first add) to
+  the plan's conventional name and commit it; never write a second copy, and never commit a random-named draft. A
+  draft still awaiting Joe's decision at `/wrap` is renamed the same way, committed with a status line saying it is
+  awaiting Joe's approval (never "approved") and pushed with the branch, so nothing is held only locally. Only a
+  draft Joe has rejected is deleted. Start sessions at the checkout or worktree root: the path resolves from the
+  session's root (a session started at a worktree root wrote into that worktree's `docs/plans/`, 2026-09-30).
 - Follow [review dispatch](review-dispatch.md): select working-tree versus committed-branch scope
   explicitly. A dirty candidate plus earlier commits needs combined coverage. Codex is read-only;
   the built-in Claude reviewer and automatic stop-time model reviews do not replace it.

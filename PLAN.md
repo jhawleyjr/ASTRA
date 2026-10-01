@@ -222,6 +222,9 @@ takes them as a prefix.
     and 1-D float64 array, bitwise equal element by element, with the constants unbound. `astra.fgbridge` holds
     no conversion constant, and its packets are unchanged. Plan: [plan](docs/plans/m6-pr4-units.md). Packet: in
     the PR body.
+  - Workflow (#83): plan-mode drafts land in the session's `docs/plans/` (`plansDirectory`), with the rule for
+    renaming, committing or deleting them in `docs/agents/claude-code.md` and `/wrap`; 26 never-committed plans
+    recovered from `~/.claude/plans`. Plan: [plan](docs/plans/claude-plans-directory.md). Packet: in the PR body.
 - [ ] **M7 F-16 and the NESC oracle** — `aircraft/f16` built from the template; NESC atmospheric cases 11, 12,
       13.1 to 13.4, 15 and 16 against the participating simulations' trajectories in `docs/refs` (ADR-0013's
       ensemble as oracle); the tutorial and the generated config-key reference written from this path. The
