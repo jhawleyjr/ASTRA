@@ -30,35 +30,61 @@ Find the first unfinished gate, using the workflow's risk tier and already recor
 - Merge/release: record only what actually happened. Release authorization/validation is separate;
   a merged PR does not prove a release occurred or authorize one.
 
-This skill records and packages the result; it does not start a new implementation/review-fix loop.
+This skill records and packages the result; it does not start a new implementation/review-fix loop
+(the docs fixes of step 1 below are part of the handoff, not such a loop).
 Reference completed check logs and candidate revisions rather than rerunning expensive checks just
 to wrap. If later changes invalidate evidence, mark the affected gate pending and name the rerun.
 
 ## Update the handoff artifacts
 
-1. **PR description:** when requesting human review, use [`/human-review`](../human-review/SKILL.md) to
+1. **Docs:** leave the repository's documentation current, in this PR.
+   - *Branch scope* (the default): from the diff against the base, plus the working tree, list everything
+     a doc could describe: files, commands and flags, config keys, signal names, Python APIs, plugins,
+     behavior, gate contents and workflow rules. Search the repo, docs and code comments, for each one and
+     read what each hit says. Always re-read [README.md](../../../README.md)'s features, quick start,
+     how-tos, layout and roadmap; [docs/README.md](../../../docs/README.md);
+     [PLAN.md](../../../PLAN.md)'s open items; [future work](../../../docs/future-work.md); and
+     [architecture](../../../docs/architecture.md)'s *planned* markers.
+   - *Repo scope* (when Joe asks, and at every milestone closeout): read every current doc against the
+     tree: README.md, AGENTS.md, CLAUDE.md, PLAN.md, docs/README.md, docs/architecture.md,
+     docs/future-work.md, docs/agents/, docs/process/, docs/templates/, .claude/skills/ and
+     docs/refs/README.md. Also check the code comments that point at milestones, PRs or future work
+     ("planned", "not yet", "later", "TODO", "M6 PR").
+   - Either scope: verify each statement against the code, never against another doc, and fix every
+     statement that is false, stale or incomplete, in this PR. AGENTS.md, CLAUDE.md,
+     docs/process/workflow.md and docs/architecture.md are Joe's: edit them in the PR and list each edit
+     under "Needs Joe's decision". Historical records stay as written: docs/plans/**, docs/reviews/**,
+     docs/specs/**, accepted ADRs (a contradicted ADR becomes a superseding-ADR item for Joe),
+     docs/lessons.md (append only) and tests/golden/**. Close or update a PLAN.md open item only when its
+     stated condition actually holds.
+   - Record the result in the PR body's "Docs impact" section: the scope and what was checked, each stale
+     statement with its fix, or "none affected". A blocked or mid-task wrap runs branch scope on the work
+     so far and says the result is partial.
+   - The fixes are part of the candidate: rerun `just docs-check`, and mark the full gate stale if a fix
+     touches a file the gate builds or tests (a code comment included).
+2. **PR description:** when requesting human review, use [`/human-review`](../human-review/SKILL.md) to
    write the PR body from the [PR description template](../../../docs/templates/pr-description.md) (no title
-   line, no decision block). It carries scope/requirements, check results (command, exit code, summary counts,
+   line, no decision block). It carries scope/requirements, step 1's Docs impact, check results (command, exit code, summary counts,
    a link to the [gate summary log](../../../docs/process/validation.md#evidence)), Codex results (verdict,
    thread id, findings), unresolved findings, assumptions/risks, critical files and rollback, what needs
    Joe's decision, plus the exact candidate revisions and dirty-tree details. A description can be drafted
    earlier, but label missing gates; do not call it ready for approval. Link existing evidence rather than
    copy it.
-2. **Task status, if present:** update packages, dependencies, workflow stage, findings, retry counts,
+3. **Task status, if present:** update packages, dependencies, workflow stage, findings, retry counts,
    blocker/owner and next action using the [manifest fields](../../../docs/templates/task-status.md).
    Do not create a manifest for a simple task or mark an integrated feature complete from one package.
-3. **PLAN.md:** follow its header and [AGENTS.md](../../../AGENTS.md#read-first): add this PR's one line
+4. **PLAN.md:** follow its header and [AGENTS.md](../../../AGENTS.md#read-first): add this PR's one line
    (scope, plan, packet) and change an item's status only when its stated acceptance and completion
    conditions actually hold. Check a milestone only when all of its requirements hold; do not advance to
    a new milestone while this task has unfinished gates. No separate retrospective ceremony is required.
-4. **STATE.md:** rewrite it once, here, to at most 40 lines, with `## In flight`, `## Last verified result`,
+5. **STATE.md:** rewrite it once, here, to at most 40 lines, with `## In flight`, `## Last verified result`,
    `## Next step`, `## Tried / failed` (what was tried; for the correction/integration counts, a link to
    the PR body, which holds them), and the existing `## Honesty rules` block verbatim. Include the branch/PR
    (or no PR), actual workflow stage, what remains and who owns it, and point to the PR body for results.
    Distinguish prior-session validation from commands run now; preserve useful product-task pointers.
    Per AGENTS.md, write nothing that changes when the PR merges (no merge status, no "awaiting merge"):
    name the PR and give the next task directly.
-5. **docs/lessons.md:** append only a new lesson that actually occurred; do not duplicate old entries.
+6. **docs/lessons.md:** append only a new lesson that actually occurred; do not duplicate old entries.
    Never modify goldens, tolerances or accepted ADRs as part of handoff.
 
 ## Git and next action

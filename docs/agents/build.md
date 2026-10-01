@@ -14,7 +14,8 @@ accepted ADRs, explicit allowed paths, and acceptance commands. Output: bounded 
    follow [numerical and physics validation](../process/validation.md#numerical-and-physics-validation).
    Before review, run the full gate; read the completed result. Report infrastructure failures
    without weakening checks.
-5. Inspect scope and diff. Update docs that explain changed behavior; produce an evidence-based handoff.
+5. Inspect scope and diff. Bring the docs current with [`/wrap`'s docs step](../../.claude/skills/wrap/SKILL.md#update-the-handoff-artifacts);
+   produce an evidence-based handoff.
 6. Use `/review-cycle` to send the complete candidate to Codex in fresh context using repository artifacts.
    Triage findings with evidence; batch fixes and retest within the correction budget (AGENTS.md).
    On Tier 0 and Tier 1, one Codex pass on the final diff; non-defect findings become follow-ups.

@@ -14,6 +14,8 @@ scope), update it in place rather than writing a second one.
 
 - **Summary and Changes:** the actual candidate (base/head and dirty-tree scope), requirements and concrete
   before/after behavior. Summarize changed files; name unexpected scope.
+- **Docs impact:** the result of [`/wrap`'s docs step](../wrap/SKILL.md#update-the-handoff-artifacts):
+  scope, each stale statement with its fix, or "none affected"; say so when the result is partial.
 - **Checks:** completed results (command, exit code, summary counts, a link to the
   [gate summary log](../../../docs/process/validation.md#evidence)), with relevant numerical/performance
   evidence (actual thresholds/measurements, not a pass/fail label) and any plot/trajectory output. Record

@@ -8,6 +8,13 @@ reason. Base and head revisions, and whether the tree was clean.]
 [Concrete before/after behavior, by component. The diff stat and the main files. Name any unexpected scope, or
 say there is none.]
 
+## Docs impact
+
+[The result of `/wrap`'s docs step: the scope run (branch or repo; partial for a blocked or mid-task wrap)
+and what was checked, then each stale statement with its fix, grouped by file, with Joe's documents
+(AGENTS.md, CLAUDE.md, workflow.md, architecture.md) marked and also listed under "Needs Joe's decision".
+Or "none affected".]
+
 ## Checks
 
 | Command | Result | Candidate |

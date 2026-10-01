@@ -25,11 +25,11 @@ Provider-specific procedures; shared rules remain in [AGENTS.md](../../AGENTS.md
   draft Joe has rejected is deleted. Start sessions at the checkout or worktree root: the path resolves from the
   session's root (a session started at a worktree root wrote into that worktree's `docs/plans/`, 2026-09-30).
   A session started in the main checkout that plans and then enters a worktree (EnterWorktree) writes its draft
-  to the main checkout's `docs/plans/`, untracked (observed 2026-10-01: this PR's own session, started in the main checkout, wrote its draft
+  to the main checkout's `docs/plans/`, untracked (observed 2026-10-01: #87's own session, started in the main checkout, wrote its draft
   there): `mv` the draft into the worktree's `docs/plans/` before renaming it, and leave nothing untracked in the main checkout.
 - Follow [review dispatch](review-dispatch.md): select working-tree versus committed-branch scope
   explicitly. A dirty candidate plus earlier commits needs combined coverage. Codex is read-only;
   the built-in Claude reviewer and automatic stop-time model reviews do not replace it.
 - Use the revised [`/wrap`](../../.claude/skills/wrap/SKILL.md) when pausing or finishing meaningful work,
-  including blocked tasks. It records the current gate, validation/review evidence, and next action, writes STATE
+  including blocked tasks. It brings the docs current (its docs step), records the current gate, validation/review evidence, and next action, writes STATE
   once, pushes the task branch and opens or updates the draft PR; it does not advance unfinished work to the next milestone.
