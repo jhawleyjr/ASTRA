@@ -63,8 +63,9 @@ Refusals: if any write or delete is refused (auto-mode classifier, worktree guar
 Outcome 1. A plan-mode session started at the worktree root wrote its draft to the worktree's own `docs/plans/`:
 `.claude/worktrees/claude-plans-dir/docs/plans/this-is-only-a-wild-backus.md` (2026-10-01 02:24:01 UTC,
 untracked); nothing new appeared in the main checkout. The draft was deleted in step 2. So for a worktree session,
-"project root" is the session's root (the worktree), not the main checkout. The rule therefore needs no move from
-the main checkout into the worktree.
+"project root" is the session's root (the worktree), not the main checkout. Joe's review added the inferred
+case (not observed): a session started in the main checkout that plans and then enters a worktree writes its
+draft to the main checkout's `docs/plans/`, so the rule moves such a draft into the worktree before renaming it.
 
 ## Sorting result (step 3)
 
@@ -80,7 +81,8 @@ every historical `docs/plans/` and `docs/specs/` blob as a guide). `docs/plans/`
 - **Recovered and committed, then deleted (26):** M0 kickoff and PRs 2 to 4, M1 PRs 1 to 4, M2 PRs 1, 1b, 2,
   2b, 2c and the PR 3 split plan, the workflow v3 review, the M3 PR 10 closeout, M4 PR 1, the workflow
   calibration, M5 PRs 1 and 5 to 9, Follow-up B, and the M6 plan critique. Each file's first lines name its draft,
-  its approval as the file or history shows it, and why it was never committed.
+  its approval as the file or history shows it, and why it was never committed. Eight British spellings in five
+  of them were normalized to American English at Joe's review, as their provenance lines say.
 - **Left, another project (43):** the Algorithmic-Trader repo's drafts (its `plans/`, `runs/`, `src/journal`,
   IBKR, autopilot and classifier work): the 25 `t0-*`/`t1-*` drafts and 18 others listed in the PR body.
 - **Left for Joe (1):** `pasted-content-id-e26b-m3-complete-whimsical-sketch.md`, the M4 planning session's plan.

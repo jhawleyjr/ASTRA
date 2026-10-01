@@ -1,6 +1,6 @@
 # M2 PR 3 — NESC check-case harness
 
-Recovered from `~/.claude/plans/m2-pr-3-nesc-hazy-fiddle.md` on 2026-09-30. Approval: the file records none; it recommends the 3a/3b split, 3a merged as #29, and 3b was replanned in `nesc-harness.md` (#31). Never committed: it predates `docs/plans/`, whose first plan was committed on 2026-09-19 (#31).
+Recovered from `~/.claude/plans/m2-pr-3-nesc-hazy-fiddle.md` on 2026-09-30. Approval: the file records none; it recommends the 3a/3b split, 3a merged as #29, and 3b was replanned in `nesc-harness.md` (#31). Never committed: it predates `docs/plans/`, whose first plan was committed on 2026-09-19 (#31). Spelling normalized to American English.
 
 ## Context
 
@@ -352,7 +352,7 @@ assert abs(residual) <= half_ulp(0)   # the printed H column is rounded to 1 m
 ```
 
 **0.5 m is not a new judgment number**: it is `half_ulp(0)`, the file's own existing idiom, because
-the document prints `H` to whole metres. Measured this session against the eight transcribed rows:
+the document prints `H` to whole meters. Measured this session against the eight transcribed rows:
 
 | Z (m) | H printed | H fresh | residual |
 |---|---|---|---|

@@ -1,6 +1,6 @@
 # M0 PR 4 — Stop hook, skills check, `check` required on `main`
 
-Recovered from `~/.claude/plans/m0-pr-4-the-snoopy-seal.md` on 2026-09-30. Approval: the file records none; the work merged as #9. Never committed: it predates `docs/plans/`, whose first plan was committed on 2026-09-19 (#31).
+Recovered from `~/.claude/plans/m0-pr-4-the-snoopy-seal.md` on 2026-09-30. Approval: the file records none; the work merged as #9. Never committed: it predates `docs/plans/`, whose first plan was committed on 2026-09-19 (#31). Spelling normalized to American English.
 
 ## Context
 
@@ -12,7 +12,7 @@ on a red tree, and a red PR can be merged. This PR wires both, confirms the two 
 Verified against the Claude Code hooks reference this session: the Stop event's stdin JSON carries `cwd`,
 `permission_mode`, `stop_hook_active`, `last_assistant_message`, `turn_number`; exit 2 + stderr blocks the
 stop and the text goes to Claude; Claude Code stops honoring a Stop hook after eight consecutive blocks
-without progress (so no home-made loop counter); a hook that exceeds `timeout` is cancelled, which is a
+without progress (so no home-made loop counter); a hook that exceeds `timeout` is canceled, which is a
 silent pass, not a block; `timeout` is in seconds (default 600); `statusMessage` is supported; hook edits in
 settings files are picked up mid-session by the file watcher; hooks run in the session's current directory.
 The Codex plugin's own Stop hook exits early while its review gate is off (it stays off per CLAUDE.md).

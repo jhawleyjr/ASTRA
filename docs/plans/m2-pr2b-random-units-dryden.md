@@ -1,7 +1,7 @@
 # M2 PR 2b — `core/util/random.hpp`, `core/util/units.hpp`, `plugins/physical/wind/dryden`
-
-Recovered from `~/.claude/plans/m2-pr-2b-plan-md-zany-flame.md` on 2026-09-30. Approval: the file records none; the work merged as #26. Never committed: it predates `docs/plans/`, whose first plan was committed on 2026-09-19 (#31).
 # (+ a separate docs-only commit: ADR-0012 and its PLAN.md wiring)
+
+Recovered from `~/.claude/plans/m2-pr-2b-plan-md-zany-flame.md` on 2026-09-30. Approval: the file records none; the work merged as #26. Never committed: it predates `docs/plans/`, whose first plan was committed on 2026-09-19 (#31). Spelling normalized to American English.
 
 ## Context
 
@@ -179,7 +179,7 @@ for anything linking `astra::core` (`icd/CMakeLists.txt`), the same route
 `tests/unit/icd/icd_test.cpp` uses for `"icd/astra_icd.h"`. No CMake change.
 
 **MIL-F-8785C parameters** (`mil_f_8785c_parameters(altitude, sigma_w_low, sigma_high)`), altitude in
-metres, all output SI. **Correction to my own B2.5 wording**: `dryden_filter.hpp` does **not**
+meters, all output SI. **Correction to my own B2.5 wording**: `dryden_filter.hpp` does **not**
 `#include` the golden header — `plugins/` is shipped production code and must never depend on
 anything under `tests/`, which isn't part of the built library. It carries its own independently
 page-cited constants (same citations as B2.5); the golden header is what the *test* cross-checks
@@ -190,7 +190,7 @@ ADR-0002 point):
 
 - `h <= 1000 ft` (MIL-F-8785C §3.7.3.4/Figure 10/Figure 11, p.53/55/56 — see B2.5): `L_w = h`;
   `L_u = L_v = h / (0.177 + 0.000823*h_ft)^1.2`; `sigma_w = sigma_w_low`;
-  `sigma_u = sigma_v = sigma_w / (0.177 + 0.000823*h_ft)^0.4`. The bracket is rewritten in metres as
+  `sigma_u = sigma_v = sigma_w / (0.177 + 0.000823*h_ft)^0.4`. The bracket is rewritten in meters as
   `0.177 + (0.000823/kMetersPerFoot)*h`, and `L_u` is scale-free in the unit it is evaluated in, so
   the law evaluates entirely in SI. Both regimes are continuous at 1000 ft
   (bracket = 1, `L_u = L_v = L_w = 1000 ft`, `sigma_u = sigma_v = sigma_w`).
@@ -227,7 +227,7 @@ to `sigma^2`), and for `y = G(s)*eta` with `E[eta(t)eta(t+tau)] = delta(tau)`,
   is dropped; also, at true `a == 0` the stationary-start divisions below are `0/0`, and even a
   tiny-but-nonzero `a` such as `1e-200` overflows `x1 = xi/(2*a^1.5)` to `Inf` while the branch
   guarding it never fires). `a = V / L` is floored at `a_min = 1e-6 s^-1` (`V` on the order of a
-  millimetre per second at a typical `L` — far below any airspeed this sim will ever see, stated as
+  millimeter per second at a typical `L` — far below any airspeed this sim will ever see, stated as
   such in the comment). At `a_min`, `1/(2*a_min^1.5) = 5e8`, finite and nowhere near overflow, and
   `Var(y) = sigma^2` stays exact regardless of `a` (verified, see below) — so `V` at or near zero
   produces small-but-finite, statistically correct gusts, never `Inf`/`NaN` and never a discontinuous

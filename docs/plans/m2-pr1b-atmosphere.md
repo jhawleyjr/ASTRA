@@ -1,6 +1,6 @@
 # M2 PR 1b — `AtmosphereModel` + `plugins/physical/atmosphere/isa1976`
 
-Recovered from `~/.claude/plans/m2-pr-1b-plan-md-concurrent-wind.md` on 2026-09-30. Approval: the file records none; the work merged as #24. Never committed: it predates `docs/plans/`, whose first plan was committed on 2026-09-19 (#31).
+Recovered from `~/.claude/plans/m2-pr-1b-plan-md-concurrent-wind.md` on 2026-09-30. Approval: the file records none; the work merged as #24. Never committed: it predates `docs/plans/`, whose first plan was committed on 2026-09-19 (#31). Spelling normalized to American English.
 
 ## Context
 
@@ -114,7 +114,7 @@ struct AtmoState {
   double speed_of_sound_m_s = std::numeric_limits<double>::quiet_NaN();
 };
 
-// Closed interval of altitudes, metres above the Earth model's reference surface, over which at()
+// Closed interval of altitudes, meters above the Earth model's reference surface, over which at()
 // returns meaningful values. Both bounds inclusive. Checked once at init against the initial state
 // (§15); at() returns an all-NaN AtmoState outside it.
 struct AltitudeRange {

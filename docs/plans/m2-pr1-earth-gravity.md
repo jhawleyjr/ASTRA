@@ -1,6 +1,6 @@
 # M2 PR 1 — AtmosphereModel + ISA-1976, geodetic Earth models, altitude-dependent gravity
 
-Recovered from `~/.claude/plans/draft-m2-pr-1-snug-neumann.md` on 2026-09-30. Approval: the file records none; the work merged as #22, with the atmosphere moved to M2 PR 1b (#24). Never committed: it predates `docs/plans/`, whose first plan was committed on 2026-09-19 (#31).
+Recovered from `~/.claude/plans/draft-m2-pr-1-snug-neumann.md` on 2026-09-30. Approval: the file records none; the work merged as #22, with the atmosphere moved to M2 PR 1b (#24). Never committed: it predates `docs/plans/`, whose first plan was committed on 2026-09-19 (#31). Spelling normalized to American English.
 
 ## Context
 
@@ -12,7 +12,7 @@ exercised that claim yet.
 
 This PR is `PLAN.md` M2 PR 1 as written there: `AtmosphereModel` + `isa1976`,
 `earth/{round, wgs84_rotating}`, `gravity/{inverse_square, wgs84_j2}`, with initial `p_n` staying the
-raw radians-and-metres vector range-checked by the Earth model at init. It also closes PR #21's open
+raw radians-and-meters vector range-checked by the Earth model at init. It also closes PR #21's open
 adversarial-review finding at the gate (§5).
 
 **Precondition on Joe:** `touch .claude/touch-goldens` at some point while this session runs — the
@@ -33,7 +33,7 @@ altitude in m) under `earth/round` and `earth/wgs84_rotating`. So there is nothi
   untouched.
 
 What remains is the one real hazard: a gravity or atmosphere model that assumes geodetic `p_n`,
-paired in config with `earth/flat`, would read NED metres as radians and produce plausible garbage.
+paired in config with `earth/flat`, would read NED meters as radians and produce plausible garbage.
 So **each model declares the position representation it requires, and `Simulation::from_config`
 rejects a mismatch at init**:
 

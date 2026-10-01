@@ -1,6 +1,6 @@
 # Check off M3 PR 10 (#48, a0b0820); reset STATE.md; clean up PR 10 worktree
 
-Recovered from `~/.claude/plans/pasted-content-id-64b1-48-merged-ticklish-sundae.md` on 2026-09-30. Approval: the file records none; git history shows no separate merge for it. Never committed: neither the file nor git history says why.
+Recovered from `~/.claude/plans/pasted-content-id-64b1-48-merged-ticklish-sundae.md` on 2026-09-30. Approval: the file records none; the work merged as #49. Never committed: neither the file nor git history says why.
 
 ## Context
 PR #48 (M3 PR 10, fresh-checkout `tidy` fix) was squash-merged as `a0b0820`. PLAN.md's PR 10 line

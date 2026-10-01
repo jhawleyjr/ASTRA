@@ -23,6 +23,10 @@ Provider-specific procedures; shared rules remain in [AGENTS.md](../../AGENTS.md
   awaiting Joe's approval (never "approved") and pushed with the branch, so nothing is held only locally. Only a
   draft Joe has rejected is deleted. Start sessions at the checkout or worktree root: the path resolves from the
   session's root (a session started at a worktree root wrote into that worktree's `docs/plans/`, 2026-09-30).
+  A session started in the main checkout that plans and then enters a worktree (EnterWorktree) writes its draft
+  to the main checkout's `docs/plans/`, untracked (inferred from that check, not observed): `mv` the draft into
+  the worktree's `docs/plans/` before renaming it, and leave nothing untracked in the main checkout. If the
+  worktree guard refuses the move, ask Joe.
 - Follow [review dispatch](review-dispatch.md): select working-tree versus committed-branch scope
   explicitly. A dirty candidate plus earlier commits needs combined coverage. Codex is read-only;
   the built-in Claude reviewer and automatic stop-time model reviews do not replace it.
