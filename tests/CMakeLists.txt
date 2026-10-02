@@ -35,6 +35,8 @@ endforeach()
 add_subdirectory(lockstep)
 # M4 PR 5's autopilot tests: unit, process, and ADR-0008 boundary.
 add_subdirectory(embedded)
+# M6 PR 9's frame-time benchmark and its smoke (docs/plans/m6-pr9-benchmark.md).
+add_subdirectory(benchmark)
 
 # The static-plugins build must not reference dlopen at all; the shared build must, so the check is known
 # to be able to fire.
