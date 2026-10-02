@@ -388,7 +388,9 @@ takes them as a prefix.
       (cruise 1.94 and 1.75 µs) but not at the max (32.7 µs, then 2010 µs, one frame over `dt`). The `powersave`
       governor, no CPU isolation and other sessions were in play (`docs/reviews/evidence/c1c0976-` and
       `cfb91d4-frame-benchmark.json`). M11's tracking needs isolated CPUs, a fixed governor and a stated tail
-      statistic before any maximum is compared. Not started.
+      statistic before any maximum is compared. The JSON should also record the frame index of the maximum, so a
+      stall can be told apart from a frame whose model work is costly (today it records only the value). Not
+      started.
 - [ ] (M6) Configs round-tripped through PyYAML (YAML 1.1: `yaml.safe_load`, then `Config.from_dict`) in
       `astra.montecarlo`, `astra.scenario`, `astra.trim` and `astra.lockstep` are read differently from the core's
       yaml-cpp (origin: M6 PR 3 review; Joe 2026-09-30). Probed on M6 PR 3's build: `on`/`off`/`yes`/`no` become

@@ -39,10 +39,20 @@ notional transport's `cruise.yaml` and `cruise_still_air.yaml` and for `tests/co
 It also times R19b's five logged cases end to end, through `run()` or `step()` plus `flush_log()` and
 then `close_log()`. Every timed frame is checked before anything is recorded. The JSON carries the
 build type, the toolchain, the CPU, the governor and the load average at start and end. A baseline is
-taken on a quiet machine only. Check first that no ASTRA build or test is running in any checkout, with
-`pgrep -af 'just check|check-full|check-fast|ninja|cmake --build|ctest|pytest|astra_|clang\+\+-18|clang-tidy'`
-(a bare `clang` matches clangd), and that clangd is idle in `top`. Record that output, and do not
-compare numbers across machines, governors or build types. Tracking the figure over time is M11.
+taken on a quiet machine only. A bare `pgrep -f` of these words matches its own shell and other sessions'
+polling loops ([lesson](../lessons.md), 2026-10-02), so the check matches process names and verifies each hit:
+
+```sh
+pgrep -ax 'just|ninja|ctest|clang-tidy-18|clang\+\+-18'   # builds and tests, by process name
+pgrep -af '[b]in/python -m pytest|[b]in/pytest'            # interpreter-run tools: bracketed, so it cannot match itself
+readlink /proc/<pid>/cwd; ps --ppid <pid> -o pid,etime,args  # for each hit: whose checkout, and what it runs
+ps -C clangd -o pid,pcpu,etime                             # clangd must be idle (near 0 % CPU), not merely present
+cat /proc/loadavg; top -bn1 | head -20                     # then wait until the 1-minute load is below 1.5
+```
+
+No hit may be an ASTRA build or test in any checkout. Record the output of each command with the
+baseline, and do not compare numbers across machines, governors or build types. Tracking the figure over
+time is M11.
 
 ## Environment and runtime
 

@@ -2,19 +2,20 @@
 
 Spec/plan: [PR 9 plan](../plans/m6-pr9-benchmark.md); [M6 plan](../plans/m6-analysis-tooling.md) R19, Q11, C-19, N-05.
 Builder: Claude (Opus 5.5)
-Reviewer: Codex, through companion 1.0.6 `review --base origin/main`, in a fresh context, as a general review. The thread
-is `01a0fb6e-f113-70c0-bb64-2fb7f846ef04`.
+Reviewer: Codex, through companion 1.0.6, in a fresh context. The general review (`review --base origin/main`) is
+thread `01a0fb6e-f113-70c0-bb64-2fb7f846ef04`. The fix verification (`adversarial-review --base origin/main`, with
+a focus on R-001) is thread `01a0fb75-3c9f-7ce3-90bb-139bf036d7e2`.
 Scope: the committed branch diff from `8b4852b` (origin/main) to `5c08ca7`, with a clean tree. The reviewer read
 `tests/benchmark/**`, the docs, PLAN.md and ADR-0027. It also ran `astra_frame_stats_test` in Release and in ASan;
 both exited 0. It did not rerun the smoke or the gate, because its sandbox is read-only.
-Validation: the full gate on `fde0e20` exited 0 with `check: OK`
-([summary](evidence/fde0e20-gate-summary.log)). The Release baseline is at `c1c0976`.
-Round: initial, then fix 1.
+Validation: fresh full gates exited 0 with `check: OK` on `fde0e20` (before review), on `cfb91d4` (the fix)
+and on `adbfbed` (the gated head) ([summaries](evidence/)). The Release baseline of record is at `cfb91d4`.
+Round: initial, then fix 1, verified. One correction round of two was used.
 
 ## Finding R-001
 
 Severity: minor (Codex P2)
-Status: fixed-unverified
+Status: verified
 Location: `tests/benchmark/frame_benchmark.cpp:310-315` at `5c08ca7` (`time_one_repeat`)
 Requirement/ADR: [ADR-0027](../decisions/0027-run-log-finalization.md) item 8. A tool deletes its own run's file
 when it handles a failure, through `discard_log()`, while its `Simulation` is alive.
@@ -36,11 +37,17 @@ Builder response: fixed.
   and no " left " report.
 - **Checks.** `ctest --preset asan -R 'FrameStats|FrameBenchmark'` passes 11/11. A manual run with the `rename`
   fault exits 1 naming the refused publication, and nothing remains under `/tmp`.
-Verification: pending (Codex fix verification).
-History: initial round, R-001 opened; fix 1, fixed-unverified.
+Verification: Codex `adversarial-review` on `5c08ca7 → cfb91d4`, thread `01a0fb75-3c9f-7ce3-90bb-139bf036d7e2`,
+exit 0, verdict approve. In its words: "R-001 fix holds … halt, close, and verification failures call
+discard_log() while Simulation is alive; LogDir removes the empty directory during unwinding … D4 timing
+boundaries and D6 write-after-verification behavior remain intact; exits 1/64/74 are preserved. New findings:
+none." Remaining risk: none known. The full gate on `cfb91d4` exited 0 with `check: OK`.
+History: initial round, R-001 opened; fix 1 in `cfb91d4`, fixed-unverified; Codex verification, verified.
 Human exception if needed: none.
 
 ## Completion
 
-No critical or major finding is open. R-001 is fixed and awaits Codex verification. There are no rejected
-findings and no deferrals.
+No finding is open. R-001 is fixed and verified by Codex, whose verification reported "New findings: none".
+There are no rejected findings and no deferrals. Not reviewed by Codex: the later commits holding evidence and
+Markdown only (README.md, PLAN.md, STATE.md, docs/lessons.md, docs/process/validation.md, docs/architecture.md
+and this file); none of them touches code. Codex's recommendation is not Joe's approval.
