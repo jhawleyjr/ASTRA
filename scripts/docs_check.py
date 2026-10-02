@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Reproducible check for the workflow constraints docs/process/validation.md prescribes for
 workflow edits (Markdown links/anchors, SKILL.md metadata, the root instruction line budget,
-doc/script command names, and STATE.md's shape) so they run from `just docs-check` / CI instead of being asked
-of an agent's memory. Stdlib only.
+doc/script command names, and STATE.md's shape) so they run from `just docs-check` / CI instead
+of being asked of an agent's memory. Stdlib only.
 
 Usage: python3 scripts/docs_check.py [--root DIR]
 Exit 0 with a summary line, or exit 1 printing every problem found.
@@ -42,14 +42,15 @@ WORKFLOW_DOC_ROOTS = [
     ".claude/skills",
 ]
 
-# STATE.md is written as main reads it after the squash-merge (.claude/skills/wrap/SKILL.md step 5), so its
-# shape is checked, not its wording: exactly these `##` headings, in this order, at most 40 lines, and the
-# honesty rules word for word. This constant is the one source of that text.
+# STATE.md is written as main reads it after the squash-merge (.claude/skills/wrap/SKILL.md
+# step 5), so its shape is checked, not its wording: exactly these `##` headings, in this order,
+# at most 40 lines, and the honesty rules word for word. This constant is the one source of that
+# text.
 STATE_HEADINGS = ["Next step", "Open threads", "Honesty rules"]
 STATE_LINE_CAP = 40
 STATE_HONESTY_RULES = (
-    '"A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this '
-    "session."
+    '"A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 '
+    "in this session."
 )
 
 # Checked for links/anchors only: PLAN.md links every PR's plan and packet, but as a plan it may
@@ -184,12 +185,14 @@ def check_state(root: Path, problems: list[str]) -> None:
             sections[headings[-1]].append(line)
     if headings != STATE_HEADINGS:
         problems.append(
-            f"STATE.md: '##' headings are {headings}, expected exactly {STATE_HEADINGS} in that order"
+            f"STATE.md: '##' headings are {headings}, "
+            f"expected exactly {STATE_HEADINGS} in that order"
         )
     honesty = sections.get("Honesty rules")
     if honesty is not None and "\n".join(honesty).strip() != STATE_HONESTY_RULES:
         problems.append(
-            "STATE.md: the Honesty rules section differs from scripts/docs_check.py's STATE_HONESTY_RULES"
+            "STATE.md: the Honesty rules section differs from "
+            "scripts/docs_check.py's STATE_HONESTY_RULES"
         )
 
 

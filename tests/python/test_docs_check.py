@@ -77,7 +77,8 @@ def test_a_pure_hash_link_is_not_flagged(tmp_path: Path) -> None:
     assert problems == []
 
 
-# STATE.md's shape: exactly the allowed `##` headings in order, at most 40 lines, the honesty rules verbatim.
+# STATE.md's shape: exactly the allowed `##` headings in order, at most 40 lines, the honesty
+# rules verbatim.
 
 
 def _state(*sections: tuple[str, str]) -> str:
