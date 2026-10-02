@@ -132,6 +132,11 @@ Joe decided D1 and D2 in plan mode. Approving the plan approves D3 to D9.
   - A split must leave at least `MIN_LEAF = 5` rows per child and strictly lower the impurity.
   - Ties go to the larger impurity decrease, then the earlier parameter in spec order, then the smaller threshold.
   - A leaf predicts `fail` only when its fails strictly outnumber its passes.
+  - Amendment found in the build: a split whose two sides are leaves predicting the same class is collapsed into
+    one leaf.
+    - What happened: on R7's data the tree split a nearly pure fail leaf (50 of 51) on an irrelevant parameter,
+      and both sides predicted fail. That gave two rules, each carrying a condition that decides nothing.
+    - The collapse changes no prediction, and it makes R7's "single fail rule" hold.
   - Rules are the `fail` leaves' paths, each simplified to the tightest bound per parameter and direction and
     printed as `p1 > 0.6 and p2 <= 0.3 (fail 58 of 58)`.
   - With no failures, the result is the stated `no failures: no tree`.

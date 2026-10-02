@@ -1,0 +1,14 @@
+# M6 PR 6 (docs/plans/m6-pr6-mc-analysis.md, C-10): the batch the figure, analyze and rerun tests
+# share. The descent speed decides the halts (above about 198 m/s the run leaves ISA 1976's range
+# within 0.5 s); a mass drawn at or below zero is the mass plugin's ConfigError, an error row; the
+# forward force is irrelevant; the wind seed is a seed dispersion, listed and never ranked.
+config: tests/python/mc_analysis_fixtures/descent.yaml
+duration: 0.5
+runs: 24
+seed: 606
+dispersions:
+  initial.state.v_b.2: {uniform: {lo: 0.0, hi: 300.0}}
+  physical.mass.mass: {uniform: {lo: -3.0, hi: 20.0}}
+  vehicle.models.0.force_x: {uniform: {lo: 0.0, hi: 5.0}}
+  physical.wind.seed: seed
+signals: [v0.derived.altitude, v0.slow_rate.value]
