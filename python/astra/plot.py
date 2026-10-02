@@ -59,9 +59,9 @@ import dataclasses
 import hashlib
 import html
 import importlib
-import importlib.util
 import re
 import sys
+import types
 from collections.abc import Callable, Generator, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
@@ -504,16 +504,17 @@ def _call(package: Package, spec: FunctionSpec, run_log: log.RunLog) -> object:
 
 
 def _load_file(path: Path, file: Path) -> object:
-    """Executes ``file`` as a fresh module under a private name derived from its resolved path."""
+    """Executes ``file`` as a fresh module under a private name derived from its resolved path. The
+    source is compiled here, not imported, so nothing (no ``__pycache__``) is written beside it: a
+    template's directory stays exactly what ``just new-aircraft`` should copy."""
     digest = hashlib.sha256(str(file.resolve()).encode()).hexdigest()[:16]
     name = f"_astra_plot_user_{digest}"
-    spec = importlib.util.spec_from_file_location(name, file)
-    if spec is None or spec.loader is None:
-        raise PlotPackageError(f"{path}: function.file: {file} cannot be loaded as a module")
-    module = importlib.util.module_from_spec(spec)
+    module = types.ModuleType(name)
+    module.__file__ = str(file)
     sys.modules[name] = module  # a dataclass in the module needs its module registered
     try:
-        spec.loader.exec_module(module)
+        code = compile(file.read_bytes(), str(file), "exec")
+        exec(code, module.__dict__)
     except Exception as error:
         del sys.modules[name]
         raise PlotPackageError(
