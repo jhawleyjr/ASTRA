@@ -53,9 +53,10 @@ Decisions (Joe, 2026-09-29):
 - **Plotting.** Time histories from the HDF5 run logs, and an easy way to define plot packages: named,
   reusable sets of plots for one purpose (longitudinal, lateral, controls, health, a debugging view)
   applied to any log. Output to files. Built in M6 PR 5 as `astra.plot` and `astra plot` (matplotlib and
-  plotly, Joe's Q2 decision); Monte Carlo figures (PR 6) and the run report (PR 8) remain *planned*.
+  plotly, Joe's Q2 decision); Monte Carlo figures are built in PR 6; the run report (PR 8) remains *planned*.
 - **Monte Carlo visualization.** Distributions of each dispersed parameter's draws, draws against each
-  other colored by outcome, and trajectory envelopes (percentile bands) across runs.
+  other colored by outcome, and trajectory envelopes (percentile bands) across runs. Built in M6 PR 6
+  (`astra.mc_analysis`, `astra mc analyze`).
 - **Correlating failures to draws.** `summary.parquet` already holds, per run, every drawn value, the
   status, the halt check, source and frame, and each requested signal's minimum and maximum, so this is
   Python over existing data. Candidate methods: Monte Carlo filtering (compare each parameter's draws
@@ -65,7 +66,8 @@ Decisions (Joe, 2026-09-29):
   readable rule. Report effect sizes and account for testing many parameters at once. Then one command
   reruns a flagged run from its seed with full logging and a plot package. Limits: the Monte Carlo is
   open loop today (closed-loop Monte Carlo is a PLAN.md open item), and trends need hundreds to thousands
-  of runs.
+  of runs. Built in M6 PR 6: `astra.mc_analysis` (KS with Benjamini-Hochberg, Spearman, PRCC, an in-house
+  depth-3 tree) and `astra mc rerun`, from the record of its spec the batch keeps in `summary.parquet`.
 - **Sizing a Monte Carlo.** A tool that recommends the number of runs from the question asked and the
   number of dispersed parameters: a bound on a failure probability (zero failures in n runs bounds it
   below about 3/n at 95 % confidence), the confidence interval on a probability or a percentile, or a

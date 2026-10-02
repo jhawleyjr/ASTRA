@@ -96,7 +96,30 @@ seed), ``status``, one column per dispersion named by its path (float64, or int6
 (``/final_state``: the state after the last frame) and ``min.<signal>``/``max.<signal>`` for
 ``signals``, in the order the sorted rows first name them. A column a row has no value for is
 null. Neither the summary nor the logs hold wall time (Q8); ``run`` prints the wall time and the
-real-time factor to stdout.
+real-time factor to stdout. Its schema metadata is the batch's record, below.
+
+The batch's record (M6 PR 6, docs/plans/m6-pr6-mc-analysis.md D2). ``summary.parquet``'s schema
+metadata holds three keys: ``astra.montecarlo.spec``, the spec file's bytes as ``load`` read them;
+``astra.montecarlo.config``, the base config's bytes as read; and ``astra.montecarlo.config_name``,
+the config's file name only, never a path. Neither holds a path of the machine, so the summary of
+one batch still does not depend on ``out_dir`` or the worker count. ``batch_spec`` rebuilds the
+``Spec`` from them through ``loads``, which parses them exactly as ``load`` does (UTF-8, then
+``yaml.safe_load``). A ``Spec`` changed after loading (``dataclasses.replace``) still records the
+bytes it was loaded from; ``rerun``'s draw check refuses such a batch.
+
+Rerun (``rerun``, ``astra mc rerun``; M6 plan Q22). Re-executes one run of a batch into a new,
+empty directory from the batch's record alone, so it works with the batch's logs deleted. It
+refuses a batch with no record (one written before M6 PR 6), a run not in the summary, and an
+``error`` row, which left no log. Before running, it recomputes the run's seed and draws from the
+record and checks each against the summary row. It then calls ``run_one`` and compares every
+column of the new row with the recorded one, and, when the batch still holds the run's log, the
+two logs byte for byte. The record is not a frozen build: plugins are loaded from the current
+build, so a rebuild can change the result. The new log's provenance (``git_describe``, the plugin
+table) and the row comparison show it when it does. Rerun never touches the batch's own files, and
+it refuses an output directory that is the batch or lies inside it (symlinks resolved). A run whose
+log cannot be written (a ``LogError``, an ``OSError``, a ``LOG`` halt, or a ``ConfigError`` at
+``log.path``, how ADR-0027 reports a log that cannot be created) raises
+``RerunWriteError``: nothing was compared, so it is not reported as a row that differs.
 """
 
 from __future__ import annotations
@@ -116,7 +139,7 @@ import struct
 import tempfile
 import threading
 import time
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import Any, cast
 
@@ -132,6 +155,10 @@ _pa = cast(Any, pyarrow)
 _pq = cast(Any, pyarrow.parquet)
 
 SUMMARY = "summary.parquet"
+# summary.parquet's schema metadata: the batch's record (module docstring, The batch's record).
+SPEC_KEY = b"astra.montecarlo.spec"
+CONFIG_KEY = b"astra.montecarlo.config"
+CONFIG_NAME_KEY = b"astra.montecarlo.config_name"
 OUT_DIR_PLACEHOLDER = "<out_dir>"
 TRIM_COPY_PLACEHOLDER = "<trim_copy>"
 MIN_CLIP = 1.0  # standard deviations: at least 68 % of draws are kept (review R-002)
@@ -223,6 +250,8 @@ class Spec:
     trim: TrimSetpoint | None
     dispersions: tuple[Dispersion, ...]
     signals: tuple[str, ...]
+    spec_bytes: bytes  # the spec file and the base config, as read (The batch's record)
+    config_bytes: bytes
 
 
 # --- sampler ------------------------------------------------------------------------------------
@@ -294,18 +323,52 @@ def draw(spec: Spec, index: int) -> tuple[int, dict[str, float | int]]:
 
 def load(path: str | Path, *, root: str | Path | None = None) -> Spec:
     """Reads and validates the spec at ``path`` (module docstring). ``config`` is resolved against
-    ``root`` (default: the current directory). Raises ``SpecError`` naming the file and the key."""
+    ``root`` (default: the current directory). Raises ``SpecError`` naming the file and the key.
+    Both files are read as bytes and kept as read (``Spec.spec_bytes``, ``Spec.config_bytes``),
+    which the batch records in its summary (The batch's record)."""
     path = Path(path)
     base = Path.cwd() if root is None else Path(root)
     try:
-        raw: Any = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError) as error:
+        spec_bytes = path.read_bytes()
+    except OSError as error:
         raise SpecError(f"{path}: cannot read the spec ({error})") from error
-    top = _runkit.closed_map(
+    top = _top(path, spec_bytes)
+    config_path = base / _runkit.text(path, top["config"], "config", error=SpecError)
+    try:
+        config_bytes = config_path.read_bytes()
+    except OSError as error:
+        raise SpecError(f"{path}: config: cannot read {config_path} ({error})") from error
+    return _validated(path, spec_bytes, top, config_path, config_bytes)
+
+
+def loads(spec_bytes: bytes, config_bytes: bytes, *, path: Path, config_path: Path) -> Spec:
+    """Validates a spec and its base config given as bytes, as ``load`` reads them; ``path`` and
+    ``config_path`` name them in messages and in the ``Config`` origin, and the spec's own
+    ``config`` key is checked but not read (``batch_spec`` passes the recorded texts)."""
+    top = _top(path, spec_bytes)
+    _runkit.text(path, top["config"], "config", error=SpecError)
+    return _validated(path, spec_bytes, top, config_path, config_bytes)
+
+
+def _yaml(path: Path, data: bytes, failure: str) -> Any:
+    """``data`` decoded as UTF-8 and read by ``yaml.safe_load``, as every spec and config is."""
+    try:
+        return yaml.safe_load(data.decode("utf-8"))
+    except (UnicodeDecodeError, yaml.YAMLError) as error:
+        raise SpecError(f"{path}: {failure} ({error})") from error
+
+
+def _top(path: Path, spec_bytes: bytes) -> dict[str, Any]:
+    raw = _yaml(path, spec_bytes, "cannot read the spec")
+    return _runkit.closed_map(
         path, raw, "the spec", required=_REQUIRED, optional=_TOP_KEYS, error=SpecError
     )
-    config_path = base / _runkit.text(path, top["config"], "config", error=SpecError)
-    config = _base_config(path, config_path)
+
+
+def _validated(
+    path: Path, spec_bytes: bytes, top: dict[str, Any], config_path: Path, config_bytes: bytes
+) -> Spec:
+    config = _base_config(path, config_path, config_bytes)
     trim = _runkit.trim_setpoint(path, top.get("trim"), error=SpecError)
     runs = _integer(path, top["runs"], "runs", 1, None)
     seed = _integer(path, top["seed"], "seed", 0, 2**64)
@@ -335,14 +398,13 @@ def load(path: str | Path, *, root: str | Path | None = None) -> Spec:
         trim=trim,
         dispersions=dispersions,
         signals=signals,
+        spec_bytes=spec_bytes,
+        config_bytes=config_bytes,
     )
 
 
-def _base_config(path: Path, config_path: Path) -> dict[str, Any]:
-    try:
-        data: Any = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError) as error:
-        raise SpecError(f"{path}: config: cannot read {config_path} ({error})") from error
+def _base_config(path: Path, config_path: Path, config_bytes: bytes) -> dict[str, Any]:
+    data = _yaml(path, config_bytes, f"config: cannot read {config_path}")
     config = _runkit.closed_map(
         path, data, f"config {config_path}", required=set(), optional=None, error=SpecError
     )
@@ -469,10 +531,17 @@ def log_name(index: int) -> str:
     return f"run_{index:04d}.h5"
 
 
-def run_one(spec: Spec, index: int, out_dir: str | Path) -> dict[str, Any]:
+def run_one(
+    spec: Spec,
+    index: int,
+    out_dir: str | Path,
+    *,
+    reraise: Callable[[Exception], bool] | None = None,
+) -> dict[str, Any]:
     """Draws, trims (if set), runs and reads back run ``index`` with its log in ``out_dir``, and
     returns its summary row (module docstring, A run). Only an ``ok`` or ``halt`` row leaves a
-    log."""
+    log. An exception for which ``reraise`` returns true propagates instead of becoming an
+    ``error`` row (its log already discarded); ``rerun`` uses it for write failures."""
 
     def accept(run_log: log.RunLog) -> None:
         # While the Simulation is alive, so a rejected log is discarded through discard_log().
@@ -506,6 +575,8 @@ def run_one(spec: Spec, index: int, out_dir: str | Path) -> dict[str, Any]:
             accept=accept,
         )
     except Exception as error:
+        if reraise is not None and reraise(error):
+            raise
         return _error_row(row, error, out_dir)
     halt = run_log.halt
     row["frames_run"] = run_log.frames_run
@@ -797,7 +868,7 @@ def _write_summary(spec: Spec, rows: list[dict[str, Any]], path: Path) -> pd.Dat
             if name not in known:
                 known.add(name)
                 fields.append((name, _pa.float64()))
-    schema = _pa.schema(fields)
+    schema = _pa.schema(fields, metadata=record(spec))
     columns = {name: [row.get(name) for row in rows] for name, _type in fields}
     table = _pa.Table.from_pydict(columns, schema=schema)
     summary = cast(pd.DataFrame, table.to_pandas())
@@ -808,3 +879,163 @@ def _write_summary(spec: Spec, rows: list[dict[str, Any]], path: Path) -> pd.Dat
     finally:
         partial.unlink(missing_ok=True)
     return summary
+
+
+# --- the batch's record and rerun (M6 PR 6, docs/plans/m6-pr6-mc-analysis.md D2) ------------------
+
+
+class RerunError(Exception):
+    """``rerun`` refused the run before executing it; the message names the summary and why."""
+
+
+class RerunWriteError(Exception):
+    """``rerun`` could not write the run's log (a ``LogError``, an ``OSError``, a ``LOG`` halt, or a
+    ``ConfigError`` at ``log.path``), so nothing was compared; the run's own file is already
+    discarded (review R-004)."""
+
+
+# The core's ConfigError wording (errors.cpp describe_config): "config '<origin>' at '<key>': ...".
+# ADR-0027 item 1 makes any failure while the log is constructed (its create, its provenance write)
+# a ConfigError at log.path; in a rerun's own empty directory that is a failed write.
+_AT_LOG_PATH = " at 'log.path': "
+
+
+def _write_failure(error: Exception) -> bool:
+    """What a rerun reports as a failed write rather than as a row that differs (review R-004):
+    a ``LogError``, an ``OSError``, a ``LOG`` halt, or a ``ConfigError`` at ``log.path``."""
+    if isinstance(error, _core.LogError | OSError | LogHaltError):
+        return True
+    return isinstance(error, _core.ConfigError) and _AT_LOG_PATH in str(error)
+
+
+def inside(path: Path, directory: Path) -> bool:
+    """Whether ``path`` is ``directory`` or lies under it, after resolving symlinks and ``..``
+    (review R-002: no tool writes into the batch it reads)."""
+    resolved = path.resolve()
+    base = directory.resolve()
+    return resolved == base or base in resolved.parents
+
+
+@dataclasses.dataclass(frozen=True)
+class RerunResult:
+    """What ``rerun`` did. ``recorded`` is the summary's row and ``row`` the rerun's (``run_one``);
+    ``differences`` names every column where they differ (null equals null, NaN equals NaN).
+    ``log_path`` is the rerun's log, or ``None`` when the run left none. ``log_identical`` compares
+    it with the batch's own log byte for byte, or is ``None`` when either is missing."""
+
+    run: int
+    out_dir: Path
+    log_path: Path | None
+    recorded: dict[str, Any]
+    row: dict[str, Any]
+    differences: tuple[str, ...]
+    log_identical: bool | None
+
+    @property
+    def reproduced(self) -> bool:
+        return not self.differences and self.log_identical is not False
+
+
+def record(spec: Spec) -> dict[bytes, bytes]:
+    """The batch's record of ``spec``: summary.parquet's schema metadata (The batch's record)."""
+    return {
+        SPEC_KEY: spec.spec_bytes,
+        CONFIG_KEY: spec.config_bytes,
+        CONFIG_NAME_KEY: spec.config_path.name.encode("utf-8"),
+    }
+
+
+def batch_spec(batch_dir: str | Path) -> Spec:
+    """The spec a batch recorded in its summary, validated again by ``loads`` against the current
+    build. Raises ``SpecError`` when the summary cannot be read or records no spec (a batch from
+    before M6 PR 6)."""
+    summary = Path(batch_dir) / SUMMARY
+    try:
+        schema: Any = _pq.read_schema(summary)
+    except (OSError, ValueError) as error:  # pyarrow's ArrowInvalid is a ValueError
+        raise SpecError(f"{summary}: cannot read the summary ({error})") from error
+    metadata = cast(dict[bytes, bytes], schema.metadata or {})
+    keys = (SPEC_KEY, CONFIG_KEY, CONFIG_NAME_KEY)
+    missing = [key.decode() for key in keys if key not in metadata]
+    if missing:
+        raise SpecError(
+            f"{summary}: the batch records no spec ({', '.join(missing)} missing): it was written "
+            "before M6 PR 6, so its runs cannot be rerun; run the batch again to record one"
+        )
+    name = metadata[CONFIG_NAME_KEY].decode("utf-8", errors="replace")
+    if not name or "/" in name or name in (".", ".."):
+        raise SpecError(f"{summary}: the recorded config name {name!r} is not a file name")
+    return loads(metadata[SPEC_KEY], metadata[CONFIG_KEY], path=summary, config_path=Path(name))
+
+
+def rerun(batch_dir: str | Path, index: int, out_dir: str | Path) -> RerunResult:
+    """Re-executes run ``index`` of the batch in ``batch_dir`` into ``out_dir`` from the batch's
+    record (module docstring, Rerun). Raises ``SpecError`` (no record, or a record the current
+    build refuses), ``RerunError`` (no such run, an ``error`` row, or a seed or draw that differs
+    from the summary) and ``FileExistsError`` (``out_dir`` not empty), each before anything runs."""
+    batch_dir = Path(batch_dir)
+    summary = batch_dir / SUMMARY
+    spec = batch_spec(batch_dir)
+    recorded = _recorded_row(summary, index)
+    if recorded.get("status") == "error":
+        raise RerunError(
+            f"{summary}: run {index} is an error row ({recorded.get('error_type')}): it left no "
+            "log to rerun"
+        )
+    seed, values = draw(spec, index)
+    for name, value in {"seed": seed, **values}.items():
+        if name not in recorded or not _same(recorded[name], value):
+            raise RerunError(
+                f"{summary}: run {index}: {name}: the summary records {recorded.get(name)!r}, but "
+                f"the recorded spec draws {value!r}"
+            )
+    out_dir = Path(out_dir)
+    if inside(out_dir, batch_dir):
+        raise RerunError(
+            f"{out_dir}: is the batch {batch_dir} or inside it; rerun never writes into a batch"
+        )
+    out_dir.mkdir(parents=True, exist_ok=True)
+    if any(out_dir.iterdir()):
+        raise FileExistsError(f"{out_dir}: the rerun's output directory is not empty")
+    try:
+        row = run_one(spec, index, out_dir, reraise=_write_failure)
+    except Exception as error:
+        if not _write_failure(error):
+            raise
+        raise RerunWriteError(
+            f"run {index}: the rerun's log could not be written ({type(error).__name__}: "
+            f"{error}); it was not compared"
+        ) from error
+    columns = [*recorded, *(name for name in row if name not in recorded)]
+    differences = tuple(name for name in columns if not _same(recorded.get(name), row.get(name)))
+    new_log = out_dir / log_name(index)
+    original = batch_dir / log_name(index)
+    log_path = new_log if new_log.exists() else None
+    identical = None
+    if log_path is not None and original.exists():
+        identical = original.read_bytes() == log_path.read_bytes()
+    return RerunResult(index, out_dir, log_path, recorded, row, differences, identical)
+
+
+def _recorded_row(summary: Path, index: int) -> dict[str, Any]:
+    try:
+        rows = cast(list[dict[str, Any]], _pq.read_table(summary).to_pylist())
+    except (OSError, ValueError) as error:
+        raise SpecError(f"{summary}: cannot read the summary ({error})") from error
+    for row in rows:
+        if row.get("run") == index:
+            return row
+    raise RerunError(f"{summary}: run {index} is not in the summary ({len(rows)} rows)")
+
+
+def _same(recorded: Any, rerun: Any) -> bool:
+    """Exact equality, with null equal to null and NaN equal to NaN."""
+    if recorded is None or rerun is None:
+        return recorded is None and rerun is None
+    both_nan = (
+        isinstance(recorded, float)
+        and isinstance(rerun, float)
+        and math.isnan(recorded)
+        and math.isnan(rerun)
+    )
+    return both_nan or bool(recorded == rerun)

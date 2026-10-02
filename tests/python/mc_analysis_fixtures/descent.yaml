@@ -1,0 +1,21 @@
+# M6 PR 6 (docs/plans/m6-pr6-mc-analysis.md, C-10): a fast logged fixture whose batch holds ok, halt
+# and error rows, runs of different lengths, and two rate groups. tests/plugins/slow_rate registers
+# v0.slow_rate.value at divisor 10 (/rate_10 beside /rate_1). The run starts 100 m above ISA 1976's
+# -5000 m floor and descends at v_b[2] m/s (body z is down, with zero attitude), so a fast enough
+# descent leaves the atmosphere's valid range and the domain check halts the run (its default
+# action), at a frame that depends on the speed.
+sim:
+  dt: 0.001
+  frames: 500
+vehicle:
+  models:
+    - { plugin: tests/plugins/nan_wrench, force_x: 1.0 }
+    - { plugin: tests/plugins/slow_rate, divisor: 10 }
+physical:
+  earth: plugins/physical/earth/flat
+  gravity: plugins/physical/gravity/constant
+  atmosphere: plugins/physical/atmosphere/isa1976
+  wind: { plugin: plugins/physical/wind/dryden, seed: 7, w20_knots: 15.0, sigma_high: 3.0 }
+  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 }
+initial:
+  state: { p_n: [0.0, 0.0, 4900.0], v_b: [60.0, 0.0, 100.0] }

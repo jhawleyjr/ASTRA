@@ -239,6 +239,15 @@ takes them as a prefix.
     writes byte-deterministic SVG (or PNG) per figure, plotly one offline HTML page; nothing is overwritten.
     Framework packages, a template starter set and a notional-transport package ship; `astra plot` joins the
     CLI; matplotlib and plotly are pinned. Plan: [plan](docs/plans/m6-pr5-plots.md). Packet: in the PR body.
+  - PR 6 (#92): Monte Carlo analysis. `astra.mc_analysis` covers:
+    - outcomes under a closed criterion grammar (default `status == halt`; `error` rows apart);
+    - KS with Benjamini-Hochberg, Spearman and PRCC against a metric, ranked by p, then |effect|, then spec order;
+    - an in-house depth-3 tree whose fail leaves read as conjunctions;
+    - the histogram, scatter and envelope figures (counts per frame, failing runs overlaid).
+
+    `astra mc analyze` and `astra mc rerun` join the CLI. A batch now records its spec and base config bytes in
+    `summary.parquet`, which rerun runs from, comparing the row and the log. Every matplotlib legend sits
+    outside its axes. Plan: [plan](docs/plans/m6-pr6-mc-analysis.md). Packet: in the PR body.
   - PR 9 (#91): the frame-time benchmark. `astra_frame_benchmark` (`tests/benchmark/`) times each `step()` of the
     notional transport's cruise and still-air configs and of `dummy_1000`, after a warm-up instance, checking
     every timed frame ran with no halt. It also times R19b's five logged cases end to end through `close_log()`.
@@ -405,9 +414,6 @@ takes them as a prefix.
 - [ ] (M6) `aircraft/_template/plots/ground_track.py` draws without an equal aspect ratio, so near-straight flight
       autoscales the east axis around zero and exaggerates a tiny lateral drift (origin: M6 PR 5, Joe's review,
       2026-10-01). Not started.
-- [ ] (M6) Legends cover data: the `ax.legend(loc="upper right")` call in `python/astra/plot.py` puts every
-      legend inside the axes, over TAS's end, alpha's right edge, beta and phi (origin: M6 PR 5, Joe's look at a
-      60 s run, 2026-10-01). Place them outside the axes, which keeps the SVG deterministic. Not started.
 - [ ] (M6) `python/astra/plots/flight.yaml` puts TAS and CAS on one panel, which spans 270 to 475 kt and flattens
       both (origin: M6 PR 5, Joe's look at a 60 s run, 2026-10-01). Not started.
 - [ ] (M6) A 60 s run gives a 25 MB HTML page, because every 1 ms frame is plotted (origin: M6 PR 5, Joe's look

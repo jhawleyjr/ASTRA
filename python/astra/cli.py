@@ -1,8 +1,8 @@
 """astra.cli: the ``astra`` console script (M6 PR 3, docs/plans/m6-pr3-cli.md; docs/architecture.md
 §12, §15 and §18).
 
-Subcommands: ``run``, ``trim`` and ``plot`` (M6 PR 5, docs/plans/m6-pr5-plots.md). ``report`` and
-``mc`` come with their tools (M6 plan).
+Subcommands: ``run``, ``trim``, ``plot`` (M6 PR 5, docs/plans/m6-pr5-plots.md), ``mc analyze`` and
+``mc rerun`` (M6 PR 6). ``report`` and ``mc size`` come with their tools (M6 plan).
 ``main(argv)`` returns the exit code and changes no signal handler; ``console()`` is the script.
 
 ``astra run <config> [--strict] [--log PATH]``
@@ -78,6 +78,32 @@ Subcommands: ``run``, ``trim`` and ``plot`` (M6 PR 5, docs/plans/m6-pr5-plots.md
     missing file included), or an output file already exists (as ``astra run`` refuses an
     existing ``log.path``); 74 a write that fails, or stdout could not be written; 70 an internal
     error; 0 written. Nothing is written for a 65; on a 74 the files this run created are deleted.
+
+``astra mc analyze <batch> [--criterion EXPR] [--metric COLUMN] [--signal NAME]... [--q Q]
+[--out DIR] [--format svg|png]`` (M6 PR 6, docs/plans/m6-pr6-mc-analysis.md D9)
+    Analyzes a batch with ``astra.mc_analysis``: the outcome counts under the criterion (default
+    ``status == halt``), the KS ranking with Benjamini-Hochberg at Q (default 0.05), Spearman and
+    PRCC against the metric when one is given, and the tree's rules, printed to stdout with the
+    paths written. The figures (``mc-hist``, ``mc-scatter``, one ``mc-envelope-<signal>`` per
+    ``--signal``) go to DIR (default ``.``), never overwriting a file. Codes: 64 a usage error
+    (including a Q outside (0, 1)); 65 a refused batch, criterion, metric, signal or log, or an
+    existing output file; 74 a failed write or stdout; 70 an internal error; 0 written. Nothing is
+    written for a 65; on a 74 the files this command created are deleted.
+
+``astra mc rerun <batch> <run> --out DIR [--package P]...`` (M6 plan Q22, D2 and D9)
+    Re-executes one run of a batch from the batch's record (``astra.montecarlo.rerun``) into DIR,
+    which is created and must be empty, and prints the comparison: the row, column by column, and
+    the log's bytes when the batch still holds its log. Plugins come from the current build, so a
+    rebuild can change the result. It then renders each package (default ``flight`` and
+    ``health``) from the new log, never overwriting a file. Codes: 0 reproduced; 1 not reproduced
+    (the log is kept); 64 a usage error; 65 a refused batch (including one written before M6 PR 6,
+    which records no spec), run (not in the summary, an ``error`` row, or draws that differ from
+    the summary), package or output directory; 74 a failed write; 70 an internal error. The
+    comparison is printed before rendering; a render that then fails leaves the log, names the
+    package on stderr and exits 65 (refused) or 74 (write), unless the run was not reproduced,
+    whose 1 takes precedence. A run whose log cannot be written exits 74 with nothing compared, and
+    a DIR that is the batch or lies inside it is refused (65); ``mc analyze`` refuses such a DIR
+    too.
 """
 
 from __future__ import annotations
@@ -99,6 +125,8 @@ from astra import _core, _runkit
 HALTED = 1
 WARNED = 2
 NOT_TRIMMED = 1
+NOT_REPRODUCED = 1
+RERUN_PACKAGES = ("flight", "health")  # astra mc rerun's default framework packages
 EX_USAGE = 64
 EX_DATAERR = 65
 EX_SOFTWARE = 70
@@ -130,6 +158,20 @@ class _Parser(argparse.ArgumentParser):
 def _finite(text: str) -> float:
     value = float(text)
     if not math.isfinite(value):
+        raise ValueError(text)
+    return value
+
+
+def _rate(text: str) -> float:
+    value = float(text)
+    if not 0.0 < value < 1.0:
+        raise ValueError(text)
+    return value
+
+
+def _index(text: str) -> int:
+    value = int(text)
+    if value < 0:
         raise ValueError(text)
     return value
 
@@ -186,6 +228,70 @@ def _parser() -> tuple[_Parser, dict[str, _Parser]]:
         "--format", choices=("svg", "png"), default="svg", help="figure file format (default: svg)"
     )
     plot.add_argument("--html", action="store_true", help="also write the interactive HTML page")
+    mc = commands.add_parser(
+        "mc",
+        help="analyze a Monte Carlo batch, or rerun one of its runs",
+        description="Monte Carlo batches (astra.montecarlo): analyze one, or rerun one of its "
+        "runs.",
+    )
+    mc_commands = mc.add_subparsers(dest="mc_command", required=True, metavar="command")
+    analyze = mc_commands.add_parser(
+        "analyze",
+        help="outcomes, rankings, the tree and figures of a batch",
+        description="Analyze a batch: outcome counts, KS with Benjamini-Hochberg, Spearman and "
+        "PRCC against a metric, the classification tree, and the figures. Exit codes: 64 "
+        "usage, 65 a refused batch, criterion, metric, signal or log, or an existing output "
+        "file, 74 a failed write, 0 written; 70 an internal error.",
+    )
+    analyze.add_argument("batch", help="the batch directory (summary.parquet and run logs)")
+    analyze.add_argument(
+        "--criterion",
+        metavar="EXPR",
+        help="the failure criterion (default: status == halt), e.g. 'max.v0.derived.alpha > 0.3'",
+    )
+    analyze.add_argument(
+        "--metric", metavar="COLUMN", help="a numeric summary column for Spearman and PRCC"
+    )
+    analyze.add_argument(
+        "--signal",
+        action="append",
+        default=[],
+        metavar="NAME",
+        help="draw this signal's envelope across the run logs (repeatable)",
+    )
+    analyze.add_argument(
+        "--q",
+        type=_rate,
+        default=0.05,
+        metavar="Q",
+        help="the Benjamini-Hochberg false-discovery rate, in (0, 1) (default: 0.05)",
+    )
+    analyze.add_argument("--out", metavar="DIR", default=".", help="output directory (default: .)")
+    analyze.add_argument(
+        "--format", choices=("svg", "png"), default="svg", help="figure file format (default: svg)"
+    )
+    rerun = mc_commands.add_parser(
+        "rerun",
+        help="re-execute one run of a batch with full logging",
+        description="Re-execute one run of a batch from the batch's record of its spec and "
+        "config, into an empty directory, and compare the result with the batch. Plugins come "
+        "from the current build, so a rebuild can change the result; the new log's provenance "
+        "and the row comparison show it. Exit codes: 0 reproduced, 1 not reproduced, 64 usage, "
+        "65 a refused batch, run, package or output directory, 74 a failed write; 70 an "
+        "internal error.",
+    )
+    rerun.add_argument("batch", help="the batch directory")
+    rerun.add_argument("run", type=_index, help="the run index")
+    rerun.add_argument(
+        "--out", metavar="DIR", required=True, help="output directory (created; must be empty)"
+    )
+    rerun.add_argument(
+        "--package",
+        action="append",
+        metavar="P",
+        help="a plot package to render from the new log (repeatable; default: "
+        f"{', '.join(RERUN_PACKAGES)})",
+    )
     return parser, {"run": run, "trim": trim, "plot": plot}
 
 
@@ -201,10 +307,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _run(args, commands["run"])
         if args.command == "plot":
             return _plot(args)
+        if args.command == "mc":
+            return _mc_analyze(args) if args.mc_command == "analyze" else _mc_rerun(args)
         return _trim(args, commands["trim"])
     except Exception:
         # D3: a defect. Printed here, then released with the frames that hold the Simulation.
-        print(f"astra {args.command}: internal error (a defect):", file=sys.stderr)
+        command = f"mc {args.mc_command}" if args.command == "mc" else args.command
+        print(f"astra {command}: internal error (a defect):", file=sys.stderr)
         traceback.print_exc()
         return EX_SOFTWARE
 
@@ -568,6 +677,104 @@ def _plot(args: argparse.Namespace) -> int:
         _say("plot", f"cannot write the figures: {error}")
         return EX_IOERR
     return 0 if _write("plot", "".join(f"{path}\n" for path in written)) else EX_IOERR
+
+
+# --- astra mc -------------------------------------------------------------------------------------
+
+
+def _mc_analyze(args: argparse.Namespace) -> int:
+    from astra import mc_analysis, plot  # pyarrow, scipy and matplotlib, only for this command
+
+    command = "mc analyze"
+    try:
+        batch = mc_analysis.load_batch(args.batch)
+        analysis = mc_analysis.analyze(batch, args.criterion, args.metric, args.q)
+    except (mc_analysis.BatchError, mc_analysis.CriterionError) as error:
+        _say(command, f"refused: {error}")
+        return EX_DATAERR
+    try:
+        written = mc_analysis.render_figures(
+            batch, analysis.outcomes, args.signal, args.out, fmt=args.format
+        )
+    except (mc_analysis.EnvelopeError, mc_analysis.BatchError) as error:
+        _say(command, f"refused: {error}")
+        return EX_DATAERR
+    except plot.PlotOutputExistsError as error:
+        _say(command, f"output error: {error}")
+        return EX_DATAERR
+    except OSError as error:
+        _say(command, f"cannot write the figures: {error}")
+        return EX_IOERR
+    text = analysis.text() + "figures:\n" + "".join(f"  {path}\n" for path in written)
+    return 0 if _write(command, text) else EX_IOERR
+
+
+def _mc_rerun(args: argparse.Namespace) -> int:
+    from astra import log, montecarlo, plot  # h5py, pyarrow and matplotlib, only for this command
+
+    command = "mc rerun"
+    try:
+        packages = [
+            plot.load_package(plot.package_path(name)) for name in args.package or RERUN_PACKAGES
+        ]
+    except plot.PlotPackageError as error:
+        _say(command, f"package error: {error}")
+        return EX_DATAERR
+    try:
+        result = montecarlo.rerun(args.batch, args.run, args.out)
+    except (montecarlo.SpecError, montecarlo.RerunError, FileExistsError) as error:
+        _say(command, f"refused: {error}")
+        return EX_DATAERR
+    except montecarlo.RerunWriteError as error:
+        _say(command, str(error))
+        return EX_IOERR
+    except OSError as error:
+        _say(command, f"cannot create the output directory: {error}")
+        return EX_IOERR
+    # The comparison is what the command is for: printed before anything is rendered, and its
+    # code (1, not reproduced) takes precedence over a render failure.
+    code = 0 if result.reproduced else NOT_REPRODUCED
+    if not _write(command, _rerun_text(result)):
+        return EX_IOERR
+    if result.log_path is None:
+        return code
+    try:
+        run_log = log.load(result.log_path)
+        written = [path for package in packages for path in plot.render(package, run_log, args.out)]
+    except (plot.PlotPackageError, plot.PlotOutputExistsError) as error:
+        _say(command, f"the log is kept; rendering refused: {error}")
+        return code or EX_DATAERR
+    except (log.LogFormatError, log.IncompleteLogError) as error:
+        _say(command, f"the new log is refused: {error}")
+        return code or EX_DATAERR
+    except OSError as error:
+        _say(command, f"the log is kept; cannot write the figures: {error}")
+        return code or EX_IOERR
+    if not _write(command, "figures:\n" + "".join(f"  {path}\n" for path in written)):
+        return code or EX_IOERR
+    return code
+
+
+def _rerun_text(result: Any) -> str:
+    lines = [
+        f"run: {result.run}",
+        f"log: {result.log_path.resolve() if result.log_path is not None else 'none'}",
+        "row: reproduced"
+        if not result.differences
+        else f"row: differs in {', '.join(result.differences)}",
+    ]
+    for name in result.differences:
+        lines.append(
+            f"  {name}: recorded {result.recorded.get(name)!r}, rerun {result.row.get(name)!r}"
+        )
+    if result.log_identical is None:
+        lines.append("log bytes: not compared (the batch holds no log of this run)")
+    else:
+        lines.append(
+            f"log bytes: {'identical' if result.log_identical else 'differ'} to the batch's"
+        )
+    lines.append(f"reproduced: {'yes' if result.reproduced else 'no'}")
+    return "\n".join(lines) + "\n"
 
 
 if __name__ == "__main__":
