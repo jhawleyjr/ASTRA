@@ -19,6 +19,8 @@ exit codes. Invoke them from any working directory by their relative or absolute
 | `just embedded-standalone` | `embedded/` alone (`cmake -S embedded`, no preset, no Eigen/yaml-cpp/GoogleTest/Python) with clang++-18 and g++, then the autopilot's no-`astra_core` binary check and a no-argument exit-1 smoke run (ADR-0008) |
 | `.venv/bin/pytest tests/python/test_lockstep.py` | M4 acceptance at full length (Release): R1 to R4b, R12b, the driver's lifecycle. Every run is a child process with a hard timeout; pytest is a child subreaper for the module. Set `ASTRA_LOCKSTEP_REPORT_DIR` to keep each run's `summary.json`, `trace.csv` and recorder; set `ASTRA_AUTOPILOT` / `ASTRA_ECHO_PEER` to use other binaries than `build/python`'s |
 | `ctest --preset asan -R ClosedLoopAcceptance --no-tests=error` | The closed loop in C++: the limits-equality test, 1,000 exchanges and a same-process R3 pair on every preset; the full 10,000 exchanges (label `acceptance`) on asan only |
+| `ctest --preset release -R 'FrameStats\|FrameBenchmark' --no-tests=error` | The frame-time benchmark's statistics against hand-worked samples (label `unit`) and its smoke (label `benchmark`): every JSON field and frame count at 1000 frames, and a halting config or a bad argument records nothing. No speed is asserted; `just check` runs both in all four presets |
+| `just benchmark <out.json>` | By hand, never in `just check`: a Release build, then the frame-time benchmark at 100,000 frames, JSON to `<out.json>` (see "Frame-time benchmark" below) |
 | `just hooks-test` | Existing oracle/main/Stop-hook regression cases |
 | `just tidy` / `just format-check` | Static analysis / read-only C++ formatting check |
 | `just format` | Mutating C++/Python formatting; inspect the resulting diff |
@@ -26,8 +28,21 @@ exit codes. Invoke them from any working directory by their relative or absolute
 Fast excludes physics, Python, formatting, hooks and static analysis. Full includes every registered
 physics test under every preset, including allocation, deterministic/stochastic and analytic/reference
 oracles already in the tree. Future milestone checks in architecture/PLAN are not automatically present.
-There is no standalone benchmark, fuzz, security scan or release job today. Add a targeted check only
-when required by a task; do not claim these categories are covered by a green full gate.
+There is no fuzz, security scan or release job today, and the gate runs the frame-time benchmark only
+as a smoke, never as a speed check. Add a targeted check only when required by a task; do not claim
+these categories are covered by a green full gate.
+
+### Frame-time benchmark
+
+`just benchmark <out.json>` (M6 PR 9, [plan](../plans/m6-pr9-benchmark.md)) times `step()` for the
+notional transport's `cruise.yaml` and `cruise_still_air.yaml` and for `tests/configs/dummy_1000.yaml`.
+It also times R19b's five logged cases end to end, through `run()` or `step()` plus `flush_log()` and
+then `close_log()`. Every timed frame is checked before anything is recorded. The JSON carries the
+build type, the toolchain, the CPU, the governor and the load average at start and end. A baseline is
+taken on a quiet machine only. Check first that no ASTRA build or test is running in any checkout, with
+`pgrep -af 'just check|check-full|check-fast|ninja|cmake --build|ctest|pytest|astra_|clang\+\+-18|clang-tidy'`
+(a bare `clang` matches clangd), and that clangd is idle in `top`. Record that output, and do not
+compare numbers across machines, governors or build types. Tracking the figure over time is M11.
 
 ## Environment and runtime
 

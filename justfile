@@ -40,6 +40,12 @@ wallclock-scan preset="asan": (build preset)
 test-unit preset="asan": (build preset)
     ctest --preset {{preset}} -L unit --parallel {{jobs}} --no-tests=error
 
+# The frame-time benchmark (docs/plans/m6-pr9-benchmark.md): a Release build, then each named config's
+# step() cost and R19b's logged end-to-end cases at 100,000 frames, as JSON written to `out`. A baseline
+# needs a quiet machine (docs/process/validation.md). The gate runs only its smoke, which asserts no speed.
+benchmark out: (build "release")
+    build/release/tests/benchmark/astra_frame_benchmark --frames 100000 --out {{quote(out)}}
+
 # The venv the gate uses. Created here when missing (a fresh worktree or CI has none) and filled from the pinned
 # dev group in pyproject.toml. `pip install --group` needs pip 25.1; a venv's bundled pip (24.0) is upgraded
 # once, and both installs are offline once satisfied.

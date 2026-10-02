@@ -239,6 +239,12 @@ takes them as a prefix.
     writes byte-deterministic SVG (or PNG) per figure, plotly one offline HTML page; nothing is overwritten.
     Framework packages, a template starter set and a notional-transport package ship; `astra plot` joins the
     CLI; matplotlib and plotly are pinned. Plan: [plan](docs/plans/m6-pr5-plots.md). Packet: in the PR body.
+  - PR 9 (#91): the frame-time benchmark. `astra_frame_benchmark` (`tests/benchmark/`) times each `step()` of the
+    notional transport's cruise and still-air configs and of `dummy_1000`, after a warm-up instance, checking
+    every timed frame ran with no halt. It also times R19b's five logged cases end to end through `close_log()`.
+    It writes JSON (mean, median, p99, max, fps, margins against `dt`, toolchain, CPU, load) only after every
+    check passes. `just benchmark` takes a Release baseline; the gate runs its smoke, which asserts no speed.
+    Closes C-19 and N-05. Plan: [plan](docs/plans/m6-pr9-benchmark.md). Packet: in the PR body.
   - Workflow (#83): plan-mode drafts land in the session's `docs/plans/` (`plansDirectory`), with the rule for
     renaming, committing or deleting them in `docs/agents/claude-code.md` and `/wrap`; 27 never-committed plans
     recovered from `~/.claude/plans`. Plan: [plan](docs/plans/claude-plans-directory.md). Packet: in the PR body.
