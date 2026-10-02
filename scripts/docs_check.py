@@ -23,7 +23,7 @@ JUST_RECIPE_REF_RE = re.compile(r"`just ([A-Za-z][A-Za-z0-9_-]*)")
 # (e.g. docs/agents/review-dispatch.md's Codex companion), which this repo does not own.
 SCRIPT_REF_RE = re.compile(r"`\./scripts/([A-Za-z0-9_.-]+)")
 FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
-JUSTFILE_RECIPE_RE =re.compile(r"^([A-Za-z_][A-Za-z0-9_-]*)\b[^\n:]*:(?!=)")
+JUSTFILE_RECIPE_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_-]*)\b[^\n:]*:(?!=)")
 ROOT_INSTRUCTION_LINE_BUDGET = 100
 
 # The workflow's own documentation surface (docs/process/validation.md's "for workflow
