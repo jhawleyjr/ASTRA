@@ -159,6 +159,27 @@ def test_montecarlo_every_drawn_value_is_in_the_stored_config_and_the_summary(
             assert type(_runkit.numeric_leaf(stored, key)) is type(value)
 
 
+def test_montecarlo_the_summary_records_the_spec_and_config_bytes_and_the_config_name(
+    ok_batches: tuple[montecarlo.Spec, Path, Path],
+) -> None:
+    # M6 PR 6, D2: the batch's record is the two files' bytes as read and the config's bare file
+    # name; the 1-vs-4 byte comparison above shows it depends on neither out_dir nor the workers.
+    spec, one, _four = ok_batches
+    metadata = cast(dict[bytes, bytes], pq.read_schema(one / montecarlo.SUMMARY).metadata)
+    assert metadata[montecarlo.SPEC_KEY] == spec.path.read_bytes()
+    assert metadata[montecarlo.CONFIG_KEY] == (REPO / CRUISE).read_bytes()
+    assert metadata[montecarlo.CONFIG_NAME_KEY] == b"cruise.yaml"
+    rebuilt = montecarlo.batch_spec(one)
+    assert rebuilt.dispersions == spec.dispersions
+    assert (rebuilt.frames, rebuilt.runs, rebuilt.seed, rebuilt.trim) == (
+        spec.frames,
+        spec.runs,
+        spec.seed,
+        spec.trim,
+    )
+    assert rebuilt.config == spec.config
+
+
 def test_montecarlo_a_different_master_seed_changes_every_dispersed_value(
     tmp_path: Path, ok_batches: tuple[montecarlo.Spec, Path, Path]
 ) -> None:
