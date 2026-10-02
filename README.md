@@ -55,7 +55,8 @@ Everything below is on `main` today.
 - **Scenarios.** `astra.scenario` runs YAML scenarios (a config, optional trim, input events, checks on logged
   signals). Every file in `tests/scenarios/` is a pytest item.
 - **Monte Carlo.** `astra.montecarlo` runs dispersed batches across worker processes. Each run's seed comes from
-  the master seed and the run index. It writes one log per run and a `summary.parquet`.
+  the master seed and the run index. It writes one log per run and a `summary.parquet`, which also records the
+  spec and base config the batch ran.
 - **FlightGear bridge.** `astra.fgbridge` sends FlightGear FGNetFDM v24 packets over UDP from a live run or a
   log.
 - **The `astra` CLI.** `astra run` runs a config open loop, prints a post-run summary and exits with a code
@@ -346,7 +347,7 @@ made before code existed and the open questions deliberately deferred.
 | `aircraft/` | One folder per aircraft: `_template/` and `notional_transport/` |
 | `icd/` | `astra_icd.h`, the C11 frames exchanged with flight software |
 | `embedded/` | A separate C++17 project: the HAL and the example autopilot |
-| `python/` | The `astra` package (`trim`, `linearize`, `log`, `scenario`, `montecarlo`, `fgbridge`, `lockstep`, `cli`) and the nanobind bindings |
+| `python/` | The `astra` package (`trim`, `linearize`, `log`, `scenario`, `montecarlo`, `mc_analysis`, `plot`, `fgbridge`, `lockstep`, `cli`) and the nanobind bindings |
 | `tests/` | Unit, physics, lockstep and Python tests, scenarios, and human-owned goldens |
 | `scripts/` | Setup, check wrappers and docs and scan tools |
 | `cmake/` | The plugin helpers (`astra_add_plugin`, `astra_add_plugin_test`) |
