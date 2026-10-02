@@ -115,7 +115,10 @@ record and checks each against the summary row. It then calls ``run_one`` and co
 column of the new row with the recorded one, and, when the batch still holds the run's log, the
 two logs byte for byte. The record is not a frozen build: plugins are loaded from the current
 build, so a rebuild can change the result. The new log's provenance (``git_describe``, the plugin
-table) and the row comparison show it when it does. Rerun never touches the batch's own files.
+table) and the row comparison show it when it does. Rerun never touches the batch's own files, and
+it refuses an output directory that is the batch or lies inside it (symlinks resolved). A run whose
+log cannot be written (a ``LogError``, an ``OSError`` or a ``LOG`` halt) raises
+``RerunWriteError``: nothing was compared, so it is not reported as a row that differs.
 """
 
 from __future__ import annotations
@@ -527,10 +530,17 @@ def log_name(index: int) -> str:
     return f"run_{index:04d}.h5"
 
 
-def run_one(spec: Spec, index: int, out_dir: str | Path) -> dict[str, Any]:
+def run_one(
+    spec: Spec,
+    index: int,
+    out_dir: str | Path,
+    *,
+    reraise: tuple[type[BaseException], ...] = (),
+) -> dict[str, Any]:
     """Draws, trims (if set), runs and reads back run ``index`` with its log in ``out_dir``, and
     returns its summary row (module docstring, A run). Only an ``ok`` or ``halt`` row leaves a
-    log."""
+    log. An exception of a ``reraise`` type propagates instead of becoming an ``error`` row (its
+    log already discarded); ``rerun`` uses it for write failures."""
 
     def accept(run_log: log.RunLog) -> None:
         # While the Simulation is alive, so a rejected log is discarded through discard_log().
@@ -564,6 +574,8 @@ def run_one(spec: Spec, index: int, out_dir: str | Path) -> dict[str, Any]:
             accept=accept,
         )
     except Exception as error:
+        if isinstance(error, reraise):
+            raise
         return _error_row(row, error, out_dir)
     halt = run_log.halt
     row["frames_run"] = run_log.frames_run
@@ -875,6 +887,23 @@ class RerunError(Exception):
     """``rerun`` refused the run before executing it; the message names the summary and why."""
 
 
+class RerunWriteError(Exception):
+    """``rerun`` could not write the run's log (a ``LogError``, an ``OSError`` or a ``LOG``
+    halt), so nothing was compared; the run's own file is already discarded (review R-004)."""
+
+
+# What a rerun reports as a failed write rather than as a row that differs (review R-004).
+_WRITE_FAILURES: tuple[type[BaseException], ...] = (_core.LogError, OSError, LogHaltError)
+
+
+def inside(path: Path, directory: Path) -> bool:
+    """Whether ``path`` is ``directory`` or lies under it, after resolving symlinks and ``..``
+    (review R-002: no tool writes into the batch it reads)."""
+    resolved = path.resolve()
+    base = directory.resolve()
+    return resolved == base or base in resolved.parents
+
+
 @dataclasses.dataclass(frozen=True)
 class RerunResult:
     """What ``rerun`` did. ``recorded`` is the summary's row and ``row`` the rerun's (``run_one``);
@@ -949,10 +978,20 @@ def rerun(batch_dir: str | Path, index: int, out_dir: str | Path) -> RerunResult
                 f"the recorded spec draws {value!r}"
             )
     out_dir = Path(out_dir)
+    if inside(out_dir, batch_dir):
+        raise RerunError(
+            f"{out_dir}: is the batch {batch_dir} or inside it; rerun never writes into a batch"
+        )
     out_dir.mkdir(parents=True, exist_ok=True)
     if any(out_dir.iterdir()):
         raise FileExistsError(f"{out_dir}: the rerun's output directory is not empty")
-    row = run_one(spec, index, out_dir)
+    try:
+        row = run_one(spec, index, out_dir, reraise=_WRITE_FAILURES)
+    except _WRITE_FAILURES as error:
+        raise RerunWriteError(
+            f"run {index}: the rerun's log could not be written ({type(error).__name__}: "
+            f"{error}); it was not compared"
+        ) from error
     columns = [*recorded, *(name for name in row if name not in recorded)]
     differences = tuple(name for name in columns if not _same(recorded.get(name), row.get(name)))
     new_log = out_dir / log_name(index)

@@ -101,7 +101,9 @@ Subcommands: ``run``, ``trim``, ``plot`` (M6 PR 5, docs/plans/m6-pr5-plots.md), 
     the summary), package or output directory; 74 a failed write; 70 an internal error. The
     comparison is printed before rendering; a render that then fails leaves the log, names the
     package on stderr and exits 65 (refused) or 74 (write), unless the run was not reproduced,
-    whose 1 takes precedence.
+    whose 1 takes precedence. A run whose log cannot be written exits 74 with nothing compared, and
+    a DIR that is the batch or lies inside it is refused (65); ``mc analyze`` refuses such a DIR
+    too.
 """
 
 from __future__ import annotations
@@ -723,6 +725,9 @@ def _mc_rerun(args: argparse.Namespace) -> int:
     except (montecarlo.SpecError, montecarlo.RerunError, FileExistsError) as error:
         _say(command, f"refused: {error}")
         return EX_DATAERR
+    except montecarlo.RerunWriteError as error:
+        _say(command, str(error))
+        return EX_IOERR
     except OSError as error:
         _say(command, f"cannot create the output directory: {error}")
         return EX_IOERR

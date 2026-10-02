@@ -22,7 +22,8 @@ criterion is a closed expression, never evaluated Python::
 
 ``COLUMN`` is a numeric summary column, a dotted name such as ``max.v0.derived.alpha`` or
 ``vehicle.models.0.force_x``; ``NUMBER`` is a finite decimal or exponent literal with an optional
-sign. An unknown column, operator or token, a string column, a non-numeric value, a missing or
+sign. An integer literal is kept as an integer, so a comparison with a 64-bit ``seed`` is exact.
+An unknown column, operator or token, a string column, a non-numeric value, a missing or
 trailing comparison, and a null or NaN in a referenced column on an analyzed row are each a
 ``CriterionError`` naming it. A continuous *metric* (``metric``) is a numeric column under the
 same rules that is not a dispersion, ``run`` or ``seed``.
@@ -78,7 +79,8 @@ every legend outside its axes (``astra.plot.legend_outside``):
 
 ``render_figures`` follows ``astra.plot.render``'s file rules: everything is resolved and every
 target checked before anything is written, each file is created exclusively, and a failed write
-deletes only the files this call created.
+deletes only the files this call created. An output directory that is the batch, or lies inside it
+(symlinks resolved), is a ``BatchError``: nothing is ever written into the batch.
 """
 
 from __future__ import annotations
@@ -126,6 +128,7 @@ _OPERATORS = ("<=", ">=", "==", "!=", "<", ">")
 _OPERATOR_CHARS = frozenset("<>=!~")
 _NUMBER = re.compile(r"[-+]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?")
 _COLUMN = re.compile(r"[A-Za-z_][A-Za-z0-9_.]*")
+_INTEGER = re.compile(r"[-+]?[0-9]+")
 _STATUSES = ("ok", "halt")
 
 
@@ -254,7 +257,7 @@ def parameter_values(batch: Batch, name: str, rows: Sequence[int]) -> FloatArray
 class Comparison:
     column: str
     operator: str
-    value: float | str  # a number, or "ok"/"halt" for the status atom
+    value: int | float | str  # a number (an int literal stays exact), or "ok"/"halt"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -358,7 +361,9 @@ def _comparison(text: str, batch: Batch, column: str, operator: str, value: str)
         raise CriterionError(f"{where}: column {column!r} is not numeric")
     if _NUMBER.fullmatch(value) is None:
         raise CriterionError(f"{where}: {value!r} is not a number")
-    number = float(value)
+    # An integer literal stays an int, so a comparison with an integer column (a 64-bit seed) is
+    # exact; Python compares int with float exactly too (review R-003).
+    number: int | float = int(value) if _INTEGER.fullmatch(value) else float(value)
     if not math.isfinite(number):
         raise CriterionError(f"{where}: {value!r} is not finite")
     return Comparison(column, operator, number)
@@ -911,7 +916,9 @@ def envelope(batch: Batch, signal: str, result: Outcomes) -> Envelope:
         divisor, frame = found[0]
         data = cast(Any, frame)
         frames = np.asarray(data.index, dtype=np.int64)
-        values = np.asarray(data[signal], dtype=np.float64)
+        # A copy: np.asarray would be a view that keeps the log's whole rate-group matrix alive
+        # (review R-001), so only the signal's own column is retained.
+        values = np.array(data[signal], dtype=np.float64, copy=True)
         unit = run_log.units[signal]
         if reference is None:
             reference = (run, run_log.dt, divisor, unit)
@@ -1102,14 +1109,20 @@ def render_figures(
     fmt: Literal["svg", "png"] = "svg",
 ) -> list[Path]:
     """Writes the batch's figures into ``out_dir`` (module docstring, Figures) and returns their
-    paths. Raises ``EnvelopeError`` and ``astra.plot.PlotOutputExistsError`` before writing."""
+    paths. Raises ``BatchError`` (``out_dir`` is the batch or inside it), ``EnvelopeError`` and
+    ``astra.plot.PlotOutputExistsError``, each before writing."""
     if fmt not in ("svg", "png"):
         raise ValueError(f"fmt must be 'svg' or 'png', got {fmt!r}")
+    out_dir = Path(out_dir)
+    if batch.path is not None and montecarlo.inside(out_dir, batch.path):
+        raise BatchError(
+            f"{out_dir}: is the batch {batch.path} or inside it; astra.mc_analysis never writes "
+            "into the batch it reads"
+        )
     if len(set(signals)) != len(signals):
         raise EnvelopeError(f"a signal is named twice in {list(signals)}")
     envelopes = [envelope(batch, signal, result) for signal in signals]
     names = figure_names(batch, signals)
-    out_dir = Path(out_dir)
     targets = [out_dir / f"{name}.{fmt}" for name in names]
     for target in targets:
         if target.exists() or target.is_symlink():

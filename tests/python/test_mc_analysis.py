@@ -211,6 +211,17 @@ def test_mc_analysis_envelope_equals_numpy_over_the_runs_that_reached_each_frame
     assert f"{errors} error runs without a log" in drawn.get_suptitle()
 
 
+def test_mc_analysis_the_envelope_keeps_only_each_signal_column(descent_batch: Path) -> None:
+    # Review R-001: a retained trace is its own array, never a view that keeps the log's whole
+    # rate-group matrix alive.
+    batch = mc_analysis.load_batch(descent_batch)
+    env = mc_analysis.envelope(batch, ALTITUDE, mc_analysis.outcomes(batch))
+    assert env.failing
+    for _t, values in env.failing.values():
+        assert values.flags.owndata
+        assert values.base is None
+
+
 def test_mc_analysis_a_custom_criterion_changes_the_failing_set_and_its_overlays(
     descent_batch: Path,
 ) -> None:
@@ -768,6 +779,18 @@ def test_mc_analysis_r10_accepted_criteria_and_error_rows_apart(
     assert result.runs_of("error") == [2]  # whatever the criterion says of it
 
 
+def test_mc_analysis_r10_an_integer_literal_compares_a_64_bit_seed_exactly() -> None:
+    # Review R-003: 2^60 + 1 is not a double; as a float literal it would round onto 2^60.
+    big = 2**60
+    batch = mc_analysis.from_columns(
+        {"run": [0, 1], "status": ["ok", "ok"], "seed": [big, big + 1], "a": [0.0, 1.0]}, ["a"]
+    )
+    assert mc_analysis.outcomes(batch, f"seed == {big + 1}").runs_of("fail") == [1]
+    assert mc_analysis.outcomes(batch, f"seed > {big}").runs_of("fail") == [1]
+    assert mc_analysis.outcomes(batch, f"seed <= {big}").runs_of("fail") == [0]
+    assert mc_analysis.outcomes(batch, f"seed != {big + 1}").runs_of("fail") == [0]
+
+
 @pytest.mark.parametrize(
     ("column", "message"),
     [
@@ -983,8 +1006,10 @@ def test_mc_analysis_cli_rerun_reports_a_row_that_differs_and_exits_1(
 ) -> None:
     real = montecarlo.run_one
 
-    def changed(spec: montecarlo.Spec, index: int, out_dir: str | Path) -> dict[str, Any]:
-        row = real(spec, index, out_dir)
+    def changed(
+        spec: montecarlo.Spec, index: int, out_dir: str | Path, **kwargs: Any
+    ) -> dict[str, Any]:
+        row = real(spec, index, out_dir, **kwargs)
         row[f"max.{ALTITUDE}"] += 1.0
         return row
 
@@ -1037,3 +1062,58 @@ def test_mc_analysis_cli_rerun_usage_errors_exit_64(
     assert cli.main(argv) == cli.EX_USAGE
     capsys.readouterr()
     assert not (tmp_path / "o").exists()
+
+
+# --- review round 1: R-002 (never into the batch) and R-004 (a failed write is 74) ---------------
+
+
+def test_mc_analysis_nothing_is_written_into_the_batch(
+    descent_batch: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    batch = _copy(descent_batch, tmp_path)
+    before = _hashes(batch)
+    alias = tmp_path / "alias"
+    alias.symlink_to(batch, target_is_directory=True)
+    for out in (batch, batch / "figures", alias, alias / "figures"):
+        assert cli.main(["mc", "analyze", str(batch), "--out", str(out)]) == cli.EX_DATAERR
+        assert "never writes into the batch" in capsys.readouterr().err
+    monkeypatch.chdir(batch)  # the default --out is "."
+    assert cli.main(["mc", "analyze", str(batch)]) == cli.EX_DATAERR
+    capsys.readouterr()
+    run = _first(_summary(batch), "ok")
+    for out in (batch / "rerun", alias / "rerun"):
+        code = cli.main(["mc", "rerun", str(batch), str(run), "--out", str(out)])
+        assert code == cli.EX_DATAERR
+        assert "rerun never writes into a batch" in capsys.readouterr().err
+    assert _hashes(batch) == before
+    assert not (batch / "figures").exists()
+    assert not (batch / "rerun").exists()
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [OSError(28, "No space left on device (injected)"), montecarlo.LogHaltError("LOG (injected)")],
+)
+def test_mc_analysis_cli_rerun_a_failed_write_exits_74_with_nothing_compared(
+    descent_batch: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    failure: Exception,
+) -> None:
+    def fail(*_args: Any, **_kwargs: Any) -> log.RunLog:
+        raise failure
+
+    monkeypatch.setattr(_runkit, "run_logged", fail)
+    run = _first(_summary(descent_batch), "ok")
+    out = tmp_path / "out"
+    code = cli.main(["mc", "rerun", str(descent_batch), str(run), "--out", str(out)])
+    captured = capsys.readouterr()
+    assert code == cli.EX_IOERR
+    assert captured.out == ""  # no comparison was made
+    assert "could not be written" in captured.err
+    assert "(injected)" in captured.err
+    assert not (out / montecarlo.log_name(run)).exists()
