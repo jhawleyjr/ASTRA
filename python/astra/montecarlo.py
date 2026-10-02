@@ -117,7 +117,8 @@ two logs byte for byte. The record is not a frozen build: plugins are loaded fro
 build, so a rebuild can change the result. The new log's provenance (``git_describe``, the plugin
 table) and the row comparison show it when it does. Rerun never touches the batch's own files, and
 it refuses an output directory that is the batch or lies inside it (symlinks resolved). A run whose
-log cannot be written (a ``LogError``, an ``OSError`` or a ``LOG`` halt) raises
+log cannot be written (a ``LogError``, an ``OSError``, a ``LOG`` halt, or a ``ConfigError`` at
+``log.path``, how ADR-0027 reports a log that cannot be created) raises
 ``RerunWriteError``: nothing was compared, so it is not reported as a row that differs.
 """
 
@@ -138,7 +139,7 @@ import struct
 import tempfile
 import threading
 import time
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import Any, cast
 
@@ -535,12 +536,12 @@ def run_one(
     index: int,
     out_dir: str | Path,
     *,
-    reraise: tuple[type[BaseException], ...] = (),
+    reraise: Callable[[Exception], bool] | None = None,
 ) -> dict[str, Any]:
     """Draws, trims (if set), runs and reads back run ``index`` with its log in ``out_dir``, and
     returns its summary row (module docstring, A run). Only an ``ok`` or ``halt`` row leaves a
-    log. An exception of a ``reraise`` type propagates instead of becoming an ``error`` row (its
-    log already discarded); ``rerun`` uses it for write failures."""
+    log. An exception for which ``reraise`` returns true propagates instead of becoming an
+    ``error`` row (its log already discarded); ``rerun`` uses it for write failures."""
 
     def accept(run_log: log.RunLog) -> None:
         # While the Simulation is alive, so a rejected log is discarded through discard_log().
@@ -574,7 +575,7 @@ def run_one(
             accept=accept,
         )
     except Exception as error:
-        if isinstance(error, reraise):
+        if reraise is not None and reraise(error):
             raise
         return _error_row(row, error, out_dir)
     halt = run_log.halt
@@ -888,12 +889,23 @@ class RerunError(Exception):
 
 
 class RerunWriteError(Exception):
-    """``rerun`` could not write the run's log (a ``LogError``, an ``OSError`` or a ``LOG``
-    halt), so nothing was compared; the run's own file is already discarded (review R-004)."""
+    """``rerun`` could not write the run's log (a ``LogError``, an ``OSError``, a ``LOG`` halt, or a
+    ``ConfigError`` at ``log.path``), so nothing was compared; the run's own file is already
+    discarded (review R-004)."""
 
 
-# What a rerun reports as a failed write rather than as a row that differs (review R-004).
-_WRITE_FAILURES: tuple[type[BaseException], ...] = (_core.LogError, OSError, LogHaltError)
+# The core's ConfigError wording (errors.cpp describe_config): "config '<origin>' at '<key>': ...".
+# ADR-0027 item 1 makes any failure while the log is constructed (its create, its provenance write)
+# a ConfigError at log.path; in a rerun's own empty directory that is a failed write.
+_AT_LOG_PATH = " at 'log.path': "
+
+
+def _write_failure(error: Exception) -> bool:
+    """What a rerun reports as a failed write rather than as a row that differs (review R-004):
+    a ``LogError``, an ``OSError``, a ``LOG`` halt, or a ``ConfigError`` at ``log.path``."""
+    if isinstance(error, _core.LogError | OSError | LogHaltError):
+        return True
+    return isinstance(error, _core.ConfigError) and _AT_LOG_PATH in str(error)
 
 
 def inside(path: Path, directory: Path) -> bool:
@@ -986,8 +998,10 @@ def rerun(batch_dir: str | Path, index: int, out_dir: str | Path) -> RerunResult
     if any(out_dir.iterdir()):
         raise FileExistsError(f"{out_dir}: the rerun's output directory is not empty")
     try:
-        row = run_one(spec, index, out_dir, reraise=_WRITE_FAILURES)
-    except _WRITE_FAILURES as error:
+        row = run_one(spec, index, out_dir, reraise=_write_failure)
+    except Exception as error:
+        if not _write_failure(error):
+            raise
         raise RerunWriteError(
             f"run {index}: the rerun's log could not be written ({type(error).__name__}: "
             f"{error}); it was not compared"

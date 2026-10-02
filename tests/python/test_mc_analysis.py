@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import os
 import shutil
 import subprocess
 import sys
@@ -1117,3 +1118,25 @@ def test_mc_analysis_cli_rerun_a_failed_write_exits_74_with_nothing_compared(
     assert "could not be written" in captured.err
     assert "(injected)" in captured.err
     assert not (out / montecarlo.log_name(run)).exists()
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root writes into a read-only directory")
+def test_mc_analysis_cli_rerun_a_log_the_core_cannot_create_exits_74(
+    descent_batch: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Review R-004, round 2: no injection. An empty read-only output directory makes the core's
+    # own create of the .partial fail, which ADR-0027 item 1 reports as a ConfigError at log.path.
+    run = _first(_summary(descent_batch), "ok")
+    out = tmp_path / "out"
+    out.mkdir()
+    out.chmod(0o555)
+    try:
+        code = cli.main(["mc", "rerun", str(descent_batch), str(run), "--out", str(out)])
+    finally:
+        out.chmod(0o755)
+    captured = capsys.readouterr()
+    assert code == cli.EX_IOERR, captured
+    assert captured.out == ""
+    assert "could not be written (ConfigError" in captured.err
+    assert "at 'log.path'" in captured.err
+    assert list(out.iterdir()) == []
