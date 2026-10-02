@@ -1,0 +1,27 @@
+date: 2026-10-02T07:33:27Z (start 2026-10-02T07:15:06Z, about 1101 s)
+command: rm -rf build && ./scripts/check-full.sh
+base: 8b4852b4110dcdb15c370699fb314735ed11c4e7
+head: cfb91d42cb7e9580b194c53e71040e3b79b326ec
+exit: 0
+working tree: clean
+machine: no ASTRA build or test running at start; another repository's gate (Algorithmic-Trader) was running, load 16.61 (a correctness gate; no speed is asserted)
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 195 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr9-benchmark/build/debug
+100% tests passed, 0 tests failed out of 669
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr9-benchmark/build/release
+100% tests passed, 0 tests failed out of 670
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr9-benchmark/build/static-plugins
+100% tests passed, 0 tests failed out of 671
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr9-benchmark/build/asan
+100% tests passed, 0 tests failed out of 672
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+0 errors, 0 warnings, 0 informations
+1326 passed, 5 skipped in 80.72s (0:01:20)
+check: OK

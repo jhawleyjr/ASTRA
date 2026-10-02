@@ -595,7 +595,7 @@ The monitors are themselves testable: `tests/unit/health/` feeds a NaN and a bro
 
 M5 note (rev 9): the M5 row is checked by `docs/plans/m5-tooling.md` R1 to R21, on top of the HDF5 run log and replay (*ADR-0025*) and the derived signals (*ADR-0026*). The 64-run Monte Carlo runs inside `just check`; if it cannot fit, that is an architecture exception for Joe to decide, not a move out of the gate. The packet decoder is built from a transcribed `FGNetFDM` v24 table, not from the packer, and packets go out at the bridge divisor (§12, 62.5 Hz by default).
 
-M6 note (rev 10): the M6 row is partly built: PRs 1 to 6 are built, and the rest is *planned*. `docs/plans/m6-analysis-tooling.md` R1 to R21 (with R3b, R7b, R16b, R18b and R19b) check it, PR by PR. Its finalization rows rest on *ADR-0027*, accepted by Joe 2026-09-29. Tracking the benchmark over time is M11.
+M6 note (rev 10): the M6 row is partly built: PRs 1 to 6 and PR 9 are built, and the rest is *planned*. `docs/plans/m6-analysis-tooling.md` R1 to R21 (with R3b, R7b, R16b, R18b and R19b) check it, PR by PR. PR 9's frame-time benchmark is a test executable under `tests/benchmark/`, run by hand as `just benchmark`; the gate runs only its smoke (`docs/plans/m6-pr9-benchmark.md`). The M6 finalization rows rest on *ADR-0027*, accepted by Joe 2026-09-29. Tracking the benchmark over time is M11.
 
 ## 17. ADRs to write in M0
 

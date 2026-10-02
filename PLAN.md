@@ -248,6 +248,12 @@ takes them as a prefix.
     `astra mc analyze` and `astra mc rerun` join the CLI. A batch now records its spec and base config bytes in
     `summary.parquet`, which rerun runs from, comparing the row and the log. Every matplotlib legend sits
     outside its axes. Plan: [plan](docs/plans/m6-pr6-mc-analysis.md). Packet: in the PR body.
+  - PR 9 (#91): the frame-time benchmark. `astra_frame_benchmark` (`tests/benchmark/`) times each `step()` of the
+    notional transport's cruise and still-air configs and of `dummy_1000`, after a warm-up instance, checking
+    every timed frame ran with no halt. It also times R19b's five logged cases end to end through `close_log()`.
+    It writes JSON (mean, median, p99, max, fps, margins against `dt`, toolchain, CPU, load) only after every
+    check passes. `just benchmark` takes a Release baseline; the gate runs its smoke, which asserts no speed.
+    Closes C-19 and N-05. Plan: [plan](docs/plans/m6-pr9-benchmark.md). Packet: in the PR body.
   - Workflow (#83): plan-mode drafts land in the session's `docs/plans/` (`plansDirectory`), with the rule for
     renaming, committing or deleting them in `docs/agents/claude-code.md` and `/wrap`; 27 never-committed plans
     recovered from `~/.claude/plans`. Plan: [plan](docs/plans/claude-plans-directory.md). Packet: in the PR body.
@@ -386,6 +392,14 @@ takes them as a prefix.
 - [ ] (M11) `RealTime` mode's logger writer thread (origin: M5 plan §9/architecture §9, held-out scope; Joe's call):
       M5's logger drains only inline (`AsFastAsPossible`); `RealTime` mode itself is not built, so the
       separate non-RT drain thread architecture §9 describes has nothing to run on yet. Not started.
+- [ ] (M11) The frame-time benchmark's maximum is one sample, and an unisolated desktop sets it (origin: M6 PR 9
+      baselines, 2026-10-02). Two quiet-machine Release runs of the same timed code at 100,000 frames agree at p99
+      (cruise 1.94 and 1.75 µs) but not at the max (32.7 µs, then 2010 µs, one frame over `dt`). The `powersave`
+      governor, no CPU isolation and other sessions were in play (`docs/reviews/evidence/c1c0976-` and
+      `cfb91d4-frame-benchmark.json`). M11's tracking needs isolated CPUs, a fixed governor and a stated tail
+      statistic before any maximum is compared. The JSON should also record the frame index of the maximum, so a
+      stall can be told apart from a frame whose model work is costly (today it records only the value). Not
+      started.
 - [ ] (M6) Configs round-tripped through PyYAML (YAML 1.1: `yaml.safe_load`, then `Config.from_dict`) in
       `astra.montecarlo`, `astra.scenario`, `astra.trim` and `astra.lockstep` are read differently from the core's
       yaml-cpp (origin: M6 PR 3 review; Joe 2026-09-30). Probed on M6 PR 3's build: `on`/`off`/`yes`/`no` become
