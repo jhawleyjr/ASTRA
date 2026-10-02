@@ -1,0 +1,40 @@
+# Framework plot package (astra.plot, docs/plans/m6-pr5-plots.md): air data and aerodynamic angles of every
+# vehicle, from the derived signals (ADR-0026). `astra plot <log> flight`.
+title: Flight
+figures:
+  - name: air_data
+    title: Air data
+    panels:
+      - ylabel: altitude
+        series:
+          - signal: v{v}.derived.altitude
+            unit: ft
+            label: altitude
+      - ylabel: airspeed
+        series:
+          - signal: v{v}.derived.tas
+            unit: kt
+            label: TAS
+          - signal: v{v}.derived.cas
+            unit: kt
+            label: CAS
+      - ylabel: Mach
+        series:
+          - signal: v{v}.derived.mach
+            label: Mach
+      - ylabel: vertical speed
+        series:
+          - signal: v{v}.derived.vertical_speed
+            unit: ft/s
+            label: vertical speed
+  - name: aero_angles
+    title: Aerodynamic angles
+    panels:
+      - ylabel: angle
+        series:
+          - signal: v{v}.derived.alpha
+            unit: deg
+            label: alpha
+          - signal: v{v}.derived.beta
+            unit: deg
+            label: beta

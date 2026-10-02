@@ -38,6 +38,10 @@ dev = [
   # M5 PR 7 (astra.montecarlo's summary.parquet, plan Q2, approved by Joe 2026-09-26): current release at pin time,
   # 2026-09-28. It ships no py.typed, so astra.montecarlo casts at its boundary (docs/lessons.md 2026-09-21).
   "pyarrow==25.0.1",
+  # M6 PR 5 (astra.plot, docs/plans/m6-analysis-tooling.md Q2, decided by Joe 2026-09-29): current releases at pin
+  # time, 2026-10-01. matplotlib draws the files (SVG byte-deterministic under these pins), plotly the offline HTML.
+  "matplotlib==3.11.2",
+  "plotly==7.1.0",
 ]
 
 [tool.scikit-build]

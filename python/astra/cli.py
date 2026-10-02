@@ -1,7 +1,8 @@
 """astra.cli: the ``astra`` console script (M6 PR 3, docs/plans/m6-pr3-cli.md; docs/architecture.md
 §12, §15 and §18).
 
-Subcommands: ``run`` and ``trim``. ``plot``, ``report`` and ``mc`` come with their tools (M6 plan).
+Subcommands: ``run``, ``trim`` and ``plot`` (M6 PR 5, docs/plans/m6-pr5-plots.md). ``report`` and
+``mc`` come with their tools (M6 plan).
 ``main(argv)`` returns the exit code and changes no signal handler; ``console()`` is the script.
 
 ``astra run <config> [--strict] [--log PATH]``
@@ -65,6 +66,18 @@ Subcommands: ``run`` and ``trim``. ``plot``, ``report`` and ``mc`` come with the
     YAML 1.1 read refuses); 1 not trimmed (``astra.trim``'s non-convergence, or a residual above
     ``_runkit.TRIM_RESIDUAL_BOUND``); 74 stdout could not be written; 70 an internal error,
     including any other ``ValueError`` or ``RuntimeError`` from a trim; 0 trimmed.
+
+``astra plot <log> <package> [--out DIR] [--format svg|png] [--html]``
+    Renders a plot package (``astra.plot``) against a run log, read strictly with
+    ``astra.log.load``. ``<package>`` is a file if it contains ``/`` or ends in ``.yaml`` or
+    ``.yml``, and otherwise a framework package name (``python/astra/plots/``). It writes
+    ``<package>-<figure>.svg`` (or ``.png``) per figure into DIR (default ``.``, created if
+    missing), plus ``<package>.html`` with ``--html``, never overwriting a file, and prints each
+    path written, one per line. Codes: 64 a usage error; 65 the package is refused
+    (``PlotPackageError``), the log is refused (``LogFormatError`` or ``IncompleteLogError``, a
+    missing file included), or an output file already exists (as ``astra run`` refuses an
+    existing ``log.path``); 74 a write that fails, or stdout could not be written; 70 an internal
+    error; 0 written. Nothing is written for a 65; on a 74 the files this run created are deleted.
 """
 
 from __future__ import annotations
@@ -155,7 +168,25 @@ def _parser() -> tuple[_Parser, dict[str, _Parser]]:
         metavar="H",
         help="altitude, m (default: p_n[2] of the config's initial state)",
     )
-    return parser, {"run": run, "trim": trim}
+    plot = commands.add_parser(
+        "plot",
+        help="plot a run log with a plot package",
+        description="Render a plot package against a run log. Exit codes: 64 usage, 65 a refused "
+        "package or log or an existing output file, 74 a failed write, 0 written; 70 an "
+        "internal error.",
+    )
+    plot.add_argument("log", help="the run log (HDF5)")
+    plot.add_argument(
+        "package",
+        help="a package file (a path containing / or ending in .yaml or .yml) or a framework "
+        "package name",
+    )
+    plot.add_argument("--out", metavar="DIR", default=".", help="output directory (default: .)")
+    plot.add_argument(
+        "--format", choices=("svg", "png"), default="svg", help="figure file format (default: svg)"
+    )
+    plot.add_argument("--html", action="store_true", help="also write the interactive HTML page")
+    return parser, {"run": run, "trim": trim, "plot": plot}
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -168,6 +199,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         if args.command == "run":
             return _run(args, commands["run"])
+        if args.command == "plot":
+            return _plot(args)
         return _trim(args, commands["trim"])
     except Exception:
         # D3: a defect. Printed here, then released with the frames that hold the Simulation.
@@ -505,6 +538,36 @@ def _initial_setpoint(
     if altitude is None:
         altitude = float(state[_core.POSITION + _core.POSITION_SIZE - 1])
     return airspeed, altitude
+
+
+# --- astra plot -----------------------------------------------------------------------------------
+
+
+def _plot(args: argparse.Namespace) -> int:
+    from astra import log, plot  # h5py, pandas and the plotting libraries, only for this command
+
+    try:
+        package = plot.load_package(plot.package_path(args.package))
+    except plot.PlotPackageError as error:
+        _say("plot", f"package error: {error}")
+        return EX_DATAERR
+    try:
+        run_log = log.load(args.log)
+    except (log.LogFormatError, log.IncompleteLogError) as error:
+        _say("plot", f"log error: {error}")
+        return EX_DATAERR
+    try:
+        written = plot.render(package, run_log, args.out, fmt=args.format, html=args.html)
+    except plot.PlotPackageError as error:
+        _say("plot", f"package error: {error}")
+        return EX_DATAERR
+    except plot.PlotOutputExistsError as error:
+        _say("plot", f"output error: {error}")
+        return EX_DATAERR
+    except OSError as error:
+        _say("plot", f"cannot write the figures: {error}")
+        return EX_IOERR
+    return 0 if _write("plot", "".join(f"{path}\n" for path in written)) else EX_IOERR
 
 
 if __name__ == "__main__":

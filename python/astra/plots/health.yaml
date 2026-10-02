@@ -1,0 +1,18 @@
+# Framework plot package (astra.plot, docs/plans/m6-pr5-plots.md): the health monitor's signals
+# (docs/architecture.md §15). `astra plot <log> health`.
+title: Health
+figures:
+  - name: health
+    title: Health monitor
+    panels:
+      - title: Detections
+        ylabel: count
+        series:
+          - signal: health.nan
+          - signal: health.quaternion
+          - signal: health.domain
+          - signal: health.input
+      - title: Quaternion norm drift
+        ylabel: max drift
+        series:
+          - signal: health.max_q_drift
