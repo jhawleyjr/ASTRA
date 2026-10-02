@@ -11,7 +11,12 @@ Validation: the full gate on d8e947a, exit 0, `check: OK`
 Round: fix 2 (correction rounds 2/2). Fix 1 was verified by Codex `adversarial-review` (thread
 `01a0fab9-9818-7090-a08d-e07e0d4a2636`, base 75c4c78, head a5f7ac6, verdict needs-attention): R-002 and
 R-003 verified; R-004 and R-005 verified on their recorded cases; R-001 still open; three new findings,
-N-001 to N-003.
+N-001 to N-003. Fix 2 was verified by Codex `adversarial-review` (thread
+`01a0fad1-7ea8-7540-870d-99f0eeb15e16`, base a5f7ac6, head b689581, verdict needs-attention): N-003 was
+verified, and R-002 to R-005 still held. R-001 and N-001/N-002 were still open, and there was one new
+finding, N-004. With the budget exhausted, Joe decided on #90 (2026-10-01): no round 3. The four open
+findings are deferred to PLAN.md's unscheduled open item on rule 3, which replaces the scanner with a
+`commit-msg` hook, and they are listed in `commit_trailer.py`'s Gaps docstring.
 
 Codex rated every finding medium (general review: P2). Each maps to major here: each defeats the rule
 it belongs to.
@@ -19,7 +24,7 @@ it belongs to.
 ## Finding [R-001]
 
 Severity: major
-Status: fixed-unverified
+Status: deferred
 Location: `.claude/hooks/no-main.sh:90-97` (75c4c78)
 Requirement/ADR: plan §2, rule 3 (refuse a co-author trailer however the message arrives)
 Failure: `git commit -m $'subject\n\nCo-Authored-By: X'`, `--trailer $'Co-Authored-By: X'` and
@@ -42,8 +47,15 @@ counted as verified. A heredoc whose delimiter is unquoted (no `'`, `"` or `\`) 
 for an expansion; escaped `\$` and `` \` `` are literal. One with an expansion is refused, and the refusal
 says to quote the delimiter. Two refused cases (`-F - <<EOF` and `-m "$(cat <<EOF ...)"`) and two allowed
 ones (an escaped `\$HOME`, and a quoted delimiter with a literal `$HOME`).
-Verification: fix 1 not verified (thread `01a0fab9-…`: the unquoted heredoc above); fix 2 pending
-History: fix 1, open → fixed-unverified; verification 1, still open; fix 2 → fixed-unverified
+Verification: fix 1 not verified (thread `01a0fab9-…`: the unquoted heredoc above). Fix 2 not verified
+(thread `01a0fad1-7ea8-7540-870d-99f0eeb15e16`, head b689581). The named-variable cases are fixed, but a
+positional or special parameter (`$1`, `$@`, `$*`) in an unquoted heredoc body passes, e.g.
+`set -- "$MSG"; git commit -F - <<EOF ... $1 ... EOF`; `EXPANSION` omits them.
+History: fix 1, open → fixed-unverified; verification 1, still open; fix 2 → fixed-unverified;
+verification 2, still open; Joe, no round 3 → deferred
+Human exception: Joe, #90, 2026-10-01. Deferred to PLAN.md's unscheduled rule-3 item (a `commit-msg`
+hook). Risk: a trailer an agent hides behind a positional parameter can pass. Recorded in the
+`commit_trailer.py` Gaps docstring.
 
 ## Finding [R-002]
 
@@ -115,7 +127,7 @@ History: fix 1, open → fixed-unverified; verification 1 → verified
 ## Finding [N-001]
 
 Severity: major
-Status: fixed-unverified
+Status: deferred
 Location: `.claude/hooks/commit_trailer.py:280-289` (a5f7ac6)
 Requirement/ADR: plan §2, rule 3
 Failure: `git diff --cached` + newline + `git commit -F <trailer file>` exited 0; 75c4c78's hook refused it.
@@ -125,13 +137,18 @@ Requested outcome: keep unquoted newlines as command boundaries; inspect every g
 Builder response: fixed. The tokenizer makes an unquoted newline a separator, like `;`.
 `why()` checks every `git` token in a statement rather than breaking after the first, because a comment
 consumes the newline after it. Two refused cases and one allowed.
-Verification: pending
-History: fix 2, open → fixed-unverified
+Verification: Codex, thread `01a0fad1-7ea8-7540-870d-99f0eeb15e16`, head b689581: the recorded newline
+cases pass. A comment holding an apostrophe still defeats verification. For example, after
+`git status # don't forget the staged diff` and a newline, `git commit -m "$MSG"` passes, because
+`protect_literals` reads the apostrophe as an opening quote and masks the later expansion.
+History: fix 2, open → fixed-unverified; verification 2, still open (comment quotes); Joe, no round 3 →
+deferred
+Human exception: Joe, #90, 2026-10-01. Deferred with R-001 (same PLAN.md item, same docstring).
 
 ## Finding [N-002]
 
 Severity: major
-Status: fixed-unverified
+Status: deferred
 Location: `.claude/hooks/commit_trailer.py:140-144` (a5f7ac6)
 Requirement/ADR: plan §2 (ordinary trailer-free `-m` commits pass)
 Failure: `git commit -m 'Document `check_state` behavior'` exited 2: tokenizing lost the single quotes,
@@ -140,13 +157,17 @@ Requested outcome: keep single-quoted and escaped backticks literal; still refus
 Builder response: fixed. `protect_literals` (formerly `protect_literal_dollars`) also marks backticks
 inside single quotes or after a backslash. Two allowed cases: a single-quoted backtick and an escaped
 backtick in double quotes.
-Verification: pending
-History: fix 2, open → fixed-unverified
+Verification: Codex, thread `01a0fad1-7ea8-7540-870d-99f0eeb15e16`, head b689581: the recorded cases pass.
+After `git status # user's check` and a newline, a literal-backtick `-m '...'` is still falsely refused
+(same comment-quote cause as N-001).
+History: fix 2, open → fixed-unverified; verification 2, still open (comment quotes); Joe, no round 3 →
+deferred
+Human exception: Joe, #90, 2026-10-01. Deferred with R-001 (same PLAN.md item, same docstring).
 
 ## Finding [N-003]
 
 Severity: major
-Status: fixed-unverified
+Status: verified
 Location: `scripts/docs_check.py:182-185` (a5f7ac6)
 Requirement/ADR: plan §1 (STATE.md headings exactly the allowed set)
 Failure: an Open threads body of ```` ````text`bad ```` / `## In flight` / ```` ``` ```` / ```` ```` ````
@@ -155,12 +176,30 @@ cannot contain a backtick; 75c4c78's check caught it.
 Requested outcome: apply CommonMark's opener rule; add the regression.
 Builder response: fixed. A backtick run whose info string holds a backtick is not a fence. One test
 (`test_state_invalid_backtick_fence_does_not_hide_a_heading`).
-Verification: pending
-History: fix 2, open → fixed-unverified
+Verification: Codex, thread `01a0fad1-7ea8-7540-870d-99f0eeb15e16`, head b689581: fixed
+History: fix 2, open → fixed-unverified; verification 2 → verified
+
+## Finding [N-004]
+
+Severity: major
+Status: deferred
+Location: `.claude/hooks/commit_trailer.py` `statements()` (15fa978)
+Requirement/ADR: plan §2, rule 3 (check every message and trailer option)
+Failure: `git commit -m "" --trailer "$MSG"` exits 0; a5f7ac6 refused it. `set('')` is empty, so the
+subset test `set(t) <= SEPARATOR_CHARS` treats the quoted empty argument as a statement separator. The
+options after it are never checked. Quoted arguments made only of newlines or `;` behave the same way.
+(Codex verification 2, new finding)
+Requested outcome: split statements only on unquoted shell operators, never on quoted argument values;
+add regressions for empty and punctuation-only arguments.
+Builder response: not fixed; the correction budget was exhausted.
+Verification: none (found in verification 2)
+History: verification 2, open; Joe, no round 3 → deferred
+Human exception: Joe, #90, 2026-10-01. Deferred with R-001 (same PLAN.md item, same docstring).
 
 ## Completion
 
-Eight major findings. R-002 to R-005 are verified. R-001 (fix 2) and N-001 to N-003 are fixed-unverified,
-pending Codex fix verification of round 2. None rejected or deferred. This is the last autonomous
-correction round (AGENTS.md); a finding that survives it goes to Joe.
+Nine major findings: R-002 to R-005 and N-003 are verified; R-001, N-001, N-002 and N-004 are deferred.
+Joe deferred them on #90 after both autonomous correction rounds (AGENTS.md). They are tracked in
+PLAN.md's unscheduled rule-3 item (a `commit-msg` hook in place of the command-text scanner) and listed
+in `commit_trailer.py`'s Gaps docstring. None were rejected.
 Settings: Codex confirmed only `attribution` changed, and that `false` is documented from 2.1.281.

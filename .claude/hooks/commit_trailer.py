@@ -14,8 +14,20 @@ literal `< file`; any other stdin, any file or message behind an expansion, and 
 the body of a heredoc with an unquoted delimiter, is refused as unverifiable. Commands are split
 at unquoted newlines as well as `;`, `&&`, `|`, and every `git ... commit` in them is checked.
 
-Gaps: `-C`/`-c`/`--amend --no-edit` reuse a message; an inline `cd` before the commit is not
-followed (a relative -F path is looked up from cwd, usually refused as missing).
+This scanner is an enumeration of shapes (docs/lessons.md, 2026-09-28): it catches a trailer written
+literally, and a trailer behind a variable or an odd argument shape can pass. PLAN.md's open item
+on rule 3 replaces it with a check of the message git records (a commit-msg hook).
+
+Gaps, deferred by Joe on #90 (docs/reviews/state-and-attribution-review.md):
+- R-001: a positional or special parameter (`$1`, `$@`, `$*`) in the body of a heredoc with an
+  unquoted delimiter is not detected (EXPANSION matches only named parameters, `${`, `$(` and
+  backticks), e.g. `set -- "$MSG"; git commit -F - <<EOF ... $1 ... EOF`.
+- N-001/N-002: an apostrophe in a `# comment` flips protect_literals' quote state, so a later
+  `-m "$MSG"` passes, and a later literal-backtick `-m '...'` is falsely refused.
+- N-004: a quoted empty argument counts as a statement separator in statements(), so the options
+  after it go unchecked, e.g. `git commit -m "" --trailer "$MSG"`.
+- `-C`/`-c`/`--amend --no-edit` reuse a message; an inline `cd` before the commit is not followed
+  (a relative -F path is looked up from cwd, usually refused as missing).
 """
 
 from __future__ import annotations
