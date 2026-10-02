@@ -46,9 +46,10 @@ on ``matplotlib.figure.Figure`` directly, never ``pyplot``, so it is headless an
 figure state, and it renders under a pinned style: matplotlib's own defaults (the user's
 matplotlibrc is ignored), DejaVu Sans (the font matplotlib bundles) drawn as paths, a hash salt
 fixed per figure (``astra/<package>/<figure>``) and no date metadata. Same log, package and pinned
-versions on one machine give a byte-identical SVG in any process. PNG is not byte-stable. plotly
-writes one interactive HTML file per package, ``<package>.html``, with plotly.js inline so it opens
-offline; it is several megabytes, so it is written only on request.
+versions on one machine give a byte-identical SVG in any process. PNG is not byte-stable. Every
+legend sits outside its axes, to the right (``legend_outside``; M6 PR 6, D1), so none covers
+data. plotly writes one interactive HTML file per package, ``<package>.html``, with plotly.js
+inline so it opens offline; it is several megabytes, so it is written only on request.
 """
 
 from __future__ import annotations
@@ -628,6 +629,21 @@ def _axis_label(name: str, unit: str) -> str:
     return f"{name} [{unit}]" if name else f"[{unit}]"
 
 
+def legend_outside(ax: Any, *, handles: Sequence[Any] | None = None, ncols: int = 1) -> None:
+    """The axes' legend, outside it to the right (M6 PR 6, D1): anchored at the axes' top right
+    corner, so it never covers data; the constrained layout makes room for it. ``handles`` limits
+    the entries (default: every labeled artist)."""
+    options: dict[str, Any] = {
+        "loc": "upper left",
+        "bbox_to_anchor": (1.02, 1.0),
+        "borderaxespad": 0.0,
+        "ncols": ncols,
+    }
+    if handles is not None:
+        options["handles"] = list(handles)
+    ax.legend(**options)
+
+
 def _shared_x(figure: Figure) -> bool:
     return len({(panel.xlabel, panel.xunit) for panel in figure.panels}) == 1
 
@@ -647,7 +663,7 @@ def draw_matplotlib(figure: Figure) -> MatplotlibFigure:
         if panel.title:
             ax.set_title(panel.title)
         ax.set_ylabel(_axis_label(panel.ylabel, panel.unit))
-        ax.legend(loc="upper right")
+        legend_outside(ax)
         if not shared or i == count - 1:
             ax.set_xlabel(_axis_label(panel.xlabel, panel.xunit))
     # matplotlib's stubs leave suptitle's and savefig's **kwargs untyped.
@@ -737,10 +753,10 @@ def render(
         for figure, target in zip(figures, files, strict=True):
             with pinned_style(package.name, figure.name):
                 drawn = draw_matplotlib(figure)
-                with _create(target, created) as stream:
+                with create_exclusive(target, created) as stream:
                     drawn.savefig(stream, format=fmt, metadata=_metadata(fmt))  # pyright: ignore[reportUnknownMemberType]
         if page is not None and text is not None:
-            with _create(page, created) as stream:
+            with create_exclusive(page, created) as stream:
                 stream.write(text.encode("utf-8"))
     except BaseException:
         for path in created:
@@ -755,7 +771,7 @@ def _metadata(fmt: str) -> dict[str, Any]:
 
 
 @contextlib.contextmanager
-def _create(path: Path, created: list[Path]) -> Generator[Any]:
+def create_exclusive(path: Path, created: list[Path]) -> Generator[Any]:
     """``path`` created exclusively (never replacing a file), recorded in ``created`` once it is
     ours."""
     try:
