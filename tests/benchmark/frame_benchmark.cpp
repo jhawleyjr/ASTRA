@@ -87,6 +87,9 @@ struct Options {
   fs::path out;
   std::optional<std::uint64_t> frames;
   std::vector<std::string> configs;  // as given; empty means D1's set
+  // Test-only (--inject-log-fault-for-testing): every logged run's close fails this way, so the
+  // smoke can check that a failed repeat leaves no file behind (Codex R-001).
+  std::optional<astra::RunLogFault> log_fault;
 };
 
 struct StepResult {
@@ -164,12 +167,23 @@ std::uint64_t parse_frames(const std::string& text) {
   return value;
 }
 
+astra::RunLogFault parse_log_fault(const std::string& text) {
+  if (text == "rename") {
+    return astra::RunLogFault::kRenameUnsupported;
+  }
+  if (text == "summary") {
+    return astra::RunLogFault::kSummary;
+  }
+  throw UsageError("--inject-log-fault-for-testing takes rename or summary, not '" + text + "'");
+}
+
 Options parse_options(int argc, char** argv) {
   const std::vector<std::string> args(argv + 1, argv + argc);
   Options options;
   for (std::size_t i = 0; i < args.size(); ++i) {
     const std::string& flag = args[i];
-    if (flag != "--out" && flag != "--frames" && flag != "--config") {
+    if (flag != "--out" && flag != "--frames" && flag != "--config" &&
+        flag != "--inject-log-fault-for-testing") {
       throw UsageError("unknown argument '" + flag + "'");
     }
     if (i + 1 >= args.size()) {
@@ -180,6 +194,8 @@ Options parse_options(int argc, char** argv) {
       options.out = value;
     } else if (flag == "--frames") {
       options.frames = parse_frames(value);
+    } else if (flag == "--inject-log-fault-for-testing") {
+      options.log_fault = parse_log_fault(value);
     } else {
       options.configs.push_back(value);
     }
@@ -298,29 +314,59 @@ astra::HaltReason drive(astra::Simulation& sim, Pattern pattern, std::uint64_t f
   return {};
 }
 
-double time_one_repeat(const EndToEndCase& c, std::uint64_t frames, const fs::path& path) {
-  const std::string what = c.name + " (" + path.filename().string() + ")";
-  astra::Simulation sim = build(c.text + "\nlog:\n  path: " + path.string() + "\n", c.config);
-  const Clock::time_point start = Clock::now();
-  const astra::HaltReason halt = drive(sim, c.pattern, frames);
-  if (!halt) {
-    sim.close_log();
+// After a failed repeat, while its Simulation is alive: deletes the run's own file through
+// discard_log() (ADR-0027 item 8), which leaves alone any name that no longer holds this run's
+// file. What it could not delete is reported, never removed by name. Never throws: the original
+// failure is the one reported.
+void discard_after_failure(astra::Simulation& sim, const std::string& what) noexcept {
+  try {
+    const astra::LogDiscardResult discarded = sim.discard_log();
+    if (!discarded.deleted() && discarded.outcome != astra::LogDiscardOutcome::kMissing) {
+      std::cerr << "astra_frame_benchmark: " << what << ": left " << discarded.path << ": "
+                << discarded.detail << "\n";
+    }
+  } catch (const std::exception& e) {
+    std::cerr << "astra_frame_benchmark: " << what << ": discard_log() threw: " << e.what() << "\n";
   }
-  const Clock::time_point stop = Clock::now();
-  if (halt) {
-    halted(what, halt);
-  }
-  expect_frame(sim, frames, what);
-  check_published(path, frames, what);
-  const astra::LogDiscardResult discarded = sim.discard_log();
-  if (!discarded.deleted()) {
-    throw Failure(what + ": discard_log() did not delete " + discarded.path + ": " +
-                  discarded.detail);
-  }
-  return seconds(stop - start);
 }
 
-EndToEndResult time_end_to_end(const EndToEndCase& c, std::uint64_t frames, const fs::path& dir) {
+double time_one_repeat(const EndToEndCase& c, std::uint64_t frames, const fs::path& path,
+                       const std::optional<astra::RunLogFault>& fault) {
+  const std::string what = c.name + " (" + path.filename().string() + ")";
+  // A refused construction leaves no file of this run's to delete (ADR-0027 item 8).
+  astra::Simulation sim = build(c.text + "\nlog:\n  path: " + path.string() + "\n", c.config);
+  if (fault) {
+    sim.inject_log_fault_for_testing(*fault);
+  }
+  try {
+    const Clock::time_point start = Clock::now();
+    const astra::HaltReason halt = drive(sim, c.pattern, frames);
+    if (!halt) {
+      sim.close_log();
+    }
+    const Clock::time_point stop = Clock::now();
+    if (halt) {
+      halted(what, halt);
+    }
+    expect_frame(sim, frames, what);
+    check_published(path, frames, what);
+    const astra::LogDiscardResult discarded = sim.discard_log();
+    if (!discarded.deleted()) {
+      throw Failure(what + ": discard_log() did not delete " + discarded.path + ": " +
+                    discarded.detail);
+    }
+    return seconds(stop - start);
+  } catch (const Failure&) {
+    discard_after_failure(sim, what);
+    throw;
+  } catch (const std::exception& e) {  // a LogError from close_log(), an Hdf5Error from the check
+    discard_after_failure(sim, what);
+    throw Failure(what + ": " + e.what());
+  }
+}
+
+EndToEndResult time_end_to_end(const EndToEndCase& c, std::uint64_t frames, const fs::path& dir,
+                               const std::optional<astra::RunLogFault>& fault) {
   EndToEndResult result;
   result.name = c.name;
   result.config = c.config;
@@ -328,7 +374,7 @@ EndToEndResult time_end_to_end(const EndToEndCase& c, std::uint64_t frames, cons
   result.frames = frames;
   for (int repeat = 0; repeat < kRepeats; ++repeat) {
     const fs::path path = dir / (c.name + "_" + std::to_string(repeat) + ".h5");
-    result.seconds.push_back(time_one_repeat(c, frames, path));
+    result.seconds.push_back(time_one_repeat(c, frames, path, fault));
   }
   result.median = astra::bench::median(result.seconds);
   return result;
@@ -348,14 +394,31 @@ std::vector<EndToEndCase> end_to_end_cases() {
   };
 }
 
-// A fresh directory of the benchmark's own for its log files; removed (only if empty) at the end.
-fs::path make_log_dir() {
-  std::string pattern = (fs::temp_directory_path() / "astra_frame_benchmark_XXXXXX").string();
-  if (::mkdtemp(pattern.data()) == nullptr) {
-    throw Failure("cannot create a directory under " + fs::temp_directory_path().string());
+// A fresh directory of the benchmark's own for its log files (under TMPDIR), removed on every way
+// out, success or failure, but only if it is empty: a file discard_log() would not delete stays.
+class LogDir {
+ public:
+  LogDir() {
+    std::string pattern = (fs::temp_directory_path() / "astra_frame_benchmark_XXXXXX").string();
+    if (::mkdtemp(pattern.data()) == nullptr) {
+      throw Failure("cannot create a directory under " + fs::temp_directory_path().string());
+    }
+    path_ = pattern;
   }
-  return pattern;
-}
+  ~LogDir() {
+    std::error_code ignored;
+    fs::remove(path_, ignored);  // fails, harmlessly, on a non-empty directory
+  }
+  LogDir(const LogDir&) = delete;
+  LogDir& operator=(const LogDir&) = delete;
+  LogDir(LogDir&&) = delete;
+  LogDir& operator=(LogDir&&) = delete;
+
+  [[nodiscard]] const fs::path& path() const noexcept { return path_; }
+
+ private:
+  fs::path path_;
+};
 
 double clock_overhead() {
   std::vector<double> pairs(kClockPairs);
@@ -521,15 +584,14 @@ Report measure(const Options& options) {
   // N defaults to cruise's own sim.frames, as the step phase's frames do.
   const std::uint64_t n =
       options.frames.value_or(build(read_text(resolve(std::string{kCruise})), "cruise").frames());
-  const fs::path dir = make_log_dir();
+  const LogDir dir;
   for (const EndToEndCase& c : end_to_end_cases()) {
-    report.end_to_end.push_back(time_end_to_end(c, c.one_frame ? 1 : n, dir));
+    report.end_to_end.push_back(
+        time_end_to_end(c, c.one_frame ? 1 : n, dir.path(), options.log_fault));
     const EndToEndResult& r = report.end_to_end.back();
     std::cout << "end_to_end " << r.name << ": " << r.frames << " frames, median of "
               << r.seconds.size() << " " << r.median * 1e3 << " ms\n";
   }
-  std::error_code ignored;
-  fs::remove(dir, ignored);  // empty by now: discard_log() deleted every file the runs made
   report.load_end = load_average();
   return report;
 }

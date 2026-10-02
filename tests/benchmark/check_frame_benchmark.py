@@ -170,9 +170,9 @@ def run(benchmark: str, tmp: Path, *args: str) -> subprocess.CompletedProcess[st
     result = subprocess.run(
         [benchmark, *args], capture_output=True, text=True, check=False, timeout=600, env=env
     )
+    # Success or failure, a run leaves nothing of its own under TMPDIR (ADR-0027 item 8, R-001).
     leftovers = sorted(str(p.relative_to(tmp)) for p in tmp.rglob("*"))
-    if result.returncode == 0:
-        check(leftovers == [], f"files left behind under TMPDIR: {leftovers}")
+    check(leftovers == [], f"{args}: files left behind under TMPDIR: {leftovers}")
     return result
 
 
@@ -231,7 +231,32 @@ def check_refusals(benchmark: str, source_dir: Path, scratch: Path) -> None:
     check(result.returncode == 64, f"an unknown argument exited {result.returncode}, not 64")
     result = run(benchmark, scratch / "tmp_usage_out", "--frames", "10")
     check(result.returncode == 64, f"a missing --out exited {result.returncode}, not 64")
+    result = run(benchmark, scratch / "tmp_usage_fault", "--inject-log-fault-for-testing", "x")
+    check(result.returncode == 64, f"an unknown fault exited {result.returncode}, not 64")
     check(not out.exists(), "a usage error still wrote its JSON")
+
+    # A logged repeat that fails after its file exists: a refused publication keeps the .partial
+    # (with complete = 1), a failed /summary write leaves it unfinished. Either way the benchmark
+    # records nothing, and run() above checks that discard_log() removed the file and its directory.
+    for fault in ("rename", "summary"):
+        out = scratch / f"fault_{fault}.json"
+        result = run(
+            benchmark,
+            scratch / f"tmp_fault_{fault}",
+            "--frames",
+            "10",
+            "--config",
+            str(source_dir / "tests/configs/dummy_1000.yaml"),
+            "--inject-log-fault-for-testing",
+            fault,
+            "--out",
+            str(out),
+        )
+        check(result.returncode == 1, f"fault {fault}: exited {result.returncode}, not 1")
+        check("cruise_1 (cruise_1_0.h5)" in result.stderr, f"fault {fault}: {result.stderr}")
+        check("nothing was recorded" in result.stderr, f"fault {fault}: {result.stderr}")
+        check(" left " not in result.stderr, f"fault {fault}: a file was left:\n{result.stderr}")
+        check(not out.exists(), f"fault {fault}: a failed run still wrote its JSON")
 
 
 def main() -> int:
