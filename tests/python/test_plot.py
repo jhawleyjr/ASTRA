@@ -120,6 +120,14 @@ def ground_track(run_log: log.RunLog) -> list[tuple[str, FloatArray, FloatArray]
     return lines
 
 
+def assert_legend_outside(drawn: Any, ax: Any) -> None:
+    """M6 PR 6, D1: the legend lies wholly to the right of its axes, so it covers no data."""
+    drawn.draw_without_rendering()  # lays the figure out, so the extents are final
+    legend = ax.get_legend()
+    assert legend is not None
+    assert legend.get_window_extent().x0 >= ax.get_window_extent().x1
+
+
 def check_package(path: Path, run_log: log.RunLog, out_dir: Path) -> list[Path]:
     """R1's checks for one package (also R4's): every figure written under its name, and every drawn
     line's data equal to the expected array, in order, with the display unit on its axis."""
@@ -157,6 +165,7 @@ def check_package(path: Path, run_log: log.RunLog, out_dir: Path) -> list[Path]:
             legend = ax.get_legend()
             assert legend is not None
             assert [t.get_text() for t in legend.get_texts()] == [e[0] for e in expected]
+            assert_legend_outside(drawn, ax)
             for line, resolved, (label, x, y, unit) in zip(
                 lines, panel.series, expected, strict=True
             ):
