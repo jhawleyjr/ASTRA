@@ -180,6 +180,8 @@ def check_state(root: Path, problems: list[str]) -> None:
     fence = ""
     for line in lines:
         m = FENCE_RE.match(line)
+        if m and m.group(1)[0] == "`" and "`" in m.group(2):
+            m = None  # a backtick fence's info string cannot hold a backtick: not a fence
         if m and not fence:
             fence = m.group(1)
             continue

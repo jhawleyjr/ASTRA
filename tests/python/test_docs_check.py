@@ -163,6 +163,15 @@ def test_state_fence_with_other_markers_inside_is_one_block(tmp_path: Path) -> N
     assert _check_state(tmp_path, _state(a, ("Open threads", body), c)) == []
 
 
+def test_state_invalid_backtick_fence_does_not_hide_a_heading(tmp_path: Path) -> None:
+    """N-003: a backtick in a backtick fence's info string makes it a paragraph, not a fence."""
+    a, _, c = _good_sections()
+    body = "- x\n\n````text`bad\n## In flight\n```\n````"
+    problems = _check_state(tmp_path, _state(a, ("Open threads", body), c))
+    assert len(problems) == 1
+    assert "In flight" in problems[0]
+
+
 def test_missing_state_fails(tmp_path: Path) -> None:
     problems: list[str] = []
     docs_check.check_state(tmp_path, problems)

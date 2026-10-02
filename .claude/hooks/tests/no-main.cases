@@ -70,6 +70,20 @@
 # BLOCK (R-004, fail closed): input the scanner cannot read as a command is refused, not passed. run.sh adds
 # generated cases: a scanner that cannot start, and a 200 KB command (over the 128 KiB environment-string cap)
 2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":["git commit -m x"]}}
+# --- Round 2: Codex's fix verification (R-001 still open, N-001 to N-002) ---
+# BLOCK (R-001): a heredoc with an unquoted delimiter expands its body, so an expansion there is unverifiable
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -F - <<EOF\nsubject\n\n$MSG\nEOF"}}
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -m \"$(cat <<EOF\nsubject\n\n$MSG\nEOF\n)\""}}
+# BLOCK (N-001): a commit on a later line of a multi-line command is still checked
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git diff --cached\ngit commit -F msg-trailer.txt"}}
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git status # first\ngit commit -m \"$MSG\""}}
+# PASS (N-002): backticks the shell keeps literal (single quotes, or escaped) are not substitutions
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -m 'Document `check_state` behavior'"}}
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -m \"Document \\`check_state\\` behavior\""}}
+# PASS: the round-2 shapes without the trailer or the expansion
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -F - <<EOF\nsubject\n\nbody, escaped \\$HOME\nEOF"}}
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -F - <<'EOF'\nsubject\n\nuses $HOME literally\nEOF"}}
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git diff --cached\ngit commit -F msg-clean.txt"}}
 # Documented gaps (not checked): -C/-c/--amend --no-edit reuse an existing message; an inline `cd` before
 # `git commit -F <relative>` is not followed (the file is looked up from the hook's cwd, so it is usually
 # refused as missing); a later statement that merely prints a trailer-shaped line is false-blocked (safe).

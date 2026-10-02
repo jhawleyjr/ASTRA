@@ -10,9 +10,12 @@ continuations and decoding `$'...'`), so a heredoc or an `-m` value with real or
 is seen; each `-m`/`--message` and `--trailer` value, found by tokenizing (prose inside a message
 is a value, not an option); and each `-F`/`--file` file, resolved against `git -C <dir>` when
 given, else the hook's cwd. `-F -` is checked only when stdin is a heredoc in the text or a
-literal `< file`; any other stdin, and any file or message behind an expansion, is refused as
-unverifiable. Gaps: `-C`/`-c`/`--amend --no-edit` reuse a message; an inline `cd` before the
-commit is not followed (a relative -F path is looked up from cwd, usually refused as missing).
+literal `< file`; any other stdin, any file or message behind an expansion, and any expansion in
+the body of a heredoc with an unquoted delimiter, is refused as unverifiable. Commands are split
+at unquoted newlines as well as `;`, `&&`, `|`, and every `git ... commit` in them is checked.
+
+Gaps: `-C`/`-c`/`--amend --no-edit` reuse a message; an inline `cd` before the commit is not
+followed (a relative -F path is looked up from cwd, usually refused as missing).
 """
 
 from __future__ import annotations
@@ -26,12 +29,15 @@ import sys
 
 TRAILER_LINE = re.compile(r"(?im)^[\s\"'$]*co-authored-by\s*:")
 TRAILER_KEY = re.compile(r"(?i)^[\s\"'$]*co-authored-by\b")
-HEREDOC = re.compile(r"<<-?[ \t]*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
+# A heredoc operator: group 1 is a quote or backslash on the delimiter (the body is then literal),
+# group 3 the delimiter word.
+HEREDOC = re.compile(r"<<-?[ \t]*(\\|(['\"]))?([A-Za-z_][A-Za-z0-9_]*)\2?")
 ANSI_C = re.compile(r"\$'((?:[^'\\]|\\.)*)'", re.DOTALL)
 # An expansion whose value the hook cannot see. `$(cat <<...` is allowed: its heredoc body is in
 # the command text, which is scanned whole.
 EXPANSION = re.compile(r"`|\$\((?!\s*cat\s+<<)|\$\{|\$[A-Za-z_]")
-SEPARATORS = {";", "&&", "||", "|", "&", "(", ")", ";;", "|&"}
+# Statement separators, newline included (an unquoted newline ends a command, as `;` does).
+SEPARATOR_CHARS = set(";&|()\n")
 GIT_VALUE_OPTS = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"}
 LONG_VALUE = {
     "--template",
@@ -52,7 +58,8 @@ class RefusalError(Exception):
     pass
 
 
-LITERAL_DOLLAR = "\x00"  # a `$` the shell does not expand, kept apart from expansions
+# A `$` or backtick the shell keeps literal, kept apart from real expansions after tokenizing
+LITERAL = {"$": "\x00", "`": "\x01"}
 
 
 def decode_ansi_c(text: str) -> str:
@@ -66,9 +73,10 @@ def decode_ansi_c(text: str) -> str:
     return ANSI_C.sub(repl, text)
 
 
-def protect_literal_dollars(text: str) -> str:
-    """Replace each `$` that the shell keeps literal (inside single quotes, or escaped) so a value
-    like -m 'uses $ROOT' is not mistaken for an expansion after tokenizing drops the quotes."""
+def protect_literals(text: str) -> str:
+    """Replace each `$` and backtick that the shell keeps literal (inside single quotes, or
+    escaped) so a value like -m 'uses $ROOT and `x`' is not mistaken for an expansion after
+    tokenizing drops the quotes."""
     out: list[str] = []
     state = ""
     i = 0
@@ -76,10 +84,10 @@ def protect_literal_dollars(text: str) -> str:
         c = text[i]
         nxt = text[i + 1] if i + 1 < len(text) else ""
         if state == "'":
-            out.append(LITERAL_DOLLAR if c == "$" else c)
+            out.append(LITERAL.get(c, c))
             state = "" if c == "'" else state
         elif c == "\\" and nxt and (state == "" or nxt in '$`"\\'):
-            out.append(c + (LITERAL_DOLLAR if nxt == "$" else nxt))
+            out.append(c + LITERAL.get(nxt, nxt))
             i += 1
         else:
             out.append(c)
@@ -93,10 +101,11 @@ def protect_literal_dollars(text: str) -> str:
 
 def strip_heredoc_bodies(text: str) -> str:
     """The command text without heredoc bodies: they hold free text, apostrophes included, that a
-    tokenizer cannot parse, and the whole-text scan has already checked them."""
+    tokenizer cannot parse, and the whole-text scan has already checked them. The body of a heredoc
+    whose delimiter is unquoted is expanded by the shell, so an expansion in it is refused."""
     lines = text.split("\n")
     out: list[str] = []
-    pending: list[tuple[str, bool]] = []
+    pending: list[tuple[str, bool, bool]] = []
     i = 0
     while i < len(lines):
         line = lines[i]
@@ -104,20 +113,30 @@ def strip_heredoc_bodies(text: str) -> str:
         for m in HEREDOC.finditer(line):
             if line[m.start() :].startswith("<<<"):
                 continue
-            pending.append((m.group(2), line[m.start() :].startswith("<<-")))
+            dash = line[m.start() :].startswith("<<-")
+            pending.append((m.group(3), dash, m.group(1) is None))
         i += 1
         while pending:
-            delim, dash = pending.pop(0)
+            delim, dash, expands = pending.pop(0)
+            body: list[str] = []
             while i < len(lines):
                 body_line = lines[i].lstrip("\t") if dash else lines[i]
                 i += 1
                 if body_line == delim:
                     break
+                body.append(body_line)
+            unescaped = re.sub(r"\\[$`\\]", "", "\n".join(body))
+            if expands and EXPANSION.search(unescaped):
+                raise RefusalError(
+                    f"cannot verify the <<{delim} heredoc: its delimiter is unquoted and its body "
+                    f"holds a shell expansion; quote the delimiter (<<'{delim}')."
+                )
     return "\n".join(out)
 
 
 def tokens(text: str) -> list[str]:
-    lex = shlex.shlex(text, posix=True, punctuation_chars=";&|()<>")
+    lex = shlex.shlex(text, posix=True, punctuation_chars=";&|()<>\n")
+    lex.whitespace = " \t\r"
     lex.whitespace_split = True
     try:
         return list(lex)
@@ -130,7 +149,7 @@ def tokens(text: str) -> list[str]:
 def statements(toks: list[str]) -> list[list[str]]:
     out: list[list[str]] = [[]]
     for t in toks:
-        if t in SEPARATORS:
+        if set(t) <= SEPARATOR_CHARS:
             out.append([])
         else:
             out[-1].append(t)
@@ -276,7 +295,9 @@ def why(cmd: str, cwd: str) -> str:
     # The whole text, escapes decoded too: a heredoc body, a printf format, an `-m` with newlines.
     if TRAILER_LINE.search(text) or TRAILER_LINE.search(text.replace("\\n", "\n")):
         return "the commit message carries a Co-Authored-By trailer."
-    stripped = protect_literal_dollars(strip_heredoc_bodies(text))
+    stripped = protect_literals(strip_heredoc_bodies(text))
+    # Every `git` token, not only a statement's first: a comment swallows the newline after it, so
+    # two commands can share one token list, and a false match only checks more (the safe way).
     for stmt in statements(tokens(stripped)):
         for g, t in enumerate(stmt):
             if t != "git" and not t.endswith("/git"):
@@ -286,7 +307,6 @@ def why(cmd: str, cwd: str) -> str:
                 k += 2 if stmt[k] in GIT_VALUE_OPTS else 1
             if k < len(stmt) and stmt[k] == "commit":
                 check_commit(stmt[k + 1 :], git_base(stmt[g + 1 : k], cwd), cwd)
-            break
     return ""
 
 
