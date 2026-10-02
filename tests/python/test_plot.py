@@ -590,6 +590,49 @@ def test_a_failed_write_deletes_only_the_files_it_created(
     assert sorted(p.name for p in out.iterdir()) == ["unrelated.svg"]
 
 
+def test_a_file_that_appears_during_the_render_is_left_untouched(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Past the up-front check, each file is still created exclusively: one that appears in between
+    # is refused, never replaced, and the files this render created are deleted.
+    text = "figures:\n" + "".join(
+        f"  - name: {name}\n    panels:\n      - series:\n          - signal: health.nan\n"
+        for name in ("first", "second")
+    )
+    path = write_package(tmp_path, text)
+    out = tmp_path / "out"
+    real = plot.draw_matplotlib
+
+    def draw(figure: plot.Figure) -> Any:
+        if figure.name == "second":
+            (out / "pkg-second.svg").write_bytes(b"theirs")
+        return real(figure)
+
+    monkeypatch.setattr(plot, "draw_matplotlib", draw)
+    with pytest.raises(plot.PlotOutputExistsError, match=r"pkg-second\.svg: already exists"):
+        plot.render(plot.load_package(path), synthetic_log(_LOG_COLUMNS), out)
+    assert sorted(p.name for p in out.iterdir()) == ["pkg-second.svg"]
+    assert (out / "pkg-second.svg").read_bytes() == b"theirs"
+
+
+def test_hashed_svg_ids_differ_between_figures_of_the_same_shape(tmp_path: Path) -> None:
+    # Two figures with identical axes would hash to identical clip-path ids under one salt; the
+    # salt is per figure, so a report holding both SVGs does not see the ids collide.
+    text = "figures:\n" + "".join(
+        f"  - name: {name}\n    panels:\n      - series:\n          - signal: health.nan\n"
+        for name in ("first", "second")
+    )
+    path = write_package(tmp_path, text)
+    first, second = plot.render(plot.load_package(path), synthetic_log(_LOG_COLUMNS), tmp_path)
+    ids = [
+        set(re.findall(r'id="(p[0-9a-f]{10})"', p.read_text(encoding="utf-8")))
+        for p in (first, second)
+    ]
+    assert ids[0]
+    assert ids[1]
+    assert not ids[0] & ids[1]
+
+
 def test_a_module_function_renders(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     module = "astra_plot_test_module_m6pr5"
     (tmp_path / f"{module}.py").write_text(
