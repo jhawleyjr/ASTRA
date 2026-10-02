@@ -52,9 +52,8 @@ Decisions (Joe, 2026-09-29):
 
 - **Plotting.** Time histories from the HDF5 run logs, and an easy way to define plot packages: named,
   reusable sets of plots for one purpose (longitudinal, lateral, controls, health, a debugging view)
-  applied to any log. Output to files. The plotting dependency is Joe's decision. Architecture §1 marks
-  visualization *planned* for M6 (PRs 5, 6 and 8); today only `astra.fgbridge` exists, and M4's trace SVGs
-  came from a scratch script.
+  applied to any log. Output to files. Built in M6 PR 5 as `astra.plot` and `astra plot` (matplotlib and
+  plotly, Joe's Q2 decision); Monte Carlo figures (PR 6) and the run report (PR 8) remain *planned*.
 - **Monte Carlo visualization.** Distributions of each dispersed parameter's draws, draws against each
   other colored by outcome, and trajectory envelopes (percentile bands) across runs.
 - **Correlating failures to draws.** `summary.parquet` already holds, per run, every drawn value, the
