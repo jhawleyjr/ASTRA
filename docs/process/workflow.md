@@ -222,8 +222,8 @@ approval, AI review, validation, merge, and release are separate states (approva
 - *Documented instructions*: this file, `AGENTS.md`, and the skills/hooks' own comments — process
   Claude, Codex, and Joe follow; GitHub does not check any of it.
 - *Local hook coverage*: `.claude/hooks/no-main.sh`, a PreToolUse hook on this session's own Bash
-  tool — recognizes a literal `git push`/`commit`/`merge`/`rebase`/... touching `main`; nothing
-  outside this session, and no `gh`-based route (below).
+  tool — recognizes a literal `git push`/`commit`/`merge`/`rebase`/... touching `main`, and a commit
+  message carrying a co-author trailer; nothing outside this session, and no `gh`-based route (below).
 - *Checked-in host configuration*: `.github/rulesets/main.json` — a record of the intended rules,
   not proof they are live. Beyond the rules listed below, it requires a pull request for every change
   to `main`. The file is the ruleset. It was applied once, from a terminal where `gh` is logged in, with
