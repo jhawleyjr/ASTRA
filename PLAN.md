@@ -371,6 +371,14 @@ takes them as a prefix.
       booleans, which the core then reads as `true`/`false` (so `sim.health.nan: off` is refused); `010` is 8 (the
       core reads 10); `1:30` is 90 and `1_000` is 1000 (the core reads neither as a number). `astra run --log`
       avoids the round trip. Not started.
+- [ ] (M6) `tests/python/resource_refs.py`, the self-contained-document check R3b uses and PR 8's report will
+      reuse, is an enumeration of loading constructs, so anything unlisted passes: known misses are an
+      `<?xml-stylesheet?>` processing instruction, CSS `image-set()` with a bare string, and SMIL `<set>`/`<animate>`
+      on `href` (origin: M6 PR 5, Joe's review, 2026-10-01). PR 8 replaces it with an approved set: any element,
+      attribute or CSS function outside an allowed set is flagged. Not started.
+- [ ] (M6) `aircraft/_template/plots/ground_track.py` draws without an equal aspect ratio, so near-straight flight
+      autoscales the east axis around zero and exaggerates a tiny lateral drift (origin: M6 PR 5, Joe's review,
+      2026-10-01). Not started.
 - [ ] (M7) §18 step 4 fails on a template copy: `aircraft/_template/configs/cruise.yaml` uses `earth/flat`, which
       `astra.trim` refuses (altitude is geodetic only), so `astra trim` on a new aircraft exits 65 (origin: M6 PR 3;
       Joe 2026-09-30). M7 builds the F-16 from the template. Not started.

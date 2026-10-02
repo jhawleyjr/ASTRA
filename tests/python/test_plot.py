@@ -878,6 +878,7 @@ def test_r3b_the_page_is_offline_and_every_svg_is_self_contained(
         '<a href="http://example.com">x</a>',
         '<svg><image xlink:href="http://example.com/a.png"/></svg>',
         '<img srcset="a.png 1x">',
+        '<img srcset="data:image/png;base64,AA 1x, https://x.test/a.png 2x">',
         '<video poster="p.png"></video>',
         '<object data="x.svg"></object>',
         "<iframe></iframe>",
@@ -901,6 +902,7 @@ def test_the_resource_check_allows_identifiers_and_local_references() -> None:
         '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">'
         '<rdf:RDF><dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/></rdf:RDF>'
         '<use xlink:href="#DejaVuSans-30"/><image href="data:image/png;base64,AA=="/>'
+        '<img srcset="data:image/png;base64,AA 1x, data:image/png;base64,BB 2x">'
         '<style>p { fill: url(#gradient) }</style><script>var u = "https://plot.ly";</script>'
         '<g clip-path="url(#p0123456789)"></g></svg>'
     )
