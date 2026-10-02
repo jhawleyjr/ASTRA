@@ -29,9 +29,11 @@ import re
 import subprocess
 from pathlib import Path
 
-from astra import _core, log
+import numpy as np
+
+from astra import _core, log, plot
 from test_new_aircraft_build import _copy_sources, _env, _snapshot
-from test_plot import check_package
+from test_plot import check_package, log_column
 
 AIRCRAFT = "gliderx"
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -77,11 +79,12 @@ FILL: dict[str, list[str]] = {
     "izz": ["2567919.0"],
 }
 # The flat-Earth initial state: NED meters, so p_n[2] = -10000 is 10,000 m up; the notional trim's
-# body velocity and pitch.
+# body velocity and pitch. The heading, euler_nb[0] = psi = 0.6 rad, gives travel on both north and
+# east axes, so the ground-track oracle tests each axis against a nonzero displacement.
 STATE = {
     "p_n": "[0.0, 0.0, -10000.0]",
     "v_b": "[229.9360238725, 0.0, 5.42447469393253]",
-    "euler_nb": "[0.0, 0.023586859573503434, 0.0]",
+    "euler_nb": "[0.6, 0.023586859573503434, 0.0]",
 }
 PLUGIN_TARGETS = [
     f"astra_aircraft_{AIRCRAFT}_physical_aero",
@@ -120,6 +123,43 @@ def _core_libraries() -> set[str]:
     """Every libastra_core file mapped into this process."""
     lines = Path("/proc/self/maps").read_text(encoding="utf-8").splitlines()
     return {line.split(maxsplit=5)[5] for line in lines if "libastra_core" in line}
+
+
+def check_ground_track_against_position(package: Path, run_log: log.RunLog) -> None:
+    """An oracle for the ground track that does not share its method. On a flat Earth the logged
+    position state ``v0.state.p_n_0/1`` is NED meters, integrated by RK4, so the drawn north and
+    east must equal it minus its first value.
+
+    The bound, derived before the first run: the ground track is a left Riemann sum of the
+    frame-start NED velocity, ``sum(v_j * dt_j)``, and the position is the integral of the same
+    velocity. On each step the left-endpoint error is at most ``dt_j * |v_(j+1) - v_j|`` (the
+    velocity is monotone over a 1 ms step of a smooth flight), so the error at any row is at most
+    ``sum_j dt_j * |v_(j+1) - v_j|``, dt times the total variation of that component over the run.
+    1e-9 m is added for floating summation (about 1000 * 2.2e-16 * 230 m = 5e-11 m) and RK4's
+    position error (O(dt^5) per step). Each bound must also be below 1 mm, so it cannot hide an
+    error of meters, such as a swapped axis or the wrong velocity component (about 190 m north and
+    130 m east at the 0.6 rad heading), and each axis must travel more than 100 m."""
+    (figure,) = plot.resolve(plot.load_package(package), run_log)
+    drawn = plot.draw_matplotlib(figure)
+    (line,) = drawn.axes[0].get_lines()
+    east_drawn = np.asarray(line.get_xdata(), dtype=np.float64)
+    north_drawn = np.asarray(line.get_ydata(), dtype=np.float64)
+    t, north_position = log_column(run_log, "v0.state.p_n_0")
+    _, east_position = log_column(run_log, "v0.state.p_n_1")
+    _, north_velocity = log_column(run_log, "v0.derived.v_n_0")
+    _, east_velocity = log_column(run_log, "v0.derived.v_n_1")
+    steps = np.diff(t)
+    for axis, drawn_values, position, velocity in (
+        ("north", north_drawn, north_position, north_velocity),
+        ("east", east_drawn, east_position, east_velocity),
+    ):
+        bound = float(np.sum(steps * np.abs(np.diff(velocity)))) + 1e-9
+        assert bound < 1e-3, f"{axis}: the bound {bound} m is too loose to discriminate"
+        assert abs(position[-1] - position[0]) > 100.0, f"{axis}: too little travel to test"
+        error = float(np.max(np.abs(drawn_values - (position - position[0]))))
+        assert error <= bound, (
+            f"{axis}: drawn differs from the logged position by {error} m > {bound} m"
+        )
 
 
 def test_r4_a_new_aircraft_renders_its_plots_against_its_own_log(tmp_path: Path) -> None:
@@ -172,6 +212,8 @@ def test_r4_a_new_aircraft_renders_its_plots_against_its_own_log(tmp_path: Path)
     sim.close_log()
     run_log = log.load(log_path)
     assert run_log.frames_run == 1000
+
+    check_ground_track_against_position(copy / "plots" / "ground_track.yaml", run_log)
 
     out = tmp_path / "plots"
     for package in sorted((copy / "plots").glob("*.yaml")):
