@@ -88,7 +88,9 @@ For workflow edits, run `just docs-check` (`scripts/docs_check.py`): Markdown li
 `docs/process/`, `docs/agents/`, `docs/templates/`, `.claude/skills/`, the root instruction files,
 `README.md`, `docs/README.md`, `docs/reviews/README.md` and `PLAN.md` (links only);
 `.claude/skills/*/SKILL.md` frontmatter and name-matches-directory; the AGENTS.md+CLAUDE.md line
-budget; `just`/`./scripts/` command names referenced from those docs; `bash -n` on each wrapper
+budget; `just`/`./scripts/` command names referenced from those docs; STATE.md's shape (exactly
+`## Next step`, `## Open threads`, `## Honesty rules` in order, at most 40 lines, the honesty rules text as
+the script's `STATE_HONESTY_RULES`); `bash -n` on each wrapper
 separately (`bash -n a b` only parses `a`; `b` becomes an unused positional argument, not a second
 file checked); and `git diff --check`. `just check` runs it on every
 full gate; CI also runs it as its own step whenever a pull request touches that surface, so a
