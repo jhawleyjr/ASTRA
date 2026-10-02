@@ -120,7 +120,9 @@ run` exits 65 for an existing `log.path`); 74 a write that fails; 70 internal er
   deg), `attitude` (phi/theta/psi deg, p/q/r deg/s), `health` (the five `health.*` signals).
 - Template starter set (`aircraft/_template/plots/`): `controls` (`v{v}.controls.*`, deg and throttle), `wrench`
   (`v{v}.wrench_total.*`), and `ground_track` (`function: {file: ground_track.py, name: figures}`, north vs east
-  from `v<i>.state.p_n_*`, one figure, x labeled `east [m]`), the starting point for an aircraft's own Python plot.
+  displacement integrated from `v<i>.derived.v_n_0/1`, one figure, x labeled `east [m]`), the starting point for
+  an aircraft's own Python plot. Implementation note: the displacement integrates the derived NED velocity rather
+  than reading `p_n`, which is latitude and longitude on a round Earth.
   Header comments say how to add one. No path inside, so the copy needs no rewrite.
 - `aircraft/notional_transport/plots/cruise.yaml`: altitude, TAS, alpha, theta, q, elevator, throttle, wind NED.
 
@@ -176,7 +178,7 @@ column and an independent expression of each documented definition (`x / 0.3048`
   the core, never PyYAML), closes the log, asserts no halt, and asserts exactly one `libastra_core` file is mapped
   in the test process (`/proc/self/maps`) after the copy's plugins load. It then renders each of the copy's
   `plots/*.yaml`, the file-based `ground_track` included, and checks every YAML series as in R1 and the ground
-  track against the log's `p_n` columns. The copy's `plots/` equals the template's byte for byte, and the snapshot shows
+  track against a recomputation from the log's `v_n` columns. The copy's `plots/` equals the template's byte for byte, and the snapshot shows
   only `aircraft/gliderx/configs/cruise.yaml` changed after the copy. Cost measured in the PR (Release build of
   the core plus six plugins; `test_new_aircraft_build` already does a debug build of the tree).
 

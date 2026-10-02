@@ -60,7 +60,9 @@ Everything below is on `main` today.
   log.
 - **The `astra` CLI.** `astra run` runs a config open loop, prints a post-run summary and exits with a code
   that says what happened. It refuses a config with a `transport` block until M10. `astra trim` prints a trim
-  and the config fragment that applies it.
+  and the config fragment that applies it. `astra plot` renders a plot package against a run log.
+- **Plot packages.** `astra.plot` draws reusable YAML plot packages over any run log: deterministic SVG (or PNG)
+  files through matplotlib, or one offline interactive HTML page through plotly.
 - **Health monitoring.** Every check is a signal in the log and names its source. NaN or Inf in the state, a
   wrench, a control input or the environment; quaternion-norm drift; and per-frame domain validity
   ([ADR-0012](docs/decisions/0012-per-frame-domain-validity.md)) are each `off`, `warn` or `halt`
@@ -142,6 +144,19 @@ print(log.replay("build/cruise.h5", "build/cruise_replay.h5"))  # True: byte-ide
 
 The file layout and the finalization rules are in [ADR-0025](docs/decisions/0025-hdf5-run-log-and-replay.md)
 and [ADR-0027](docs/decisions/0027-run-log-finalization.md).
+
+### Plot a log
+
+```sh
+astra plot build/cruise.h5 flight --out build/plots          # a framework package: flight, attitude, health
+astra plot build/cruise.h5 aircraft/notional_transport/plots/cruise.yaml --out build/plots --html
+```
+
+A plot package is a YAML file of figures, panels and series. `{v}` in a signal name stands for each vehicle's
+index, and `unit:` picks a display unit (ft, kt, ft/s, deg, deg/s), converted by `core/util/units`. Each figure
+becomes `<package>-<figure>.svg` (`--format png` for PNG); `--html` adds one interactive page that works offline.
+No file is overwritten. An aircraft keeps its own packages in `aircraft/<name>/plots/`; the template's starter
+set includes a plot drawn by a Python function. The format is in [plot.py](python/astra/plot.py).
 
 ### Write a scenario
 
@@ -252,6 +267,9 @@ altitude from a geodetic position ([PLAN.md](PLAN.md)'s open M7 item). For `astr
 
 `gravity/constant` can stay. `astra trim` prints the trimmed `initial.state` and controls to paste back into the
 config.
+
+The copy carries the template's plot packages in `aircraft/my_aircraft/plots/`. After `astra run ... --log
+build/my_aircraft.h5`, `astra plot build/my_aircraft.h5 aircraft/my_aircraft/plots/controls.yaml` draws them.
 
 The steps are [architecture §18](docs/architecture.md#18-how-a-user-adds-an-aircraft-the-on-ramp-this-design-must-keep-true).
 If one needs more than it says, that is a framework bug.

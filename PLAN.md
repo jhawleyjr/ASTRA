@@ -233,6 +233,12 @@ takes them as a prefix.
     and 1-D float64 array, bitwise equal element by element, with the constants unbound. `astra.fgbridge` holds
     no conversion constant, and its packets are unchanged. Plan: [plan](docs/plans/m6-pr4-units.md). Packet: in
     the PR body.
+  - PR 5 (#89): plots. `astra.plot` reads YAML plot packages (figures, panels, series; `{v}` over every vehicle;
+    display units through the bound `core/util/units`; a Python function by module or by a `.py` beside the
+    package), every map closed and every error naming the file and key before any file is written. matplotlib
+    writes byte-deterministic SVG (or PNG) per figure, plotly one offline HTML page; nothing is overwritten.
+    Framework packages, a template starter set and a notional-transport package ship; `astra plot` joins the
+    CLI; matplotlib and plotly are pinned. Plan: [plan](docs/plans/m6-pr5-plots.md). Packet: in the PR body.
   - Workflow (#83): plan-mode drafts land in the session's `docs/plans/` (`plansDirectory`), with the rule for
     renaming, committing or deleting them in `docs/agents/claude-code.md` and `/wrap`; 27 never-committed plans
     recovered from `~/.claude/plans`. Plan: [plan](docs/plans/claude-plans-directory.md). Packet: in the PR body.
