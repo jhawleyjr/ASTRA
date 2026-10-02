@@ -10,7 +10,10 @@
 #                  shape every golden-touching session actually runs in
 #   $ROOT_WT       the same shape with no marker anywhere, so the guard still blocks
 #   $ROOT_ON_MAIN  a temporary git repository whose HEAD is on main
-#   $ROOT_ON_BRANCH  a temporary git repository whose HEAD is on a task branch
+#   $ROOT_ON_BRANCH  a temporary git repository whose HEAD is on a task branch, holding commit-message files
+#                  for no-main.sh's trailer rule: msg-trailer.txt (a co-author trailer), msg-clean.txt (none),
+#                  msg-c.txt (none) and sub/msg-c.txt (a trailer) plus sub/only-sub.txt (none), so a
+#                  `git -C sub commit -F <relative>` case shows which directory the path resolved against
 #   $ROOT_GREEN    a temporary tree whose stub justfile has a `test-unit` recipe that passes
 #   $ROOT_RED      a temporary tree whose stub justfile has a `test-unit` recipe that fails the way ctest does
 #   $ROOT_SLOW     a temporary tree whose stub `test-unit` recipe outlives ASTRA_STOP_BUDGET (set to 1 s here)
@@ -37,6 +40,13 @@ on_branch="$tmp/on_branch"
 git init -q -b main "$on_branch"
 git -C "$on_branch" -c user.name=astra -c user.email=astra@example.invalid commit -q --allow-empty -m init
 git -C "$on_branch" checkout -q -b worktree-task
+trailer='Co-Authored-By: Claude <noreply@anthropic.com>'
+mkdir -p "$on_branch/sub"
+printf 'subject\n\nbody\n\n%s\n' "$trailer" >"$on_branch/msg-trailer.txt"
+printf 'subject\n\nbody\n' >"$on_branch/msg-clean.txt"
+printf 'subject\n\nbody\n' >"$on_branch/msg-c.txt"
+printf 'subject\n\n%s\n' "$trailer" >"$on_branch/sub/msg-c.txt"
+printf 'subject\n\nbody\n' >"$on_branch/sub/only-sub.txt"
 
 # A worktree session's CLAUDE_PROJECT_DIR is the worktree, but the marker Joe touches lives in the main
 # checkout. guard-oracle.sh accepts either, so both shapes are exercised here.

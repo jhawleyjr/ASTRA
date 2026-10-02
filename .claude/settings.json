@@ -60,8 +60,5 @@
       }
     ]
   },
-  "attribution": {
-    "commit": "",
-    "sessionUrl": false
-  }
+  "attribution": false
 }
