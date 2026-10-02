@@ -258,6 +258,10 @@ takes them as a prefix.
     every milestone closeout), the PR template a Docs impact section; one repo-scope run brings today's docs
     and milestone comments current, including architecture §9, §12 and §15's M6 markers (that open item is
     removed) and `docs/refs/README.md`. Plan: [plan](docs/plans/wrap-docs-sweep.md). Packet: in the PR body.
+  - STATE and trailers (#90): `/wrap` writes STATE.md as main reads it after the merge (Next step, Open threads,
+    Honesty rules; no PR stage), and `scripts/docs_check.py` enforces that shape, the 40-line cap and the
+    honesty rules text; `"attribution": false`, and `no-main.sh` refuses a commit message with a co-author
+    trailer. Plan: [plan](docs/plans/state-and-attribution.md). Packet: in the PR body.
 - [ ] **M7 F-16 and the NESC oracle** — `aircraft/f16` built from the template; NESC atmospheric cases 11, 12,
       13.1 to 13.4, 15 and 16 against the participating simulations' trajectories in `docs/refs` (ADR-0013's
       ensemble as oracle); the tutorial and the generated config-key reference written from this path. The
@@ -362,6 +366,14 @@ takes them as a prefix.
 - [ ] (unscheduled) Evaluate Jev (TypeSafe AI) for workflow routing: model/effort selection at session launch and context
       selection, advisory with today's fixed settings as the fallback and file-path rules for Tier 3 kept
       (origin: Joe, 2026-09-26; owner: Joe, starting with console.typesafe.ai signup).
+- [ ] (unscheduled) Replace `no-main.sh` rule 3's command-text scanner (`.claude/hooks/commit_trailer.py`) with a check
+      of the message git records: a versioned `commit-msg` hook reached through `core.hooksPath`, with `no-main.sh`
+      refusing `--no-verify`/`-n` and any `core.hooksPath` override (origin: #90's Codex review; Joe 2026-10-01).
+      The scanner enumerates shell shapes, so a trailer behind a variable or an odd argument shape can pass. This
+      closes the three findings Joe deferred on #90 (`docs/reviews/state-and-attribution-review.md`): R-001 (a
+      `$1`/`$@`/`$*` in an unquoted heredoc body), N-001/N-002 (an apostrophe in a `# comment` flips quote tracking),
+      N-004 (a quoted empty argument splits a statement). It also closes the scanner's documented gaps: a message
+      reused by `-C`/`-c`/`--amend --no-edit`, and an inline `cd` before `git commit -F <relative>`. Not started.
 - [ ] (M11) `RealTime` mode's logger writer thread (origin: M5 plan §9/architecture §9, held-out scope; Joe's call):
       M5's logger drains only inline (`AsFastAsPossible`); `RealTime` mode itself is not built, so the
       separate non-RT drain thread architecture §9 describes has nothing to run on yet. Not started.
@@ -379,6 +391,13 @@ takes them as a prefix.
 - [ ] (M6) `aircraft/_template/plots/ground_track.py` draws without an equal aspect ratio, so near-straight flight
       autoscales the east axis around zero and exaggerates a tiny lateral drift (origin: M6 PR 5, Joe's review,
       2026-10-01). Not started.
+- [ ] (M6) Legends cover data: the `ax.legend(loc="upper right")` call in `python/astra/plot.py` puts every
+      legend inside the axes, over TAS's end, alpha's right edge, beta and phi (origin: M6 PR 5, Joe's look at a
+      60 s run, 2026-10-01). Place them outside the axes, which keeps the SVG deterministic. Not started.
+- [ ] (M6) `python/astra/plots/flight.yaml` puts TAS and CAS on one panel, which spans 270 to 475 kt and flattens
+      both (origin: M6 PR 5, Joe's look at a 60 s run, 2026-10-01). Not started.
+- [ ] (M6) A 60 s run gives a 25 MB HTML page, because every 1 ms frame is plotted (origin: M6 PR 5, Joe's look
+      at a 60 s run, 2026-10-01). Consider an opt-in decimation for HTML, and perhaps SVG. Not started.
 - [ ] (M7) §18 step 4 fails on a template copy: `aircraft/_template/configs/cruise.yaml` uses `earth/flat`, which
       `astra.trim` refuses (altitude is geodetic only), so `astra trim` on a new aircraft exits 65 (origin: M6 PR 3;
       Joe 2026-09-30). M7 builds the F-16 from the template. Not started.

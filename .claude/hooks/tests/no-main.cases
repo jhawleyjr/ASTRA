@@ -11,3 +11,79 @@
 2	{"cwd":"$ROOT_ON_MAIN","tool_input":{"command":"git merge worktree-task"}}
 2	{"cwd":"$ROOT_ON_MAIN","tool_input":{"command":"git rebase worktree-task"}}
 2	{"cwd":"$ROOT_ON_MAIN","tool_input":{"command":"git reset --hard HEAD~1"}}
+# Rule 3: no co-author trailer in a commit message, whichever way the message arrives (-m, a heredoc in the
+# command text, an -F/--file file read relative to the hook's cwd or to `git -C <dir>`, or --trailer).
+# BLOCK: a second -m paragraph that is the trailer
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -m \"subject\" -m \"Co-Authored-By: Claude <noreply@anthropic.com>\""}}
+# BLOCK: the trailer in a heredoc, as -m "$(cat <<'EOF' ...)" and, lowercase, as -F - <<'EOF'
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -m \"$(cat <<'EOF'\nsubject\n\nbody\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\""}}
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -F - <<'EOF'\nsubject\n\nco-authored-by: Claude <noreply@anthropic.com>\nEOF"}}
+# BLOCK: an -F/--file file holding the trailer, by every spelling of the option
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -F msg-trailer.txt"}}
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -Fmsg-trailer.txt"}}
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -aF msg-trailer.txt"}}
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit --file msg-trailer.txt"}}
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit --file=$ROOT_ON_BRANCH/msg-trailer.txt"}}
+# BLOCK: an -F file the hook cannot read or cannot name (missing, or behind a variable) is unverifiable
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -F missing.txt"}}
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -F \"$MSG\""}}
+# BLOCK: --trailer with a co-author key
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit --trailer \"Co-authored-by: X <x@example.invalid>\" -m subject"}}
+# BLOCK: `git -C sub` makes a relative -F path resolve under sub/ (sub/msg-c.txt has the trailer; the
+# msg-c.txt in cwd does not), and a -C the hook cannot resolve refuses a relative -F path
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git -C sub commit -F msg-c.txt"}}
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git -C \"$D\" commit -F msg-clean.txt"}}
+# PASS: no trailer, by -m, heredoc and -F (only-sub.txt exists only under sub/, so that case passes only when
+# the path resolves against -C); a mid-line mention in prose is not a trailer; reading trailers is not a commit
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -m \"subject\" -m \"body\""}}
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -m \"$(cat <<'EOF'\nsubject\n\nbody\nEOF\n)\""}}
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -F msg-clean.txt"}}
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -F msg-c.txt"}}
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git -C sub commit -F only-sub.txt"}}
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git -C sub commit -F $ROOT_ON_BRANCH/msg-clean.txt"}}
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -m \"Refuse a Co-Authored-By trailer in commit messages\""}}
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git log origin/main..HEAD --format='%(trailers:key=Co-authored-by)'"}}
+# --- Round 1: Codex's review of the first candidate (R-001 to R-004, PR #90 body) ---
+# BLOCK (R-001): message sources the shell builds -- ANSI-C quoting, a printf in a substitution, a redirected
+# or piped stdin, an expansion the hook cannot see
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -m $'subject\\n\\nCo-Authored-By: X <x@example.invalid>'"}}
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -m subject --trailer $'Co-Authored-By: X <x@example.invalid>'"}}
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -m \"$(printf 'subject\\n\\nCo-Authored-By: X')\""}}
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -F - < msg-trailer.txt"}}
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"printf 'subject' | git commit -F -"}}
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -m \"$MSG\""}}
+# BLOCK (R-002): a `\`-newline continuation and a quoted `;` no longer hide the -F option
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit \\\n  -aF msg-trailer.txt"}}
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit --author \"Name; Surname <n@example.invalid>\" -F msg-trailer.txt"}}
+# PASS (R-003): option-like prose inside a message is a value, not an option
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -m 'Document --trailer Co-authored-by: syntax'"}}
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -m 'Document -m Co-Authored-By: syntax'"}}
+# PASS: the same message sources when they are clean, an apostrophe in a heredoc body, a literal `$` in single
+# quotes, and the R-002 shapes without the trailer
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -m $'subject\\n\\nbody'"}}
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -F - < msg-clean.txt"}}
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -m \"$(cat <<'EOF'\nsubject\n\nDon't stop.\nEOF\n)\""}}
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -F - <<'EOF'\nsubject\n\nDon't stop.\nEOF"}}
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -m 'uses $HOME literally'"}}
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit \\\n  -F msg-clean.txt"}}
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit --author \"Name; Surname <n@example.invalid>\" -F msg-clean.txt"}}
+# BLOCK (R-004, fail closed): input the scanner cannot read as a command is refused, not passed. run.sh adds
+# generated cases: a scanner that cannot start, and a 200 KB command (over the 128 KiB environment-string cap)
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":["git commit -m x"]}}
+# --- Round 2: Codex's fix verification (R-001 still open, N-001 to N-002) ---
+# BLOCK (R-001): a heredoc with an unquoted delimiter expands its body, so an expansion there is unverifiable
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -F - <<EOF\nsubject\n\n$MSG\nEOF"}}
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -m \"$(cat <<EOF\nsubject\n\n$MSG\nEOF\n)\""}}
+# BLOCK (N-001): a commit on a later line of a multi-line command is still checked
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git diff --cached\ngit commit -F msg-trailer.txt"}}
+2	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git status # first\ngit commit -m \"$MSG\""}}
+# PASS (N-002): backticks the shell keeps literal (single quotes, or escaped) are not substitutions
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -m 'Document `check_state` behavior'"}}
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -m \"Document \\`check_state\\` behavior\""}}
+# PASS: the round-2 shapes without the trailer or the expansion
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -F - <<EOF\nsubject\n\nbody, escaped \\$HOME\nEOF"}}
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git commit -F - <<'EOF'\nsubject\n\nuses $HOME literally\nEOF"}}
+0	{"cwd":"$ROOT_ON_BRANCH","tool_input":{"command":"git diff --cached\ngit commit -F msg-clean.txt"}}
+# Documented gaps (not checked): -C/-c/--amend --no-edit reuse an existing message; an inline `cd` before
+# `git commit -F <relative>` is not followed (the file is looked up from the hook's cwd, so it is usually
+# refused as missing); a later statement that merely prints a trailer-shaped line is false-blocked (safe).

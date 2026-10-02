@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Reproducible check for the workflow constraints docs/process/validation.md prescribes for
 workflow edits (Markdown links/anchors, SKILL.md metadata, the root instruction line budget,
-and doc/script command names) so they run from `just docs-check` / CI instead of being asked
-of an agent's memory. Stdlib only.
+doc/script command names, and STATE.md's shape) so they run from `just docs-check` / CI instead
+of being asked of an agent's memory. Stdlib only.
 
 Usage: python3 scripts/docs_check.py [--root DIR]
 Exit 0 with a summary line, or exit 1 printing every problem found.
@@ -22,6 +22,7 @@ JUST_RECIPE_REF_RE = re.compile(r"`just ([A-Za-z][A-Za-z0-9_-]*)")
 # README.md all write it this way); a bare `scripts/...` may name a plugin's own script
 # (e.g. docs/agents/review-dispatch.md's Codex companion), which this repo does not own.
 SCRIPT_REF_RE = re.compile(r"`\./scripts/([A-Za-z0-9_.-]+)")
+FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 JUSTFILE_RECIPE_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_-]*)\b[^\n:]*:(?!=)")
 ROOT_INSTRUCTION_LINE_BUDGET = 100
 
@@ -41,6 +42,17 @@ WORKFLOW_DOC_ROOTS = [
     "docs/reviews/README.md",
     ".claude/skills",
 ]
+
+# STATE.md is written as main reads it after the squash-merge (.claude/skills/wrap/SKILL.md
+# step 5), so its shape is checked, not its wording: exactly these `##` headings, in this order,
+# at most 40 lines, and the honesty rules word for word. This constant is the one source of that
+# text.
+STATE_HEADINGS = ["Next step", "Open threads", "Honesty rules"]
+STATE_LINE_CAP = 40
+STATE_HONESTY_RULES = (
+    '"A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 '
+    "in this session."
+)
 
 # Checked for links/anchors only: PLAN.md links every PR's plan and packet, but as a plan it may
 # name a future command (the reason the design docs above are excluded), so its command names
@@ -153,6 +165,48 @@ def check_root_instruction_budget(root: Path, problems: list[str]) -> None:
         )
 
 
+def check_state(root: Path, problems: list[str]) -> None:
+    state = root / "STATE.md"
+    if not state.is_file():
+        problems.append("STATE.md: missing")
+        return
+    lines = state.read_text(encoding="utf-8").splitlines()
+    if len(lines) > STATE_LINE_CAP:
+        problems.append(f"STATE.md: {len(lines)} lines, over the {STATE_LINE_CAP}-line cap")
+    headings: list[str] = []
+    sections: dict[str, list[str]] = {}
+    # The open fence's marker run. As in CommonMark, only a run of the same character, at least as
+    # long and with nothing after it, closes it.
+    fence = ""
+    for line in lines:
+        m = FENCE_RE.match(line)
+        if m and m.group(1)[0] == "`" and "`" in m.group(2):
+            m = None  # a backtick fence's info string cannot hold a backtick: not a fence
+        if m and not fence:
+            fence = m.group(1)
+            continue
+        run, rest = (m.group(1), m.group(2)) if m else ("", "")
+        if run and run[0] == fence[0] and len(run) >= len(fence) and not rest.strip():
+            fence = ""
+            continue
+        if not fence and line.startswith("## "):
+            headings.append(line[3:].strip())
+            sections[headings[-1]] = []
+        elif headings:
+            sections[headings[-1]].append(line)
+    if headings != STATE_HEADINGS:
+        problems.append(
+            f"STATE.md: '##' headings are {headings}, "
+            f"expected exactly {STATE_HEADINGS} in that order"
+        )
+    honesty = sections.get("Honesty rules")
+    if honesty is not None and "\n".join(honesty).strip() != STATE_HONESTY_RULES:
+        problems.append(
+            "STATE.md: the Honesty rules section differs from "
+            "scripts/docs_check.py's STATE_HONESTY_RULES"
+        )
+
+
 def parse_justfile_recipes(root: Path) -> set[str]:
     justfile = root / "justfile"
     if not justfile.is_file():
@@ -194,6 +248,7 @@ def main() -> int:
     check_skills(root, problems)
     check_root_instruction_budget(root, problems)
     check_command_names(md_files, root, problems)
+    check_state(root, problems)
 
     if problems:
         print(f"docs-check: {len(problems)} problem(s) found:", file=sys.stderr)

@@ -3,7 +3,9 @@
 Provider-specific procedures; shared rules remain in [AGENTS.md](../../AGENTS.md).
 
 - Work in a worktree: sessions start with `claude --worktree <name>`. A PreToolUse hook (`.claude/hooks/no-main.sh`)
-  blocks `git push` to `main` and any commit/merge/rebase while `main` is checked out. Commit, push and draft-PR
+  blocks `git push` to `main` and any commit/merge/rebase while `main` is checked out, and refuses a commit message
+  with a co-author trailer (`.claude/settings.json` sets `"attribution": false`; the scanner is
+  `.claude/hooks/commit_trailer.py`). Commit, push and draft-PR
   rules are in AGENTS.md. A push after the PR opens does not re-run CI's `check`: see the
   `gh pr ready --undo` / `gh pr ready` rerun in [workflow](../process/workflow.md#human-approval-and-mergerelease-gates).
 - Never ask Joe about a worktree-guard refusal: rerun as plain separate commands or use Write/Edit; note it in the PR body.
@@ -32,4 +34,4 @@ Provider-specific procedures; shared rules remain in [AGENTS.md](../../AGENTS.md
   the built-in Claude reviewer and automatic stop-time model reviews do not replace it.
 - Use the revised [`/wrap`](../../.claude/skills/wrap/SKILL.md) when pausing or finishing meaningful work,
   including blocked tasks. It brings the docs current (its docs step), records the current gate, validation/review evidence, and next action, writes STATE
-  once, pushes the task branch and opens or updates the draft PR; it does not advance unfinished work to the next milestone.
+  once as main reads it after the merge (the PR's own stage goes in its PR body), pushes the task branch and opens or updates the draft PR; it does not advance unfinished work to the next milestone.

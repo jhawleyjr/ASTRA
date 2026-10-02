@@ -19,4 +19,21 @@ if printf '%s' "$cmd" | grep -Eq 'git[^|;&]*\b(commit|merge|rebase|cherry-pick|r
     echo "BLOCKED: you are on main. Work in a worktree branch (claude --worktree <name>) and open a PR." >&2; exit 2
   fi
 fi
+# 3. No co-author trailer in a commit message. `"attribution": false` in .claude/settings.json is the setting;
+#    this is the check (docs/lessons.md, 2026-10-01). commit_trailer.py reads the hook JSON on stdin and says
+#    where it looks and what it does not follow. It fails closed: a scanner that cannot run, or exits nonzero,
+#    blocks the command rather than letting it through. Any command naming both git and commit is scanned
+#    (no statement-shaped prefilter: a quoted `;` or a `\`-newline would defeat one).
+case "$cmd" in
+  *commit*)
+    why=$(printf '%s' "$input" | python3 "$(dirname "$0")/commit_trailer.py" 2>&1)
+    rc=$?
+    if [ "$rc" -ne 0 ]; then
+      echo "BLOCKED: the commit-trailer check could not run (exit $rc): ${why:0:300}" >&2; exit 2
+    fi
+    if [ -n "$why" ]; then
+      echo "BLOCKED: $why ASTRA commits carry no co-author trailer (.claude/settings.json attribution: false). Remove it." >&2; exit 2
+    fi
+    ;;
+esac
 exit 0
