@@ -61,6 +61,11 @@ Everything below is on `main` today.
 - **The `astra` CLI.** `astra run` runs a config open loop, prints a post-run summary and exits with a code
   that says what happened. It refuses a config with a `transport` block until M10. `astra trim` prints a trim
   and the config fragment that applies it. `astra plot` renders a plot package against a run log.
+  `astra mc analyze` analyzes a Monte Carlo batch, and `astra mc rerun` re-executes one of its runs.
+- **Monte Carlo analysis.** `astra.mc_analysis` draws a batch's draws by outcome and a signal's envelope across
+  its run logs. It ranks the dispersed parameters against a pass/fail criterion (KS with Benjamini-Hochberg)
+  or a continuous metric (Spearman and partial rank correlation), and fits a depth-3 tree for interactions.
+  `astra mc rerun` re-executes one run from the batch's record of its spec, with full logging and plots.
 - **Plot packages.** `astra.plot` draws reusable YAML plot packages over any run log: deterministic SVG (or PNG)
   files through matplotlib, or one offline interactive HTML page through plotly.
 - **Health monitoring.** Every check is a signal in the log and names its source. NaN or Inf in the state, a
@@ -206,6 +211,21 @@ Run it as a script: the workers start with `spawn`, so the batch must sit under 
 
 The spec format is in [montecarlo.py](python/astra/montecarlo.py)'s docstring. The 64-run acceptance case is
 [cruise_64.yaml](tests/python/montecarlo_fixtures/cruise_64.yaml).
+
+### Analyze a batch
+
+```bash
+astra mc analyze build/mc_batch --signal v0.derived.altitude --out build/mc_figures
+astra mc analyze build/mc_batch --criterion 'status == halt or max.v0.derived.alpha > 0.3' \
+    --metric max.v0.derived.alpha
+astra mc rerun build/mc_batch 3 --out build/mc_run_3   # one run again, with its log and plots
+```
+
+`analyze` prints the outcome counts and each ranking with its effect sizes, p-values and Benjamini-Hochberg
+decisions, then the tree's rules. It writes `mc-hist`, `mc-scatter` and one `mc-envelope-<signal>` figure. The
+criterion grammar and the methods are in [mc_analysis.py](python/astra/mc_analysis.py)'s docstring. `rerun`
+needs a batch written by this version or later, which records its spec. Its plugins come from the current
+build, so a rebuild can change the result, and the comparison it prints shows that.
 
 ### Stream to FlightGear
 
