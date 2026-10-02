@@ -141,5 +141,29 @@ for cases in "$tests_dir"/*.cases; do
   done <"$cases"
 done
 
+# Generated no-main.sh cases that a one-line .cases entry cannot hold (rule 3 fails closed):
+#   a copy of the hook without commit_trailer.py beside it, so the scanner cannot start; and a 200 KB command,
+#   over Linux's 128 KiB cap on one environment string, with and without a trailer.
+gen() {  # <name> <expected exit> <hook path> <JSON> (a function argument, so no exec size limit applies)
+  local err got
+  err=$(printf '%s' "$4" | "$3" 2>&1 >/dev/null)
+  got=$?
+  if [ "$got" = "$2" ]; then
+    pass=$((pass + 1)); echo "PASS generated:$1 exit $got"
+  else
+    fail=$((fail + 1)); echo "FAIL generated:$1 expected exit $2, got $got"; [ -n "$err" ] && echo "     ${err:0:300}"
+  fi
+}
+lone="$tmp/lone"
+mkdir -p "$lone"
+cp "$hooks_dir/no-main.sh" "$lone/"
+gen scanner-missing 2 "$lone/no-main.sh" \
+  "$(printf '{"cwd":"%s","tool_input":{"command":"git commit -m x"}}' "$on_branch")"
+pad=$(head -c 200000 /dev/zero | tr '\0' x)
+gen long-command-with-trailer 2 "$hooks_dir/no-main.sh" \
+  "$(printf '{"cwd":"%s","tool_input":{"command":"git commit -m \\"subject\\\\n\\\\nCo-Authored-By: X\\" # %s"}}' "$on_branch" "$pad")"
+gen long-command-clean 0 "$hooks_dir/no-main.sh" \
+  "$(printf '{"cwd":"%s","tool_input":{"command":"git commit -m \\"subject\\" # %s"}}' "$on_branch" "$pad")"
+
 echo "hooks: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

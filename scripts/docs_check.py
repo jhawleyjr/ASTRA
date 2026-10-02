@@ -22,7 +22,8 @@ JUST_RECIPE_REF_RE = re.compile(r"`just ([A-Za-z][A-Za-z0-9_-]*)")
 # README.md all write it this way); a bare `scripts/...` may name a plugin's own script
 # (e.g. docs/agents/review-dispatch.md's Codex companion), which this repo does not own.
 SCRIPT_REF_RE = re.compile(r"`\./scripts/([A-Za-z0-9_.-]+)")
-JUSTFILE_RECIPE_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_-]*)\b[^\n:]*:(?!=)")
+FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
+JUSTFILE_RECIPE_RE =re.compile(r"^([A-Za-z_][A-Za-z0-9_-]*)\b[^\n:]*:(?!=)")
 ROOT_INSTRUCTION_LINE_BUDGET = 100
 
 # The workflow's own documentation surface (docs/process/validation.md's "for workflow
@@ -174,11 +175,19 @@ def check_state(root: Path, problems: list[str]) -> None:
         problems.append(f"STATE.md: {len(lines)} lines, over the {STATE_LINE_CAP}-line cap")
     headings: list[str] = []
     sections: dict[str, list[str]] = {}
-    in_fence = False
+    # The open fence's marker run. As in CommonMark, only a run of the same character, at least as
+    # long and with nothing after it, closes it.
+    fence = ""
     for line in lines:
-        if line.lstrip().startswith(("```", "~~~")):
-            in_fence = not in_fence
-        if not in_fence and line.startswith("## "):
+        m = FENCE_RE.match(line)
+        if m and not fence:
+            fence = m.group(1)
+            continue
+        run, rest = (m.group(1), m.group(2)) if m else ("", "")
+        if run and run[0] == fence[0] and len(run) >= len(fence) and not rest.strip():
+            fence = ""
+            continue
+        if not fence and line.startswith("## "):
             headings.append(line[3:].strip())
             sections[headings[-1]] = []
         elif headings:

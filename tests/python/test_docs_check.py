@@ -147,6 +147,22 @@ def test_state_heading_inside_a_fenced_block_is_not_a_section(tmp_path: Path) ->
     assert _check_state(tmp_path, _state(a, fenced, c)) == []
 
 
+def test_state_mixed_fence_markers_do_not_hide_a_heading(tmp_path: Path) -> None:
+    """R-005: a fence closes only on its own marker character, so this `## In flight` is real."""
+    a, _, c = _good_sections()
+    body = "- x\n\n```\n~~~\n```\n## In flight\n~~~\n```\n~~~"
+    problems = _check_state(tmp_path, _state(a, ("Open threads", body), c))
+    assert len(problems) == 1
+    assert "In flight" in problems[0]
+
+
+def test_state_fence_with_other_markers_inside_is_one_block(tmp_path: Path) -> None:
+    """R-005: `~~~` and a shorter backtick run inside a four-backtick fence do not close it."""
+    a, _, c = _good_sections()
+    body = "- an example:\n\n````\n~~~\n```\n## In flight\n````"
+    assert _check_state(tmp_path, _state(a, ("Open threads", body), c)) == []
+
+
 def test_missing_state_fails(tmp_path: Path) -> None:
     problems: list[str] = []
     docs_check.check_state(tmp_path, problems)
