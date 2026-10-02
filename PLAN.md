@@ -233,6 +233,12 @@ takes them as a prefix.
     and 1-D float64 array, bitwise equal element by element, with the constants unbound. `astra.fgbridge` holds
     no conversion constant, and its packets are unchanged. Plan: [plan](docs/plans/m6-pr4-units.md). Packet: in
     the PR body.
+  - PR 5 (#89): plots. `astra.plot` reads YAML plot packages (figures, panels, series; `{v}` over every vehicle;
+    display units through the bound `core/util/units`; a Python function by module or by a `.py` beside the
+    package), every map closed and every error naming the file and key before any file is written. matplotlib
+    writes byte-deterministic SVG (or PNG) per figure, plotly one offline HTML page; nothing is overwritten.
+    Framework packages, a template starter set and a notional-transport package ship; `astra plot` joins the
+    CLI; matplotlib and plotly are pinned. Plan: [plan](docs/plans/m6-pr5-plots.md). Packet: in the PR body.
   - Workflow (#83): plan-mode drafts land in the session's `docs/plans/` (`plansDirectory`), with the rule for
     renaming, committing or deleting them in `docs/agents/claude-code.md` and `/wrap`; 27 never-committed plans
     recovered from `~/.claude/plans`. Plan: [plan](docs/plans/claude-plans-directory.md). Packet: in the PR body.
@@ -365,6 +371,14 @@ takes them as a prefix.
       booleans, which the core then reads as `true`/`false` (so `sim.health.nan: off` is refused); `010` is 8 (the
       core reads 10); `1:30` is 90 and `1_000` is 1000 (the core reads neither as a number). `astra run --log`
       avoids the round trip. Not started.
+- [ ] (M6) `tests/python/resource_refs.py`, the self-contained-document check R3b uses and PR 8's report will
+      reuse, is an enumeration of loading constructs, so anything unlisted passes: known misses are an
+      `<?xml-stylesheet?>` processing instruction, CSS `image-set()` with a bare string, and SMIL `<set>`/`<animate>`
+      on `href` (origin: M6 PR 5, Joe's review, 2026-10-01). PR 8 replaces it with an approved set: any element,
+      attribute or CSS function outside an allowed set is flagged. Not started.
+- [ ] (M6) `aircraft/_template/plots/ground_track.py` draws without an equal aspect ratio, so near-straight flight
+      autoscales the east axis around zero and exaggerates a tiny lateral drift (origin: M6 PR 5, Joe's review,
+      2026-10-01). Not started.
 - [ ] (M7) §18 step 4 fails on a template copy: `aircraft/_template/configs/cruise.yaml` uses `earth/flat`, which
       `astra.trim` refuses (altitude is geodetic only), so `astra trim` on a new aircraft exits 65 (origin: M6 PR 3;
       Joe 2026-09-30). M7 builds the F-16 from the template. Not started.

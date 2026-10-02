@@ -1,0 +1,68 @@
+# The notional transport's own plot package (astra.plot, docs/plans/m6-pr5-plots.md): the longitudinal and
+# lateral-directional response, for any of its configs (still air or turbulent; no wind signal is named, since
+# cruise_still_air.yaml has no wind model). `astra plot <log> aircraft/notional_transport/plots/cruise.yaml`.
+title: Notional transport, cruise
+figures:
+  - name: longitudinal
+    title: Longitudinal
+    panels:
+      - ylabel: altitude
+        series:
+          - signal: v{v}.derived.altitude
+            unit: ft
+            label: altitude
+      - ylabel: airspeed
+        series:
+          - signal: v{v}.derived.tas
+            unit: kt
+            label: TAS
+      - ylabel: angle
+        series:
+          - signal: v{v}.derived.alpha
+            unit: deg
+            label: alpha
+          - signal: v{v}.derived.theta
+            unit: deg
+            label: theta
+          - signal: v{v}.controls.elevator
+            unit: deg
+            label: elevator
+      - ylabel: pitch rate
+        series:
+          - signal: v{v}.derived.q
+            unit: deg/s
+            label: q
+      - ylabel: throttle
+        series:
+          - signal: v{v}.controls.throttle
+            label: throttle
+  - name: lateral
+    title: Lateral-directional
+    panels:
+      - ylabel: angle
+        series:
+          - signal: v{v}.derived.beta
+            unit: deg
+            label: beta
+          - signal: v{v}.derived.phi
+            unit: deg
+            label: phi
+          - signal: v{v}.controls.aileron
+            unit: deg
+            label: aileron
+          - signal: v{v}.controls.rudder
+            unit: deg
+            label: rudder
+      - ylabel: heading
+        series:
+          - signal: v{v}.derived.psi
+            unit: deg
+            label: psi
+      - ylabel: rate
+        series:
+          - signal: v{v}.derived.p
+            unit: deg/s
+            label: p
+          - signal: v{v}.derived.r
+            unit: deg/s
+            label: r

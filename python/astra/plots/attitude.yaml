@@ -1,0 +1,36 @@
+# Framework plot package (astra.plot, docs/plans/m6-pr5-plots.md): 3-2-1 Euler angles (derived outputs,
+# ADR-0001) and body rates of every vehicle. `astra plot <log> attitude`.
+title: Attitude
+figures:
+  - name: euler
+    title: Euler angles (3-2-1)
+    panels:
+      - ylabel: roll
+        series:
+          - signal: v{v}.derived.phi
+            unit: deg
+            label: phi
+      - ylabel: pitch
+        series:
+          - signal: v{v}.derived.theta
+            unit: deg
+            label: theta
+      - ylabel: heading
+        series:
+          - signal: v{v}.derived.psi
+            unit: deg
+            label: psi
+  - name: rates
+    title: Body rates
+    panels:
+      - ylabel: rate
+        series:
+          - signal: v{v}.derived.p
+            unit: deg/s
+            label: p
+          - signal: v{v}.derived.q
+            unit: deg/s
+            label: q
+          - signal: v{v}.derived.r
+            unit: deg/s
+            label: r
