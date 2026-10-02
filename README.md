@@ -71,6 +71,10 @@ Everything below is on `main` today.
 - **Verification.** NASA's NESC atmospheric check cases 1 to 10 (`tests/physics/nesc/`,
   [ADR-0013](docs/decisions/0013-nesc-check-case-oracle.md)), ISA table points, the Dryden PSD, torque-free
   energy and momentum conservation, and RK4's convergence order against Euler.
+- **Frame-time benchmark.** `just benchmark <out.json>` times each `step()` of the notional transport's
+  cruise configs, and a logged run end to end through `close_log()`, in a Release build. It writes JSON with the
+  mean, median, p99 and maximum frame cost and the margin against `dt`, only after checking that every timed
+  frame ran. The gate runs it only as a smoke, which asserts no speed.
 
 ## Quick start
 
@@ -327,7 +331,7 @@ made before code existed and the open questions deliberately deferred.
 | `icd/` | `astra_icd.h`, the C11 frames exchanged with flight software |
 | `embedded/` | A separate C++17 project: the HAL and the example autopilot |
 | `python/` | The `astra` package (`trim`, `linearize`, `log`, `scenario`, `montecarlo`, `fgbridge`, `lockstep`, `cli`) and the nanobind bindings |
-| `tests/` | Unit, physics, lockstep and Python tests, scenarios, and human-owned goldens |
+| `tests/` | Unit, physics, lockstep and Python tests, scenarios, the frame-time benchmark, and human-owned goldens |
 | `scripts/` | Setup, check wrappers and docs and scan tools |
 | `cmake/` | The plugin helpers (`astra_add_plugin`, `astra_add_plugin_test`) |
 | `docs/` | Architecture, ADRs, process, plans and reviews ([index](docs/README.md)) |

@@ -383,6 +383,12 @@ takes them as a prefix.
 - [ ] (M11) `RealTime` mode's logger writer thread (origin: M5 plan §9/architecture §9, held-out scope; Joe's call):
       M5's logger drains only inline (`AsFastAsPossible`); `RealTime` mode itself is not built, so the
       separate non-RT drain thread architecture §9 describes has nothing to run on yet. Not started.
+- [ ] (M11) The frame-time benchmark's maximum is one sample, and an unisolated desktop sets it (origin: M6 PR 9
+      baselines, 2026-10-02). Two quiet-machine Release runs of the same timed code at 100,000 frames agree at p99
+      (cruise 1.94 and 1.75 µs) but not at the max (32.7 µs, then 2010 µs, one frame over `dt`). The `powersave`
+      governor, no CPU isolation and other sessions were in play (`docs/reviews/evidence/c1c0976-` and
+      `cfb91d4-frame-benchmark.json`). M11's tracking needs isolated CPUs, a fixed governor and a stated tail
+      statistic before any maximum is compared. Not started.
 - [ ] (M6) Configs round-tripped through PyYAML (YAML 1.1: `yaml.safe_load`, then `Config.from_dict`) in
       `astra.montecarlo`, `astra.scenario`, `astra.trim` and `astra.lockstep` are read differently from the core's
       yaml-cpp (origin: M6 PR 3 review; Joe 2026-09-30). Probed on M6 PR 3's build: `on`/`off`/`yes`/`no` become
