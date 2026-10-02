@@ -258,6 +258,10 @@ takes them as a prefix.
     every milestone closeout), the PR template a Docs impact section; one repo-scope run brings today's docs
     and milestone comments current, including architecture §9, §12 and §15's M6 markers (that open item is
     removed) and `docs/refs/README.md`. Plan: [plan](docs/plans/wrap-docs-sweep.md). Packet: in the PR body.
+  - STATE and trailers (#90): `/wrap` writes STATE.md as main reads it after the merge (Next step, Open threads,
+    Honesty rules; no PR stage), and `scripts/docs_check.py` enforces that shape, the 40-line cap and the
+    honesty rules text; `"attribution": false`, and `no-main.sh` refuses a commit message with a co-author
+    trailer. Plan: [plan](docs/plans/state-and-attribution.md). Packet: in the PR body.
 - [ ] **M7 F-16 and the NESC oracle** — `aircraft/f16` built from the template; NESC atmospheric cases 11, 12,
       13.1 to 13.4, 15 and 16 against the participating simulations' trajectories in `docs/refs` (ADR-0013's
       ensemble as oracle); the tutorial and the generated config-key reference written from this path. The
@@ -379,6 +383,13 @@ takes them as a prefix.
 - [ ] (M6) `aircraft/_template/plots/ground_track.py` draws without an equal aspect ratio, so near-straight flight
       autoscales the east axis around zero and exaggerates a tiny lateral drift (origin: M6 PR 5, Joe's review,
       2026-10-01). Not started.
+- [ ] (M6) Legends cover data: the `ax.legend(loc="upper right")` call in `python/astra/plot.py` puts every
+      legend inside the axes, over TAS's end, alpha's right edge, beta and phi (origin: M6 PR 5, Joe's look at a
+      60 s run, 2026-10-01). Place them outside the axes, which keeps the SVG deterministic. Not started.
+- [ ] (M6) `python/astra/plots/flight.yaml` puts TAS and CAS on one panel, which spans 270 to 475 kt and flattens
+      both (origin: M6 PR 5, Joe's look at a 60 s run, 2026-10-01). Not started.
+- [ ] (M6) A 60 s run gives a 25 MB HTML page, because every 1 ms frame is plotted (origin: M6 PR 5, Joe's look
+      at a 60 s run, 2026-10-01). Consider an opt-in decimation for HTML, and perhaps SVG. Not started.
 - [ ] (M7) §18 step 4 fails on a template copy: `aircraft/_template/configs/cruise.yaml` uses `earth/flat`, which
       `astra.trim` refuses (altitude is geodetic only), so `astra trim` on a new aircraft exits 65 (origin: M6 PR 3;
       Joe 2026-09-30). M7 builds the F-16 from the template. Not started.

@@ -77,13 +77,15 @@ to wrap. If later changes invalidate evidence, mark the affected gate pending an
    (scope, plan, packet) and change an item's status only when its stated acceptance and completion
    conditions actually hold. Check a milestone only when all of its requirements hold; do not advance to
    a new milestone while this task has unfinished gates. No separate retrospective ceremony is required.
-5. **STATE.md:** rewrite it once, here, to at most 40 lines, with `## In flight`, `## Last verified result`,
-   `## Next step`, `## Tried / failed` (what was tried; for the correction/integration counts, a link to
-   the PR body, which holds them), and the existing `## Honesty rules` block verbatim. Include the branch/PR
-   (or no PR), actual workflow stage, what remains and who owns it, and point to the PR body for results.
-   Distinguish prior-session validation from commands run now; preserve useful product-task pointers.
-   Per AGENTS.md, write nothing that changes when the PR merges (no merge status, no "awaiting merge"):
-   name the PR and give the next task directly.
+5. **STATE.md:** rewrite it once, here, as main will read it after the squash-merge: at most 40 lines, with
+   exactly `## Next step`, `## Open threads` and `## Honesty rules`, in that order (`just docs-check` enforces
+   the headings, the cap and the honesty rules text). Every line must stay true after the merge: the next
+   task, stated directly; the open threads that outlive this PR, each one a one-line pointer when PLAN.md
+   already holds it; and the honesty rules, verbatim. This PR's stage, approval, CI rerun, results,
+   correction/integration counts and pending decisions go in its PR body only, never in STATE.md. A wrap of
+   blocked or paused work is read only by the session that resumes that branch: it may describe the branch,
+   its stage and what remains under `## Next step`, and says explicitly that it applies to this branch only;
+   the pre-merge wrap rewrites it.
 6. **docs/lessons.md:** append only a new lesson that actually occurred; do not duplicate old entries.
    Never modify goldens, tolerances or accepted ADRs as part of handoff.
 

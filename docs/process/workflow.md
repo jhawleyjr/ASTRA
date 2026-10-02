@@ -9,7 +9,9 @@ Standing rules are stated once, in [AGENTS.md](../../AGENTS.md); this file holds
 
 [Architecture](../architecture.md) and accepted [ADRs](../decisions/) govern design.
 What [PLAN.md](../../PLAN.md) and [STATE.md](../../STATE.md) (40 lines maximum) hold, and what they never
-record, is in [AGENTS.md](../../AGENTS.md#read-first). Rationale: a fact that becomes true only at merge made
+record, is in [AGENTS.md](../../AGENTS.md#read-first). STATE.md is written as main reads it after the merge,
+under exactly `## Next step`, `## Open threads` and `## Honesty rules`, which `just docs-check` enforces
+([`/wrap`](../../.claude/skills/wrap/SKILL.md) step 5). Rationale: a fact that becomes true only at merge made
 every such edit stale on merge and forced bookkeeping PRs (`docs/lessons.md`, 2026-09-26). Verify Git/PR state
 with `git log origin/main` rather than trusting either file. `CLAUDE.md` imports AGENTS.md;
 [agent procedures](../agents/README.md) hold repeatable details.
@@ -36,7 +38,7 @@ pins. Reference data/goldens retain provenance.
 | 9. Fix and retest | Builder resolves findings, reviewer verifies deltas | No unresolved critical/major findings; validation current |
 | 10. Human review | Write the [PR description](../templates/pr-description.md); Joe reads consequential changes | Explicit decision against the current candidate |
 | 11. Merge and release | Draft PR → ready → Joe squash-merges; separate release decision | Current validation/review, protected merge, release checklist |
-| 12. Coordination | Keep next action/owner visible in STATE or feature status | Handoff recoverable without chat; stop when complete |
+| 12. Coordination | Keep next action/owner visible: STATE (next task), PR body (this PR's stage) or feature status | Handoff recoverable without chat; stop when complete |
 
 **Stage transitions (implementation and integration).** The table keeps its original twelve
 numbered steps; two stages that produce most of the actual work sit at explicit transitions
@@ -159,7 +161,7 @@ push invalidates prior review/validation for affected work. Do not weaken requir
   both rounds escalates. No infinite retry, review ping-pong, or reviewer refactoring.
 - Record the running counts as `Correction rounds: n/2; failed integrations: n/2` in the PR body (the
   task manifest's own fields when one exists), the one place a fresh session or reviewer reads the budget
-  without chat history; STATE.md's `Tried / failed` section links there rather than copying the counts.
+  without chat history; STATE.md never copies them.
 - Build/test defect → builder. Infrastructure failure → tooling diagnosis. Spec ambiguity → Joe.
   Architecture conflict/scope expansion → Joe. Exhausted budget → summary of attempts and next choice.
 - A fresh context after two failed corrections is useful, but does not reset the budget or approval.
@@ -310,7 +312,7 @@ Use the revised [`/wrap`](../../.claude/skills/wrap/SKILL.md) when Claude pauses
 work at any stage, including a blocked-validation handoff. It brings the docs current (branch scope by
 default, repo scope when Joe asks and at every milestone closeout), and it records the first unfinished
 gate, actual evidence, Codex findings/retry counts, human decisions and next action; it prepares the
-PR description when appropriate and writes STATE once. It pushes the task branch and opens or updates the
+PR description when appropriate and writes STATE once, as main reads it after the merge. It pushes the task branch and opens or updates the
 draft PR; it does not move to the next milestone while the current task is unfinished. Append lessons only when something actually
 bit. Review process cost when useful from existing evidence; the obsolete retrospective skill is
 removed and no retro ceremony blocks a milestone. Add automation only for demonstrated repetitive work.

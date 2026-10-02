@@ -32,4 +32,4 @@ Provider-specific procedures; shared rules remain in [AGENTS.md](../../AGENTS.md
   the built-in Claude reviewer and automatic stop-time model reviews do not replace it.
 - Use the revised [`/wrap`](../../.claude/skills/wrap/SKILL.md) when pausing or finishing meaningful work,
   including blocked tasks. It brings the docs current (its docs step), records the current gate, validation/review evidence, and next action, writes STATE
-  once, pushes the task branch and opens or updates the draft PR; it does not advance unfinished work to the next milestone.
+  once as main reads it after the merge (the PR's own stage goes in its PR body), pushes the task branch and opens or updates the draft PR; it does not advance unfinished work to the next milestone.

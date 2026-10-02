@@ -9,7 +9,8 @@ ASTRA is a vehicle-agnostic 6-DoF framework: C++23 core, Python bindings, real e
 - [Architecture](docs/architecture.md) and accepted [ADRs](docs/decisions/): authoritative engineering decisions.
 - [Workflow](docs/process/workflow.md): risk tiers with each tier's minimum process, then procedures and rationale.
 - [PLAN.md](PLAN.md): milestone checklist, open items, one line per PR. [STATE.md](STATE.md): session handoff,
-  rewritten once, at `/wrap`. Neither records a fact that only becomes true at merge (merge hashes, merge or
+  rewritten once at `/wrap` as main reads it after the merge: the next step and open threads; a PR's stage
+  lives in its PR body. Neither records a fact that only becomes true at merge (merge hashes, merge or
   approval dates, round counts, review narratives) or changes when the PR merges: git log and the PR hold those.
   Inspect Git before trusting either.
 - [Lessons](docs/lessons.md): append-only gotchas. [References](docs/refs/README.md): human-placed, gitignored sources.
