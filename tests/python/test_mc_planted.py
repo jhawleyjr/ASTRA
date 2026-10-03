@@ -25,6 +25,7 @@ from typing import Any, cast
 
 import pandas as pd
 import pytest
+import scipy.stats  # pyright: ignore[reportMissingTypeStubs]
 import yaml
 
 from astra import _core, log, mc_analysis, mc_sizing, montecarlo
@@ -32,6 +33,7 @@ from astra import _core, log, mc_analysis, mc_sizing, montecarlo
 REPO = Path(__file__).resolve().parents[2]
 FIXTURES = Path(__file__).resolve().parent / "mc_planted_fixtures"
 BASE = REPO / "aircraft/notional_transport/configs/cruise.yaml"
+stats: Any = scipy.stats
 MAIN_PILOT = FIXTURES / "planted_pilot.yaml"
 CONTROL_PILOT = FIXTURES / "planted_control_pilot.yaml"
 MAIN = FIXTURES / "planted.yaml"
@@ -139,6 +141,92 @@ def test_planted_specs_agree() -> None:
         main_draw = montecarlo.draw(specs[0], index)[1]
         control_draw = montecarlo.draw(specs[1], index)[1]
         assert {key: main_draw[key] for key in control_draw} == control_draw
+
+
+# --- sizing --------------------------------------------------------------------------------------
+
+
+def test_planted_pilot_sizes_the_final_batches(planted: Planted) -> None:
+    for pilot in (planted.main_pilot, planted.control_pilot):
+        assert pilot.runs == mc_sizing.ranking_runs(R_MIN, RANKED)
+        assert pilot.seed == PILOT_SEED
+        assert pilot.deleted
+        assert pilot.check.option == "ranking"
+        assert pilot.check.needed is not None, pilot.check.notes
+    assert planted.main_pilot.check.claim == f"a top driver of {METRIC}"
+    assert (
+        planted.control_pilot.check.claim == f"no parameter with |rho| >= {R_MIN} against {METRIC}"
+    )
+
+    sized = max(
+        cast(int, planted.main_pilot.check.needed),
+        cast(int, planted.control_pilot.check.needed),
+        mc_sizing.RANK_MIN_N,
+    )
+    assert sized <= MAX_RUNS
+    for spec_path, batch in ((MAIN, planted.main), (CONTROL, planted.control)):
+        assert _spec_text(spec_path)["runs"] == sized
+        assert len(batch) == sized
+        assert mc_sizing.batch_seed(batch) == FINAL_SEED
+
+
+# --- R9: the cause ranks first, with the minimum effect and a strict margin ----------------------
+
+
+def _first_with_margin(ranking: mc_analysis.Ranking, minimum: float) -> None:
+    assert ranking.status == "ok"
+    assert ranking.m == RANKED
+    first, others = ranking.rows[0], ranking.rows[1:]
+    assert first.parameter == CAUSE  # the smallest p
+    runner_up = max(abs(row.effect) for row in others)
+    assert first.effect >= minimum  # Spearman's is signed: the cause raises the maximum alpha
+    assert first.effect - runner_up >= MARGIN  # strict: a tie fails
+    assert first.rejected
+
+
+def test_planted_r9_ks_ranks_the_cause_first_with_margin(planted: Planted) -> None:
+    batch = planted.main
+    result = mc_analysis.outcomes(batch, CRITERION)
+    assert result.count(mc_analysis.ERROR) == 0
+    ranking = mc_analysis.ks_ranking(batch, result, q=Q)
+    _first_with_margin(ranking, MIN_D)
+
+    # The statistic from the summary, independently of the module.
+    failed = [row for row in range(len(batch)) if batch.value(METRIC, row) > 0.23]
+    passed = [row for row in range(len(batch)) if batch.value(METRIC, row) <= 0.23]
+    cause = _column(batch, CAUSE)
+    expected = stats.ks_2samp([cause[row] for row in failed], [cause[row] for row in passed])
+    assert ranking.rows[0].effect == float(expected.statistic)
+
+
+def test_planted_r9_spearman_ranks_the_cause_first_with_margin(planted: Planted) -> None:
+    batch = planted.main
+    result = mc_analysis.outcomes(batch, CRITERION)
+    _first_with_margin(mc_analysis.spearman_ranking(batch, result, METRIC, q=Q), MIN_RHO)
+
+
+# --- C-08: the negative control flags nothing ---------------------------------------------------
+
+
+def test_planted_c08_negative_control_flags_nothing(planted: Planted) -> None:
+    main, control = planted.main, planted.control
+    assert CAUSE not in control.parameters
+    assert set(control.parameters) | {CAUSE} == set(main.parameters)
+    # The same batch without the cause: the same inert values and wind seeds, run for run.
+    for name in (*control.parameters, *control.seed_parameters):
+        assert _column(control, name) == _column(main, name)
+
+    result = mc_analysis.outcomes(control, CRITERION)
+    assert result.count(mc_analysis.FAIL) == 0
+    assert result.count(mc_analysis.PASS) == len(control)
+    ks = mc_analysis.ks_ranking(control, result, q=Q)
+    assert ks.status.startswith("too few runs")
+    assert ks.rows == ()
+
+    spearman = mc_analysis.spearman_ranking(control, result, METRIC, q=Q)
+    assert spearman.status == "ok"
+    assert spearman.m == RANKED - 1
+    assert not any(row.rejected for row in spearman.rows)
 
 
 # --- D4: R9's config through the PyYAML route ----------------------------------------------------
