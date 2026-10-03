@@ -63,10 +63,14 @@ Everything below is on `main` today.
   that says what happened. It refuses a config with a `transport` block until M10. `astra trim` prints a trim
   and the config fragment that applies it. `astra plot` renders a plot package against a run log.
   `astra mc analyze` analyzes a Monte Carlo batch, and `astra mc rerun` re-executes one of its runs.
+  `astra mc size` sizes a batch from the claim it must answer, or checks that claim against a batch.
 - **Monte Carlo analysis.** `astra.mc_analysis` draws a batch's draws by outcome and a signal's envelope across
   its run logs. It ranks the dispersed parameters against a pass/fail criterion (KS with Benjamini-Hochberg)
   or a continuous metric (Spearman and partial rank correlation), and fits a depth-3 tree for interactions.
   `astra mc rerun` re-executes one run from the batch's record of its spec, with full logging and plots.
+- **Monte Carlo sizing.** `astra.mc_sizing` sizes a batch from the claim it answers: a failure probability,
+  a percentile, a statistic's precision, or a parameter ranking. On a batch, probability and percentile give
+  exact Clopper-Pearson verdicts, and precision and ranking give nominal projections.
 - **Plot packages.** `astra.plot` draws reusable YAML plot packages over any run log: deterministic SVG (or PNG)
   files through matplotlib, or one offline interactive HTML page through plotly.
 - **Health monitoring.** Every check is a signal in the log and names its source. NaN or Inf in the state, a
@@ -232,6 +236,20 @@ criterion grammar and the methods are in [mc_analysis.py](python/astra/mc_analys
 needs a batch written by this version or later, which records its spec. Its plugins come from the current
 build, so a rebuild can change the result, and the comparison it prints shows that.
 
+### Size a batch
+
+```bash
+astra mc size probability --p-max 0.01                     # 299 runs: P(fail) <= 1 % at 95 %, none failing
+astra mc size percentile --quantile 0.95 --two-sided       # 93 runs: Wilks 95/95, two-sided
+astra mc size probability --p-max 0.01 --batch build/pilot # the N a fresh final batch needs
+astra mc size check build/mc_batch claims.yaml             # every claim against the final batch
+```
+
+Probability and percentile give calibrated verdicts (met, violated or undetermined). Precision and ranking
+give nominal projections, never verdicts. A pilot only sizes: run the final batch with another master seed
+and take the verdict from it alone. The options, the claims file and the stated limits are in
+[mc_sizing.py](python/astra/mc_sizing.py)'s docstring.
+
 ### Stream to FlightGear
 
 Start FlightGear with `fgfs --fdm=null --native-fdm=socket,in,62.5,,5500,udp`, then send a log:
@@ -351,7 +369,7 @@ made before code existed and the open questions deliberately deferred.
 | `aircraft/` | One folder per aircraft: `_template/` and `notional_transport/` |
 | `icd/` | `astra_icd.h`, the C11 frames exchanged with flight software |
 | `embedded/` | A separate C++17 project: the HAL and the example autopilot |
-| `python/` | The `astra` package (`trim`, `linearize`, `log`, `scenario`, `montecarlo`, `mc_analysis`, `plot`, `fgbridge`, `lockstep`, `cli`) and the nanobind bindings |
+| `python/` | The `astra` package (`trim`, `linearize`, `log`, `scenario`, `montecarlo`, `mc_analysis`, `mc_sizing`, `plot`, `fgbridge`, `lockstep`, `cli`) and the nanobind bindings |
 | `tests/` | Unit, physics, lockstep and Python tests, scenarios, the frame-time benchmark, and human-owned goldens |
 | `scripts/` | Setup, check wrappers and docs and scan tools |
 | `cmake/` | The plugin helpers (`astra_add_plugin`, `astra_add_plugin_test`) |

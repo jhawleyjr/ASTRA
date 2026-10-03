@@ -2,6 +2,16 @@
 
 Status: **approved by Joe (spec and plan), 2026-09-29**, in the Cowork planning session, after the Codex plan
 critique and its verification pass; Q1 to Q23 decided as recorded under "Plan critique and decisions".
+**Amendment (Joe, 2026-10-02, at M6 PR 7).** Joe changed the requirements for "Sizing and convergence", R11
+and R12. The four sizing questions become options named for their claims (probability, percentile, precision,
+ranking), each with a formula mode (R11's oracles unchanged) and a data mode on a batch:
+- calibrated verdicts for probability and percentile (as exceedance);
+- nominal projections, never verdicts, for precision and ranking;
+- convergence for every option;
+- a pilot that only sizes, with a fresh final batch giving the verdict.
+
+R9, Q9 and C-08's closure move from PR 7 to PR 7b. The text below is the approved text as it stood; the
+amended design and its decisions are in [PR 7's plan](m6-pr7-mc-sizing.md).
 Owner: Joe
 Risk: 3 overall. PR 1 records Tier 3 decisions (ADR-0027), PR 2 changes run-log finalization in `core/`, and
 PR 4 changes `core/util/units`; the rest are Tier 2 or lower. Each PR's tier is in the decomposition table.
