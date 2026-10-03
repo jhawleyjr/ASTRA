@@ -1,0 +1,35 @@
+M6 PR 7b, Q15: what R9 (its pilots, final batch and control) adds to pytest and to the full gate.
+Machine: 32 cores, Ubuntu 24.04; montecarlo.run uses os.cpu_count() = 32 workers.
+Build: f184b4c, the gated head (build/python, after the full gate below).
+Background: another project's session (Algorithmic-Trader) was building and testing on the same
+machine at times; the 1-minute load average is given beside each measurement.
+
+1. The R9 module alone: .venv/bin/pytest tests/python/test_mc_planted.py -q --durations=0
+   (2026-10-03, load 14.4 at start)
+   6.35 s setup   test_planted_pilot_sizes_the_final_batches  (the module fixture: both pilots, both finals)
+   0.39 s call    test_planted_r9_config_pyyaml_route_matches_yaml_cpp  (two 10 s runs)
+   0.04 s teardown
+   0.01 s call    test_planted_specs_agree
+   6 passed in 7.51 s
+   The first seed-707 run (-k planted, 0c9630e, load 2-3): setup 6.53 s, route 0.40 s, 8 passed in 8.09 s.
+
+2. Each batch, timed separately (a deterministic replay of the same specs, scratch only):
+   planted_pilot          120 runs, seed 7071   1.73 s wall
+   planted_control_pilot  120 runs, seed 7071   1.61 s wall
+   planted                130 runs, seed 707    1.54 s wall
+   planted_control        130 runs, seed 707    1.64 s wall
+   Disk: about 5.6 MB per run; peak max(2 x 120, 2 x 130) x 5.6 MB = 1.46 GB, all removed by the fixture.
+
+3. The full Python suite, with and without the module, back to back on the same build:
+   .venv/bin/pytest tests/python -q --ignore=tests/python/test_mc_planted.py
+       1474 passed, 5 skipped in 94.17 s   (load 2.95 before, 7.08 after)
+   .venv/bin/pytest tests/python -q
+       1480 passed, 5 skipped in 100.07 s  (load 7.08 before, 14.35 after)
+   Difference: 5.90 s.
+
+4. The full gate (rm -rf build && ./scripts/check-full.sh, f184b4c): exit 0, check: OK, 1114.28 s wall;
+   its pytest step (testpaths tests/python and tests/scenarios): 1485 passed, 5 skipped in 127.94 s.
+   PR 7's gate (3897d06): 1479 passed, 5 skipped in 94.2 s, 1032 s wall. The 33.7 s pytest
+   difference is mostly the other project's load: its build overlapped the end of this gate (load
+   averages 36.7 / 29.6 / 18.2 for 1 / 5 / 15 minutes just after it), and item 3's same-build
+   comparison puts R9's own share at about 6 s.
