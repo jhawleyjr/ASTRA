@@ -923,7 +923,14 @@ class Moments:
     skewness: float
 
 
+def is_constant(values: FloatArray) -> bool:
+    """Every value equal to the first, compared exactly, before any moment arithmetic: rounding in
+    the mean can leave a constant output a tiny nonzero spread (review G-002)."""
+    return bool(values.size == 0 or np.all(values == values[0]))
+
+
 def moments(values: FloatArray) -> Moments:
+    """The estimator conventions; NaN kurtosis and skewness where ``m2`` or its powers vanish."""
     n = int(values.size)
     mean = float(values.mean())
     centered = values - mean
@@ -931,8 +938,10 @@ def moments(values: FloatArray) -> Moments:
     m3 = float((centered**3).mean())
     m4 = float((centered**4).mean())
     s = float(math.sqrt(float((centered**2).sum()) / (n - 1))) if n > 1 else math.nan
-    kurtosis = m4 / (m2 * m2) if m2 > 0 else math.nan
-    skewness = m3 / m2**1.5 if m2 > 0 else math.nan
+    square = m2 * m2
+    cube = m2**1.5
+    kurtosis = m4 / square if square > 0 else math.nan  # m2 * m2 can underflow
+    skewness = m3 / cube if cube > 0 else math.nan
     return Moments(n, mean, s, kurtosis, skewness)
 
 
@@ -940,13 +949,16 @@ def bonett_kurtosis(values: FloatArray) -> float:
     """Bonett's (2006) kurtosis estimate ``g4 = n sum (x - m)^4 / (sum (x - mean)^2)^2``, with
     ``m`` the mean trimmed by ``floor(n / (2 sqrt(n - 4)))`` values from each tail."""
     n = int(values.size)
+    if is_constant(values):
+        return math.nan  # a constant output: no kurtosis, and no interval (review G-002)
     ordered = np.sort(values)
     cut = math.floor(n / (2.0 * math.sqrt(n - 4)))
     trimmed = float(ordered[cut : n - cut].mean())
     squares = float(((values - values.mean()) ** 2).sum())
-    if not squares > 0:
-        return math.nan  # a constant output: no kurtosis, and no interval (review G-002)
-    return n * float(((values - trimmed) ** 4).sum()) / (squares * squares)
+    denominator = squares * squares
+    if not denominator > 0:
+        return math.nan  # the spread underflows: no kurtosis, and no interval
+    return n * float(((values - trimmed) ** 4).sum()) / denominator
 
 
 def std_interval(s: float, g4: float, n: int, confidence: float) -> tuple[float, float] | None:
@@ -1165,11 +1177,11 @@ def _precision_std(
             STD_MIN_N,
             [f"too few runs: the std needs {STD_MIN_N}"],
         )
-    m = moments(values)
     notes: list[str] = []
-    if not m.s > 0:
+    if is_constant(values):
         notes.append("no interval: the metric is constant")
         return _nominal(text, n, errors, 0.0, None, 0.0, lambda _r: None, STD_MIN_N, notes)
+    m = moments(values)
     if abs(m.skewness) > 1.0:
         notes.append(f"flag: skewed (skewness {m.skewness:.3g})")
     if m.kurtosis - 3.0 > 2.0:
@@ -1177,7 +1189,12 @@ def _precision_std(
     g4 = bonett_kurtosis(values)
     interval = std_interval(m.s, g4, n, confidence)
     if interval is None:
-        notes.append("no interval: Bonett's kurtosis estimate is at most (n - 3) / n")
+        reason = (
+            "the spread underflows in double precision"
+            if math.isnan(g4)
+            else "Bonett's kurtosis estimate is at most (n - 3) / n"
+        )
+        notes.append(f"no interval: {reason}")
         return _nominal(text, n, errors, m.s, None, 0.0, lambda _r: None, STD_MIN_N, notes)
     tolerance = _tolerance(claim, m.s)
     if bootstrap:

@@ -13,7 +13,7 @@ Scope: the committed branch diff, base `7e65a85` (origin/main), head `e40714c`. 
 unstaged or untracked files).
 Validation: `./scripts/check-full.sh` exit 0 with `check: OK` on `e3951fe`, the same code as `e40714c`, which
 adds only the gate summary.
-Round: initial review, then fix 1 (this commit).
+Round: initial review; fix 1 (`417762e`); verification of fix 1; fix 2, for G-002 only (this commit).
 
 The general pass gave five findings (G-001 to G-005), all reproduced by Codex. The adversarial pass's verdict
 was "needs-attention", with four findings. Three of them duplicate G-001, G-002 and G-005 and are recorded
@@ -23,7 +23,7 @@ Codex's reproduction, and its regression now covers it.
 ## Finding G-001
 
 Severity: major (adversarial: high)
-Status: fixed-unverified
+Status: verified
 Location: `python/astra/mc_sizing.py:832-836` at `e40714c`
 Requirement/ADR: plan D2 and D4 (one convention, inputs as written; a value equal to the limit is not an exceedance)
 Failure: the limit was taken as written (`Fraction(repr)`), but each metric value went through `Fraction(value)`,
@@ -34,8 +34,8 @@ sides.
 Builder response: fixed. Each value is converted by `exact("value", v)` (shortest repr), like the limit.
 Regression `test_mc_sizing_g001_decimal_ties_are_not_exceedances` covers 0.1 upper, 0.3 lower,
 0.30000000000000004 as a real exceedance, and the CLI on a written summary.
-Verification: pending.
-History: round 1, open → fixed-unverified.
+Verification: verification pass (adversarial-review with a focus, thread `01a10021-b2cc-7e42-b369-620f9eb410c5`) on head `417762e`, fix delta `e40714c..417762e`: verified (decimal ties and strict crossings on both sides).
+History: round 1, open → fixed-unverified. Verified.
 
 ## Finding G-002
 
@@ -51,13 +51,15 @@ Builder response: fixed. `bonett_kurtosis` returns NaN for zero variance, so `st
 `_precision_std` returns "no interval: the metric is constant" before computing it. Regression
 `test_mc_sizing_g002_a_constant_metric_has_no_std_interval` covers the API, convergence (100 constant then 20
 varying) and the CLI.
-Verification: pending.
-History: round 1, open → fixed-unverified.
+Verification: verification pass (adversarial-review with a focus, thread `01a10021-b2cc-7e42-b369-620f9eb410c5`) on head `417762e`, fix delta `e40714c..417762e`: partially fixed. The guard ran after `moments()` and keyed on s = 0, so 100 values of 0.1 (s = 2.79e-17, from rounding in the mean) still got an interval with `needed = 100`, and 100 values of 1e-100 underflowed `m2 * m2` inside `moments()`, so convergence raised `ZeroDivisionError` and the CLI exited 70. Requested: detect a constant output before any moment arithmetic, and add 0.1 and 1e-100 regressions.
+Builder response, round 2: `is_constant` (every value exactly equal to the first) runs before `moments()` in the std path and in `bonett_kurtosis`. `moments()` takes kurtosis and skewness only when `m2 * m2` and `m2^1.5` are positive. `bonett_kurtosis` refuses an underflowed denominator, and that case's note says "the spread underflows in double precision". Regressions `test_mc_sizing_g002_round2_constant_outputs_are_detected_exactly` (0.1, 1e-100 and 1.0: API, convergence and CLI) and `test_mc_sizing_g002_round2_moments_survive_underflow`.
+Verification (round 2): pending.
+History: round 1, open → fixed-unverified; verification, partially fixed → open; round 2 (the second and last autonomous correction round), fixed-unverified.
 
 ## Finding G-003
 
 Severity: major
-Status: fixed-unverified
+Status: verified
 Location: `python/astra/mc_sizing.py:1554-1556` at `e40714c`
 Requirement/ADR: plan D10 (convergence gives bounds and verdicts at every prefix)
 Failure: each prefix ran the full check, producer-risk search included. With one halt then 99 passes and
@@ -67,13 +69,13 @@ Builder response: fixed. Convergence checks each prefix under a `ContextVar` tha
 (calibrated `needed`, nominal projections and ranking searches), so a prefix's `needed` is `None`; the docstring
 says so. Regression `test_mc_sizing_g003_convergence_runs_no_sizing_search` checks that the full check still
 gives `needed = 8`.
-Verification: pending.
-History: round 1, open → fixed-unverified.
+Verification: verification pass (adversarial-review with a focus, thread `01a10021-b2cc-7e42-b369-620f9eb410c5`) on head `417762e`, fix delta `e40714c..417762e`: verified (prefix projections skipped; the ContextVar is restored after exceptions).
+History: round 1, open → fixed-unverified. Verified.
 
 ## Finding G-004
 
 Severity: minor
-Status: fixed-unverified
+Status: verified
 Location: `python/astra/mc_sizing.py:549-551` at `e40714c`
 Requirement/ADR: plan D9 (closed, validated claims)
 Failure: `relative: "false"` in a claims file was accepted and was truthy, which turned an absolute tolerance
@@ -82,13 +84,13 @@ Requested outcome: validate the field's type.
 Builder response: fixed. `PrecisionClaim` refuses a non-bool `relative`. Every claim also checks that `metric`,
 `criterion` and `parameter` are non-empty strings or absent. Regression `test_mc_sizing_g004_claim_fields_are_typed`
 covers the API and a claims file.
-Verification: pending.
-History: round 1, open → fixed-unverified.
+Verification: verification pass (adversarial-review with a focus, thread `01a10021-b2cc-7e42-b369-620f9eb410c5`) on head `417762e`, fix delta `e40714c..417762e`: verified (string booleans and invalid claim text types refused).
+History: round 1, open → fixed-unverified. Verified.
 
 ## Finding G-005
 
 Severity: minor (adversarial: medium)
-Status: fixed-unverified
+Status: verified
 Location: `python/astra/cli.py:989-991` at `e40714c`
 Requirement/ADR: plan D9 (the formula/batch argument split; out-of-domain values exit 64)
 Failure: `astra mc size ranking --r 0.3 --parameters 4 --confidence 0.99` returned 120 and ignored the
@@ -96,13 +98,13 @@ confidence. `--confidence 2` was also accepted.
 Requested outcome: reject it in the formula mode, and point to `--alpha`.
 Builder response: fixed. Ranking's formula mode refuses `--confidence` (64: "needs --batch; the formula mode
 takes --alpha"). The usage-error parametrization adds 0.99 and 1.5.
-Verification: pending.
-History: round 1, open → fixed-unverified.
+Verification: verification pass (adversarial-review with a focus, thread `01a10021-b2cc-7e42-b369-620f9eb410c5`) on head `417762e`, fix delta `e40714c..417762e`: verified (ranking's formula mode refuses --confidence and points to --alpha).
+History: round 1, open → fixed-unverified. Verified.
 
 ## Finding A-004
 
 Severity: medium
-Status: fixed-unverified
+Status: verified
 Location: `tests/python/test_mc_sizing.py:201-205` at `e40714c`
 Requirement/ADR: plan Tests (oracles independent of the module); C-09
 Failure: the Clopper-Pearson minimality check used the module's own `half_width_at`, and the
@@ -113,18 +115,19 @@ derive the projection's expected N independently.
 Builder response: fixed. The test's own `_expected_half_width` computes the beta quantiles at `k = n p0`
 directly. It checks N and N−1, the monotonicity, and agreement with `half_width_at` at four sizes. The
 probability projection's expected N comes from a linear search over it.
-Verification: pending.
-History: round 1, open → fixed-unverified.
+Verification: verification pass (adversarial-review with a focus, thread `01a10021-b2cc-7e42-b369-620f9eb410c5`) on head `417762e`, fix delta `e40714c..417762e`: verified (minimality and projection expectations use independent beta endpoints).
+History: round 1, open → fixed-unverified. Verified.
 
 ## Completion
 
-Six findings in round 1, all fixed-unverified with regressions. None was rejected or deferred.
+Round 1 had six findings. The verification pass on `417762e` verified five, found G-002 partially fixed, and
+reported "New findings: none". Round 2 fixes G-002 only. It is the second and last autonomous correction round
+(AGENTS.md), so anything the round-2 verification still finds goes to Joe.
 
-Validation after the fixes:
-- `.venv/bin/pytest tests/python -k mc_sizing`: 73 passed.
-- `-k 'mc_analysis or montecarlo or cli'`: 236 passed.
-- ruff, ruff format and pyright are clean.
-- The full gate is rerun on the fix commit.
+Validation after round 2:
+- `.venv/bin/pytest tests/python -k mc_sizing`: 77 passed.
+- ruff and pyright are clean.
+- The full gate is rerun on the round-2 commit. A gate on `417762e` passed (exit 0, `check: OK`), but the round-2
+  edit was made while it ran, so it is not counted as evidence for either revision.
 
-Next is one focused verification pass on G-001 to G-005 and A-004. This is correction round 1 of 2. The
-reviewer's recommendation is not Joe's approval.
+The reviewer's recommendation is not Joe's approval.

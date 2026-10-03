@@ -1165,3 +1165,34 @@ def test_mc_sizing_g004_claim_fields_are_typed(tmp_path: Path) -> None:
     )
     with pytest.raises(SizingError, match="relative"):
         mc_sizing.load_claims(path)
+
+
+@pytest.mark.parametrize("value", [0.1, 1e-100, 1.0])
+def test_mc_sizing_g002_round2_constant_outputs_are_detected_exactly(
+    value: float, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Rounding in the mean leaves 100 x 0.1 a spread of about 3e-17, and 1e-100 underflows the
+    moments; both are constant outputs and get no interval (review G-002, round 2)."""
+    claim = mc_sizing.PrecisionClaim("std", 0.1, metric="x")
+    check = mc_sizing.check_one(_metric_batch([value] * 100), claim)
+    assert math.isnan(check.lower)
+    assert check.needed is None
+    assert "no interval: the metric is constant" in check.notes
+    result = mc_sizing.convergence(_metric_batch([value] * 100 + [2 * value] * 5), claim)
+    assert len(result.rows) == 105
+    assert all(row.needed is None for row in result.rows)
+    batch = _write_summary(tmp_path / "constant", [value] * 100)
+    argv = ["mc", "size", "precision", "--statistic", "std", "--metric", "x", "--tolerance", "0.1"]
+    assert cli.main([*argv, "--batch", str(batch)]) == 0
+    assert "the metric is constant" in capsys.readouterr().out
+
+
+def test_mc_sizing_g002_round2_moments_survive_underflow() -> None:
+    tiny = mc_sizing.moments(np.array([1e-100, 2e-100, 3e-100]))
+    assert math.isnan(tiny.kurtosis)  # m2 * m2 underflows to zero
+    assert math.isnan(mc_sizing.bonett_kurtosis(np.array([1e-100] * 50 + [2e-100] * 50)))
+    check = mc_sizing.check_one(
+        _metric_batch([1e-100] * 50 + [2e-100] * 50),
+        mc_sizing.PrecisionClaim("std", 0.1, metric="x"),
+    )
+    assert "no interval: the spread underflows in double precision" in check.notes
