@@ -1,0 +1,34 @@
+# M6 R9, the planted cause (docs/plans/m6-pr7b-planted.md D1 to D3; docs/plans/m6-pr7-mc-sizing.md D8,
+# D11): the final batch, whose result is R9's. planted_pilot.yaml sized it with astra.mc_sizing's
+# ranking option, and was deleted once sized: runs = 130 = max(the main pilot's top projection, 30;
+# the control pilot's null projection at r_min 0.3, 130; RANK_MIN_N, 30). Its master seed, 707, is not
+# the pilot's (7071), so the result is independent of the sizing. The pilot is this file with seed
+# 7071 and runs 120 (tests/python/test_mc_planted.py checks the four specs agree).
+#
+# Stated before any run (Joe, 2026-10-02):
+# - the cause: cm_alpha_per_rad uniform on [-0.6, +0.6], 10 s from cruise.yaml's fixed state, no trim;
+# - pass/fail: a run fails when max.v0.derived.alpha > 0.23 (rad);
+# - the minimum effect: KS D >= 0.5 and Spearman rho >= +0.5, each with a margin of at least 0.25 over
+#   the next parameter, and Benjamini-Hochberg at q = 0.05 rejecting the cause.
+#
+# The threshold (Joe, 2026-10-03). 0.23 rad (13.2 deg) sits at about neutral static stability: its
+# crossing is near cm_alpha_per_rad = +0.03 within 10 s, so a failing run is a neutral or unstable
+# airframe that pitched up toward the high-alpha equilibrium. The model's lift is linear in alpha
+# (cl_0 + cl_alpha * alpha, no stall, no alpha limit), so no particular angle has any meaning of its
+# own here.
+#
+# The three inert coefficients multiply the aileron and rudder, which cruise.yaml holds at 0.0 open
+# loop, so no draw of them changes a run. cm_alpha_per_rad is drawn last, so the control
+# (planted_control.yaml, the same list without it) draws the same inert values and wind seed for
+# every run index.
+config: aircraft/notional_transport/configs/cruise.yaml
+duration: 10.0
+runs: 130
+seed: 707
+dispersions:
+  vehicle.models.0.croll_aileron_per_rad: {uniform: {lo: 0.05, hi: 0.10}}
+  vehicle.models.0.croll_rudder_per_rad: {uniform: {lo: 0.0, hi: 0.02}}
+  vehicle.models.0.cn_rudder_per_rad: {uniform: {lo: -0.30, hi: -0.10}}
+  physical.wind.seed: seed
+  vehicle.models.0.cm_alpha_per_rad: {uniform: {lo: -0.6, hi: 0.6}}
+signals: [v0.derived.alpha]

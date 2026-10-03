@@ -1,0 +1,20 @@
+# M6 R9's negative control (C-08; docs/plans/m6-pr7b-planted.md D1, D3): the final control.
+# planted.yaml without its last dispersion, so cm_alpha_per_rad stays at cruise.yaml's -0.6 and every
+# run index draws the same inert values and wind seed as the main batch. Seed 707 and runs = 130 as
+# planted.yaml; planted_control_pilot.yaml (seed 7071, 120 runs) sized it with the ranking option's
+# null claim at r_min 0.3 and was deleted once sized.
+#
+# Stated before any run (Joe, 2026-10-02): the control flags nothing. No run reaches
+# max.v0.derived.alpha > 0.23 (planted.yaml's header gives the threshold's rationale), so KS has no
+# failing group, and Spearman against max.v0.derived.alpha rejects no parameter under
+# Benjamini-Hochberg at q = 0.05.
+config: aircraft/notional_transport/configs/cruise.yaml
+duration: 10.0
+runs: 130
+seed: 707
+dispersions:
+  vehicle.models.0.croll_aileron_per_rad: {uniform: {lo: 0.05, hi: 0.10}}
+  vehicle.models.0.croll_rudder_per_rad: {uniform: {lo: 0.0, hi: 0.02}}
+  vehicle.models.0.cn_rudder_per_rad: {uniform: {lo: -0.30, hi: -0.10}}
+  physical.wind.seed: seed
+signals: [v0.derived.alpha]
