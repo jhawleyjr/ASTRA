@@ -68,6 +68,9 @@ Everything below is on `main` today.
   its run logs. It ranks the dispersed parameters against a pass/fail criterion (KS with Benjamini-Hochberg)
   or a continuous metric (Spearman and partial rank correlation), and fits a depth-3 tree for interactions.
   `astra mc rerun` re-executes one run from the batch's record of its spec, with full logging and plots.
+- **Monte Carlo sizing.** `astra.mc_sizing` sizes a batch from the claim it answers: a failure probability,
+  a percentile, a statistic's precision, or a parameter ranking. On a batch, probability and percentile give
+  exact Clopper-Pearson verdicts, and precision and ranking give nominal projections.
 - **Plot packages.** `astra.plot` draws reusable YAML plot packages over any run log: deterministic SVG (or PNG)
   files through matplotlib, or one offline interactive HTML page through plotly.
 - **Health monitoring.** Every check is a signal in the log and names its source. NaN or Inf in the state, a
@@ -366,7 +369,7 @@ made before code existed and the open questions deliberately deferred.
 | `aircraft/` | One folder per aircraft: `_template/` and `notional_transport/` |
 | `icd/` | `astra_icd.h`, the C11 frames exchanged with flight software |
 | `embedded/` | A separate C++17 project: the HAL and the example autopilot |
-| `python/` | The `astra` package (`trim`, `linearize`, `log`, `scenario`, `montecarlo`, `mc_analysis`, `plot`, `fgbridge`, `lockstep`, `cli`) and the nanobind bindings |
+| `python/` | The `astra` package (`trim`, `linearize`, `log`, `scenario`, `montecarlo`, `mc_analysis`, `mc_sizing`, `plot`, `fgbridge`, `lockstep`, `cli`) and the nanobind bindings |
 | `tests/` | Unit, physics, lockstep and Python tests, scenarios, the frame-time benchmark, and human-owned goldens |
 | `scripts/` | Setup, check wrappers and docs and scan tools |
 | `cmake/` | The plugin helpers (`astra_add_plugin`, `astra_add_plugin_test`) |
