@@ -292,7 +292,8 @@ def _parser() -> tuple[_Parser, dict[str, _Parser]]:
         help="a plot package to render from the new log (repeatable; default: "
         f"{', '.join(RERUN_PACKAGES)})",
     )
-    return parser, {"run": run, "trim": trim, "plot": plot}
+    size = _size_parser(mc_commands)
+    return parser, {"run": run, "trim": trim, "plot": plot, "size": size}
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -308,6 +309,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "plot":
             return _plot(args)
         if args.command == "mc":
+            if args.mc_command == "size":
+                return _mc_size(args, commands["size"])
             return _mc_analyze(args) if args.mc_command == "analyze" else _mc_rerun(args)
         return _trim(args, commands["trim"])
     except Exception:
@@ -775,6 +778,245 @@ def _rerun_text(result: Any) -> str:
         )
     lines.append(f"reproduced: {'yes' if result.reproduced else 'no'}")
     return "\n".join(lines) + "\n"
+
+
+# --- astra mc size (M6 PR 7, docs/plans/m6-pr7-mc-sizing.md D9) ---------------------------------
+
+
+def _decimal(text: str) -> str:
+    """A decimal kept as written: ``astra.mc_sizing`` reads the text itself (Joe's V1 decision)."""
+    from astra import mc_sizing
+
+    mc_sizing.exact("value", text)  # a malformed or non-finite number is a usage error
+    return text
+
+
+def _count(text: str) -> int:
+    value = int(text)
+    if value < 1:
+        raise ValueError(text)
+    return value
+
+
+def _size_parser(mc_commands: Any) -> _Parser:
+    size = mc_commands.add_parser(
+        "size",
+        help="size a batch before it runs, or check a claim against one",
+        description="How many runs a batch needs, by the claim it answers (astra.mc_sizing). "
+        "Without --batch, the option's formula gives the minimum N. With --batch, probability "
+        "and percentile give a calibrated verdict and the N that would decide it; precision and "
+        "ranking give a nominal projection, never a verdict. A pilot only sizes: run the final "
+        "batch with another master seed and take the verdict from it alone. Exit codes: 64 usage "
+        "(including a value outside its domain), 65 a refused batch, criterion, metric or claims "
+        "file, 74 stdout I/O, 0 printed; 70 an internal error.",
+    )
+    options = size.add_subparsers(dest="option", required=True, metavar="option")
+    probability = options.add_parser(
+        "probability", help="P(fail) <= p_max: zero failures, or a verdict on a batch"
+    )
+    probability.add_argument("--p-max", type=_decimal, required=True, metavar="P")
+    probability.add_argument(
+        "--criterion", metavar="EXPR", help="(with --batch) default: status == halt"
+    )
+    probability.add_argument(
+        "--producer-risk", type=_decimal, metavar="B", help="(with --batch) default 0.10"
+    )
+    percentile = options.add_parser(
+        "percentile", help="P(metric > limit) <= 1 - G: Wilks, or a verdict on a batch"
+    )
+    percentile.add_argument("--quantile", type=_decimal, required=True, metavar="G")
+    percentile.add_argument("--two-sided", action="store_true", help="(formula) both sides")
+    percentile.add_argument("--order", type=_count, metavar="K", help="(formula) default 1")
+    percentile.add_argument("--metric", metavar="COLUMN", help="(with --batch)")
+    percentile.add_argument("--limit", type=_decimal, metavar="L", help="(with --batch)")
+    percentile.add_argument(
+        "--side", choices=("upper", "lower"), help="(with --batch) default upper"
+    )
+    percentile.add_argument(
+        "--producer-risk", type=_decimal, metavar="B", help="(with --batch) default 0.10"
+    )
+    precision = options.add_parser(
+        "precision", help="a statistic within a tolerance: Clopper-Pearson, or a projection"
+    )
+    precision.add_argument("--p", type=_decimal, metavar="P", help="(formula) assumed probability")
+    precision.add_argument("--half-width", type=_decimal, metavar="H", help="(formula)")
+    precision.add_argument(
+        "--statistic",
+        choices=("mean", "std", "percentile", "probability", "correlation"),
+        help="(with --batch)",
+    )
+    precision.add_argument("--tolerance", type=_decimal, metavar="T", help="(with --batch)")
+    precision.add_argument(
+        "--relative", action="store_true", help="(with --batch) relative to the estimate"
+    )
+    precision.add_argument("--metric", metavar="COLUMN", help="(with --batch)")
+    precision.add_argument("--criterion", metavar="EXPR", help="(with --batch) probability")
+    precision.add_argument("--parameter", metavar="NAME", help="(with --batch) correlation")
+    precision.add_argument(
+        "--quantile", type=_decimal, metavar="G", help="(with --batch) percentile"
+    )
+    ranking = options.add_parser(
+        "ranking", help="detect a rank correlation: Fisher z, or a projection on a batch"
+    )
+    ranking.add_argument("--r", type=_decimal, metavar="R", help="(formula) 0 < |R| < 1")
+    ranking.add_argument("--parameters", type=_count, metavar="M", help="(formula) ranked")
+    ranking.add_argument("--alpha", type=_decimal, metavar="A", help="(formula) default 0.05")
+    ranking.add_argument("--power", type=_decimal, metavar="P", help="(formula) default 0.8")
+    ranking.add_argument("--metric", metavar="COLUMN", help="(with --batch)")
+    claim = ranking.add_mutually_exclusive_group()
+    claim.add_argument("--top", action="store_true", help="(with --batch) a top driver")
+    claim.add_argument(
+        "--null", type=_decimal, metavar="R_MIN", help="(with --batch) no |rho| >= R_MIN"
+    )
+    for parser in (probability, percentile, precision, ranking):
+        parser.add_argument("--confidence", type=_decimal, metavar="C", help="default 0.95")
+        parser.add_argument("--batch", metavar="DIR", help="check the claim against this batch")
+        parser.add_argument(
+            "--convergence", action="store_true", help="(with --batch) every prefix"
+        )
+        parser.add_argument(
+            "--every", type=_count, default=10, metavar="K", help="(--convergence) default 10"
+        )
+    check = options.add_parser("check", help="check every claim of a claims file against a batch")
+    check.add_argument("batch", help="the batch directory (summary.parquet)")
+    check.add_argument("claims", help="the claims file (YAML)")
+    return size
+
+
+_BATCH_ONLY = {
+    "probability": ("criterion", "producer_risk", "convergence"),
+    "percentile": ("metric", "limit", "side", "producer_risk", "convergence"),
+    "precision": (
+        "statistic",
+        "tolerance",
+        "relative",
+        "metric",
+        "criterion",
+        "parameter",
+        "quantile",
+        "convergence",
+    ),
+    "ranking": ("metric", "top", "null", "convergence"),
+}
+_FORMULA_ONLY = {
+    "probability": (),
+    "percentile": ("two_sided", "order"),
+    "precision": ("p", "half_width"),
+    "ranking": ("r", "parameters", "alpha", "power"),
+}
+
+
+def _given(args: argparse.Namespace, name: str) -> bool:
+    return getattr(args, name, None) not in (None, False)
+
+
+def _mc_size(args: argparse.Namespace, parser: _Parser) -> int:
+    from astra import mc_analysis, mc_sizing  # scipy and pyarrow, only for this command
+
+    command = "mc size"
+    refused = (mc_sizing.SizingError, mc_analysis.BatchError, mc_analysis.CriterionError)
+    if args.option == "check":
+        try:
+            claims = mc_sizing.load_claims(args.claims)
+            table = mc_sizing.check(mc_analysis.load_batch(args.batch), claims)
+        except refused as error:
+            _say(command, f"refused: {error}")
+            return EX_DATAERR
+        return 0 if _write(command, table.text()) else EX_IOERR
+    option = args.option
+    wrong = _FORMULA_ONLY[option] if args.batch is not None else _BATCH_ONLY[option]
+    extra = [name for name in wrong if _given(args, name)]
+    if extra:
+        flag = f"--{extra[0].replace('_', '-')}"
+        reason = "is for the formula mode" if args.batch is not None else "needs --batch"
+        return _usage(parser, f"{option}: {flag} {reason}")
+    try:
+        if args.batch is None:
+            return 0 if _write(command, _size_formula(args)) else EX_IOERR
+        claim = _size_claim(args)
+    except mc_sizing.SizingError as error:
+        return _usage(parser, f"{option}: {error}")
+    try:
+        batch = mc_analysis.load_batch(args.batch)
+        text = mc_sizing.check(batch, [claim]).text()
+        if args.convergence:
+            text += mc_sizing.convergence(batch, claim).text(args.every)
+    except refused as error:
+        _say(command, f"refused: {error}")
+        return EX_DATAERR
+    return 0 if _write(command, text) else EX_IOERR
+
+
+def _or(value: str | None, default: str) -> str:
+    return default if value is None else value
+
+
+def _size_formula(args: argparse.Namespace) -> str:
+    from astra import mc_sizing
+
+    confidence = _or(args.confidence, mc_sizing.DEFAULT_CONFIDENCE)
+    option = cast(str, args.option)
+    if option == "probability":
+        runs = mc_sizing.probability_runs(args.p_max, confidence)
+        inputs = f"p_max {args.p_max}, confidence {confidence}"
+    elif option == "percentile":
+        order = cast(int, args.order or 1)
+        runs = mc_sizing.percentile_runs(
+            args.quantile, confidence, two_sided=args.two_sided, order=order
+        )
+        sides = "two-sided" if args.two_sided else "one-sided"
+        inputs = f"coverage {args.quantile}, confidence {confidence}, {sides}, order {order}"
+    elif option == "precision":
+        if args.p is None or args.half_width is None:
+            raise mc_sizing.SizingError("--p and --half-width are required without --batch")
+        runs = mc_sizing.precision_runs(args.p, args.half_width, confidence)
+        inputs = f"p {args.p}, half-width {args.half_width}, confidence {confidence}"
+    else:
+        if args.r is None or args.parameters is None:
+            raise mc_sizing.SizingError("--r and --parameters are required without --batch")
+        alpha = _or(args.alpha, "0.05")
+        power = _or(args.power, "0.8")
+        runs = mc_sizing.ranking_runs(args.r, args.parameters, alpha, power)
+        inputs = f"r {args.r}, parameters {args.parameters}, alpha {alpha}, power {power}"
+    method = mc_sizing.ASSUMPTIONS[option]
+    return f"option: {option}\nruns: {runs}\ninputs: {inputs}\nmethod: {method}\n"
+
+
+def _size_claim(args: argparse.Namespace) -> Any:
+    from astra import mc_sizing
+
+    confidence = _or(args.confidence, mc_sizing.DEFAULT_CONFIDENCE)
+    risk = _or(getattr(args, "producer_risk", None), mc_sizing.DEFAULT_PRODUCER_RISK)
+    option = args.option
+    if option == "probability":
+        return mc_sizing.ProbabilityClaim(args.p_max, args.criterion, confidence, risk)
+    if option == "percentile":
+        if args.metric is None or args.limit is None:
+            raise mc_sizing.SizingError("--metric and --limit are required with --batch")
+        side = args.side or "upper"
+        return mc_sizing.PercentileClaim(
+            args.metric, args.quantile, args.limit, side, confidence, risk
+        )
+    if option == "precision":
+        if args.statistic is None or args.tolerance is None:
+            raise mc_sizing.SizingError("--statistic and --tolerance are required with --batch")
+        return mc_sizing.PrecisionClaim(
+            args.statistic,
+            args.tolerance,
+            args.relative,
+            args.metric,
+            args.criterion,
+            args.parameter,
+            args.quantile,
+            confidence,
+        )
+    if args.metric is None:
+        raise mc_sizing.SizingError("--metric is required with --batch")
+    if args.null is not None:
+        return mc_sizing.RankingClaim(args.metric, "null", args.null, confidence)
+    if not args.top:
+        raise mc_sizing.SizingError("--top or --null is required with --batch")
+    return mc_sizing.RankingClaim(args.metric, "top", None, confidence)
 
 
 if __name__ == "__main__":

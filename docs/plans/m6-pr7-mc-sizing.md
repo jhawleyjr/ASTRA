@@ -490,3 +490,34 @@ are fixed in this revision (3a):
 
 Joe asked for one verification pass, and it has run. These fixes go to him with the plan, without another pass unless
 he asks for one.
+
+## Build checkpoint: the std interval (Joe, 2026-10-02)
+
+The D7 coverage run (K = 1047, n = 100, C = 0.95; pass means at least 978 cover) passed every calibrated regime, and
+also passed mean, percentile, two-sided probability, all four correlation regimes and the ranking family.
+
+The plan's std interval did not:
+
+| interval | normal | exponential | t5 | rare tail |
+|---|---|---|---|---|
+| plan's delta method | 0.934 (exactly at 978) | 0.863 | 0.900 | 0.611 |
+| Bonett (2006) | 0.944 | 0.901 | 0.917 | 0.611 |
+
+Joe's decision was **Bonett (2006)**, cited as Computational Statistics & Data Analysis 50(3), 775-782.
+- Its se form `[g4 − (n−3)/n]/(n−1)`, with `c = n/(n − z)`, is the paper's calibrated choice. It is distinct from
+  finding 7's exact Var(s²).
+- The trimmed mean drops `floor(n/(2·sqrt(n−4)))` values from each tail; at n = 100 that is 5 a tail, and floor and
+  round agree.
+- The std projection (V3) uses the same interval.
+- **The exponential gap is seed variation.** Joe's independent implementation measured 0.921, against 0.901 here.
+  Across five seed bases this build measured 0.901, 0.916, 0.920, 0.919 and 0.921, pooled 0.915 ± 0.004 (1 SD).
+- **Stated limits (the docstring).**
+  - Approximate: not a verdict, and not for requirement compliance (use probability or percentile).
+  - Measured coverage at n = 100, pooled over 5 × 1047 batches (seeds `run_seed(7101 + 1000·b, k)` and up): normal
+    0.948, exponential 0.914, t5 0.909, rare tail 0.625.
+  - A tail of probability p is missed entirely with probability `(1−p)^n`.
+- **Tests.**
+  - Normal must reach at least 978 of 1047.
+  - Exponential, t5 and rare tail must reach floors of `binom.ppf(0.01, 1047, stated)`: 935, 929 and 617. These are
+    floors, not pinned counts.
+  - The rare tail keeps D7's ceiling of 0.80.
