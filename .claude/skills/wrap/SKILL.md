@@ -60,8 +60,13 @@ to wrap. If later changes invalidate evidence, mark the affected gate pending an
    - Record the result in the PR body's "Docs impact" section: the scope and what was checked, each stale
      statement with its fix, or "none affected". A blocked or mid-task wrap runs branch scope on the work
      so far and says the result is partial.
-   - The fixes are part of the candidate: rerun `just docs-check`, and mark the full gate stale if a fix
-     touches a file the gate builds or tests (a code comment included).
+   - The fixes are part of the candidate: rerun `just docs-check`. After a passing full gate, fixes limited
+     to Markdown files and evidence logs (docs, plans, README, PLAN.md, STATE.md, lessons,
+     `docs/reviews/evidence/` logs) need only `just docs-check` and `git diff --check <gated-head>..HEAD`, not
+     a new gate; `git diff --name-only <gated-head>..HEAD` shows the delta, and the PR body names the gated
+     head and that Markdown-only delta. Any other changed file (a code comment or docstring, a test, fixture,
+     config, script, hook or setting) makes the gate stale, as do integration and substantive fixes. Run
+     this docs step before the final gate where it can.
 2. **PR description:** when requesting human review, use [`/human-review`](../human-review/SKILL.md) to
    write the PR body from the [PR description template](../../../docs/templates/pr-description.md) (no title
    line, no decision block). It carries scope/requirements, step 1's Docs impact, check results (command, exit code, summary counts,

@@ -74,7 +74,8 @@ Decisions (Joe, 2026-09-29):
   sensitivity ranking (which needs more runs as parameters grow). Plus a convergence check after a batch:
   the estimate and its interval against run count. Built in M6 PR 7 as `astra.mc_sizing` and `astra mc
   size`. Its four options (probability, percentile, precision and ranking) each have a formula mode and a
-  data mode on a batch. R9, the end-to-end planted cause, follows in PR 7b.
+  data mode on a batch. R9, the end-to-end planted cause, is M6 PR 7b's test: a pilot sizes its batches with
+  the ranking option.
 - **Run report.** One command produces the plots, the check results and the provenance (commit, config,
   seed) for a scenario or a Monte Carlo batch, usable in a review packet.
 - **Frequency domain and handling qualities** on top of `astra.linearize`: Bode plots, margins, and

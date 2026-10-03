@@ -1,0 +1,27 @@
+# M6 R9, the planted cause (docs/plans/m6-pr7b-planted.md D1; docs/plans/m6-pr7-mc-sizing.md D8, D11):
+# the pilot. It only sizes the final batch (planted.yaml) with astra.mc_sizing's ranking option (the
+# top driver of max.v0.derived.alpha), and is deleted once sized; no verdict comes from it. Its master
+# seed, 7071, is its own, so the final batch (seed 707) is independent of it. runs = 120 is
+# ranking_runs(0.3, 4): the cause plus three ranked inert parameters (the wind seed is never ranked).
+#
+# Stated before any run (Joe, 2026-10-02):
+# - the cause: cm_alpha_per_rad uniform on [-0.6, +0.6], 10 s from cruise.yaml's fixed state, no trim;
+# - pass/fail: a run fails when max.v0.derived.alpha > 0.23 (rad);
+# - the minimum effect: KS D >= 0.5 and Spearman rho >= +0.5, each with a margin of at least 0.25 over
+#   the next parameter, and Benjamini-Hochberg at q = 0.05 rejecting the cause.
+#
+# The three inert coefficients multiply the aileron and rudder, which cruise.yaml holds at 0.0 open
+# loop, so no draw of them changes a run. cm_alpha_per_rad is drawn last, so the control
+# (planted_control_pilot.yaml, the same list without it) draws the same inert values and wind seed
+# for every run index.
+config: aircraft/notional_transport/configs/cruise.yaml
+duration: 10.0
+runs: 120
+seed: 7071
+dispersions:
+  vehicle.models.0.croll_aileron_per_rad: {uniform: {lo: 0.05, hi: 0.10}}
+  vehicle.models.0.croll_rudder_per_rad: {uniform: {lo: 0.0, hi: 0.02}}
+  vehicle.models.0.cn_rudder_per_rad: {uniform: {lo: -0.30, hi: -0.10}}
+  physical.wind.seed: seed
+  vehicle.models.0.cm_alpha_per_rad: {uniform: {lo: -0.6, hi: 0.6}}
+signals: [v0.derived.alpha]
