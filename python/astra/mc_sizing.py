@@ -124,13 +124,16 @@ the one computed. The tool cannot enforce this; a check of a batch prints the ba
 Convergence (``convergence``): the claim's statistic and its bounds or interval at every prefix of
 the batch's rows in run order. Calibrated bounds and verdicts are given at every prefix with an
 analyzed row, with a column saying whether ``met`` is reachable there; nominal intervals are NaN
-below their minimum. The bootstrap is not run per prefix.
+below their minimum. The bootstrap is not run per prefix, and neither is any sizing search: a
+prefix's ``needed`` is ``None``, so a prefix whose projection would exceed ``MAX_RUNS`` still shows
+its bounds.
 
 Every argument is checked: a value outside its domain, a non-finite number, a bool, a non-integer
 count, or a string that is not a decimal is a ``SizingError`` (a ``ValueError``) naming it."""
 
 from __future__ import annotations
 
+import contextvars
 import dataclasses
 import importlib
 import math
@@ -164,6 +167,10 @@ _FIRST_CHUNK = 1024
 _DECIMAL = re.compile(r"[-+]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?")
 
 NOMINAL = "nominal, not calibrated"
+# Convergence evaluates bounds and verdicts only: no sizing search runs per prefix (review G-003).
+_PROJECT: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "astra_mc_sizing_project", default=True
+)
 PROTOCOL = (
     "a pilot only sizes: run the final batch with another master seed and runs: needed, and take "
     "the verdict from it alone"
@@ -224,6 +231,13 @@ def _closed_unit(name: str, value: object) -> Fraction:
     if not 0 <= number <= 1:
         raise SizingError(f"{name}: must be in [0, 1], got {value!r}")
     return number
+
+
+def _text(name: str, value: object, *, optional: bool = False) -> None:
+    if value is None and optional:
+        return
+    if not isinstance(value, str) or not value:
+        raise SizingError(f"{name}: must be a non-empty string, got {value!r}")
 
 
 def _count(name: str, value: object, lo: int) -> int:
@@ -493,6 +507,7 @@ class ProbabilityClaim:
 
     def __post_init__(self) -> None:
         _open_unit("p_max", self.p_max)
+        _text("criterion", self.criterion, optional=True)
         _open_unit("confidence", self.confidence)
         _open_unit("producer_risk", self.producer_risk)
 
@@ -513,6 +528,7 @@ class PercentileClaim:
     producer_risk: Number = DEFAULT_PRODUCER_RISK
 
     def __post_init__(self) -> None:
+        _text("metric", self.metric)
         _open_unit("quantile", self.quantile)
         exact("limit", self.limit)
         if self.side not in ("upper", "lower"):
@@ -548,6 +564,11 @@ class PrecisionClaim:
             )
         if exact("tolerance", self.tolerance) <= 0:
             raise SizingError(f"tolerance: must be greater than zero, got {self.tolerance!r}")
+        checked = cast(object, self.relative)  # a claims file is untyped: "false" is not False
+        if not isinstance(checked, bool):
+            raise SizingError(f"relative: must be true or false, got {self.relative!r}")
+        for name in ("metric", "criterion", "parameter"):
+            _text(name, getattr(self, name), optional=True)
         _open_unit("confidence", self.confidence)
         needs = {
             "mean": ("metric",),
@@ -589,6 +610,7 @@ class RankingClaim:
     confidence: Number = DEFAULT_CONFIDENCE
 
     def __post_init__(self) -> None:
+        _text("metric", self.metric)
         if self.kind not in ("top", "null"):
             raise SizingError(f"kind: must be top or null, got {self.kind!r}")
         if self.kind == "null":
@@ -778,14 +800,16 @@ def _calibrated(
     else:
         verdict = "undetermined"
     rate = Fraction(k, n)
-    needed = producer_runs(rate, p_max, confidence, producer_risk)
     extra: list[str] = []
-    if needed is None:
-        extra.append(
-            f"no needed: the observed rate {float(rate):.6g} is not below {float(p_max):.6g}"
-        )
-    else:
-        needed = max(needed, minimum)
+    needed: int | None = None
+    if _PROJECT.get():
+        needed = producer_runs(rate, p_max, confidence, producer_risk)
+        if needed is None:
+            extra.append(
+                f"no needed: the observed rate {float(rate):.6g} is not below {float(p_max):.6g}"
+            )
+        else:
+            needed = max(needed, minimum)
     if n < minimum:
         extra.append(f"met is unreachable below {minimum} runs")
     return Check(
@@ -829,11 +853,13 @@ def _percentile(batch: mc_analysis.Batch, claim: PercentileClaim) -> Check:
     limit = exact("limit", claim.limit)
     gamma = exact("quantile", claim.quantile)
     confidence = exact("confidence", claim.confidence)
-    # Each value compared with the limit exactly (a float is exactly a rational).
+    # Both operands as written: a value is its shortest repr, as the limit is (review G-001), so a
+    # value printed 0.1 equals a limit written 0.1 and is not an exceedance.
+    observed = [exact("value", value) for value in values.tolist()]
     if claim.side == "upper":
-        k = sum(1 for value in values.tolist() if Fraction(value) > limit)
+        k = sum(1 for value in observed if value > limit)
     else:
-        k = sum(1 for value in values.tolist() if Fraction(value) < limit)
+        k = sum(1 for value in observed if value < limit)
     notes: list[str] = []
     bound = order_statistic_bound(values, gamma, confidence, claim.side)
     if bound is not None:
@@ -918,6 +944,8 @@ def bonett_kurtosis(values: FloatArray) -> float:
     cut = math.floor(n / (2.0 * math.sqrt(n - 4)))
     trimmed = float(ordered[cut : n - cut].mean())
     squares = float(((values - values.mean()) ** 2).sum())
+    if not squares > 0:
+        return math.nan  # a constant output: no kurtosis, and no interval (review G-002)
     return n * float(((values - trimmed) ** 4).sum()) / (squares * squares)
 
 
@@ -981,7 +1009,9 @@ def _nominal(
     lower, upper = interval
     hw = max(upper - estimate, estimate - lower)
     needed: int | None = None
-    if not tolerance > 0:
+    if not _PROJECT.get():
+        pass
+    elif not tolerance > 0:
         notes.append("no projection: a relative tolerance of a zero estimate")
     elif hw == 0:
         notes.append("no projection: zero-width interval")
@@ -1137,6 +1167,9 @@ def _precision_std(
         )
     m = moments(values)
     notes: list[str] = []
+    if not m.s > 0:
+        notes.append("no interval: the metric is constant")
+        return _nominal(text, n, errors, 0.0, None, 0.0, lambda _r: None, STD_MIN_N, notes)
     if abs(m.skewness) > 1.0:
         notes.append(f"flag: skewed (skewness {m.skewness:.3g})")
     if m.kurtosis - 3.0 > 2.0:
@@ -1373,7 +1406,9 @@ def _ranking(batch: mc_analysis.Batch, claim: RankingClaim) -> Check:
     intervals = tuple(_interval(rank, c) for rank in ranks)
     needed: int | None = None
     blocked = [rank for rank in ranks if math.isnan(rank.v)]
-    if blocked:
+    if not _PROJECT.get():
+        pass  # convergence: intervals only
+    elif blocked:
         notes.append(f"no projection: {blocked[0].name}: {blocked[0].note}")
     elif claim.kind == "top":
         needed = _top_runs(ranks, c, n, notes)
@@ -1549,12 +1584,18 @@ def prefix(batch: mc_analysis.Batch, length: int) -> mc_analysis.Batch:
     )
 
 
+def _prefix_check(batch: mc_analysis.Batch, length: int, claim: Claim) -> Check:
+    """``claim`` on the first ``length`` rows: bounds, intervals and verdicts, no sizing search."""
+    token = _PROJECT.set(False)
+    try:
+        return check_one(prefix(batch, length), claim, bootstrap=False)
+    finally:
+        _PROJECT.reset(token)
+
+
 def convergence(batch: mc_analysis.Batch, claim: Claim) -> Convergence:
     """``claim`` checked at every prefix of ``batch`` (no bootstrap per prefix)."""
-    rows = tuple(
-        check_one(prefix(batch, length), claim, bootstrap=False)
-        for length in range(1, len(batch) + 1)
-    )
+    rows = tuple(_prefix_check(batch, length, claim) for length in range(1, len(batch) + 1))
     return Convergence(claim.text(), rows)
 
 

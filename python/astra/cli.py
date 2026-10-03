@@ -908,7 +908,8 @@ _BATCH_ONLY = {
         "quantile",
         "convergence",
     ),
-    "ranking": ("metric", "top", "null", "convergence"),
+    # Fisher z sizes by --alpha; --confidence belongs to the data mode's intervals (review G-005).
+    "ranking": ("metric", "top", "null", "convergence", "confidence"),
 }
 _FORMULA_ONLY = {
     "probability": (),
@@ -941,6 +942,8 @@ def _mc_size(args: argparse.Namespace, parser: _Parser) -> int:
     if extra:
         flag = f"--{extra[0].replace('_', '-')}"
         reason = "is for the formula mode" if args.batch is not None else "needs --batch"
+        if option == "ranking" and flag == "--confidence" and args.batch is None:
+            reason = "needs --batch; the formula mode takes --alpha"
         return _usage(parser, f"{option}: {flag} {reason}")
     try:
         if args.batch is None:

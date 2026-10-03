@@ -147,6 +147,16 @@ def _jackknife(x: np.ndarray, y: np.ndarray) -> tuple[float, float]:
     return rho, (n - 1) / n * float(((z - z.mean()) ** 2).sum())
 
 
+def _expected_half_width(n: int, p0: float, level: float = C) -> float:
+    """``max(U - p0, p0 - L)`` of the Clopper-Pearson bounds at the real count ``k = n p0``, as
+    beta quantiles, written out here independently of the module (review A-004)."""
+    k = n * p0
+    tail = (1 - level) / 2
+    lower = 0.0 if k == 0 else float(stats.beta.ppf(tail, k, n - k + 1))
+    upper = 1.0 if k == n else float(stats.beta.ppf(1 - tail, k + 1, n - k))
+    return max(upper - p0, p0 - lower)
+
+
 def _abs_bounds(lower: float, upper: float) -> tuple[float, float]:
     spans = lower <= 0.0 <= upper
     return (0.0 if spans else min(abs(lower), abs(upper))), max(abs(lower), abs(upper))
@@ -200,9 +210,14 @@ def test_mc_sizing_r11c_precision_runs_closed_form_monotone_and_minimal() -> Non
     assert mc_sizing.precision_runs(0.0, 0.03, 0.95) == 122
     for p0, h in ((0.05, 0.02), (0.3, 0.05), (0.5, 0.1), (0.9, 0.04)):
         n = mc_sizing.precision_runs(p0, h)
-        assert mc_sizing.half_width_at(n, p0) <= h < mc_sizing.half_width_at(n - 1, p0)
-        widths = [mc_sizing.half_width_at(size, p0) for size in range(1, 400)]
+        # Review A-004: the objective is recomputed here, not through the module.
+        assert _expected_half_width(n, p0) <= h < _expected_half_width(n - 1, p0)
+        widths = [_expected_half_width(size, p0) for size in range(1, 400)]
         assert all(b <= a + 1e-15 for a, b in itertools.pairwise(widths))
+        assert all(
+            abs(mc_sizing.half_width_at(size, p0) - _expected_half_width(size, p0)) <= 1e-12
+            for size in (1, 7, 50, 399)
+        )
 
 
 def test_mc_sizing_r11c_change4_the_observed_count_can_exceed_the_half_width() -> None:
@@ -481,7 +496,9 @@ def test_mc_sizing_endpoint_probability_two_sided() -> None:
     expected = _cp_two(7, 90)
     assert abs(check.lower - expected[0]) <= 1e-12
     assert abs(check.upper - expected[1]) <= 1e-12
-    assert check.needed == mc_sizing.precision_runs(7 / 90, 0.02)
+    rate = 7 / 90
+    expected = next(n for n in itertools.count(1) if _expected_half_width(n, rate) <= 0.02)
+    assert check.needed == expected  # review A-004: an independent search
 
 
 def _correlated(seed: int, n: int, rho: float) -> tuple[np.ndarray, np.ndarray]:
@@ -1016,6 +1033,8 @@ def test_mc_sizing_r15_cli_data_modes_check_and_convergence(
         ["ranking", "--metric", "x", "--top", "--null", "0.3", "--batch", "."],
         ["percentile", "--quantile", "0.9", "--order", "2", "--batch", "."],
         ["precision", "--p", "0.1"],
+        ["ranking", "--r", "0.3", "--parameters", "4", "--confidence", "0.99"],  # review G-005
+        ["ranking", "--r", "0.3", "--parameters", "4", "--confidence", "1.5"],
     ],
 )
 def test_mc_sizing_r15_cli_usage_errors_exit_64(
@@ -1058,3 +1077,91 @@ def test_mc_sizing_r15_cli_refusals_exit_65(
     ):
         assert cli.main(["mc", "size", *argv]) == cli.EX_DATAERR, argv
         assert message in capsys.readouterr().err
+
+
+# --- review round 1 regressions (docs/reviews/m6-pr7-mc-sizing-review.md) -------------------------
+
+
+def _write_summary(path: Path, values: list[float]) -> Path:
+    path.mkdir()
+    n = len(values)
+    table = pa.table(
+        {
+            "run": pa.array(list(range(n)), pa.int64()),
+            "status": pa.array(["ok"] * n),
+            "error_type": pa.array([None] * n, pa.string()),
+            "x": pa.array(values, pa.float64()),
+        }
+    )
+    pq.write_table(table, path / montecarlo.SUMMARY)
+    return path
+
+
+def test_mc_sizing_g001_decimal_ties_are_not_exceedances(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    upper = mc_sizing.check_one(
+        _metric_batch([0.1] * 59), mc_sizing.PercentileClaim("x", 0.95, 0.1)
+    )
+    assert upper.estimate == 0.0
+    assert upper.verdict == "met"
+    lower = mc_sizing.check_one(
+        _metric_batch([0.3] * 59), mc_sizing.PercentileClaim("x", 0.95, 0.3, "lower")
+    )
+    assert lower.estimate == 0.0
+    assert lower.verdict == "met"
+    # A different double just above the written limit is an exceedance.
+    above = mc_sizing.check_one(
+        _metric_batch([0.30000000000000004] * 59), mc_sizing.PercentileClaim("x", 0.95, 0.3)
+    )
+    assert above.estimate == 1.0
+    batch = _write_summary(tmp_path / "ties", [0.1] * 59)
+    argv = ["mc", "size", "percentile", "--quantile", "0.95", "--metric", "x", "--limit", "0.1"]
+    assert cli.main([*argv, "--batch", str(batch)]) == 0
+    assert "verdict: met" in capsys.readouterr().out
+
+
+def test_mc_sizing_g002_a_constant_metric_has_no_std_interval(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    claim = mc_sizing.PrecisionClaim("std", 0.1, metric="x")
+    check = mc_sizing.check_one(_metric_batch([1.0] * 100), claim)
+    assert math.isnan(check.lower)
+    assert check.needed is None
+    assert any("constant" in note for note in check.notes)
+    assert math.isnan(mc_sizing.bonett_kurtosis(np.ones(100)))
+    rng = montecarlo.Rng(722)
+    values = [1.0] * 100 + _normal(rng, 20).tolist()
+    result = mc_sizing.convergence(_metric_batch(values), claim)
+    assert math.isnan(result.rows[99].lower)
+    assert not math.isnan(result.rows[-1].lower)
+    batch = _write_summary(tmp_path / "constant", [1.0] * 100)
+    argv = ["mc", "size", "precision", "--statistic", "std", "--metric", "x", "--tolerance", "0.1"]
+    assert cli.main([*argv, "--batch", str(batch)]) == 0
+    assert "the metric is constant" in capsys.readouterr().out
+
+
+def test_mc_sizing_g003_convergence_runs_no_sizing_search() -> None:
+    batch = _outcome_batch(1, 100)  # run 0 halts, 99 pass
+    claim = mc_sizing.ProbabilityClaim(".3334")
+    assert mc_sizing.check_one(batch, claim).needed == 8
+    result = mc_sizing.convergence(batch, claim)
+    assert all(row.needed is None for row in result.rows)
+    assert abs(result.rows[2].upper - _cp_less(1, 3)) <= 1e-12
+    assert result.rows[-1].verdict == "met"
+
+
+def test_mc_sizing_g004_claim_fields_are_typed(tmp_path: Path) -> None:
+    with pytest.raises(SizingError, match="relative"):
+        mc_sizing.PrecisionClaim("mean", 0.1, relative="false", metric="x")  # pyright: ignore[reportArgumentType]
+    with pytest.raises(SizingError, match="metric"):
+        mc_sizing.RankingClaim(3)  # pyright: ignore[reportArgumentType]
+    with pytest.raises(SizingError, match="criterion"):
+        mc_sizing.ProbabilityClaim(0.1, criterion=5)  # pyright: ignore[reportArgumentType]
+    path = tmp_path / "claims.yaml"
+    path.write_text(
+        'claims: [{precision: {statistic: mean, metric: x, tolerance: 0.1, relative: "false"}}]',
+        encoding="utf-8",
+    )
+    with pytest.raises(SizingError, match="relative"):
+        mc_sizing.load_claims(path)
