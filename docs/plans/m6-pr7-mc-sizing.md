@@ -1,349 +1,349 @@
-# M6 PR 7: Monte Carlo sizing, convergence, `astra mc size`, and R9's planted cause
+# M6 PR 7: Monte Carlo sizing options, their data modes, convergence and `astra mc size` (R9 follows as PR 7b)
 
-Spec: [M6 plan](m6-analysis-tooling.md), approved by Joe 2026-09-29: the PR 7 row of "PR decomposition", "Sizing and
-convergence" under "Contract and failure behavior", R9, R11, R12, R15's `mc size` case, Q9, Q10, Q14, Q15, and
+Spec: [M6 plan](m6-analysis-tooling.md), approved by Joe 2026-09-29, as amended by Joe on 2026-10-02 (the
+"Requirements change" below): "Sizing and convergence", R11, R12, R15's `mc size` case, Q10, Q14, Q15, and
 "Obligations carried to PR plans" (PR 7: C-08, C-09, N-04, from PR #78's per-finding notes); architecture §12's
-`astra.mc_sizing` and `astra.cli` bullets.
-Risk: **Tier 2** (Python feature and tests; no new dependency, since scipy 1.18.1 is pinned). Base: `origin/main`
-`7e65a85`. Worktree/branch: `m6-pr7-mc-sizing` (`claude --worktree`). Touches no `core/`, `plugins/`, `aircraft/`,
-`icd/`, `tests/golden/**`, tolerance file or ADR. Binding ADRs: 0025/0027 (batches and logs read through
-`astra.mc_analysis.load_batch` and `astra.log.load`), 0002 (SI), 0010 (`t = frame * dt`).
-Status: **approved by Joe with changes 1 to 7, 2026-10-02** (his message "Approve with these changes", folded in
-below and marked "Joe's change N"). R9's numbers (D1) and the run-count option stay open until the probe checkpoint. No Codex plan critique: the milestone plan was critiqued, and Q23 gives PR-level detail to this PR's review.
+`astra.mc_sizing` and `astra.cli` bullets. R9 and Q9 move to PR 7b (D11).
+Risk: **Tier 2** (a Python feature and tests; no new dependency, since scipy 1.18.1 is pinned). Base: `origin/main`
+`7e65a85`. Worktree/branch: `worktree-m6-pr7-mc-sizing`, draft PR #93. Touches no `core/`, `plugins/`, `aircraft/`,
+`icd/`, `tests/golden/**`, tolerance file or ADR. Binding ADRs: 0025/0027 (batches read through
+`astra.mc_analysis.load_batch`), 0002 (SI), 0010.
+Status: **revision 2, for one Codex plan critique and then Joe's approval.** Revision 1 was approved by Joe with
+changes 1 to 7 (his message of 2026-10-02). At the R9 checkpoint he then approved R9's numbers and changed the
+requirements. Nothing here is approved until he says so.
 
 ## Context
 
-PR 6 ranks which dispersed parameters drive a batch's outcome. Two things are still missing. First, a user can't size
-a batch before running it, or see whether its estimate has settled. Second, nothing shows the analysis finding a real
-cause in the real sim. This PR adds `astra.mc_sizing` (four sizing questions, plus convergence), the `astra mc size`
-subcommand, and R9, the end-to-end planted cause in the notional transport with its negative control. It also closes
-C-08, C-09 and N-04.
+The M6 plan's sizing answered four questions with closed formulas before a batch runs. Joe's change makes each one
+an *option* named for the claim it answers: **probability**, **percentile**, **precision** and **ranking**. Each
+gets two modes:
+- without a batch, today's formula gives the minimum N;
+- with a batch, the option judges its claim from the batch's own data and gives the N that would decide it.
+
+The protocol is that a pilot batch is a prefix of the final batch. The pilot sizes N; only the final batch gives the
+verdict. Convergence shows each option's statistic and its interval against the run count. R9, the planted cause,
+becomes the ranking option's end-to-end case, so it follows as PR 7b (D11).
+
+## Requirements change (Joe, 2026-10-02, verbatim in substance)
+
+1. **Without a batch:** the formula gives the minimum N (zero-failure, Wilks, Clopper-Pearson proportion, Fisher z).
+   R11's oracles stay.
+2. **With `--batch DIR`:** the option's verdict from the batch's own data (met / violated / undetermined, or
+   sufficient / not sufficient), and the N that would decide it.
+   - **probability:** exact one-sided Clopper-Pearson on a criterion; N from the observed rate with a stated producer
+     risk (Hanson & Beard).
+   - **percentile:** a distribution-free order-statistic bound on a metric against a limit; N likewise.
+   - **precision:** of a mean, a std (fourth-moment interval on log s², a bootstrap cross-check, disagreement
+     flagged), a percentile, a probability or a correlation, with a relative or absolute tolerance. N = n·(hw/tol)²
+     from the batch's own variance and kurtosis, with a stated minimum n for std on skewed outputs.
+   - **ranking:** the top driver, resolved by simultaneous intervals. The null claim is that every |ρ|'s upper bound
+     is below r_min, with Spearman variance 1.06/(n−3). N comes from the observed correlations.
+
+   Several options can be checked on one batch, and the result is one table PR 8's report can show.
+3. **Protocol:** the pilot is a prefix of the final batch (`run_seed(master, i)` does not depend on `runs`; test
+   it). The pilot sizes N, and only the final batch gives the verdict.
+4. **Convergence:** each option's statistic, with its interval, against n. This extends D7 beyond the failure
+   proportion.
+5. **Oracles for the data modes:** exact binomial and order-statistic values; empirical coverage over seeded normal
+   and skewed synthetic batches, with a binomial allowance (like R8); and known producer-risk cases.
+6. **R9 uses the ranking option.** The main batch claims "`cm_alpha_per_rad` is the top driver". The control claims
+   "no parameter with |ρ| ≥ 0.3". The pilot is a prefix of seed 707, and N comes from the tool. Say whether R9 stays
+   in this PR or follows.
+
+Also from the checkpoint, approved by Joe:
+- R9's numbers: uniform [−0.6, +0.6], 10 s, `max.v0.derived.alpha > 0.23`, minimum effect unchanged.
+- The main batch asserts no inert-parameter BH decision (only the control's "flags nothing").
+- The rewritten physics rationale and lesson (findings and probe evidence below).
 
 ## Repository findings (read at `7e65a85`)
 
-- **The pitching moment has a second α term.** `aero_math.hpp:140-150` sums `cm_alpha·α + cm_de·δe` and `cm_q·q`
-  about AERORP, then transfers to the CG with `r_aero_b × F`. `cruise.yaml` places AERORP at `(0.3556, 0, -1.6256)` m
-  in body axes, which is 0.36 m ahead of the CG and 1.63 m above it.
-  - Linear estimate at cruise (qbar ≈ 10.9 kPa, CL ≈ 0.31, c̄ = 3.752 m): the x offset adds about
-    `+cl_alpha·x/c̄ ≈ +0.41` per rad. The z offset adds about `-0.13` per rad.
-  - So the total static derivative about the CG is about `cm_alpha_per_rad + 0.28`. The neutral point is near
-    `cm_alpha_per_rad ≈ -0.28`, not at zero.
-  - With `cm_q` and `Z_α` (short-period constant term `Z_α M_q / V - M_α ≈ 0.29 - 2.24 Cm_α,total`, all in s⁻²), the
-    pitch divergence starts near `cm_alpha_per_rad ≈ -0.15`.
-  - The M6 plan's finding ("dispersed across zero, static stability is lost") is therefore loose. A range across zero
-    still crosses the boundary, as R9 requires. The probes measure the real boundary; this is a hand estimate only.
-- The aero model is linear with no stall and no α domain check (`aero.cpp`). A divergent run keeps flying with a large
-  α, and nothing halts it short of NaN or the atmosphere's altitude range.
-- **Inert parameters exist.** `croll_aileron_per_rad`, `croll_rudder_per_rad` and `cn_rudder_per_rad` multiply
-  `controls.aileron` and `controls.rudder`. Both are `0.0` in `cruise.yaml`'s `initial_controls`, and an open-loop run
-  without `trim` never writes them. So these three coefficients can't change any value, by construction.
-- `cruise.yaml` has a still-air trimmed state for `cm_alpha_per_rad = -0.6` and Dryden light turbulence with
-  `seed: 42`. The first gust is about 6.6 m/s vertical.
-- Logged per frame: `v0.derived.alpha` = `atan2(w_rel, u_rel)` with `v_rel_b = v_b - R_nb wind_n`
-  (`air_data.hpp:22`), `v0.derived.{u,v,w,phi,theta,psi}`, and `wind.{north,east,down}`. Together these allow an
-  independent recomputation of α. The summary's `max.v0.derived.alpha` comes from the logger's `/summary`.
-- `astra.montecarlo` draws each dispersion in spec order from one `Rng` stream. A spec whose last dispersion is removed
-  draws exactly the same values for the others. D3 relies on this.
-- `astra.mc_analysis` (PR 6) provides `load_batch`, `outcomes`, `ks_ranking`, `spearman_ranking` and `analyze`.
-  - Ranking order: p ascending, then |effect| descending, then spec order.
-  - `MIN_GROUP = 5`.
-  - A constant metric gives the stated result "the metric is constant".
-  - Seed dispersions are listed but never ranked.
-- `astra.cli` has a `_Parser` (a usage error exits 64), `_write`, and an `mc` group with `analyze` and `rerun`. Its
-  exit codes are 64, 65, 70 and 74.
-- **PyYAML.** `montecarlo` reads a spec and its config with `yaml.safe_load`, then `Config.from_dict`. PLAN.md's (M6)
-  open item lists the YAML 1.1 differences from yaml-cpp: `on`/`off`/`yes`/`no`, leading-zero integers, `1:30` and
-  `1_000`.
-- Gate cost: the last full gate summary (`ffee1d7`) shows pytest at 1326 passed in 80.6 s. The machine has 32 cores.
-  M5 measured 64 × 60 s cruise runs with logs of tens of MB each.
+- `python/astra/mc_sizing.py` is drafted in the worktree (not yet committed). It holds the formula mode:
+  - `zero_failure_runs`, `tolerance_runs` and `correlation_runs`;
+  - `clopper_pearson` for a real k by beta quantiles;
+  - `half_width_at`, `proportion_runs`, and a failure-proportion `convergence`.
+
+  Every R11 oracle is met: 299; 59 and 93; Wilks orders 2 and 3 at 93 and 124; two-sided order 2 at 153; 85 and
+  120; Clopper-Pearson against `binomtest` within 6e-17; the p0 = 0 closed form, 122. Joe's change-4 example also
+  holds: 632 runs, and the half-width at `round(n·p0)` exceeds 0.02 for n = 632 to 635. It is renamed and extended
+  per D1.
+- `astra.montecarlo.run_seed(master, index)` hashes only the master seed and the index, and `draw(spec, index)` reads
+  nothing from `spec.runs` (`montecarlo.py:260`, `:305`). So a pilot of P runs is exactly the first P rows of a batch
+  of N ≥ P runs with the same spec otherwise. The prefix test (D8) pins this.
+- `astra.mc_analysis` (PR 6) gives `load_batch`, `outcomes`, `metric`, `parameter_values`, `analyzed_rows` and
+  `CriterionError`. A batch's ranked parameters exclude seed dispersions, and a constant parameter leaves the family.
+- `astra.cli` has `_Parser` (64), `_write`, `_rate`, `_finite`, and the `mc` group with `analyze` and `rerun`.
+- Randomness: numpy is unpinned, so every resample and every synthetic draw uses `montecarlo.Rng`.
+- Hanson & Beard is not under `docs/refs/`. Its role here is the producer-risk definition, which D3 states in full so
+  that the oracle needs no outside source. If Joe wants the citation checked, he places the report under
+  `docs/refs/`.
+- **R9 physics (carried to PR 7b; corrected per Joe).**
+  - There is no divergence. AERORP sits 0.36 m ahead of and 1.63 m above the CG, and the transfer `r_aero_b × F` is
+    nonlinear in α.
+  - So the fixed-elevator `Cm(α)` about the CG has two roots: a stable one at high α and an unstable one below trim
+    α. Solved independently from `aero_math.hpp`'s assembly (q = 0, β = 0, elevator at the shipped trim):
+
+    | `cm_alpha_per_rad` | -0.6 | -0.3 | -0.1 | -0.03 | 0.0 | +0.03 | +0.2 | +0.6 |
+    |---|---|---|---|---|---|---|---|---|
+    | high root (rad) | 0.0236 | 0.0866 | 0.188 | 0.229 | 0.246 | 0.264 | 0.368 | 0.619 |
+    | low root (rad) | -0.184 | -0.049 | -0.022 | -0.018 | -0.017 | -0.016 | -0.011 | -0.007 |
+
+  - The low root stays below the trim α of 0.0236 across [−0.6, +0.6], so every excursion is nose-up.
+  - Maximum α approaches the high root. Its 0.23 rad crossing sits at `cm_alpha_per_rad` = −0.028 in the limit, and at
+    about +0.03 within 10 s (the sweep).
+
+## Probe evidence (scratch, nothing committed; no run used master seed 707)
+
+- **(a) Sweep.** 37 values of `cm_alpha_per_rad` from −1.2 to +0.6, × wind seeds {42, 1, 2, 3, 4}, 20 s each, from
+  `cruise.yaml`'s fixed state.
+  - Maximum α is monotone in `cm_alpha_per_rad` and plateaus near the static high root: at 10 s, 0.056 at −0.6, 0.22
+    at 0.0 and 0.62 at +0.6; at +0.6 the 20 s value equals the 10 s one.
+  - Minimum α is never below −0.006 rad, so every excursion is nose-up.
+  - The seed spread is about ±0.01. There were no halts and no errors.
+  - At 10 s, 0.23 rad is crossed for `cm_alpha_per_rad` ≳ +0.03.
+- **(b)** α recomputed from `v0.derived.{u,w,phi,theta,psi}` and `wind.*` agrees with the logged α to 2.4e-15 rad.
+  The summary's `max` equals the log column's maximum exactly, in all 185 runs. α stays below π, but the comparison
+  keeps the (−π, π] wrap (Joe's change 5).
+- **(c)** `cruise.yaml` read through `yaml.safe_load` + `Config.from_dict` and through yaml-cpp gives equal
+  rate-group data over 1000 frames.
+- **(d) Stand-in batches** (master seed 7070, range [−0.6, +0.6], 10 s, threshold 0.23):
+
+  | batch | wall | disk | fail/pass | KS cause D, p | best inert D | Spearman cause ρ | best inert ρ |
+  |---|---|---|---|---|---|---|---|
+  | planted 40 | 1.5 s | 225 MB | 18/22 | 1.0, 1.8e-11 | 0.33 | 0.995 | 0.16 |
+  | planted 120 | 1.5 s | 673 MB | 59/61 | 1.0, 2.1e-35 | 0.22 | 0.997 | 0.17 |
+
+  - Both controls: KS gives "too few runs" (no failures). Spearman runs on a non-constant metric (40 and 120 distinct
+    values) and rejects nothing.
+  - A log takes 5.6 MB per 10 s run, and the time is dominated by spawning workers.
+- **(e) By-chance flags, simulated** (400,000 draws, cross-checked with the module's BH on 20,000):
+  - in the main batch, the chance that an inert parameter is rejected beside the cause is 7.4 % per family;
+  - in the control, the chance that BH rejects any of the three nulls is 5.0 %.
+
+  Joe dropped the main-batch assertion, so R9's by-chance failure is about 5 %.
 
 ## Decisions
 
-Approving the plan approves D2 to D9. Joe decides D1 at the probe checkpoint.
+- **D1: options and names.** These are module functions and `astra mc size <option>`. The formula mode of each:
 
-- **D1 (Joe, at the checkpoint): R9's numbers.** These are provisional, from the linear estimate above. The probes
-  (Verification 2) confirm them or replace them, and they come back to Joe with evidence before the R9 batch is ever
-  run.
-  - `cm_alpha_per_rad`: `uniform [-0.8, +0.4]`. This crosses zero and the estimated boundary of about -0.15, with
-    about 45 % of draws on the divergent side.
-  - **Duration: 10 s.** At `cm_alpha_per_rad = +0.2` the divergent root is about 0.5 s⁻¹, an e-folding time of about
-    2 s. The phugoid (period about 100 s) is not reached, so speed and altitude stay near cruise.
-  - **Threshold: max α > 0.23 rad.** That is the end of the lift curve this config transcribes (`cl_alpha_per_rad` is
-    the secant from (0, 0.20) to (0.23 rad, 1.20)). Above it the model is extrapolating. The criterion is
-    `max.v0.derived.alpha > 0.23`.
-  - **Minimum effect, stated before the run:**
-    - KS `D ≥ 0.5`.
-    - Spearman `rho ≥ +0.5`. The expected direction is positive: a less stable airframe reaches a higher maximum α.
-    - Strict margin: rank 1's p is strictly below rank 2's, and its |effect| exceeds rank 2's by at least 0.25.
-    - `cm_alpha_per_rad` is rejected by BH at q = 0.05, and no inert parameter is rejected.
-  - **Run count (Joe's change 1): two options go to the checkpoint, each with its gate cost.** m is the number of
-    ranked parameters derived from the spec (its non-`seed` dispersions), never a literal 4.
-    - Size at the stated minimum, r = 0.5: `correlation_runs(0.5, m) = 40` per batch at m = 4. The "at least 20
-      failing and 20 passing" allowance is lowered to fit (proposed: at least 8 of each, above `MIN_GROUP = 5`).
-    - Or keep r = 0.3 (120 per batch), with a stated reason why the sizing effect sits below the asserted minimum (for
-      example, margin for the ranking and KS power, which Fisher z does not size).
-    - KS power and ranking power are argued separately (C-08), and the probes check both. With about 54 failing and
-      66 passing runs, KS's critical D at α/m = 0.0125 is about 0.30, against an expected D near 0.9. The 40-run case
-      gets the same calculation at the checkpoint.
-  - **False-positive chance, stated before the run (Joe's change 7).** BH at q = 0.05 controls the family's error
-    under independence, so a true null can still be flagged by chance:
-    - in the control (three true nulls, global null), the chance that any is rejected is about q, so 5 %;
-    - in the main batch (one true cause rejected first, three nulls), a null is rejected roughly when its p falls
-      below about 2q/4 = 0.025, so the chance is about 7 to 8 %. The build computes the exact figure by simulation
-      before the run, and the PR body states it.
+  | option | claim | formula mode (R11) |
+  |---|---|---|
+  | `probability` | P(fail) < p_max | zero-failure: `probability_runs(p_max, C)` (299 at 0.01/0.95) |
+  | `percentile` | the γ-quantile of a metric is below (or above) a limit | Wilks: `percentile_runs(γ, C, two_sided, order)` |
+  | `precision` | a statistic is known within a tolerance | Clopper-Pearson proportion: `precision_runs(p0, h, C)` (D4 of revision 1, kept: real k = n·p0, and the change-4 caveat) |
+  | `ranking` | a top driver is resolved, or no parameter reaches r_min | Fisher z with Bonferroni: `ranking_runs(r, m, α, power)` (85, 120; signed r, N-04) |
 
-    A failure of "no inert parameter rejected" at seed 707 is read against that chance: it is reported as such, not
-    as a broken method, and never reseeded.
-  - **Master seed: 707**, fixed now. The R9 batch is never run before Joe approves the numbers, and a failure is
-    reported, never reseeded.
-  - **Population and allowances:**
-    - every one of the 120 rows is analyzed (zero `error` rows allowed: no draw can raise, since these coefficients
-      are unvalidated and there is no trim);
-    - at least 20 failing and 20 passing runs at 120 runs, or the lowered allowance at 40 (change 1);
-    - halts are expected to be zero (a halted run's maximum covers only the frames it ran). The probes confirm this.
-- **D2: one fixed trimmed state, no per-run trim.** Every run starts from `cruise.yaml`'s state, the still-air trim for
-  `cm_alpha_per_rad = -0.6`.
-  - Any other draw starts with a pitching-moment imbalance of `(cm_alpha + 0.6)·α_trim`. For draws above -0.6 that
-    imbalance is nose-up, so every divergent run diverges nose-up. Maximum α is then the right one-sided metric, and
-    the direction (`rho > 0`) is predictable.
-  - Per-run trim would leave the direction of divergence to each run's turbulence. Roughly half the divergent runs
-    would go nose-down, and maximum α would miss them.
-  - The cause is still `cm_alpha_per_rad` alone. It contributes through both the imbalance and the loss of stability,
-    and R9 tests the analysis, not a flight-dynamics claim.
-- **D3: the dispersions, in spec order.**
-  1. `croll_aileron_per_rad`, `croll_rudder_per_rad` and `cn_rudder_per_rad`, each uniform over ±50 % of its config
-     value. All three are inert by construction (findings).
-  2. `physical.wind.seed: seed`.
-  3. `cm_alpha_per_rad`, **last**.
+  The revision 1 domain checks, assumption lines and refusals stay (C-09: the Wilks convention, the Clopper-Pearson
+  objective, Fisher z's limits for Spearman, and that it does not size PRCC or KS).
+- **D2: one verdict shape.**
+  - Every data-mode check returns a `Check`: option, claim text, n analyzed, n of `error` rows, the statistic, its
+    interval, the verdict, `needed` (the N that would decide it, or `None` with a reason), and notes (flags).
+  - Verdicts are `met`, `violated` or `undetermined` for probability, percentile and ranking-null, and `resolved` or
+    `unresolved` for ranking-top. Precision gives `sufficient` or `not sufficient`.
+  - `error` rows are excluded and counted, as in `astra.mc_analysis`.
+  - `check(batch, claims) -> Table` checks several claims on one batch. `Table.text()` is deterministic, and
+    `Table.rows` is what PR 8's report renders.
+  - A claims file (YAML, a closed map, read through `yaml.safe_load` like every spec) lists the claims for the CLI.
+- **D3: probability (data mode).**
+  - The claim is that the failure probability under a criterion (`astra.mc_analysis`'s grammar, default
+    `status == halt`) is below `p_max`, at confidence C.
+  - With k failures in n analyzed rows: one-sided exact Clopper-Pearson bounds `U = beta.ppf(C, k+1, n−k)` (1 at
+    k = n) and `L = beta.ppf(1−C, k, n−k+1)` (0 at k = 0).
+  - Verdict: `met` if U < p_max; `violated` if L ≥ p_max; otherwise `undetermined`.
+  - **Producer risk (stated here, after Hanson & Beard).**
+    - The producer risk β is the chance that a system whose true rate is the observed p̂ = k/n fails to be shown
+      `met` by a batch of N runs.
+    - `needed` is the smallest N with `P(Binomial(N, p̂) ≤ k*(N)) ≥ 1 − β`, where `k*(N)` is the largest count with
+      `U(k*, N) < p_max`.
+    - p̂ = 0 gives the zero-failure N. p̂ ≥ p_max gives `None` ("the observed rate is not below p_max").
+    - Default β = 0.10, which is a choice for Joe.
+    - The objective is a sawtooth in N, so the result is the smallest N, and the docstring says a larger N can fall
+      below 1 − β again.
+- **D4: percentile (data mode).**
+  - The claim is that the γ-quantile of a metric column is below a limit L (`side=upper`), or above it
+    (`side=lower`), at confidence C.
+  - Distribution-free: the upper confidence bound is the order statistic `X_(r)`, with r the smallest index such that
+    `P(Binomial(n, γ) ≤ r−1) ≥ C`. The lower bound is symmetric.
+  - Verdict: `met` if the bound lies on the claimed side of L; `violated` if the opposite one-sided bound lies beyond
+    L; `undetermined` otherwise, including when n is below the Wilks minimum, so that no such r exists.
+  - That verdict is exactly the probability option on the exceedance event `metric ≥ L` with `p_max = 1 − γ` (side
+    upper; mirrored for lower). A tie with L counts as an exceedance (conservative).
+  - So `needed` reuses D3's producer-risk N on the exceedance count. A test checks the equivalence on random data
+    (D8).
+- **D5: precision (data mode).** Each statistic has a two-sided interval at C, and the half-width hw is the larger
+  distance from the estimate. The verdict is `sufficient` iff hw ≤ tol, where tol is absolute or relative
+  (`tol·|estimate|`; refused at an estimate of 0).
+  - **mean:** the t interval. `needed = ceil(n·(hw/tol)²)`.
+  - **std:**
+    - Interval: `s·exp(±z·se/2)` with `se² = (κ̂ − (n−3)/n)/(n−1)`, the fourth-moment variance of log s², with κ̂
+      the sample kurtosis (non-excess).
+    - Cross-check: a percentile bootstrap (B = 2000, indices from `montecarlo.Rng(0)`). If the two half-widths differ
+      by more than 25 %, the check is flagged `bootstrap disagrees` and keeps the analytic verdict.
+    - Stated minimum: n ≥ 30, and n ≥ 100 when the sample's |skewness| > 1. Below it the result is `undetermined`
+      (`too few runs for a std on a skewed output`).
+    - `needed = ceil(n·(hw/tol)²)`, and the minimum still applies.
+  - **percentile:** the distribution-free two-sided order-statistic interval for the γ-quantile, with the estimate
+    `X_(ceil(nγ))`. `needed = ceil(n·(hw/tol)²)`. When n is too small for any interval at C, the result is
+    `undetermined`.
+  - **probability:** the two-sided Clopper-Pearson interval on a criterion. `needed = precision_runs(p̂, tol, C)`, the
+    exact search rather than the scaling law, because the binomial is skewed at a small p̂.
+  - **correlation:** Spearman ρ of a parameter against a metric. The interval is Fisher z with variance
+    `1.06/(n−3)` (Fieller, Hartley and Pearson). `needed` is the smallest n whose interval at the observed ρ has
+    hw ≤ tol (a search).
+  - The scaling law assumes the batch's variance and kurtosis hold at N. That is stated, and it is why only the final
+    batch gives the verdict.
+- **D6: ranking (data mode).** The metric is a numeric summary column, and the parameters are the batch's ranked
+  ones (seeds and constants excluded), m of them.
+  - Simultaneous intervals: `tanh(atanh(ρ̂_j) ± c·sqrt(1.06/(n−3)))` with `c = z_{1−α/(2m)}`, α = 1 − C.
+  - |ρ| bounds: the lower is 0 when the interval spans 0, else the smaller absolute end; the upper is the larger
+    absolute end. A |ρ̂| of 1 gives the degenerate interval [±1, ±1].
+  - **top:** `resolved` iff the largest |ρ̂|'s lower |ρ| bound exceeds every other parameter's upper bound. `needed`
+    is the smallest n for which that holds at the observed ρ̂ (a search), or `None` when the two largest |ρ̂| tie.
+  - **null(r_min):**
+    - `met` iff every upper |ρ| bound < r_min; `violated` iff some lower bound ≥ r_min; `undetermined` otherwise.
+    - `needed` is the smallest n with every upper bound < r_min at the observed ρ̂, or `None` when some |ρ̂| ≥ r_min.
+    - This N is very sensitive to the pilot's largest |ρ̂|. At r_min = 0.3, m = 3 and C = 0.95, it is 142 at 0.10,
+      536 at 0.20 and 2079 at 0.25, so D11 sizes R9's pilot with this in mind.
+- **D7: convergence.**
+  - `convergence(batch, claim) -> Convergence` evaluates the claim's statistic and interval at every prefix of the
+    batch's rows in run order: per parameter for ranking, the bound for percentile and probability, the interval for
+    precision.
+  - Prefixes with no analyzed row, or below the claim's minimum, give NaN.
+  - The bootstrap is not run per prefix (stated).
+  - `Convergence.text(every)` prints every K-th prefix plus the last.
+- **D8: protocol.** The docstring and the CLI help describe it:
+  1. Run a pilot of P runs.
+  2. Size it with `--batch` (`needed`).
+  3. Rerun the same spec with `runs: N` and the same master seed. The pilot's runs are its first P runs, so nothing
+     is wasted.
+  4. Take the verdict from the final batch only.
 
-  - The negative control is the same spec with the last dispersion removed, so `cm_alpha_per_rad` stays at -0.6.
-    Because the others are drawn first, the control's runs have **the same inert draws and wind seeds** as the main
-    batch: the same batch, with only the cause removed.
-  - The wind seed makes the control's maximum α vary from run to run, so its Spearman test is a real null test of
-    three parameters against a non-constant metric. Without it, the test would pass vacuously on a constant metric.
-  - The control's KS is expected to give the stated "too few runs" result (no stable run reaches 0.23 rad). The plan
-    says so rather than counting it as evidence.
-  - Putting `cm_alpha_per_rad` last also puts it last in the tie order, the hardest place to rank first from.
-- **D4: Clopper-Pearson and its sizing (C-09).**
-  - `clopper_pearson(k, n, confidence)` takes its bounds from beta quantiles:
-    `L = beta.ppf((1-C)/2, k, n-k+1)` (0 at k = 0) and `U = beta.ppf((1+C)/2, k+1, n-k)` (1 at k = n).
-  - The sizing objective is `half_width(n) = max(U - p̂, p̂ - L)` with `k = n·p0`, a real value. The half-width is the
-    larger distance from the estimate, so the estimate is within h on both sides.
-  - The beta quantiles accept a real k. That makes the objective smooth in n, and it equals the exact interval whenever
-    `n·p0` is an integer. Rounding k would make it a sawtooth, where a larger n can fail again.
-  - **What it does not promise (Joe's change 4).** n is sized at the expected count `n·p0`. The interval at an
-    observed integer k can still exceed h. For example, p0 = 0.05 and h = 0.02 give n = 632, and at k =
-    `round(n·p0)` the half-width exceeds h for n = 632 to 635. The docstring and the CLI's assumption line say so, and
-    a test shows it.
-  - `proportion_runs(p0, h, C)` returns the smallest n with `half_width(n) ≤ h`. The search evaluates n in doubling
-    vectorized chunks up to a cap of 10⁷, and refuses beyond the cap. Domain: `p0 ∈ [0, 1]`, `h ∈ (0, 0.5)`,
-    `C ∈ (0, 1)`.
-- **D5: Wilks convention (C-09).**
-  - `tolerance_runs(coverage γ, confidence C, two_sided=False, order k=1)` returns the smallest n with
-    `P(Binomial(n, 1-γ) ≥ k·(2 if two_sided else 1)) ≥ C`.
-  - Equivalently, the k-th largest sample (one-sided), or the k-th smallest and k-th largest (two-sided), bounds a γ
-    fraction of the population with confidence C (distribution-free, continuous outcome).
-  - First order (k = 1) is the sample extremes.
-  - `zero_failure_runs(p, C)` = `ceil(ln(1-C)/ln(1-p))`, adjusted by one step until `(1-p)^n ≤ 1-C < (1-p)^(n-1)`
-    holds through `log1p`, so a ceiling never lands one off on rounding. It is the same question as one-sided
-    first-order Wilks at γ = 1 - p, and a test checks that they agree.
-- **D6: Fisher z, signed r (N-04, C-09).**
-  - `correlation_runs(r, parameters m, alpha=0.05, power=0.8)` =
-    `ceil(((z_{1-α/(2m)} + z_{power}) / atanh(|r|))² + 3)`.
-  - r is signed and only |r| enters, so ±r size equally. `r = 0`, `|r| ≥ 1`, a non-finite value, a bool, and `m < 1`
-    or a non-integer m are refused.
-  - The docstring and the CLI line state the limits:
-    - Fisher z is exact asymptotically for Pearson's r under bivariate normality.
-    - Applied to Spearman's rho it is an approximation. Spearman's z variance is nearer `1.06/(n-3)` (Fieller,
-      Hartley and Pearson), so it can undersize slightly.
-    - Bonferroni over m is conservative in m.
-    - It does not size PRCC, KS or the ranking.
-- **D7: convergence (R12).**
-  - `convergence(batch, criterion=None, confidence=0.95)` uses PR 6's `outcomes` and the default criterion
-    `status == halt`.
-  - For each prefix length j = 1..N of the summary's rows in run order, it reports `n_j` (the analyzed rows),
-    `k_j` (the failures), `errors_j`, the estimate `k_j/n_j`, and the Clopper-Pearson `[L, U]`.
-  - A prefix with no analyzed row gives NaN for all three.
-  - Only the failure proportion is reported. Metric convergence and a convergence figure are held out (PR 8 may draw
-    one).
-- **D8: CLI, `astra mc size <question>`.** Each question prints the run count, the inputs, and one line naming the
-  method and its assumption.
-  - The questions:
-    - `zero-failure --p P [--confidence C]`
-    - `tolerance --coverage G [--confidence C] [--two-sided] [--order K]`
-    - `proportion --p P0 --half-width H [--confidence C]`
-    - `correlation --r R --parameters M [--alpha A] [--power P]`
-    - `convergence BATCH [--criterion EXPR] [--confidence C] [--every K]`, which prints the rows at multiples of K
-      (default 10) plus the last row.
-  - Defaults: C = 0.95, α = 0.05, power = 0.8.
-  - Exit codes:
-    - 64: a usage error, including a value outside its domain (PR 6's `--q 1.5` precedent);
-    - 65: a refused batch or criterion;
-    - 74: a failed stdout write;
-    - 70: an internal error;
-    - 0: success.
-- **D9: gate time (Q15).**
-  - The probes time a stand-in batch the same size as R9's (same n and duration, master seed 7070 instead of 707),
-    plus its control, and record the wall time and disk use.
-  - After the build, the PR records the added pytest time from `--durations` and the full gate's total against
-    `ffee1d7`'s.
-  - If the two batches add more than 60 s to the full gate, Joe chooses at the checkpoint: keep them in `just check`,
-    or make them opt-in like the benchmark. Shortening below R11 (d)'s run count is not an option.
-  - **Disk (Joe's change 2).** The probes and the R9 fixture record the peak disk use of both batches. The
-    session-scoped fixture removes both batch directories with a finalizer that also runs when building or a test
-    fails (M5 PR 7 amendment 1's pattern).
-  - Making R9 opt-in removes neither R12's gate-run case nor R15's `convergence` CLI case, because both also run on
-    PR 6's small `descent_batch.yaml` (change 3).
+  Reusing the pilot's runs inside the final batch makes this a two-stage (internal-pilot) design, whose small effect
+  on the stated confidence is not corrected; this is said, not hidden.
+- **D9: CLI.** `astra mc size <option> [formula args]` keeps the formula mode, and adds
+  `astra mc size <option> --batch DIR [claim args] [--convergence [--every K]]` and
+  `astra mc size check DIR CLAIMS.yaml`.
+  - The claim args per option:
+    - probability: `--p-max P --criterion EXPR --producer-risk B`;
+    - percentile: `--metric COL --quantile G --limit L --side upper|lower`;
+    - precision: `--statistic ... --metric COL | --criterion EXPR | --parameter NAME`, `--tolerance T [--relative]`,
+      `--quantile G`;
+    - ranking: `--metric COL --top | --null R_MIN`;
+    - every option: `--confidence C`.
+  - Exit codes: 64 usage (a value outside its domain included); 65 a refused batch, criterion, metric or claims file;
+    74 a failed stdout write; 70 an internal error; 0 printed. A `violated` or `unresolved` verdict is a result, not
+    an error, so it exits 0.
+- **D10: gate time and disk.** Everything in this PR is synthetic or uses PR 6's 24-run descent batch, so it adds
+  seconds. The coverage tests' cost is measured and recorded. R9's disk belongs to PR 7b.
+- **D11: R9 follows as PR 7b.** This PR's surface (four data modes, the coverage oracles, the CLI) is large enough for
+  one review. R9 is the ranking option's end-to-end case and should be built against its reviewed interface. The probe
+  evidence above carries over. PR 7b's plan:
+  - **Pilot.** P = `ranking_runs(0.3, m)` = 120 (the formula mode sizing the pilot). At 40 runs the chance that some
+    null reaches |ρ̂| ≥ 0.3, so that no N exists, is 17 %. At 120 it is 0.3 %, and the typical largest |ρ̂| is 0.13,
+    which gives N ≈ 200.
+  - **Sizing.** N = max(the main batch's top-driver `needed`, the control's null `needed`, P). Both batches use N so
+    that they stay paired.
+  - **Disk.** 5.6 MB per run, so N = 200 is 2.2 GB at peak. If `needed` would exceed a 4 GB peak (N > 350), PR 7b
+    stops and asks Joe before running.
+  - **Assertions.** It also keeps M6 R9's KS, Spearman and BH assertions on the final batch, as approved.
 
-## Interface
+## Interface (`python/astra/mc_sizing.py`)
 
-`python/astra/mc_sizing.py` (new):
-- `SizingError(ValueError)`, whose message names the argument.
-- `zero_failure_runs`, `tolerance_runs`, `clopper_pearson`, `half_width`, `proportion_runs`, `correlation_runs`.
-- `Convergence` (frozen): `criterion`, `confidence`, `runs`, `n`, `k`, `errors`, `estimate`, `lower`, `upper`.
-- `convergence(batch, criterion=None, confidence=0.95)`, plus `Convergence.text(every)`.
+- **Formula mode:** `probability_runs`, `percentile_runs`, `precision_runs` and `ranking_runs` (D1), plus
+  `clopper_pearson`, `half_width_at` and `percentile_confidence`.
+- **Claims:** `ProbabilityClaim`, `PercentileClaim`, `PrecisionClaim` and `RankingClaim` (frozen, validated at
+  construction, `SizingError` naming the field), and `load_claims(path)`.
+- **Results:** `Check`, `Table`, `check(batch, claims)`, `check_one(batch, claim)`, and `convergence(batch, claim)`
+  returning a `Convergence`.
 
-`cli.py` gains the `size` group under `mc`, with one parser per question, and its docstring.
+## Tests (`tests/python/test_mc_sizing.py`; acceptance `.venv/bin/pytest tests/python -k mc_sizing`)
 
-## Tests
-
-Acceptance is `.venv/bin/pytest tests/python -k 'mc_sizing or planted'`. Every test name contains `mc_sizing` or
-`planted`.
-
-**`tests/python/test_mc_sizing.py`, every test named `test_mc_sizing_*`.**
-- **R11 (a).**
-  - p = 0.01, C = 0.95 gives 299.
-  - On a grid of (p, C), each n meets its bound and n - 1 does not, computed directly.
-  - It equals `tolerance_runs(1-p, C)`.
-  - Refusals: p or C at 0 or 1, NaN, or a bool.
-- **R11 (b).**
-  - 95/95: 59 one-sided and 93 two-sided.
-  - Higher orders against published Wilks tables: one-sided 93 at k = 2 and 124 at k = 3; two-sided 153 at k = 2.
-  - Each n meets its bound and n - 1 does not, through the closed forms `1 - γⁿ` and
-    `1 - γⁿ - n(1-γ)γⁿ⁻¹` for first order.
-- **R11 (c).**
-  - Intervals for (n, k) = (100, 0), (100, 5), (299, 0) and (1000, 20) equal
-    `binomtest(k, n).proportion_ci(confidence_level=C, method="exact")` to 1e-12 absolute (two scipy routes, last
-    bits). A seeded grid of (n, k) does the same.
-  - The sizing at p0 = 0 has a closed-form oracle: `U = 1 - ((1-C)/2)^(1/n)`, so
-    `n = ceil(ln((1-C)/2)/ln(1-h))`. For example, h = 0.03 and C = 0.95 give 122.
-  - On a p0 grid, the half-width doesn't increase with n, and the returned n meets h while n - 1 does not.
-  - Change 4: p0 = 0.05 and h = 0.02 give 632, and the exact interval at k = `round(n·p0)` exceeds h for each n in
-    632..635 (checked through `binomtest`).
-  - Refusals, and a cap that is refused naming it.
-- **R11 (d).**
-  - r = 0.3, α = 0.05, power 0.8 gives 85 at m = 1 (Cohen's table) and 120 at m = 4.
-  - For m = 1..10, the n equals a recomputation through `statistics.NormalDist().inv_cdf` and `math.atanh`, which is
-    stdlib and independent of scipy.
-  - n never decreases as m grows; -0.3 gives the same n as 0.3; 0, ±1, 1.5 and NaN are refused.
-- **R12** (Joe's change 3).
-  - On a synthetic batch (`from_columns`) with interleaved `error` rows, every prefix's n, k, errors, estimate and
-    interval equal a direct count plus `binomtest`'s exact interval for that prefix.
-  - Gate-run on a small real batch: PR 6's `descent_batch.yaml` (24 runs of 0.5 s, with `ok`, `halt` and `error`
-    rows), under its default `status == halt`, which there gives a nonzero k. The batch is built once per session in
-    this module and removed by the same finalizer pattern.
-  - On R9's batch, under **R9's criterion** `max.v0.derived.alpha > A`, not the default (which gives k = 0
-    throughout), as `test_mc_sizing_r12_convergence_on_the_planted_batch`.
+Every test is named `test_mc_sizing_*`. Expected values come from scipy's `binomtest`/`binom`, stdlib
+`statistics.NormalDist`, closed forms, or brute force in the test, never from the module.
+- **R11 (formula mode):** revision 1's oracles, unchanged (299; 59/93/124/153; 85/120 with ±r and the refusals;
+  Clopper-Pearson against `binomtest`; 122; the change-4 test, 632 and 632..635).
+- **R11b, exact data-mode values.**
+  - Probability on hand-built batches: (n, k) = (299, 0) and p_max 0.01 is `met` (U < 0.01); (100, 5) and p_max 0.01
+    is `violated`; (100, 1) and p_max 0.03 is `undetermined`. Each check compares against `binomtest(k, n,
+    alternative=...)`'s one-sided exact bounds.
+  - Percentile: on seeded data, `X_(r)` and r equal a brute-force search over `binom.cdf`. The D4 equivalence with
+    the exceedance count holds on 200 seeded cases, ties included.
+- **R11c, producer risk.**
+  - The limit p̂ = 0 gives the zero-failure N (299).
+  - For four (p_max, C, p̂, β) cases, `needed` equals a brute-force scan of N that finds `k*` with
+    `binomtest(alternative="less")` and the probability with `binom.cdf`.
+  - p̂ ≥ p_max gives `None` with its reason.
+- **R11d, coverage (Joe's item 5).**
+  - K = 400 seeded synthetic batches per case (`montecarlo.Rng`), in a normal case and in a skewed case (exponential,
+    `-ln u`; skewness 2).
+  - The intervals: probability's one-sided Clopper-Pearson, percentile's order-statistic bound, and precision's mean
+    t, std (log s², at the stated minimum n), percentile, probability and correlation (bivariate normal with known
+    ρ, population Spearman `(6/π)·asin(ρ/2)`).
+  - Ranking's simultaneous coverage across m = 4 counts as a family.
+  - Each count of covering batches must be at least `binom.ppf(0.01, K, C)`.
+  - Any shortfall is a build finding that goes to Joe, never a loosened allowance.
+- **R11e, verdict logic.** Constructed batches give each verdict for each option: top resolved and unresolved, the
+  tie with `None`, and null met, violated and undetermined; std below its minimum and the bootstrap-disagreement
+  flag; relative tolerance at an estimate of 0 refused.
+- **R12, convergence.** For one claim of each option, on a synthetic batch with interleaved `error` rows and on the
+  descent batch, every prefix's statistic and interval equal a direct computation on that prefix.
+- **D8, prefix.**
+  - `draw(spec with runs=24, i) == draw(spec with runs=8, i)` for i < 8.
+  - The descent spec run with `runs: 8` gives summary rows equal to the first 8 of the 24-run batch, with logs
+    byte-identical.
 - **R15 (`mc size`).**
-  - Each question's minimal case exits 0 and prints the expected n (299, 59, 122, 120) and the assumption line.
-  - `convergence` on the descent batch exits 0 (change 3).
-  - A missing option, an unknown option, `--p 1.5` and `--r 0` exit 64.
-  - A missing or non-batch directory and a bad criterion exit 65.
-
-**`tests/python/test_mc_planted.py`, every test named `test_mc_planted_*`.** Fixtures:
-`tests/python/mc_planted_fixtures/planted.yaml` and `planted_control.yaml`, over `cruise.yaml` as shipped. Both
-batches are built once per session into `tmp_path_factory`.
-- **PyYAML route.**
-  - The base config read through `montecarlo.load` (that is, `yaml.safe_load` then `Config.from_dict`) and through
-    `Config.from_file` runs 1000 frames to equal rate-group data, compared exactly with `log.load`. The files differ
-    only in the stored config text, so file bytes are not compared.
-  - The spec's parsed values equal their intended literals.
-  - A token scan of both files finds none of the open item's YAML 1.1 forms, nor an unsigned exponent such as `1.0e3`,
-    which PyYAML reads as a string (lesson 2026-09-28; Joe's change 6).
-  - This doesn't close PLAN.md's open item.
-- **Inertness (D3).**
-  - Two short runs that differ only in the three inert coefficients give exactly equal rate-group data.
-  - This proves by test that the null family is null.
-- **Sizing link.** `spec.runs == mc_sizing.correlation_runs(r, m)`, with r as decided at the checkpoint and m counted
-  from the spec's non-`seed` dispersions (change 1).
-- **Cleanup (change 2).** Both batch directories are removed by a finalizer that runs on failure too.
-- **Population (C-08).** The D1 counts and allowances: errors, failing and passing runs, halts, and that the four
-  ranked parameters are exactly the expected ones, with the seed listed.
-- **The metric, recomputed (C-08).**
-  - Per run, the summary's `max.v0.derived.alpha` equals the numpy maximum of the log's alpha column exactly.
-  - At every frame, α recomputed from the logged `u, v, w`, the 3-2-1 Euler angles and `wind.*` (rotation and `atan2`
-    in the test) matches the logged α to 1e-9 rad. The difference is wrapped to (-π, π] before it is compared,
-    because divergent runs pass ±π within 10 s (Joe's change 5). The probes confirm this bound before it is fixed.
-- **KS.** The planted parameter ranks first under criterion `max.v0.derived.alpha > A` with D1's minimum, margin and
-  BH conditions.
-- **Spearman.** The planted parameter ranks first against `max.v0.derived.alpha` with `rho > 0`, the minimum, the
-  margin, and BH.
-- **Negative control.**
-  - The same three inert parameters (m = 3) and the same wind seeds (checked against the main batch's columns).
-  - The metric is not constant: at least 100 distinct values.
-  - Spearman's status is `ok` and no parameter is rejected.
-  - KS gives its stated "too few" result or rejects nothing.
+  - Each option's formula mode prints the expected N and the assumption line, and exits 0.
+  - Each data mode on the descent batch exits 0 and prints its verdict and N.
+  - `check` with a claims file prints one table, and `--convergence` prints prefixes.
+  - A missing or unknown option, an out-of-domain value, `--top` with `--null`, or a data argument without
+    `--batch` exits 64.
+  - A missing batch, a bad criterion or metric, or a claims file with an unknown key exits 65.
+- The descent batch is built once per module, and a finalizer removes it, failures included (Joe's change 2).
 
 ## Files
 
-- New: `python/astra/mc_sizing.py`, `tests/python/test_mc_sizing.py`, `tests/python/test_mc_planted.py` and
-  `tests/python/mc_planted_fixtures/` (two specs).
-- Changed: `python/astra/cli.py` (`mc size` and its docstring).
-- Docs (the `/wrap` docs step, branch scope):
-  - architecture §12 (`astra.mc_sizing` moves from *planned* to built; the CLI bullet gains `mc size`);
-  - `README.md` (CLI bullet and a short "Size a batch" how-to);
-  - `PLAN.md` (the PR 7 line);
-  - `docs/future-work.md`'s sizing line;
-  - `docs/lessons.md` (the neutral point is not at `cm_alpha = 0`, so read the moment transfer);
-  - STATE.md;
-  - this plan, as `docs/plans/m6-pr7-mc-sizing.md`;
-  - the review record and gate evidence.
-- Not touched: `core/`, `plugins/`, `aircraft/` (`cruise.yaml` is used as shipped), goldens, tolerances, ADRs and
-  `astra.mc_analysis`.
+- **New:** `python/astra/mc_sizing.py`, `tests/python/test_mc_sizing.py`, and
+  `tests/python/mc_sizing_fixtures/claims.yaml`.
+- **Changed:** `python/astra/cli.py` (`mc size` and the docstring), and `tests/python/test_montecarlo.py` (the prefix
+  test, if it fits better there; named `test_mc_sizing_*` either way).
+- **Docs** (the `/wrap` docs step, branch scope):
+  - architecture §12 (`astra.mc_sizing` built, with the four options and data modes; the CLI bullet);
+  - the M6 plan, with an amendment note recording Joe's requirements change against "Sizing and convergence", R11,
+    R12, and R9's move to PR 7b. A note only: his decision, recorded, without rewriting the approved text;
+  - PLAN.md (the PR 7 line and a PR 7b line);
+  - README ("Size a batch");
+  - `docs/future-work.md`;
+  - `docs/lessons.md`, in Joe's wording: a linear stability estimate about trim mispredicted a departure that a
+    nonlinear moment transfer turns into a high-α equilibrium, so solve Cm(α) = 0 before predicting divergence;
+  - STATE.md, this plan, and the review record and gate evidence.
+- **Not touched:** `core/`, `plugins/`, `aircraft/`, `astra.mc_analysis`, `astra.montecarlo`'s behavior, goldens,
+  tolerances and ADRs.
 
 ## Verification and process
 
-1. **Setup.** On approval, enter the worktree `m6-pr7-mc-sizing` from `origin/main` `7e65a85`.
-   - `mv` this draft into the worktree as `docs/plans/m6-pr7-mc-sizing.md` with its status updated. Commit it, push,
-     and open the draft PR.
-   - Check the trailer (`git log -1 --format='%(trailers:key=Co-authored-by)'`), and record the result in the PR body.
-   - Build `.venv` and `astra._core` if the worktree lacks them.
-2. **Probes, in scratch, nothing committed, before any R9 test.** None of them uses master seed 707.
-   - (a) A sweep of `cm_alpha_per_rad` from -1.2 to +0.6 in steps of 0.05, from the fixed state, 20 s each, with wind
-     seeds 42 and 4 others. It records max α at 5, 10 and 20 s, the time α crosses 0.23 rad, any halt or error, and
-     the direction of divergence. It also checks D2's nose-up claim and finds the measured boundary.
-   - (b) The α recomputation's worst disagreement.
-   - (c) The PyYAML-route comparison.
-   - (d) Stand-in batches and their controls at both candidate sizes (40 and 120 runs) with master seed 7070. Each
-     records wall time, peak disk, failure fraction, KS D and rho. This measures power and cost without touching the
-     R9 seed.
-   - (e) The exact chance, by simulation, that an inert parameter is rejected under BH in the main batch's
-     configuration (change 7).
-   - `mc_sizing.correlation_runs` is built first, so that the run count used in the probes comes from the tool.
-3. **Checkpoint to Joe.** The probe evidence and the proposed R9 numbers (range, duration, threshold, minimum effect,
-   allowances), the two run-count options with their gate cost (change 1), the false-positive chances (change 7),
-   D9's gate-time and disk figures, and, if needed, the keep-or-opt-in choice. The R9 fixtures and the asserted
-   numbers are written only after his answer. Meanwhile, `mc_sizing`, the CLI and their tests proceed.
-4. **Commits,** pushing after each: `mc_sizing` with its R11 tests; convergence with R12; `mc size` with R15; the R9
-   fixtures and tests (after the checkpoint); docs.
-5. **Checks.**
-   - Acceptance: `.venv/bin/pytest tests/python -k 'mc_sizing or planted'`. Regressions:
-     `-k 'mc_analysis or montecarlo or cli'`.
+1. **Plan critique (now).**
+   - One fresh, read-only Codex plan critique of this revision through `/codex:rescue --fresh --wait`
+     (`docs/agents/review-dispatch.md#plan-critique`), asking for failed assumptions only. It is recorded in this plan
+     and in PR #93's body.
+   - Then Joe's approval. Nothing is built before it, and the formula-mode draft stays uncommitted until then.
+2. **Commits,** pushing after each, in this order:
+   - formula mode and R11;
+   - the probability and percentile data modes, with R11b and R11c;
+   - precision;
+   - ranking;
+   - the coverage tests (R11d);
+   - convergence (R12);
+   - the prefix test;
+   - the CLI (R15);
+   - docs.
+3. **Checks.**
+   - Acceptance: `.venv/bin/pytest tests/python -k mc_sizing`. Regressions: `-k 'mc_analysis or montecarlo or cli'`.
    - Then `.venv/bin/pyright`, `ruff check .`, `ruff format --check .`, `python3 scripts/docs_check.py` and
      `git diff --check`.
-   - Record `--durations` for the R9 fixture.
-6. **Full gate.** `ps` must first show no other ASTRA build or gate. Then run `rm -rf build && ./scripts/check-full.sh`
-   with Bash `run_in_background`, and confirm exit 0 and `check: OK`. Commit the trimmed
-   `docs/reviews/evidence/<head>-gate-summary.log` and record the gate's total time against `ffee1d7` (D9).
-7. **`/review-cycle`.** A Codex review of the committed branch against `origin/main` on the final diff, at most two
-   correction rounds, recorded in `docs/reviews/m6-pr7-mc-sizing-review.md`. It checks C-08, C-09 and N-04 against
-   this plan.
-8. **`/human-review` and `/wrap`.**
-   - The PR body follows `docs/templates/pr-description.md`, with the probe evidence, the gate-time figure and the
-     attribution check.
-   - `/wrap` runs before merge, with the docs step in branch scope.
-   - Guard refusals are rerun split or written with Write/Edit and noted in the PR body, never asked about.
+4. **Full gate.** `ps` must first show no other ASTRA build or gate. Then run `rm -rf build && ./scripts/check-full.sh`
+   in the background, and confirm exit 0 and `check: OK`. Commit the trimmed gate summary, and record the time added
+   against `ffee1d7`.
+5. **`/review-cycle`.** A Codex review of the final diff (at most two correction rounds), checking C-08 (as it applies
+   here: the separation of correlation power from KS and ranking power), C-09 and N-04.
+6. **`/human-review` and `/wrap`.**
 
-Rollback: everything is additive. Reverting removes the module, the subcommand and the tests. R9's fixtures read
-`cruise.yaml` as shipped, so a later change to that file (M7) can move R9. The test's failure message then names the
-condition that failed.
+Rollback: everything is additive, and reverting removes the module, the subcommand and the tests.
