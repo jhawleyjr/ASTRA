@@ -110,8 +110,13 @@ docs-only closeout once took six commits, two correction rounds and three review
 ## Verification
 
 [Validation commands and coverage](validation.md) are wrappers over the existing `justfile`.
-Fast is `just test-unit`; full is `just check`. Run the full gate once on the final candidate,
-then rerun after substantive fixes/integration. Redirect noisy output to a log, wait for the real
+Fast is `just test-unit`; full is `just check`. Run the full gate once on the final candidate.
+After a passing full gate, a change limited to Markdown files and evidence logs (docs, plans, README,
+PLAN.md, STATE.md, lessons, `docs/reviews/evidence/` logs) needs only `just docs-check` and
+`git diff --check <gated-head>..HEAD`, not a new gate; `git diff --name-only <gated-head>..HEAD` shows the
+delta, and the PR body names the gated head and that Markdown-only delta. Any other changed file (a code
+comment or docstring, a test, fixture, config, script, hook or setting) makes the gate stale, as do
+integration and substantive fixes. Redirect noisy output to a log, wait for the real
 process to exit, read its status and `check: OK` (the pass condition in AGENTS.md); record failures and
 missing coverage honestly, in the PR body, with the trimmed log from [validation](validation.md#evidence).
 Do not run concurrent checks in one checkout. A timeout or absent dependency is not a pass.
@@ -154,7 +159,8 @@ Critical/major items cannot silently become follow-ups. Joe must explicitly acce
 record its risk and owner. Minor improvements can be deferred without extending scope.
 
 Batch fixes; add a meaningful regression test where behavior changes, rerun affected checks and the
-full gate before final approval, and re-review changed areas plus affected invariants. Any substantive
+full gate before final approval (unless the fixes are Markdown-only, per [Verification](#verification)),
+and re-review changed areas plus affected invariants. Any substantive
 push invalidates prior review/validation for affected work. Do not weaken requirements or tests.
 
 - The budget (two correction rounds, two failed integrations) is in AGENTS.md; a finding surviving
