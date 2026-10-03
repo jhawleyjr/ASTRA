@@ -347,3 +347,21 @@ Every test is named `test_mc_sizing_*`. Expected values come from scipy's `binom
 6. **`/human-review` and `/wrap`.**
 
 Rollback: everything is additive, and reverting removes the module, the subcommand and the tests.
+
+## Plan critique (revision 2)
+
+One fresh, read-only Codex plan critique through `/codex:rescue --fresh` (companion 1.0.6), on `80d7c38` against
+`7e65a85`. Thread `01a0ffb7-3d24-7742-b35e-cbdc7f34ebcb`. **Verdict: rework before approval.** It made 13 findings,
+6 high and 7 medium, given in full in PR #93's body.
+
+Claude checked the numeric claims it could compute directly in this session:
+- K = 400's pass probabilities: 0.938, 0.758 and 0.474 at true coverage 0.94, 0.93 and 0.92, against threshold 369.
+- The strict-boundary case: `zero_failure_runs(0.5, 0.75)` = 2, while the one-sided upper bound at n = 2 is exactly
+  0.5.
+- The log s² variance factor: 0.072414 against 2/29 = 0.068966.
+- The rare-tail case: 0.99¹⁰⁰ = 0.366.
+- R9's peak disk with the pilots retained: 3.584 GB at N = 200 and 5.264 GB at N = 350.
+
+All five hold. The remaining findings (1 to 4, 6, 9, 11 and 13) are design claims, and they are not yet verified.
+
+The revision that answers them waits for Joe's direction, since several of them (3, 4 and 10) need his decision.
