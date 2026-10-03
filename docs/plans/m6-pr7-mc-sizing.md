@@ -518,6 +518,6 @@ Joe's decision was **Bonett (2006)**, cited as Computational Statistics & Data A
   - A tail of probability p is missed entirely with probability `(1−p)^n`.
 - **Tests.**
   - Normal must reach at least 978 of 1047.
-  - Exponential, t5 and rare tail must reach floors of `binom.ppf(0.01, 1047, stated)`: 935, 929 and 617. These are
+  - Exponential, t5 and rare tail must reach floors of `binom.ppf(0.01, 1047, stated)`: 935, 929 and 618. These are
     floors, not pinned counts.
   - The rare tail keeps D7's ceiling of 0.80.

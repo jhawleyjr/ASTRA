@@ -1,0 +1,7 @@
+# M6 PR 7 (docs/plans/m6-pr7-mc-sizing.md D9): one claim of each option, checked against PR 6's
+# descent batch (tests/python/mc_analysis_fixtures/descent_batch.yaml) by `astra mc size check`.
+claims:
+  - probability: {p_max: 0.5}
+  - percentile: {metric: frames_run, quantile: 0.9, limit: 400}
+  - precision: {statistic: mean, metric: frames_run, tolerance: 10}
+  - ranking: {metric: frames_run}
