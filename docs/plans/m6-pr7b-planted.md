@@ -79,6 +79,33 @@ Markdown-only change needs only the docs checks, not a new gate.
   assertion failing on seed 707 (the probes put a by-chance control BH flag near 5 %) comes to Joe with the numbers.
   Never a new seed, range or threshold.
 
+## Pilot results (step 3, 2026-10-02; pilots deleted after sizing)
+
+Both pilots at `8066a84`: master seed 7071, 120 runs each, all `ok`, about 1.6 s wall each on 32 workers. The main
+pilot had 60 failing and 60 passing runs at `max.v0.derived.alpha > 0.23`; the control had 0 failing. Sized with
+`astra mc size ranking --batch ... --metric max.v0.derived.alpha` (`--top` for the main pilot, `--null 0.3` for the
+control). v is the jackknife variance of `z = atanh(ρ̂)`. An independent leave-one-out loop with
+`scipy.stats.spearmanr` gives the same v to every printed digit.
+
+| pilot | parameter | ρ̂ | v | simultaneous \|ρ\| bounds |
+|---|---|---|---|---|
+| main (m = 4) | `croll_aileron_per_rad` | 0.288353 | 9.059882e-03 | [0.0590, 0.4888] |
+| | `croll_rudder_per_rad` | 0.092312 | 8.718317e-03 | [0, 0.3147] |
+| | `cn_rudder_per_rad` | 0.003514 | 8.359082e-03 | [0, 0.2278] |
+| | `cm_alpha_per_rad` | 0.996472 | 5.888876e-02 | [0.9882, 0.9989] |
+| control (m = 3) | `croll_aileron_per_rad` | 0.023210 | 9.096736e-03 | [0, 0.2464] |
+| | `croll_rudder_per_rad` | 0.103681 | 7.944400e-03 | [0, 0.3072] |
+| | `cn_rudder_per_rad` | −0.012716 | 9.556401e-03 | [0, 0.2419] |
+
+- Main top: `needed` 30 (the projection is at or below `RANK_MIN_N`). Control null at 0.3: `needed` 130.
+- **N = max(30, 130, 30) = 130**, at or below 357. Peak disk is then max(1.34 GB, 2 · 130 · 5.6 MB = 1.46 GB).
+- The main pilot's `croll_aileron_per_rad` ρ̂ of 0.288 is about 3σ at n = 120. That coefficient is exactly inert,
+  and the metric is almost entirely `cm_alpha_per_rad`, so this ρ̂ is in effect the sample correlation of two
+  independent draws, which is 0.297 in this pilot. The stream itself does not correlate them: over 20,000 run
+  indices of this spec, every pairwise Spearman correlation of the five draws is within ±0.009 (1/√20000 ≈ 0.007).
+  It is chance on seed 7071, and it does not touch R9's assertions, since no inert-parameter BH assertion is made
+  in the main batch.
+
 ## Tests (`tests/python/test_mc_planted.py`; every name starts `test_planted_`)
 
 A module fixture runs the protocol (pilots, sizing, pilot deletion, finals) under `tmp_path_factory` and removes
