@@ -1,0 +1,11 @@
+# M6 R9's config through astra.montecarlo's PyYAML route (docs/plans/m6-pr7b-planted.md D4; PLAN.md's
+# (M6) PyYAML item): a one-run batch of R9's base config for R9's 10 s. Its one dispersion is an inert
+# coefficient (the aileron is 0.0 open loop), so the run's dynamics are cruise.yaml's own, and its
+# rate-group data must equal a run of cruise.yaml read by yaml-cpp from the file.
+config: aircraft/notional_transport/configs/cruise.yaml
+duration: 10.0
+runs: 1
+seed: 7072
+dispersions:
+  vehicle.models.0.croll_aileron_per_rad: {uniform: {lo: 0.05, hi: 0.10}}
+signals: [v0.derived.alpha]
