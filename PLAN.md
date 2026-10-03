@@ -260,9 +260,12 @@ takes them as a prefix.
     A pilot only sizes; the verdict comes from a fresh final batch. Coverage is tested at K = 1047.
     `astra mc size` joins the CLI. R9 and C-08 move to PR 7b. Plan: [plan](docs/plans/m6-pr7-mc-sizing.md).
     Packet: in the PR body.
-  - PR 7b (planned): R9, the planted cause in the notional transport, sized by the ranking option (a 120-run pilot
-    on seed 7071, final batches on seed 707), closing C-08; Joe's numbers: `cm_alpha_per_rad` uniform
-    [−0.6, +0.6], 10 s, `max.v0.derived.alpha > 0.23`. Plan: [PR 7's D11](docs/plans/m6-pr7-mc-sizing.md).
+  - PR 7b (#94): R9, the planted cause in the notional transport, closing C-08 (`tests/python/test_mc_planted.py`,
+    `-k planted`). Joe's numbers: `cm_alpha_per_rad` uniform [−0.6, +0.6], 10 s, `max.v0.derived.alpha > 0.23`.
+    Each gate runs the protocol: 120-run pilots on seed 7071, sized by the ranking option and deleted, then final
+    batches of 130 on seed 707. KS and Spearman rank the cause first with the stated minimum effect and margin,
+    and the control flags nothing. R9's config is also checked through `astra.montecarlo`'s PyYAML route. Plan:
+    [plan](docs/plans/m6-pr7b-planted.md). Packet: in the PR body.
   - PR 9 (#91): the frame-time benchmark. `astra_frame_benchmark` (`tests/benchmark/`) times each `step()` of the
     notional transport's cruise and still-air configs and of `dummy_1000`, after a warm-up instance, checking
     every timed frame ran with no halt. It also times R19b's five logged cases end to end through `close_log()`.
@@ -375,7 +378,10 @@ takes them as a prefix.
       (origin: deferred from M3 PR 3, ADR-0018): no declaration hook exists yet on `AeroModel`, because no concrete
       plugin had real numbers to declare before M3 PR 4. A later PR adds
       the declaration virtual (a further `kCoreApiVersion` bump, precedented) and wires `HealthMonitor`'s own
-      per-frame check against it. Not started.
+      per-frame check against it. Not started. Unblocked (Joe, 2026-10-03, at M6 PR 7b): the notional transport
+      can declare `alpha_max_rad = 0.23` from the source's CLalpha peak (`docs/refs/aircrafts/737.xml`, CL 1.20 at
+      0.23 rad), and a halt there would turn R9's criterion into `status == halt` instead of a threshold. A Tier 3
+      PR of its own; scheduling it is Joe's call.
 - [ ] (M8) Moderate-turbulence throttle jitter (origin: M4 PR 6; Joe 2026-09-26, nonblocking): airspeed gusts pass
       through the autopilot's speed loop to the throttle, up to 0.019 per exchange at moderate (throttle 0.310 to
       0.633 around trim 0.4986), no limit reached (`docs/reviews/m4-pr6-lockstep-acceptance-human.md`). Revisit
@@ -420,7 +426,9 @@ takes them as a prefix.
       yaml-cpp (origin: M6 PR 3 review; Joe 2026-09-30). Probed on M6 PR 3's build: `on`/`off`/`yes`/`no` become
       booleans, which the core then reads as `true`/`false` (so `sim.health.nan: off` is refused); `010` is 8 (the
       core reads 10); `1:30` is 90 and `1_000` is 1000 (the core reads neither as a number). `astra run --log`
-      avoids the round trip. Not started.
+      avoids the round trip. Not started. One config is covered: M6 PR 7b's
+      `test_planted_r9_config_pyyaml_route_matches_yaml_cpp` gives equal rate-group data for `cruise.yaml` (R9's
+      base config) through `astra.montecarlo` and through yaml-cpp's file load.
 - [ ] (M6) `tests/python/resource_refs.py`, the self-contained-document check R3b uses and PR 8's report will
       reuse, is an enumeration of loading constructs, so anything unlisted passes: known misses are an
       `<?xml-stylesheet?>` processing instruction, CSS `image-set()` with a bare string, and SMIL `<set>`/`<animate>`

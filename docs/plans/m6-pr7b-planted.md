@@ -106,6 +106,52 @@ control). v is the jackknife variance of `z = atanh(ρ̂)`. An independent leave
   It is chance on seed 7071, and it does not touch R9's assertions, since no inert-parameter BH assertion is made
   in the main batch.
 
+## Joe's go-ahead (2026-10-03, in substance)
+
+- Finals on seed 707 with N = 130 and the threshold unchanged. Joe checked N independently: `croll_rudder`'s upper
+  |ρ| bound is 0.2996 at N = 130 and 0.3003 at 129, and the main batch's top claim clears at 30 (0.961 against
+  0.648).
+- Order: commit the final specs, then the protocol fixture, then the R9 and C-08 tests, and push all of it before
+  the first run on seed 707. The first seed-707 result is the result. A failure stops for Joe, and the seed, range,
+  threshold and assertions do not change.
+- **The threshold's rationale** (Joe's correction, in `planted.yaml`'s header). 0.23 rad (13.2°) is the source's
+  stall angle: `docs/refs/aircrafts/737.xml`'s CLalpha table peaks there (CL 1.20) and falls to 0.20 at 0.46 rad.
+  `cl_alpha_per_rad` is the straight line through (0, 0.20) and (0.23, 1.20), so the linear model is valid only up
+  to 0.23 rad and has no post-stall behavior. A failing run went past the stall angle: a positive or near-zero
+  `cm_alpha_per_rad` pitched it up toward the high-α equilibrium, crossing near +0.03 within 10 s. Claude read the
+  table, and it holds.
+- The main pilot's `croll_aileron` ρ̂ = 0.288 is chance on seed 7071 (about 1 in 180 for any of the three inert
+  parameters, Joe's figure), with the 20,000-index stream check above.
+- Follow-up: the M7 envelope-monitor open item is unblocked. The notional transport can declare
+  `alpha_max_rad = 0.23` from the CLalpha peak, and a halt there would make R9's criterion `status == halt`. It is a
+  Tier 3 PR of its own, and scheduling it is Joe's call (PLAN.md's (M7) item records it).
+
+## The first seed-707 result (2026-10-03, at `0c9630e`, pushed before the run)
+
+`.venv/bin/pytest tests/python -k planted -v --durations=0` exited 0: 8 passed (the six `test_planted_*` tests plus
+`test_mc_analysis`'s synthetic R6 and R7), 1477 deselected, in 8.09 s. The fixture's setup (both pilots and both
+finals) took 6.53 s.
+
+The numbers below come from a deterministic replay of the same specs on the same build (the fixture deletes its
+batches). The replay sized the pilots to the same 30 and 130.
+
+| batch | method | parameter | effect | p | BH |
+|---|---|---|---|---|---|
+| main (58 fail, 72 pass) | KS | `cm_alpha_per_rad` | D = 1.000000 | 4.45e-38 | rejected |
+| | | `croll_aileron_per_rad` | 0.158525 | 0.346 | |
+| | | `cn_rudder_per_rad` | 0.157567 | 0.355 | |
+| | | `croll_rudder_per_rad` | 0.102011 | 0.848 | |
+| | Spearman | `cm_alpha_per_rad` | ρ = +0.995767 | 1.46e-134 | rejected |
+| | | `cn_rudder_per_rad` | −0.188595 | 0.0317 | |
+| | | `croll_aileron_per_rad` | −0.153314 | 0.0816 | |
+| | | `croll_rudder_per_rad` | 0.016499 | 0.852 | |
+| control (0 fail, 130 pass) | KS | (none) | "too few runs: 0 failing and 130 passing" | | |
+| | Spearman | `croll_rudder_per_rad` | −0.107649 | 0.223 | |
+| | | `croll_aileron_per_rad` | −0.085849 | 0.332 | |
+| | | `cn_rudder_per_rad` | −0.071952 | 0.416 | |
+
+The margins are 0.841 (KS) and 0.807 (Spearman), each against at least 0.25.
+
 ## Tests (`tests/python/test_mc_planted.py`; every name starts `test_planted_`)
 
 A module fixture runs the protocol (pilots, sizing, pilot deletion, finals) under `tmp_path_factory` and removes
