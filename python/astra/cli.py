@@ -2,7 +2,7 @@
 §12, §15 and §18).
 
 Subcommands: ``run``, ``trim``, ``plot`` (M6 PR 5, docs/plans/m6-pr5-plots.md), ``mc analyze`` and
-``mc rerun`` (M6 PR 6). ``report`` and ``mc size`` come with their tools (M6 plan).
+``mc rerun`` (M6 PR 6), and ``mc size`` (M6 PR 7). ``report`` comes with its tool (M6 plan).
 ``main(argv)`` returns the exit code and changes no signal handler; ``console()`` is the script.
 
 ``astra run <config> [--strict] [--log PATH]``
@@ -104,6 +104,18 @@ Subcommands: ``run``, ``trim``, ``plot`` (M6 PR 5, docs/plans/m6-pr5-plots.md), 
     whose 1 takes precedence. A run whose log cannot be written exits 74 with nothing compared, and
     a DIR that is the batch or lies inside it is refused (65); ``mc analyze`` refuses such a DIR
     too.
+
+``astra mc size <option> [args] [--batch DIR [--convergence [--every K]]]`` and
+``astra mc size check <batch> <claims.yaml>`` (M6 PR 7, docs/plans/m6-pr7-mc-sizing.md D9)
+    ``<option>`` is ``probability``, ``percentile``, ``precision`` or ``ranking``
+    (``astra.mc_sizing``). Without ``--batch``, it prints the option's minimum N, its inputs and its
+    method. With ``--batch``, it checks the claim against the batch: a calibrated verdict for
+    probability and percentile, a nominal projection for precision and ranking, the N that would
+    decide it, and the batch's master seed; ``--convergence`` adds every K-th prefix. ``check``
+    checks every claim of a claims file. Numbers are passed to ``astra.mc_sizing`` as written.
+    Codes: 64 a usage error, including a value outside its domain or an argument of the other
+    mode; 65 a refused batch, criterion, metric or claims file; 74 stdout could not be written; 70
+    an internal error; 0 printed, a ``violated`` verdict included.
 """
 
 from __future__ import annotations

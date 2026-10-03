@@ -248,6 +248,21 @@ takes them as a prefix.
     `astra mc analyze` and `astra mc rerun` join the CLI. A batch now records its spec and base config bytes in
     `summary.parquet`, which rerun runs from, comparing the row and the log. Every matplotlib legend sits
     outside its axes. Plan: [plan](docs/plans/m6-pr6-mc-analysis.md). Packet: in the PR body.
+  - PR 7 (#93): Monte Carlo sizing, as Joe re-scoped it on 2026-10-02. `astra.mc_sizing` offers four options,
+    probability, percentile, precision and ranking, each with a formula mode (R11's oracles) and a data mode on a
+    batch:
+    - calibrated verdicts (exact Clopper-Pearson; percentile as exceedance; one non-strict convention decided in
+      rational arithmetic) with a producer-risk N;
+    - nominal projections, never verdicts (precision with Bonett's std interval and stated limits; ranking with a
+      jackknife Spearman variance);
+    - convergence at every prefix.
+
+    A pilot only sizes; the verdict comes from a fresh final batch. Coverage is tested at K = 1047.
+    `astra mc size` joins the CLI. R9 and C-08 move to PR 7b. Plan: [plan](docs/plans/m6-pr7-mc-sizing.md).
+    Packet: in the PR body.
+  - PR 7b (planned): R9, the planted cause in the notional transport, sized by the ranking option (a 120-run pilot
+    on seed 7071, final batches on seed 707), closing C-08; Joe's numbers: `cm_alpha_per_rad` uniform
+    [−0.6, +0.6], 10 s, `max.v0.derived.alpha > 0.23`. Plan: [PR 7's D11](docs/plans/m6-pr7-mc-sizing.md).
   - PR 9 (#91): the frame-time benchmark. `astra_frame_benchmark` (`tests/benchmark/`) times each `step()` of the
     notional transport's cruise and still-air configs and of `dummy_1000`, after a warm-up instance, checking
     every timed frame ran with no halt. It also times R19b's five logged cases end to end through `close_log()`.

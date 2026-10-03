@@ -63,6 +63,7 @@ Everything below is on `main` today.
   that says what happened. It refuses a config with a `transport` block until M10. `astra trim` prints a trim
   and the config fragment that applies it. `astra plot` renders a plot package against a run log.
   `astra mc analyze` analyzes a Monte Carlo batch, and `astra mc rerun` re-executes one of its runs.
+  `astra mc size` sizes a batch from the claim it must answer, or checks that claim against a batch.
 - **Monte Carlo analysis.** `astra.mc_analysis` draws a batch's draws by outcome and a signal's envelope across
   its run logs. It ranks the dispersed parameters against a pass/fail criterion (KS with Benjamini-Hochberg)
   or a continuous metric (Spearman and partial rank correlation), and fits a depth-3 tree for interactions.
@@ -231,6 +232,20 @@ decisions, then the tree's rules. It writes `mc-hist`, `mc-scatter` and one `mc-
 criterion grammar and the methods are in [mc_analysis.py](python/astra/mc_analysis.py)'s docstring. `rerun`
 needs a batch written by this version or later, which records its spec. Its plugins come from the current
 build, so a rebuild can change the result, and the comparison it prints shows that.
+
+### Size a batch
+
+```bash
+astra mc size probability --p-max 0.01                     # 299 runs: P(fail) <= 1 % at 95 %, none failing
+astra mc size percentile --quantile 0.95 --two-sided       # 93 runs: Wilks 95/95, two-sided
+astra mc size probability --p-max 0.01 --batch build/pilot # the N a fresh final batch needs
+astra mc size check build/mc_batch claims.yaml             # every claim against the final batch
+```
+
+Probability and percentile give calibrated verdicts (met, violated or undetermined). Precision and ranking
+give nominal projections, never verdicts. A pilot only sizes: run the final batch with another master seed
+and take the verdict from it alone. The options, the claims file and the stated limits are in
+[mc_sizing.py](python/astra/mc_sizing.py)'s docstring.
 
 ### Stream to FlightGear
 
