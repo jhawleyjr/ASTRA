@@ -9,13 +9,8 @@ Risk: **Tier 2** (a Python feature and tests; no new dependency, since scipy 1.1
 `7e65a85`. Worktree/branch: `worktree-m6-pr7-mc-sizing`, draft PR #93. Touches no `core/`, `plugins/`, `aircraft/`,
 `icd/`, `tests/golden/**`, tolerance file or ADR. Binding ADRs: 0025/0027 (batches read through
 `astra.mc_analysis.load_batch`), 0002 (SI), 0010.
-Status: **revision 3a, for Joe's approval.** The narrow Codex verification pass on revision 3 ran (rework: three
-medium findings), and 3a fixes all three ("Verification pass", at the end).
-- Revision 1 was approved by Joe with changes 1 to 7.
-- At the R9 checkpoint he approved R9's numbers and changed the requirements, which became revision 2.
-- The Codex critique of revision 2 found 13 issues. Joe accepted all 13 and gave the direction this revision follows.
-
-Nothing here is approved until he says so.
+Status: **revision 3a approved by Joe, 2026-10-02** ("Revision 3a approved; no second Codex pass"), with his decisions
+under "Joe's approval of revision 3a" below. Building.
 
 ## Context
 
@@ -75,6 +70,20 @@ Codex findings 1 to 13 are accepted. Joe directed:
   and derive K from it (about 1000). Endpoint oracles for every statistic, and N / N−1 minimality for every search.
 - **R9 (finding 13).** C-08's closure and R9's acceptance move explicitly to PR 7b, and R9 stays in the gate.
 - **Next:** one narrow Codex verification pass on the revised sections only.
+
+## Joe's approval of revision 3a (2026-10-02, in substance)
+
+- **Producer-risk default 0.10.** The docstring says why it differs from the ranking option's power 0.8: the producer
+  risk is the chance that a fresh batch fails to confirm a claim that holds at the pilot's rate (a test's type II error
+  at a stated alternative), while 0.8 is Fisher z's planning power for detecting a correlation. These are two questions,
+  with two conventional defaults.
+- **V1: "as written".** A CLI value is its string, exactly. A Python float is its shortest repr,
+  `Fraction(repr(x))`, never `Fraction(x)`. A test checks that the API (0.9) and the CLI ("0.9") agree at γ = 0.9.
+- **Std minimum: one minimum of 100 runs for every output.** Skewness, excess kurtosis > 2 and the 25 % bootstrap
+  disagreement are printed flags, not gates. The stated limits carry measured coverage in four regimes: normal,
+  skewed, heavy-tailed symmetric and rare tail.
+- **Nominal-tier rule as proposed.** A coverage regime that fails in the build comes to Joe, with its measured
+  coverage, before it becomes a stated limit.
 
 ## Repository findings (read at `7e65a85`)
 
@@ -210,7 +219,8 @@ Codex findings 1 to 13 are accepted. Joe directed:
       `s·exp(±z·sqrt(Var)/2)`.
     - A percentile bootstrap (B = 2000, `montecarlo.Rng(0)`) is reported beside it, flagged `bootstrap disagrees` past
       a 25 % difference in half-width. The docstring says agreement does not imply calibration.
-    - Option minimum: n ≥ 30, and n ≥ 100 when |g1| > 1. Below it there is no interval and no N.
+    - Option minimum: n ≥ 100 for every output (Joe). |g1| > 1, excess kurtosis κ̂ − 3 > 2 and the bootstrap
+      disagreement are printed flags, never gates. Below 100 runs there is no interval and no N.
     - **Projection** (verification finding 3). The smallest N with `max(s·e^{w(N)} − s, s − s·e^{−w(N)}) ≤ tol`,
       where `w(N) = z·sqrt(V(N))/2` and `V(N) = [κ̂ − (N−3)/(N−1)]/N`. s and κ̂ are held at the batch's values, and
       the result is then raised to the option minimum. It is a search, with an oracle and N / N−1 minimality.
@@ -265,6 +275,8 @@ Codex findings 1 to 13 are accepted. Joe directed:
       its measured coverage, after Joe sees it. It is never loosened silently.
     - The **rare-tail case** (±1 with probability 0.99, ±100 with probability 0.01, n = 100) must show the std
       interval undercovering: at most 0.80 measured, against 0.95 nominal. It is the stated limit (finding 8).
+    - Std's regimes, per Joe: normal, skewed (exponential), heavy-tailed symmetric (Student t, 5 degrees of freedom)
+      and rare tail. Each one's measured coverage goes into the docstring's stated limits.
 - **D8: protocol (findings 3, 4, 9, 12).** The docstring and the CLI help state it:
   1. Run a pilot of P runs with its own master seed.
   2. Run `astra mc size <option> --batch PILOT`. This prints `needed`, already `max(projection, option minimum)`.
