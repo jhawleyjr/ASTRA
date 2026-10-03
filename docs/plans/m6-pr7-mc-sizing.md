@@ -9,7 +9,8 @@ Risk: **Tier 2** (a Python feature and tests; no new dependency, since scipy 1.1
 `7e65a85`. Worktree/branch: `worktree-m6-pr7-mc-sizing`, draft PR #93. Touches no `core/`, `plugins/`, `aircraft/`,
 `icd/`, `tests/golden/**`, tolerance file or ADR. Binding ADRs: 0025/0027 (batches read through
 `astra.mc_analysis.load_batch`), 0002 (SI), 0010.
-Status: **revision 3, for one narrow Codex verification pass on the revised sections, then Joe's approval.**
+Status: **revision 3a, for Joe's approval.** The narrow Codex verification pass on revision 3 ran (rework: three
+medium findings), and 3a fixes all three ("Verification pass", at the end).
 - Revision 1 was approved by Joe with changes 1 to 7.
 - At the R9 checkpoint he approved R9's numbers and changed the requirements, which became revision 2.
 - The Codex critique of revision 2 found 13 issues. Joe accepted all 13 and gave the direction this revision follows.
@@ -155,6 +156,9 @@ Codex findings 1 to 13 are accepted. Joe directed:
   - The tail is computed in floating point. When it lies within 1e-9 (relative) of `1 − C`, it is recomputed exactly
     in rational arithmetic, with the inputs taken as the decimals they are written as (`Fraction(repr(x))`, so 0.95
     is 19/20). A boundary case is then decided exactly.
+  - Complements are formed in rational arithmetic from the original inputs, never in floating point (verification
+    finding 1). Percentile's `p_max = 1 − γ` is `1 − Fraction(repr(γ))`, and `1 − C` is `1 − Fraction(repr(C))`. A
+    float `1 − 0.9` is 0.09999999999999998, which would flip an exact boundary.
   - `probability_runs` applies the same exact check to `(1−p)^n ≤ 1−C` at its result and at its result minus 1.
   - Reported intervals still come from beta quantiles. Only decisions use the duality.
 - **D3: probability (calibrated verdict).**
@@ -207,6 +211,9 @@ Codex findings 1 to 13 are accepted. Joe directed:
     - A percentile bootstrap (B = 2000, `montecarlo.Rng(0)`) is reported beside it, flagged `bootstrap disagrees` past
       a 25 % difference in half-width. The docstring says agreement does not imply calibration.
     - Option minimum: n ≥ 30, and n ≥ 100 when |g1| > 1. Below it there is no interval and no N.
+    - **Projection** (verification finding 3). The smallest N with `max(s·e^{w(N)} − s, s − s·e^{−w(N)}) ≤ tol`,
+      where `w(N) = z·sqrt(V(N))/2` and `V(N) = [κ̂ − (N−3)/(N−1)]/N`. s and κ̂ are held at the batch's values, and
+      the result is then raised to the option minimum. It is a search, with an oracle and N / N−1 minimality.
     - A rare-tail test shows the limit (D7).
   - **percentile:**
     - The distribution-free two-sided order-statistic interval for `q_γ`, with the estimate `X_(⌈nγ⌉)`.
@@ -294,7 +301,10 @@ Codex findings 1 to 13 are accepted. Joe directed:
     - 70 internal.
 - **D10: convergence.**
   - `convergence(batch, claim)` gives the claim's statistic with its bounds or interval at every prefix, in run order.
-    Prefixes below the option minimum give NaN.
+  - Calibrated tier (verification finding 2): the bounds and the verdict are given at every prefix with at least one
+    analyzed row. Below `probability_runs` they can still show `violated`. The option minimum only marks whether
+    `met` is reachable at that prefix, a column of its own, and suppresses nothing.
+  - Nominal tier: prefixes below the statistic's minimum give NaN, with the reason.
   - Nominal intervals stay labeled nominal. The bootstrap is not run per prefix; the jackknife is.
 - **D11: R9 follows as PR 7b, and C-08 moves with it (finding 13).**
   - PR 7b closes C-08 and R9's acceptance: KS and Spearman, the strict margin, the minimum effect, BH, and the
@@ -331,6 +341,10 @@ Every test is named `test_mc_sizing_*`. Expected values come from scipy's `binom
   - At n = 2 and k = 2, `L = 1/2`, so p_max = 0.5 is not `violated`.
   - Further cases where the tail equals `1 − C` exactly in `Fraction`, each giving the non-strict side.
   - A float-near-boundary case decided by the exact recheck.
+  - Percentile at γ = 0.9, C = 0.19, n = 2, k = 0: the tail equals 0.81 exactly, so the verdict is `met`, through the
+    rational complement (verification finding 1).
+  - Convergence on the ten-exceedance case at γ = C = 0.95: every prefix keeps its bounds, and the full prefix shows
+    `violated` (L = 0.741…) below the option minimum (verification finding 2).
 - **D3 values:**
   - Verdicts for (n, k, p_max) on hand-built batches, checked against `binomtest(..., alternative="less"/"greater")`
     bounds.
@@ -443,3 +457,24 @@ Claude checked the numbers in findings 5, 7, 8, 10 and 12 in this session, and t
 | 11 | medium | Missing oracles | Tests: endpoint oracles for every statistic; N / N−1 for every search |
 | 12 | medium | Disk ignores the pilots | D11: pilots deleted after sizing; peak = max(pilots, finals); N > 357 asks Joe |
 | 13 | medium | C-08 must move with R9 | Header and D11: C-08 and R9's acceptance move to PR 7b, and R9 stays in the gate |
+
+## Verification pass (revision 3)
+
+One narrow, read-only Codex verification pass through `/codex:rescue --fresh`, on `b48c5a3`, scoped to the revised
+sections. Thread `01a0ffc8-79fb-75c3-9b58-7e476c990120`. **Verdict: rework.**
+
+Of the 13 prior findings, 12 are resolved and 5 is partially resolved (folded into new finding 1). Codex recomputed
+D7's figures (false-fail 0.961 %, power 95.09 % at K = 1047 and threshold 978) and D11's disk arithmetic (N = 357
+gives 3998.4 MB).
+
+It made three new findings, all medium. Claude checked each numerically in this session, and each holds. All three
+are fixed in this revision (3a):
+
+| # | Finding (verified) | Fix |
+|---|---|---|
+| V1 | The exact recheck forwarded a float `1 − γ`. γ = 0.9 gives p_max = 0.09999999999999998, which flips the exact γ = 0.9, C = 0.19, n = 2 boundary (`met`) | D2: complements in rational arithmetic from the original inputs; the boundary oracle added to Tests |
+| V2 | Convergence returned NaN below the option minimum, though calibrated bounds exist there (k = n = 10 at γ = C = 0.95 gives L = 0.741, so `violated`) | D10: calibrated bounds and verdicts at every prefix; the minimum only marks whether `met` is reachable; oracle added |
+| V3 | The std projection was undefined | D5: a search on `V(N) = [κ̂ − (N−3)/(N−1)]/N` with s and κ̂ held, raised to the minimum; oracle and N / N−1 |
+
+Joe asked for one verification pass, and it has run. These fixes go to him with the plan, without another pass unless
+he asks for one.
