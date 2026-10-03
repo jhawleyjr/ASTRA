@@ -11,11 +11,12 @@
 # - the minimum effect: KS D >= 0.5 and Spearman rho >= +0.5, each with a margin of at least 0.25 over
 #   the next parameter, and Benjamini-Hochberg at q = 0.05 rejecting the cause.
 #
-# The threshold (Joe, 2026-10-03). 0.23 rad (13.2 deg) sits at about neutral static stability: its
-# crossing is near cm_alpha_per_rad = +0.03 within 10 s, so a failing run is a neutral or unstable
-# airframe that pitched up toward the high-alpha equilibrium. The model's lift is linear in alpha
-# (cl_0 + cl_alpha * alpha, no stall, no alpha limit), so no particular angle has any meaning of its
-# own here.
+# The threshold (Joe, 2026-10-03). 0.23 rad (13.2 deg) is the stall angle in the source data:
+# docs/refs/aircrafts/737.xml's CLalpha table peaks there (CL 1.20) and falls to 0.20 at 0.46 rad.
+# cruise.yaml's cl_alpha_per_rad is the straight line through (0, 0.20) and (0.23, 1.20), so the
+# linear model is valid only up to 0.23 rad and has no post-stall behavior. A failing run is one that
+# went past the source's stall angle: a positive or near-zero cm_alpha_per_rad pitched it up toward
+# the high-alpha equilibrium, and the crossing is near cm_alpha_per_rad = +0.03 within 10 s.
 #
 # The three inert coefficients multiply the aileron and rudder, which cruise.yaml holds at 0.0 open
 # loop, so no draw of them changes a run. cm_alpha_per_rad is drawn last, so the control

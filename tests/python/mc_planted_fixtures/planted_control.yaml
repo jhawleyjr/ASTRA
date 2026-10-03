@@ -5,7 +5,7 @@
 # null claim at r_min 0.3 and was deleted once sized.
 #
 # Stated before any run (Joe, 2026-10-02): the control flags nothing. No run reaches
-# max.v0.derived.alpha > 0.23 (planted.yaml's header gives the threshold's rationale), so KS has no
+# max.v0.derived.alpha > 0.23, the source's stall angle (planted.yaml's header), so KS has no
 # failing group, and Spearman against max.v0.derived.alpha rejects no parameter under
 # Benjamini-Hochberg at q = 0.05.
 config: aircraft/notional_transport/configs/cruise.yaml
