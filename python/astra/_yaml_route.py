@@ -33,6 +33,7 @@ A config with no differing leaf comes back exactly as ``yaml.safe_load`` read it
 
 from __future__ import annotations
 
+import contextlib
 import math
 import struct
 from collections import Counter
@@ -56,8 +57,16 @@ def load(text: str, origin: str, *, error: ErrorType) -> Any:
     """``text`` read by ``yaml.safe_load``, with every leaf the core reads differently repaired to
     the core's own text, or refused through ``error`` (module docstring). ``yaml.YAMLError``
     propagates, so each caller keeps its message for a file PyYAML cannot read; a document that
-    is not a map comes back as PyYAML read it, for the caller to refuse."""
-    raw: Any = yaml.safe_load(text)
+    is not a map comes back as PyYAML read it, for the caller to refuse. PyYAML's constructors
+    raise plain ``ValueError`` or ``KeyError`` for some scalars the core reads as text
+    (``0000-01-01``, ``!!bool warn``); that is refused through ``error``, naming the key (M6 PR
+    11 review A-001)."""
+    try:
+        raw: Any = yaml.safe_load(text)
+    except yaml.YAMLError:
+        raise
+    except Exception as failure:  # a constructor's own error: no YAMLError wraps it
+        raise error(_construction_refusal(text, origin, failure)) from None
     if not isinstance(raw, dict):
         return raw
     data = cast(dict[str, Any], raw)
@@ -92,6 +101,53 @@ def load(text: str, origin: str, *, error: ErrorType) -> Any:
                 f"as {_describe(after)}"
             )
     return data
+
+
+def _construction_refusal(text: str, origin: str, failure: Exception) -> str:
+    """The refusal of a document PyYAML parsed but could not construct: the first scalar that
+    fails alone (by its dotted path, from ``yaml.compose``), and the core's reading of it."""
+    root = cast("yaml.Node | None", yaml.compose(text, Loader=yaml.SafeLoader))  # pyright: ignore[reportUnknownMemberType]
+    path = _failing_path(root, "", yaml.SafeLoader(""))
+    reading = ""
+    if path is not None:
+        with contextlib.suppress(_core.ConfigError):
+            reading = f"; the core reads {_core.Config.from_string(text, origin).text(path)!r}"
+    where = path if path is not None else "the document"
+    return (
+        f"{origin}: {where}: PyYAML cannot construct this value "
+        f"({type(failure).__name__}: {failure}){reading}"
+    )
+
+
+def _failing_path(node: yaml.Node | None, path: str, loader: yaml.SafeLoader) -> str | None:
+    """The dotted path of the first node whose construction raises, or ``None``."""
+    if isinstance(node, yaml.MappingNode):
+        for key, value in node.value:
+            name = key.value if isinstance(key, yaml.ScalarNode) else "?"
+            child = _join(path, str(name))
+            if isinstance(key, yaml.ScalarNode) and _raises(key, loader):
+                return child
+            found = _failing_path(value, child, loader)
+            if found is not None:
+                return found
+        return None
+    if isinstance(node, yaml.SequenceNode):
+        for index, item in enumerate(node.value):
+            found = _failing_path(item, _join(path, str(index)), loader)
+            if found is not None:
+                return found
+        return None
+    if isinstance(node, yaml.ScalarNode) and _raises(node, loader):
+        return path
+    return None
+
+
+def _raises(node: yaml.Node, loader: yaml.SafeLoader) -> bool:
+    try:
+        loader.construct_object(node, deep=True)  # pyright: ignore[reportUnknownMemberType]
+    except Exception:  # any failure locates the key; the caller already holds the error
+        return True
+    return False
 
 
 def _join(base: str, segment: str) -> str:

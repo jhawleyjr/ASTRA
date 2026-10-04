@@ -109,6 +109,22 @@ PROBE_TABLE: dict[str, Row] = {
     "dotted key": Row("a.b: 1\n", "refused", r"p\.yaml: a\.b: .*containing '\.'"),
     "sequence": Row("v: [off, 1.0e3, 010, [yes], {k: on}]\n", "repaired"),
     "empty containers": Row("m: {}\nn: []\n", "unchanged"),
+    # Review A-001: PyYAML's constructors raise ValueError/KeyError, which no YAMLError wraps.
+    "date year 0": Row(
+        "k: 0000-01-01\n",
+        "refused",
+        r"p\.yaml: k: PyYAML cannot construct this value \(ValueError: year 0 is out of range\); "
+        r"the core reads '0000-01-01'",
+    ),
+    "!!bool warn": Row(
+        "s: {nan: !!bool warn}\n",
+        "refused",
+        r"p\.yaml: s\.nan: PyYAML cannot construct this value \(KeyError: 'warn'\); the core "
+        r"reads 'warn'",
+    ),
+    "!!int abc in a list": Row(
+        "v: [1, !!int abc]\n", "refused", r"p\.yaml: v\.1: PyYAML cannot construct this value"
+    ),
 }
 
 
@@ -222,6 +238,14 @@ DESCENT_REFUSED_AT_READ = {
     "key on": (
         (DESCENT_FORCE, "force_x: 1.0, on: 1 }"),
         r"vehicle\.models\.0: PyYAML reads a key as True",
+    ),
+    "date year 0": (
+        (DESCENT_FORCE, "force_x: 0000-01-01 }"),
+        r"vehicle\.models\.0\.force_x: PyYAML cannot construct this value \(ValueError",
+    ),
+    "!!bool warn": (
+        _health("!!bool warn"),
+        r"sim\.health\.nan: PyYAML cannot construct this value",
     ),
 }
 # The core's own refusal of each form at physical.mass.mass, as Config.from_string gives it.
@@ -450,12 +474,29 @@ def test_pyyaml_route_trim_refusals(tmp_path: Path) -> None:
         _trim(tmp_path / "underscore", ("mass: 37648.0 ", "mass: 37_648.0 "))
 
 
+@pytest.mark.parametrize(
+    ("old", "new", "message"),
+    [
+        ("mass: 37648.0 ", "mass: ~ ", r"physical\.mass\.mass: a null"),
+        (
+            CRUISE_SIM,
+            "sim:\n  health: {nan: !!bool warn}\n  dt: 0.001\n  frames: 1000\n",
+            r"sim\.health\.nan: PyYAML cannot construct this value \(KeyError",
+        ),
+        (
+            "station: left",
+            "station: 0000-01-01",
+            r"PyYAML cannot construct this value \(ValueError",
+        ),
+    ],
+    ids=["null", "bool warn", "date year 0"],
+)
 def test_pyyaml_route_trim_cli_refusal_exits_65(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    old: str, new: str, message: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    config = _variant(CRUISE, "mass: 37648.0 ", "mass: ~ ", tmp_path)
+    config = _variant(CRUISE, old, new, tmp_path)
     assert cli.main(["trim", str(config), "--airspeed", "230", "--altitude", "10000"]) == 65
-    assert re.search(r"physical\.mass\.mass: a null", capsys.readouterr().err)
+    assert re.search(message, capsys.readouterr().err)
 
 
 # --- astra.lockstep -------------------------------------------------------------------------------
@@ -487,6 +528,11 @@ def test_pyyaml_route_lockstep_refusals(tmp_path: Path) -> None:
         ls.load_config(null, segment=ls.new_segment_name())
     with pytest.raises(ls.LockstepError, match=r"physical\.mass\.mass: a null"):
         ls.trim_for(null, SETPOINTS)
+    unconstructed = _variant(
+        LIGHT, LIGHT_SIM, "sim:\n  health: {nan: !!bool warn}\n  dt: 0.001\n", tmp_path / "bool"
+    )
+    with pytest.raises(ls.LockstepError, match=r"sim\.health\.nan: PyYAML cannot construct"):
+        ls.load_config(unconstructed, segment=ls.new_segment_name())
     # The core's integer() refuses 1_000, and the repaired text is refused the same way here.
     underscore = _variant(LIGHT, "timeout_ms: 1000 ", "timeout_ms: 1_000 ", tmp_path / "underscore")
     match = r"transport\.timeout_ms must be given as an integer"
