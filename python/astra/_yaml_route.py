@@ -22,8 +22,11 @@ every leaf of the core's reading with the core's reading of the dict (D2):
 - Refused, through the caller's ``error``, naming the key: a null (``from_dict`` cannot carry
   ``None``), a key that is not text, a key the core cannot address (it contains ``.``, or it is
   a digit string in a map), a set or a pair list, a duplicate key (the core reads the first,
-  PyYAML the last), a merge key (yaml-cpp 0.8 does not merge ``<<``), and a document PyYAML
-  reads but the core does not.
+  PyYAML the last), a merge key (yaml-cpp 0.8 does not merge ``<<``), a document PyYAML
+  reads but the core does not, a scalar PyYAML's constructors cannot build (``0000-01-01``,
+  ``!!bool warn``: they raise plain ``ValueError``/``KeyError``), and a recursive alias (an
+  anchor used inside itself), refused before the core sees the text because the core's
+  unknown-key scan does not end on one.
 
 Two residuals stay as they were (D2): an integer-typed key written ``1000.0`` reaches the core as
 ``1000``, which ``integer`` accepts and ``astra run`` refuses; and a key read with ``text`` keeps
@@ -70,6 +73,13 @@ def load(text: str, origin: str, *, error: ErrorType) -> Any:
     if not isinstance(raw, dict):
         return raw
     data = cast(dict[str, Any], raw)
+    cycle = _cycle_path(data, "", set())
+    if cycle is not None:
+        # Before the core: its unknown-key scan does not end on a recursive alias (it crashes).
+        raise error(
+            f"{origin}: {cycle}: a recursive alias (an anchor used inside itself), which "
+            "neither reader can carry"
+        )
     try:
         core = _core.Config.from_string(text, origin)
     except _core.ConfigError as failure:
@@ -106,8 +116,11 @@ def load(text: str, origin: str, *, error: ErrorType) -> Any:
 def _construction_refusal(text: str, origin: str, failure: Exception) -> str:
     """The refusal of a document PyYAML parsed but could not construct: the first scalar that
     fails alone (by its dotted path, from ``yaml.compose``), and the core's reading of it."""
-    root = cast("yaml.Node | None", yaml.compose(text, Loader=yaml.SafeLoader))  # pyright: ignore[reportUnknownMemberType]
-    path = _failing_path(root, "", yaml.SafeLoader(""))
+    try:
+        root = cast("yaml.Node | None", yaml.compose(text, Loader=yaml.SafeLoader))  # pyright: ignore[reportUnknownMemberType]
+        path = _failing_path(root, "", yaml.SafeLoader(""), set())
+    except Exception:  # the diagnostic must never replace the refusal (review V-001)
+        path = None
     reading = ""
     if path is not None:
         with contextlib.suppress(_core.ConfigError):
@@ -119,26 +132,63 @@ def _construction_refusal(text: str, origin: str, failure: Exception) -> str:
     )
 
 
-def _failing_path(node: yaml.Node | None, path: str, loader: yaml.SafeLoader) -> str | None:
-    """The dotted path of the first node whose construction raises, or ``None``."""
+def _cycle_path(value: object, path: str, active: set[int]) -> str | None:
+    """The dotted path where a container first contains itself (a recursive alias), or ``None``.
+    ``active`` holds the containers on the current path, so a shared but acyclic alias passes."""
+    if not isinstance(value, dict | list):
+        return None
+    identity = id(cast(object, value))
+    if identity in active:
+        return path or "the top level"
+    active.add(identity)
+    items = (
+        cast(dict[Any, Any], value).items()
+        if isinstance(value, dict)
+        else enumerate(cast(list[Any], value))
+    )
+    for key, item in items:
+        found = _cycle_path(item, _join(path, str(key)), active)
+        if found is not None:
+            return found
+    active.discard(identity)
+    return None
+
+
+def _failing_path(
+    node: yaml.Node | None, path: str, loader: yaml.SafeLoader, active: set[int]
+) -> str | None:
+    """The dotted path of the first node whose construction raises, or ``None``. ``active``
+    holds the collection nodes on the current path, so a recursive alias is not followed."""
+    if isinstance(node, yaml.MappingNode | yaml.SequenceNode):
+        if id(node) in active:
+            return None
+        active.add(id(node))
+        try:
+            return _failing_child(node, path, loader, active)
+        finally:
+            active.discard(id(node))
+    if isinstance(node, yaml.ScalarNode) and _raises(node, loader):
+        return path
+    return None
+
+
+def _failing_child(
+    node: yaml.MappingNode | yaml.SequenceNode, path: str, loader: yaml.SafeLoader, active: set[int]
+) -> str | None:
     if isinstance(node, yaml.MappingNode):
         for key, value in node.value:
             name = key.value if isinstance(key, yaml.ScalarNode) else "?"
             child = _join(path, str(name))
             if isinstance(key, yaml.ScalarNode) and _raises(key, loader):
                 return child
-            found = _failing_path(value, child, loader)
+            found = _failing_path(value, child, loader, active)
             if found is not None:
                 return found
         return None
-    if isinstance(node, yaml.SequenceNode):
-        for index, item in enumerate(node.value):
-            found = _failing_path(item, _join(path, str(index)), loader)
-            if found is not None:
-                return found
-        return None
-    if isinstance(node, yaml.ScalarNode) and _raises(node, loader):
-        return path
+    for index, item in enumerate(node.value):
+        found = _failing_path(item, _join(path, str(index)), loader, active)
+        if found is not None:
+            return found
     return None
 
 

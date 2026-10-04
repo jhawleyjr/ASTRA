@@ -450,6 +450,11 @@ takes them as a prefix.
       statistic before any maximum is compared. The JSON should also record the frame index of the maximum, so a
       stall can be told apart from a frame whose model work is costly (today it records only the value). Not
       started.
+- [ ] (unscheduled) `Config::unknown_keys()` recurses without end on a recursive YAML alias (`extra: &c [*c]`),
+      so `astra run` on such a config segfaults (exit -11), as did the PyYAML route's `from_dict` before M6 PR 11
+      (origin: M6 PR 11 review V-001, 2026-10-04). `astra._yaml_route` now refuses a recursive alias before the
+      core reads the text, so only the core's own path (`astra run`, `Config.from_file` then a build) still
+      crashes. A core fix (`core/src/config/config.cpp`) is Tier 3 and Joe's call. Not started.
 - [ ] (M6) `aircraft/_template/plots/ground_track.py` draws without an equal aspect ratio, so near-straight flight
       autoscales the east axis around zero and exaggerates a tiny lateral drift (origin: M6 PR 5, Joe's review,
       2026-10-01). Not started.

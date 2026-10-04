@@ -122,6 +122,19 @@ PROBE_TABLE: dict[str, Row] = {
         r"p\.yaml: s\.nan: PyYAML cannot construct this value \(KeyError: 'warn'\); the core "
         r"reads 'warn'",
     ),
+    # Review V-001: a recursive alias is refused before the core sees it (its unknown-key scan
+    # crashes on one), and it cannot hide a constructor failure behind it.
+    "recursive alias": Row(
+        "cycle: &c [*c]\nk: 1\n", "refused", r"p\.yaml: cycle\.0: a recursive alias"
+    ),
+    "recursive map alias": Row(
+        "m: &m {self: *m}\n", "refused", r"p\.yaml: m\.self: a recursive alias"
+    ),
+    "recursive alias before !!int abc": Row(
+        "cycle: &c [*c]\nk: !!int abc\n",
+        "refused",
+        r"p\.yaml: k: PyYAML cannot construct this value \(ValueError",
+    ),
     "!!int abc in a list": Row(
         "v: [1, !!int abc]\n", "refused", r"p\.yaml: v\.1: PyYAML cannot construct this value"
     ),
@@ -246,6 +259,10 @@ DESCENT_REFUSED_AT_READ = {
     "!!bool warn": (
         _health("!!bool warn"),
         r"sim\.health\.nan: PyYAML cannot construct this value",
+    ),
+    "recursive alias": (
+        (DESCENT_SIM, "extra: &c [*c]\n" + DESCENT_SIM),
+        r"extra\.0: a recursive alias",
     ),
 }
 # The core's own refusal of each form at physical.mass.mass, as Config.from_string gives it.
@@ -488,8 +505,14 @@ def test_pyyaml_route_trim_refusals(tmp_path: Path) -> None:
             "station: 0000-01-01",
             r"PyYAML cannot construct this value \(ValueError",
         ),
+        (CRUISE_SIM, "extra: &c [*c]\n" + CRUISE_SIM, r"extra\.0: a recursive alias"),
+        (
+            CRUISE_SIM,
+            "extra: &c [*c]\nbad: !!int abc\n" + CRUISE_SIM,
+            r"bad: PyYAML cannot construct this value \(ValueError",
+        ),
     ],
-    ids=["null", "bool warn", "date year 0"],
+    ids=["null", "bool warn", "date year 0", "recursive alias", "recursive alias, then !!int"],
 )
 def test_pyyaml_route_trim_cli_refusal_exits_65(
     old: str, new: str, message: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
