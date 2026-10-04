@@ -29,8 +29,16 @@ Value rules:
   calls over numbers.
 - a few attributes take one exact value (the namespace URIs, ``charset="utf-8"``, ...).
 
-A self-closing ``<style/>`` or ``<script/>`` is flagged in every profile: an HTML parser ignores the
-slash, so the text after it is live CSS or script that ``html.parser`` would pass over as data.
+``html.parser`` is not a browser's parser, so three constructs it reads differently are flagged in
+every profile (nothing ASTRA writes uses one):
+
+- a self-closing ``<style/>`` or ``<script/>``: an HTML parser ignores the slash, so the text after
+  it is live CSS or script that ``html.parser`` would pass over as data;
+- a character reference (``&``) or markup (``<``) in ``<style>`` text: inside an SVG, inline or a
+  standalone file, a browser decodes the references and parses the tags as elements, while
+  ``html.parser`` hands the text over raw;
+- a comment a browser closes early: ``<!-->`` and ``<!--->`` close at once and ``--!>`` ends a
+  comment, while ``html.parser`` may read on to the next ``-->`` and hide the markup between.
 
 ``id_problems(text)`` returns every ``id`` used twice in the document and every reference (``#X`` in
 ``href`` or ``xlink:href``, ``url(#X)`` anywhere) that does not resolve. A reference inside an
@@ -250,6 +258,20 @@ class _Scanner(html.parser.HTMLParser):
     def handle_data(self, data: str) -> None:
         if self._text_of == "style":
             self.found += [f"<style>: {problem}" for problem in css_problems(data)]
+            # html.parser hands style text over raw, but inside an SVG (inline in HTML, or a
+            # standalone XML file) a browser decodes its character references and parses its tags
+            # as elements (Joe's review of #95), so what it runs cannot be read from the raw text.
+            if "&" in data:
+                self.found.append(f"<style>: a character reference ({data!r})")
+            if "<" in data:
+                self.found.append(f"<style>: markup inside the style text ({data!r})")
+
+    def handle_comment(self, data: str) -> None:
+        # A browser closes "<!-->" and "<!--->" at once and ends a comment at "--!>"; html.parser
+        # may read on to the next "-->", so the markup between would be live yet unseen (Joe's
+        # review of #95).
+        if data.startswith((">", "->")) or "--!>" in data:
+            self.found.append(f"comment a browser closes early ({data!r})")
 
     def handle_decl(self, decl: str) -> None:
         text = _WHITESPACE.sub(" ", decl).strip()

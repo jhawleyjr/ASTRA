@@ -87,6 +87,24 @@ CONSTRUCTS = [
     # review A-002: an HTML parser ignores the slash, so what follows is a live stylesheet or script
     ("<style/>body{background:url(https://example.com/x.png)}</style>", "self-closing <style/>"),
     ("<script/>fetch('https://example.com/x')</script>", "self-closing <script/>"),
+    # Joe's review of #95: inside an SVG a browser decodes a style's character references and
+    # parses its tags; a browser closes "<!-->" and "<!--->" at once and ends a comment at "--!>".
+    ('<svg><style>&#64;import "https://example.com/x.css";</style></svg>', "character reference"),
+    (
+        "<svg><style>g{fill:&#117;&#114;&#108;(https://example.com/x)}</style></svg>",
+        "character reference",
+    ),
+    (
+        "<svg><style>&commat;import 'https://example.com/x.css';</style></svg>",
+        "character reference",
+    ),
+    (
+        '<svg><style><image href="https://example.com/a.png"/></style></svg>',
+        "markup inside the style",
+    ),
+    ('<!--><img src="https://example.com/a.png"><!-- -->', "<img"),
+    ('<!---><img src="https://example.com/a.png"><!-- -->', "<img"),
+    ('<!-- a --!><img src="https://example.com/a.png"><!-- b -->', "<img"),
     ('<svg><use xlink:href="data:image/svg+xml;base64,AA=="/></svg>', "not a #fragment"),
     ('<svg><g clip-path="url(data:x)"></g></svg>', "clip-path"),
     ('<svg><g transform="translate(1,2) url(x)"></g></svg>', "transform"),

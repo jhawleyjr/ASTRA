@@ -445,8 +445,8 @@ takes them as a prefix.
       for the plotly page. The SVG is not affected: matplotlib simplifies each line before writing it, so the
       default log report (flight, attitude, health) is 1.32 MB at 60 s and 1.59 MB at 300 s of the notional
       cruise (M6 PR 8's plan, Size; Joe's D1a: no decimation). Not started.
-- [ ] ([M6 or a later milestone — Joe fills in]) A batch report's envelope figures grow with the run length and
-      the failing runs (origin: M6 PR 8's plan, Size, D1b; Joe 2026-10-03). Two costs, measured on R9's spec:
+- [ ] (M6) A batch report's envelope figures grow with the run length and the failing runs (origin: M6 PR 8's
+      plan, Size, D1b; Joe 2026-10-03, milestone M6 at his review of #95). Two costs, measured on R9's spec:
       the two fill polygons (min-max and 5-95 %), which matplotlib does not simplify, at about 51 bytes per frame
       each (31 MB of a 35 MB envelope for 16 runs of 300 s); and the failing-run overlays, simplified lines whose
       cost per failing run depends on the signal (1 to 5 KB for altitude, 116 to 241 KB for alpha in
