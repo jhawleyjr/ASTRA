@@ -135,12 +135,54 @@ class RunLog:
     final_after_halt: bool | None
 
 
+@dataclasses.dataclass(frozen=True)
+class Provenance:
+    """What every state exposes: the root attributes and /plugins, and the state itself
+    (``read_provenance``; a ``RunLog`` carries the same fields)."""
+
+    path: Path
+    state: str
+    published: bool
+    format_version: int
+    config: str
+    dt: float
+    git_describe: str
+    core_version: str
+    core_api_version: int
+    plugins: pd.DataFrame | None
+
+
 def load(path: str | Path, *, allow_incomplete: bool = False) -> RunLog:
     """Reads the run log at ``path`` (module docstring, Finalization). Raises ``LogFormatError``
     for a file that is not a readable run log of this format version, and ``IncompleteLogError``
     naming the refusal: without ``allow_incomplete``, an unpublished ``.partial`` name or a state
     other than complete; in either mode, a failed cross-check or certified-row check."""
     path = Path(path)
+    file, published = _open(path, allow_incomplete)
+    with file:
+        try:
+            return _read(path, file, allow_incomplete, published)
+        except (KeyError, OSError) as error:
+            raise _unreadable(path, error) from error
+
+
+def read_provenance(path: str | Path) -> Provenance:
+    """The provenance of the run log at ``path`` (its root attributes and ``/plugins``), read
+    without any rate group, for a reader that needs only that (``astra.report``'s batch provenance,
+    M6 PR 8 D7). It refuses what strict ``load`` refuses before reading data: an unpublished
+    ``.partial`` name, an unreadable file, another format version and a state other than complete.
+    It applies none of ``load``'s cross-checks, which compare data this function does not read."""
+    path = Path(path)
+    file, published = _open(path, allow_incomplete=False)
+    with file:
+        try:
+            version, state = _version_and_state(path, file.attrs, allow_incomplete=False)
+            return _provenance(path, file, version, state, published)
+        except (KeyError, OSError) as error:
+            raise _unreadable(path, error) from error
+
+
+def _open(path: Path, allow_incomplete: bool) -> tuple[Any, bool]:
     published = not path.resolve().name.endswith(PARTIAL_SUFFIX)
     if not allow_incomplete and not published:
         raise IncompleteLogError(
@@ -148,19 +190,18 @@ def load(path: str | Path, *, allow_incomplete: bool = False) -> RunLog:
             "(ADR-0027); pass allow_incomplete=True to read it anyway"
         )
     try:
-        file = cast(Any, h5py.File(path, "r"))
+        return cast(Any, h5py.File(path, "r")), published
     except OSError as error:
         raise LogFormatError(f"{path}: not a readable HDF5 file ({error})") from error
-    with file:
-        try:
-            return _read(path, file, allow_incomplete, published)
-        except (KeyError, OSError) as error:
-            # h5py's errors for an object it cannot open or read. A failed close_log() leaves
-            # such a file (a real RLIMIT_FSIZE failure opens but has no readable root object), so
-            # it is refused as incomplete; allow_incomplete cannot read what is not there.
-            raise IncompleteLogError(
-                f"{path}: an HDF5 object cannot be read ({error}); the file was not closed cleanly"
-            ) from error
+
+
+def _unreadable(path: Path, error: Exception) -> IncompleteLogError:
+    # h5py's errors for an object it cannot open or read. A failed close_log() leaves such a file
+    # (a real RLIMIT_FSIZE failure opens but has no readable root object), so it is refused as
+    # incomplete; allow_incomplete cannot read what is not there.
+    return IncompleteLogError(
+        f"{path}: an HDF5 object cannot be read ({error}); the file was not closed cleanly"
+    )
 
 
 def replay(path: str | Path, out: str | Path, *, plugin_dir: str | Path | None = None) -> bool:
@@ -294,24 +335,8 @@ def _write(sim: _core.Simulation, name: str, value: float) -> None:
             raise
 
 
-@dataclasses.dataclass(frozen=True)
-class _Provenance:
-    """What every state exposes: the root attributes and /plugins, and the state itself."""
-
-    path: Path
-    state: str
-    published: bool
-    format_version: int
-    config: str
-    dt: float
-    git_describe: str
-    core_version: str
-    core_api_version: int
-    plugins: pd.DataFrame | None
-
-
 def _assemble(
-    provenance: _Provenance,
+    provenance: Provenance,
     *,
     rows_committed: dict[int, int],
     rates: dict[int, pd.DataFrame],
@@ -366,8 +391,7 @@ def _text(value: Any) -> str:
     return value.decode() if isinstance(value, bytes) else str(value)
 
 
-def _read(path: Path, file: Any, allow_incomplete: bool, published: bool) -> RunLog:
-    attrs = file.attrs
+def _version_and_state(path: Path, attrs: Any, allow_incomplete: bool) -> tuple[int, str]:
     version = attrs.get("log_format_version")
     if version is None or int(version) != FORMAT_VERSION:
         raise LogFormatError(
@@ -380,19 +404,29 @@ def _read(path: Path, file: Any, allow_incomplete: bool, published: bool) -> Run
             f"{path}: finalization state {state}: {_STATE_REASON[state]} (ADR-0027); pass "
             "allow_incomplete=True to read it anyway"
         )
-    dt = float(_required(path, attrs, "dt"))
-    provenance = _Provenance(
+    return int(version), state
+
+
+def _provenance(path: Path, file: Any, version: int, state: str, published: bool) -> Provenance:
+    attrs = file.attrs
+    return Provenance(
         path=path,
         state=state,
         published=published,
-        format_version=int(version),
+        format_version=version,
         config=str(_required(path, attrs, "config")),
-        dt=dt,
+        dt=float(_required(path, attrs, "dt")),
         git_describe=str(_required(path, attrs, "git_describe")),
         core_version=str(_required(path, attrs, "core_version")),
         core_api_version=int(_required(path, attrs, "core_api_version")),
         plugins=_records(file.get("plugins")),
     )
+
+
+def _read(path: Path, file: Any, allow_incomplete: bool, published: bool) -> RunLog:
+    version, state = _version_and_state(path, file.attrs, allow_incomplete)
+    provenance = _provenance(path, file, version, state, published)
+    dt = provenance.dt
     if state == INCOMPLETE:
         rates, units, committed = _certified_groups(path, file, dt)
         return _assemble(
@@ -413,7 +447,7 @@ def _read(path: Path, file: Any, allow_incomplete: bool, published: bool) -> Run
     return _finalized(path, file, provenance)
 
 
-def _finalized(path: Path, file: Any, provenance: _Provenance) -> RunLog:
+def _finalized(path: Path, file: Any, provenance: Provenance) -> RunLog:
     """A complete or destructor file, read whole, with the cross-checks (module docstring)."""
     dt = provenance.dt
     summary = file.get("summary")
