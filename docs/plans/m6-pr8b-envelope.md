@@ -305,3 +305,18 @@ today; 302 + the new tests after.
    before/after evidence, the gate-time figures and the `-k` extras).
 9. `/wrap` before merge, its docs step before the final gate where it can: PLAN.md's item closes with this
    PR's evidence, and STATE.md's next step becomes PR 10.
+
+## Amendments found in the build and review
+
+- **Review round 1, R-001 (Joe; confirmed by both Codex passes;
+  [review record](../reviews/m6-pr8b-envelope-review.md)).** D1's `step="post"` shape lost finite frames
+  next to an all-NaN column: `fill_between` masks the NaN node before expanding the step and ends each
+  region at its last finite x, so the column before the gap lost its width. Each column is now its own two
+  points, `(e_j, v_j)` and `(e_(j+1), v_j)`, with no `step`. The shape, the columns and the containment
+  contract are D1's; the vertex count becomes `4C + 3` = 3,603 per band (not `4C + 5` = 3,605, as Repository
+  findings, D1 and D4 above state), and a band split at a NaN column stays within that bound in total. The
+  sizes move by about 100 bytes per figure ([final before/after](../reviews/evidence/2579fd7-before-after.log)).
+- **D5's comparison rule, refined in the build.** matplotlib 3.11 writes each fill group as `<defs>` (the
+  path) plus a nested clip-path `<g>` holding a `<use>`, so a group's span runs to its depth-matched `</g>`,
+  not its first, and each group must hold exactly one `<path>`, one `<use>` and one nested `<g>`. Stdout is
+  compared with each half's output directory normalized.

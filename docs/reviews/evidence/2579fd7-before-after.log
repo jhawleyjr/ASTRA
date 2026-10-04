@@ -1,0 +1,119 @@
+M6 PR 8b before/after check (docs/plans/m6-pr8b-envelope.md, D5) and size re-measurement (D4, D3)
+Question: does the band reduction change anything but the two fill collections of an envelope over
+more than ENVELOPE_COLUMNS + 1 = 901 frames?
+date: 2026-10-03
+Both halves use the worktree's own .venv (Python-only change: _core and plugins are the same build,
+build/python, from `just python` at d436627). No main-checkout state is involved.
+before half: run at d436627 (the plan commit; python/ and tests/ equal to 8055ce7), before any product edit.
+after half:  run at 2579fd7 (round 1's fix of R-001: two points per column instead of step="post").
+  An earlier after half at 4e9730a (the first candidate) also passed every rule; its log is
+  docs/reviews/evidence/4e9730a-before-after.log. This one replaces it for the final candidate (D5).
+script: scratchpad before_after.py (prepare / run HALF / compare). Changes to it after the first after half
+ran, all in the compare step: the fill-group span is matched by <g> depth (matplotlib 3.11 nests a
+clip-path <g> inside each group); stdout paths are normalized (each half prints its own output directory);
+and the containment check reads every path of a band (round 1: a band can be split at a NaN column).
+
+== inputs (produced once, by `before_after.py prepare`, read by both halves)
+scenario logs (astra.scenario.run): elevator_step, atmosphere_ceiling_halt;
+the descent batch (tests/python/mc_analysis_fixtures/descent_batch.yaml, 24 runs; 500 and 50 frames);
+R9's batch (tests/python/mc_planted_fixtures/planted.yaml, 130 runs of 10 s; 10,000 frames).
+
+== outputs, per half (cwd = the worktree, the installed .venv/bin/astra), 19 commands
+astra plot LOG PACKAGE --out DIR, for LOG in {elevator_step, atmosphere_ceiling_halt} and PACKAGE in
+  {flight, attitude, health, aircraft/_template/plots/{controls,ground_track,wrench}.yaml,
+  aircraft/notional_transport/plots/cruise.yaml}                                       (14)
+astra mc analyze descent --signal v0.derived.altitude --signal v0.slow_rate.value       (1)
+astra mc analyze r9 --criterion 'max.v0.derived.alpha > 0.23'
+  --signal v0.derived.alpha --signal v0.derived.altitude                                (1)
+astra report elevator_step.h5; astra report descent (both signals); astra report r9 (criterion,
+  both signals)                                                                         (3)
+Each command's stdout is kept and compared.
+
+== rules
+- every exit code equal;
+- a file with no fill group: byte-identical (cmp);
+- a file with fill groups (<g id="[fig<k>-]FillBetweenPolyCollection_<n>">, each holding exactly one
+  <path>, one <use> and one nested <g>): the same group ids in both halves, 2 per envelope; either
+  byte-identical, or identical once each group's byte span (start tag through its depth-matched </g>)
+  is replaced by a fixed placeholder, with every group smaller after;
+- containment on R9's batch (after half): test_mc_analysis._band_at reads each drawn band's path, and
+  every frame's min..max and 5..95 % values lie inside it.
+
+== result (`before_after.py compare`, exit 0)
+
+before half: head d436627fa0f3290545916a6fb515a973b05453c1
+  git diff --stat 8055ce7 -- python/ tests/: (empty)
+  git status --porcelain: (empty)
+after half: head 2579fd70c4884debedf9bb3f35a5afb7621818eb
+  git diff --stat 8055ce7 -- python/ tests/:
+    python/astra/mc_analysis.py      |  40 +++-
+     tests/python/test_mc_analysis.py | 389 +++++++++++++++++++++++++++++++++++++--
+     2 files changed, 408 insertions(+), 21 deletions(-)
+  git status --porcelain: (empty)
+commands: 19, exit codes equal: True, codes: {0: 19}
+  analyze-descent/mc-envelope-v0.derived.altitude.svg: byte-identical (2 fill groups, unchanged)
+  analyze-descent/mc-envelope-v0.slow_rate.value.svg: byte-identical (2 fill groups, unchanged)
+  analyze-r9/mc-envelope-v0.derived.alpha.svg: outside the fill groups identical: True; every group smaller: True; total 8352937 -> 7509957; groups FillBetweenPolyCollection_1: 514290 -> 92822, FillBetweenPolyCollection_2: 514324 -> 92812
+  analyze-r9/mc-envelope-v0.derived.altitude.svg: outside the fill groups identical: True; every group smaller: True; total 1146797 -> 302980; groups FillBetweenPolyCollection_1: 514919 -> 92954, FillBetweenPolyCollection_2: 514755 -> 92903
+  report/descent.html: byte-identical (4 fill groups, unchanged)
+  report/r9.html: outside the fill groups identical: True; every group smaller: True; total 9862694 -> 8175897; groups fig3-FillBetweenPolyCollection_1: 514310 -> 92842, fig3-FillBetweenPolyCollection_2: 514344 -> 92832, fig4-FillBetweenPolyCollection_1: 514939 -> 92974, fig4-FillBetweenPolyCollection_2: 514775 -> 92923
+files: 50; byte-identical: 47; identical outside the fill groups: 3
+containment, R9 v0.derived.alpha (10000 frames): 1 path(s), 3603 vertices, contains all 10000 frames: True; 1 path(s), 3603 vertices, contains all 10000 frames: True
+containment, R9 v0.derived.altitude (10000 frames): 1 path(s), 3603 vertices, contains all 10000 frames: True; 1 path(s), 3603 vertices, contains all 10000 frames: True
+PASS: every D5 rule holds
+
+
+== sizes (D4 and D3, re-measured at 2579fd7 by scratchpad remeasure.py and remeasure_simplify.py;
+   batches of planted.yaml, seed 707, criterion max.v0.derived.alpha > 0.23: 130 x 10 s with 58
+   failing, 16 x 60 s and 16 x 300 s with 12 each)
+Row rules: total = len(svg_bytes) as mc analyze draws it; polygons = the two fill groups' byte spans;
+overlays = the figure minus the same figure without failing-run lines (their legend entries included);
+rest = total - polygons - overlays. "before" = the same code with ENVELOPE_COLUMNS past every length
+(the exact band, as at 8055ce7). Overlay options are overlays-row bytes with the bands reduced; the
+simplify option sets path.simplify_threshold = 1.0 inside pinned_style.
+
+130x10 (failing 58)
+  v0.derived.alpha (10000 frames)
+    total       8,352,937 ->   7,509,957
+    polygons    1,028,614 ->     185,634
+    overlays    6,716,108 ->   6,716,272
+    rest          608,215 ->     608,051
+    overlay options: leave 6,716,272; cap 10 1,175,391; per-column 2,497,247; simplify 1 px 1,269,658
+  v0.derived.altitude (10000 frames)
+    total       1,146,797 ->     302,980
+    polygons    1,029,674 ->     185,857
+    overlays       75,122 ->      75,318
+    rest           42,001 ->      41,805
+    overlay options: leave 75,318; cap 10 18,988; per-column 75,276; simplify 1 px 38,816
+  report v0.derived.alpha: 8,712,996 -> 7,870,016
+  report v0.derived.alpha+v0.derived.altitude: 9,862,415 -> 8,175,618
+16x60 (failing 12)
+  v0.derived.alpha (60000 frames)
+    total       8,754,763 ->   2,769,857
+    polygons    6,170,588 ->     185,682
+    overlays    1,897,754 ->   1,898,886
+    rest          686,421 ->     685,289
+    overlay options: leave 1,898,886; cap 10 1,626,080; per-column 432,803; simplify 1 px 215,279
+  v0.derived.altitude (60000 frames)
+    total       6,264,923 ->     275,663
+    polygons    6,175,114 ->     185,854
+    overlays       37,714 ->      38,622
+    rest           52,095 ->      51,187
+    overlay options: leave 38,622; cap 10 33,567; per-column 38,397; simplify 1 px 20,290
+  report v0.derived.alpha: 9,027,536 -> 3,042,630
+  report v0.derived.alpha+v0.derived.altitude: 15,294,806 -> 3,320,640
+16x300 (failing 12)
+  v0.derived.alpha (300000 frames)
+    total      34,883,756 ->   4,218,635
+    polygons   30,850,730 ->     185,609
+    overlays    2,888,901 ->   2,894,241
+    rest        1,144,125 ->   1,138,785
+    overlay options: leave 2,894,241; cap 10 2,503,231; per-column 520,000; simplify 1 px 344,568
+  v0.derived.altitude (300000 frames)
+    total      31,010,691 ->     317,480
+    polygons   30,879,139 ->     185,928
+    overlays       62,029 ->      66,309
+    rest           69,523 ->      65,243
+    overlay options: leave 66,309; cap 10 56,910; per-column 65,723; simplify 1 px 27,595
+  report v0.derived.alpha: 35,156,553 -> 4,491,432
+  report v0.derived.alpha+v0.derived.altitude: 66,169,646 -> 4,811,314

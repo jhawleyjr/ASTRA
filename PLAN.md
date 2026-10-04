@@ -274,12 +274,13 @@ takes them as a prefix.
     open item; R3b uses it. `-k report`. Plan: [plan](docs/plans/m6-pr8-report.md). Packet: in the PR body.
   - PR 8b (#96): the batch envelope's size, closing that open item. Over more than 901 frames,
     `mc_analysis.draw_envelope` draws each band (min-max, 5-95 %) as a step over `ENVELOPE_COLUMNS = 900`
-    columns that share their boundary frames, so the band still contains every frame and the segments between
-    them, in at most 3,605 vertices per band. Shorter envelopes draw the exact band. The lines, the count and
+    columns that share their boundary frames, so the band still contains every finite frame and the segments
+    between them, in at most 3,603 vertices per band (an all-NaN column is a gap, and its neighbors keep their
+    width). Shorter envelopes draw the exact band. The lines, the count and
     the overlays keep every frame, so R5 stands. 16 runs of 300 s: the alpha envelope goes from 34.9 to 4.2 MB,
     and the batch report with alpha and altitude from 66.2 to 4.8 MB. Everything else is byte-identical, and
     the envelopes differ only inside their two fill groups
-    ([before/after](docs/reviews/evidence/4e9730a-before-after.log)). `-k mc_analysis`. Plan:
+    ([before/after](docs/reviews/evidence/2579fd7-before-after.log)). `-k mc_analysis`. Plan:
     [plan](docs/plans/m6-pr8b-envelope.md). Packet: in the PR body.
   - PR 9 (#91): the frame-time benchmark. `astra_frame_benchmark` (`tests/benchmark/`) times each `step()` of the
     notional transport's cruise and still-air configs and of `dummy_1000`, after a warm-up instance, checking
@@ -459,7 +460,7 @@ takes them as a prefix.
       band reduction they are most of a rough signal's envelope: alpha's overlays are 6.7 MB of R9's 7.5 MB
       envelope (58 failing runs of 10 s), 1.9 MB at 16 runs of 60 s and 2.9 MB at 16 runs of 300 s (12 failing);
       altitude's are 38 to 75 KB. Options measured on those batches
-      ([sizes](docs/reviews/evidence/4e9730a-before-after.log)): a per-column first/min/max/last reduction over
+      ([sizes](docs/reviews/evidence/2579fd7-before-after.log)): a per-column first/min/max/last reduction over
       the same 900 columns bounds each overlay at 3,600 points whatever the duration or the signal (2.5 MB, 0.43 MB
       and 0.52 MB for alpha), but changes PR 6's overlay check (the line's data becomes the column reduction of
       the log column); capping at 10 runs changes R5 and bounds only the count; a 1 px simplify threshold is not
