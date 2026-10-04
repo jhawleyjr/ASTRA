@@ -29,6 +29,9 @@ Value rules:
   calls over numbers.
 - a few attributes take one exact value (the namespace URIs, ``charset="utf-8"``, ...).
 
+A self-closing ``<style/>`` or ``<script/>`` is flagged in every profile: an HTML parser ignores the
+slash, so the text after it is live CSS or script that ``html.parser`` would pass over as data.
+
 ``id_problems(text)`` returns every ``id`` used twice in the document and every reference (``#X`` in
 ``href`` or ``xlink:href``, ``url(#X)`` anywhere) that does not resolve. A reference inside an
 ``<svg>`` (a figure) must resolve inside that same figure, and one outside every figure must resolve
@@ -234,6 +237,11 @@ class _Scanner(html.parser.HTMLParser):
 
     def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         self._element(tag, attrs)
+        if tag in ("style", "script"):
+            # An HTML parser ignores the slash, so the text that follows is a live stylesheet or
+            # script that html.parser would read as plain data (review A-002). Nothing ASTRA writes
+            # uses one, so it is flagged in every profile.
+            self.found.append(f"self-closing <{tag}/>: its following text would be live {tag}")
 
     def handle_endtag(self, tag: str) -> None:
         if tag == self._text_of:

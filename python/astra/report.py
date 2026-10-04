@@ -14,8 +14,9 @@ Log report (``log_report``), in this order:
    same evaluation ``verify`` reports): its signal, kind and bounds, window, rows checked, worst
    value and frame, and ``pass`` or ``FAIL``; then ``verify``'s other assertions (frames, halt, warn
    counters). The scenario must match the log (``check_scenario``): the same ``dt``, and the log's
-   ``/writes`` must be the scenario's events in order, every event before ``frames_run`` included.
-   That is a consistency check, not proof that the scenario produced the log.
+   ``/writes`` must be the scenario's events in order, every event at or before ``frames_run``
+   included. That is a consistency check, not proof that the scenario produced the log. The log
+   must be complete and published (ADR-0027): a log read with ``allow_incomplete=True`` is refused.
 3. Figures: every figure of each plot package (``astra.plot``), as ``astra plot`` draws it.
 4. Provenance: the input as given, the log's format version, ``git_describe``, ``core_version``,
    ``core_api_version``, ``dt``, its plugin table, and its config text. The config text is the log's
@@ -94,6 +95,7 @@ _PROLOG = re.compile(r"\A<\?xml [^>]*\?>\s*<!DOCTYPE svg [^>]*>\s*")
 _ID = re.compile(r'\bid="([^"]*)"')
 _HREF = re.compile(r'(\b(?:xlink:)?href)="#([^"]*)"')
 _URL = re.compile(r"url\(#([^)]*)\)")
+_COMMENT = re.compile(r"(<!--.*?-->)", re.DOTALL)  # split keeps each comment at an odd index
 
 
 class ReportError(Exception):
@@ -190,9 +192,14 @@ def inline_svg(svg: bytes, k: int) -> str:
         MATPLOTLIB_STYLE,
         f'<style type="text/css">#fig{k} *{{stroke-linejoin: round; stroke-linecap: butt}}</style>',
     )
-    text = _ID.sub(lambda m: f'id="{prefix}{m.group(1)}"', text)
-    text = _HREF.sub(lambda m: f'{m.group(1)}="#{prefix}{m.group(2)}"', text)
-    text = _URL.sub(lambda m: f"url(#{prefix}{m.group(1)})", text)
+    # Only markup is namespaced: matplotlib writes each text label into a comment, and a label that
+    # reads like an id or a reference (review N-2) stays as drawn.
+    parts = _COMMENT.split(text)
+    for i in range(0, len(parts), 2):
+        markup = _ID.sub(lambda m: f'id="{prefix}{m.group(1)}"', parts[i])
+        markup = _HREF.sub(lambda m: f'{m.group(1)}="#{prefix}{m.group(2)}"', markup)
+        parts[i] = _URL.sub(lambda m: f"url(#{prefix}{m.group(1)})", markup)
+    text = "".join(parts)
     if not text.startswith("<svg "):
         raise RuntimeError(f"figure {k}: the SVG's root is not <svg>")
     return f'<svg id="fig{k}" {text[len("<svg ") :].rstrip()}'
@@ -278,10 +285,13 @@ def check_scenario(case: scenario.Scenario, run_log: log.RunLog) -> None:
                 f"scenario {case.path}: the log's write {i} {write!r} is not the scenario's event "
                 f"{expected!r} (frame, input, value)"
             )
+    # astra.scenario writes a frame's events before that frame's step, so a run that halts at frame
+    # frames_run has written its events at that frame too; only later ones go unwritten (review
+    # A-001).
     for event in events[len(logged) :]:
-        if event[0] < frames_run:
+        if event[0] <= frames_run:
             raise ReportError(
-                f"scenario {case.path}: the event {event!r} (frame, input, value) is before "
+                f"scenario {case.path}: the event {event!r} (frame, input, value) is at or before "
                 f"frames_run {frames_run} but the log has no such write"
             )
 
@@ -409,11 +419,17 @@ def log_report(
     case: scenario.Scenario | None = None,
     case_source: str = "",
 ) -> str:
-    """The report of a complete run log (module docstring, Log report); ``source`` is the input as
-    given, ``case`` the scenario whose checks it shows. Raises ``ReportError`` and
+    """The report of a complete, published run log (module docstring, Log report); ``source`` is the
+    input as given, ``case`` the scenario whose checks it shows. Raises ``ReportError`` and
     ``astra.plot.PlotPackageError``."""
-    if run_log.frames_run is None:
-        raise ReportError(f"{source}: the log is not complete")
+    # A log read with allow_incomplete=True can hold frames_run and still be a dropped run or an
+    # unpublished .partial (ADR-0027); neither is reported as a finished run (review G-001).
+    if run_log.state != log.COMPLETE or not run_log.published or run_log.frames_run is None:
+        published = "published" if run_log.published else "not published (a .partial name)"
+        raise ReportError(
+            f"{source}: the log's finalization state is {run_log.state} and it is {published}; "
+            "astra.report reports only a complete, published log (ADR-0027)"
+        )
     if case is not None:
         check_scenario(case, run_log)
     figures = package_figures(packages, run_log)

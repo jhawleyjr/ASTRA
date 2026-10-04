@@ -84,6 +84,9 @@ CONSTRUCTS = [
     ('<{e} style="background: u\\72l(x.png)">x</{e}>', "CSS escape"),
     ("<style>@font-face { font-family: x }</style>", "at-rule"),
     ("<!DOCTYPE something-else>", "declaration"),
+    # review A-002: an HTML parser ignores the slash, so what follows is a live stylesheet or script
+    ("<style/>body{background:url(https://example.com/x.png)}</style>", "self-closing <style/>"),
+    ("<script/>fetch('https://example.com/x')</script>", "self-closing <script/>"),
     ('<svg><use xlink:href="data:image/svg+xml;base64,AA=="/></svg>', "not a #fragment"),
     ('<svg><g clip-path="url(data:x)"></g></svg>', "clip-path"),
     ('<svg><g transform="translate(1,2) url(x)"></g></svg>', "transform"),
@@ -574,6 +577,41 @@ def test_report_scenario_that_does_not_match_the_log_is_refused(logs: dict[str, 
         report.log_report(run_log, _packages(["health"]), source="x", case=_case("cruise_hold"))
 
 
+def _halt_scenario(tmp_path: Path, at: float, *, expect_halt: bool) -> Path:
+    """atmosphere_ceiling_halt with one elevator event at ``at`` s (its log has no write; the run
+    halts at frame 512)."""
+    data = yaml.safe_load((SCENARIOS / "atmosphere_ceiling_halt.yaml").read_text())
+    data["config"] = str(ROOT / data["config"])
+    data["events"] = [{"at": at, "write": "controls.elevator", "value": 0.0}]
+    if not expect_halt:
+        del data["expect_halt"]
+    path = tmp_path / f"halt_event_{at}.yaml"
+    path.write_text(yaml.safe_dump(data))
+    return path
+
+
+def test_report_scenario_event_on_the_halted_frame_must_be_logged(
+    logs: dict[str, Path], tmp_path: Path
+) -> None:
+    # Review A-001: astra.scenario writes a frame's events before that frame's step, so a run that
+    # halts at frame 512 wrote its frame-512 events; a log without one is not this scenario's.
+    run_log = log.load(logs["atmosphere_ceiling_halt"])
+    assert run_log.frames_run == 512
+    on_halt = scenario.load(_halt_scenario(tmp_path, 0.512, expect_halt=True), root=ROOT)
+    assert on_halt.events[0].frame == 512
+    with pytest.raises(report.ReportError, match=r"is at or before frames_run 512"):
+        report.log_report(run_log, _packages(["health"]), source="x", case=on_halt)
+    out = tmp_path / "r.html"
+    path = str(_halt_scenario(tmp_path, 0.512, expect_halt=True))
+    argv = ["report", str(logs["atmosphere_ceiling_halt"]), "--scenario", path, "--out", str(out)]
+    assert cli.main(argv) == cli.EX_DATAERR
+    assert not out.exists()
+    # An event after the halted frame was never written: that log can be this scenario's.
+    later = scenario.load(_halt_scenario(tmp_path, 0.6, expect_halt=False), root=ROOT)
+    text = report.log_report(run_log, _packages(["health"]), source="x", case=later)
+    assert "unexpected halt" in parse(text)["sec-other-assertions"].text()
+
+
 # --- R13: a batch ---------------------------------------------------------------------------------
 
 
@@ -618,7 +656,16 @@ def test_report_batch_sizing_rows_equal_mc_sizing_check(batch_dir: Path, batch_t
     assert field(ids, "sec-master-seed") == str(table.seed)
     ranking = next(i for i, check in enumerate(table.rows) if check.parameters)
     parameters = body_rows(ids, f"sec-claim-{ranking + 1}-parameters")
-    assert [r[0] for r in parameters] == [p.parameter for p in table.rows[ranking].parameters]
+    # Every cell, not only the names (review N-1).
+    assert parameters == [
+        [
+            p.parameter,
+            *(_g(v) for v in (p.rho, p.lower, p.upper, p.abs_lower, p.abs_upper)),
+            p.note,
+        ]
+        for p in table.rows[ranking].parameters
+    ]
+    assert parameters
 
 
 @pytest.mark.parametrize("metric", [None, METRIC], ids=["no-metric", "metric"])
@@ -765,6 +812,41 @@ def test_report_every_kind_is_self_contained_with_unique_ids(
         figure = plot.resolve(package, log.load(logs["elevator_step"]))[0]
         raw = _PROLOG.sub("", plot.svg_bytes(plot.draw_matplotlib(figure)).decode())
     assert any("repeated" in problem for problem in resource_refs.id_problems(raw + raw))
+
+
+def test_report_inline_svg_leaves_label_comments_as_drawn() -> None:
+    # Review N-2: matplotlib writes each label into a comment; one that reads like an id or a
+    # reference is not namespaced.
+    label = 'id="sample" xlink:href="#data" url(#temperature)'
+    x = np.array([0.0, 1.0])
+    figure = plot.Figure("f", "t", [plot.Panel("p", "y", "m", [plot.Series(label, x, x)])])
+    with plot.pinned_style("pkg", "f"):
+        raw = plot.svg_bytes(plot.draw_matplotlib(figure)).decode()
+    inline = report.inline_svg(raw.encode(), 3)
+    comments = re.findall(r"<!--.*?-->", raw, re.DOTALL)
+    assert any(label in comment for comment in comments)
+    assert re.findall(r"<!--.*?-->", inline, re.DOTALL) == comments
+    assert resource_refs.id_problems(inline) == []
+    assert 'id="fig3-' in inline
+
+
+def test_report_refuses_a_log_that_is_not_complete_and_published(
+    logs: dict[str, Path], tmp_path: Path
+) -> None:
+    # Review G-001: allow_incomplete=True can return a dropped run's log, or a complete .partial
+    # that was never published; neither is reported as a finished run (ADR-0027).
+    partial = tmp_path / "elevator_step.h5.partial"
+    shutil.copyfile(logs["elevator_step"], partial)
+    unpublished = log.load(partial, allow_incomplete=True)
+    assert unpublished.state == log.COMPLETE
+    assert not unpublished.published
+    with pytest.raises(report.ReportError, match=r"not published \(a \.partial name\)"):
+        report.log_report(unpublished, _packages(["health"]), source="p")
+    dropped = dataclasses.replace(
+        log.load(logs["elevator_step"]), state=log.DESTRUCTOR, complete=False
+    )
+    with pytest.raises(report.ReportError, match=r"finalization state is destructor"):
+        report.log_report(dropped, _packages(["health"]), source="d")
 
 
 def test_report_does_not_import_yaml() -> None:
