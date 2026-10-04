@@ -288,6 +288,9 @@ takes them as a prefix.
     It writes JSON (mean, median, p99, max, fps, margins against `dt`, toolchain, CPU, load) only after every
     check passes. `just benchmark` takes a Release baseline; the gate runs its smoke, which asserts no speed.
     Closes C-19 and N-05. Plan: [plan](docs/plans/m6-pr9-benchmark.md). Packet: in the PR body.
+  - Gate fix (#98): `just embedded-standalone`'s dependency check reads the CMakeCache's dependency entries and the
+    compile and link lines (`scripts/embedded_deps_check.py`), not the checkout path, which failed M6 PR 11's
+    worktree `m6-pr11-yaml-route`. Tier 1. Brief: [brief](docs/plans/embedded-deps-check.md). Packet: in the PR body.
   - Workflow (#83): plan-mode drafts land in the session's `docs/plans/` (`plansDirectory`), with the rule for
     renaming, committing or deleting them in `docs/agents/claude-code.md` and `/wrap`; 27 never-committed plans
     recovered from `~/.claude/plans`. Plan: [plan](docs/plans/claude-plans-directory.md). Packet: in the PR body.

@@ -106,7 +106,8 @@ embedded-standalone:
         dir="build/embedded-standalone/${cxx}"
         rm -rf "${dir}"
         cmake -S embedded -B "${dir}" -DCMAKE_CXX_COMPILER="${cxx}" -DCMAKE_BUILD_TYPE=Release
-        if grep -Eiq 'eigen|yaml|gtest|python' "${dir}/CMakeCache.txt"; then
+        # Dependency entries and compile/link lines only, never the checkout path (scripts/embedded_deps_check.py).
+        if ! python3 scripts/embedded_deps_check.py "${dir}" --root "$(pwd)"; then
             echo "embedded-standalone: ${cxx} configure pulled in a dependency beyond a C++17 compiler" >&2
             exit 1
         fi
