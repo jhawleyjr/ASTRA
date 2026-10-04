@@ -14,6 +14,7 @@ directly, or by hand.
 from __future__ import annotations
 
 import hashlib
+import itertools
 import math
 import os
 import shutil
@@ -166,6 +167,41 @@ def test_mc_analysis_scatter_points_are_exactly_each_outcomes_rows(descent_batch
             assert _color(collection) == to_rgba(mc_analysis.COLORS[label]), label
 
 
+_STATISTICS = {"min": None, "5 %": 5.0, "median": 50.0, "95 %": 95.0, "max": None}
+
+
+Trace = tuple[np.ndarray, np.ndarray, float]
+
+
+def _expected_envelope(
+    batch: Path, signal: str
+) -> tuple[dict[int, Trace], np.ndarray, float, np.ndarray, dict[str, np.ndarray]]:
+    """``(traces, longest, dt, count, statistics)``: every analyzed run's trace read independently,
+    the longest run's frames, and per frame of it the number of runs that reached it and each
+    statistic (``_STATISTICS``) over exactly those runs, by numpy (R5)."""
+    summary = _summary(batch)
+    traces = {
+        run: _trace(batch, run, signal)
+        for run, status in zip(summary["run"], summary["status"], strict=True)
+        if status != "error"
+    }
+    longest = max((frames for frames, _values, _dt in traces.values()), key=len)
+    dt = next(iter(traces.values()))[2]
+    count = np.empty(longest.size, dtype=np.int64)
+    statistics = {label: np.empty(longest.size) for label in _STATISTICS}
+    for k in range(longest.size):
+        reached = np.asarray(
+            [values[k] for frames, values, _dt in traces.values() if frames.size > k]
+        )
+        count[k] = reached.size
+        for label, q in _STATISTICS.items():
+            if q is None:
+                statistics[label][k] = reached.min() if label == "min" else reached.max()
+            else:
+                statistics[label][k] = np.percentile(reached, q)
+    return traces, longest, dt, count, statistics
+
+
 @pytest.mark.parametrize("signal", [ALTITUDE, SLOW])
 def test_mc_analysis_envelope_equals_numpy_over_the_runs_that_reached_each_frame(
     descent_batch: Path, signal: str
@@ -174,27 +210,14 @@ def test_mc_analysis_envelope_equals_numpy_over_the_runs_that_reached_each_frame
     result = mc_analysis.outcomes(batch)
     drawn = mc_analysis.draw_envelope(mc_analysis.envelope(batch, signal, result))
     summary = _summary(descent_batch)
-    traces = {
-        run: _trace(descent_batch, run, signal)
-        for run, status in zip(summary["run"], summary["status"], strict=True)
-        if status != "error"
-    }
-    longest = max((frames for frames, _values, _dt in traces.values()), key=len)
-    dt = next(iter(traces.values()))[2]
+    traces, longest, dt, count, statistics = _expected_envelope(descent_batch, signal)
     lines = {str(line.get_label()): line for line in drawn.axes[0].get_lines()}
     (count_line,) = drawn.axes[1].get_lines()
     assert np.array_equal(np.asarray(count_line.get_xdata()), longest.astype(np.float64) * dt)
-    stats = {"min": None, "5 %": 5.0, "median": 50.0, "95 %": 95.0, "max": None}
     for k in range(longest.size):
-        reached = np.asarray(
-            [values[k] for frames, values, _dt in traces.values() if frames.size > k]
-        )
-        assert np.asarray(count_line.get_ydata())[k] == reached.size, k
-        for label, q in stats.items():
-            if q is None:
-                expected = reached.min() if label == "min" else reached.max()
-            else:
-                expected = np.percentile(reached, q)
+        assert np.asarray(count_line.get_ydata())[k] == count[k], k
+        for label in _STATISTICS:
+            expected = statistics[label][k]
             assert np.asarray(lines[label].get_ydata())[k] == expected, (signal, label, k)
     halted = [
         run
@@ -285,6 +308,291 @@ def test_mc_analysis_the_legend_shows_ten_failing_runs_then_and_k_more() -> None
     ]
     drawn.draw_without_rendering()
     assert legend.get_window_extent().x0 >= ax.get_window_extent().x1  # D1: outside the axes
+
+
+# --- the bands' reduction (M6 PR 8b, docs/plans/m6-pr8b-envelope.md D1, D2) ---------------------
+
+_BAND_COLORS = ("#d9d9d9", "#9ecae1")  # min to max, then 5 % to 95 %
+
+
+def _bands(drawn: Any) -> list[Any]:
+    """The envelope's two fill bands' paths, min-max then 5-95 %, each a single closed path."""
+    collections = list(drawn.axes[0].collections)
+    assert len(collections) == 2
+    paths = []
+    for collection, color in zip(collections, _BAND_COLORS, strict=True):
+        assert _color(collection) == to_rgba(color)
+        (path,) = collection.get_paths()
+        paths.append(path)
+    return paths
+
+
+def _chain_range(x: np.ndarray, y: np.ndarray, t: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """The lowest and highest y of a chain with non-decreasing x at each of ``t``: every vertex at
+    exactly that x (a vertical step), or else the straight segment across it; +inf and -inf where
+    the chain does not reach."""
+    low = np.full(t.shape, np.inf)
+    high = np.full(t.shape, -np.inf)
+    left = np.searchsorted(x, t, "left")
+    right = np.searchsorted(x, t, "right")
+    on = right > left
+    starts = np.flatnonzero(np.r_[True, x[1:] != x[:-1]])
+    group = np.searchsorted(starts, left[on], "right") - 1
+    low[on] = np.minimum.reduceat(y, starts)[group]
+    high[on] = np.maximum.reduceat(y, starts)[group]
+    inside = ~on & (left > 0) & (left < x.size)
+    i = left[inside]
+    value = y[i - 1] + (y[i] - y[i - 1]) * (t[inside] - x[i - 1]) / (x[i] - x[i - 1])
+    low[inside] = value
+    high[inside] = value
+    return low, high
+
+
+def _band_at(path: Any, t: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """The band's vertical cross-section ``(low, high)`` at each of ``t``, read from its path. The
+    path must have the shape fill_between draws: x non-decreasing up to its maximum, then
+    non-increasing, so the cross-section is one interval between the two chains."""
+    from matplotlib.path import Path as MplPath
+
+    vertices = np.asarray(path.vertices)
+    if path.codes is not None:
+        vertices = vertices[np.asarray(path.codes) != MplPath.CLOSEPOLY]
+    x, y = vertices[:, 0], vertices[:, 1]
+    peak = np.flatnonzero(x == x.max())
+    first, last = int(peak[0]), int(peak[-1])
+    assert np.all(np.diff(x[: last + 1]) >= 0)
+    assert np.all(np.diff(x[first:]) <= 0)
+    low_a, high_a = _chain_range(x[: last + 1], y[: last + 1], t)
+    low_b, high_b = _chain_range(x[first:][::-1], y[first:][::-1], t)
+    return np.minimum(low_a, low_b), np.maximum(high_a, high_b)
+
+
+def _contains(path: Any, t: np.ndarray, lo: np.ndarray, hi: np.ndarray) -> np.ndarray:
+    """Per frame: whether the band holds ``lo .. hi`` (True at a frame with a NaN, which is not
+    checked)."""
+    low, high = _band_at(path, t)
+    finite = np.isfinite(lo) & np.isfinite(hi)
+    return ~finite | ((low <= lo) & (hi <= high))
+
+
+def _edges(path: Any, t: np.ndarray) -> np.ndarray:
+    """The reduced band's column edges, as frame indices, read from the step x positions of its
+    path: frame times, from the first frame to the last, of widths that differ by at most one."""
+    x = np.unique(np.asarray(path.vertices)[:, 0])
+    index = np.searchsorted(t, x)
+    assert np.array_equal(t[index], x)  # every edge is a frame time
+    assert index[0] == 0
+    assert index[-1] == t.size - 1
+    widths = np.diff(index)
+    assert widths.min() >= 1
+    assert widths.max() - widths.min() <= 1
+    return index
+
+
+def _direct(t: np.ndarray, lo: np.ndarray, hi: np.ndarray) -> np.ndarray:
+    """The vertices of ``fill_between(t, lo, hi)`` over every frame, drawn on its own."""
+    from matplotlib.figure import Figure
+
+    ax: Any = Figure().subplots()
+    (path,) = ax.fill_between(t, lo, hi).get_paths()
+    return np.asarray(path.vertices)
+
+
+def _synthetic(
+    lo: np.ndarray, hi: np.ndarray, p5: np.ndarray, p95: np.ndarray
+) -> mc_analysis.Envelope:
+    n = lo.size
+    t = np.arange(n, dtype=np.float64) * 0.001
+    return mc_analysis.Envelope(
+        "x",
+        "m",
+        1,
+        0.001,
+        np.arange(n, dtype=np.int64),
+        t,
+        np.full(n, 3, dtype=np.int64),
+        lo,
+        hi,
+        {5.0: p5, 50.0: (p5 + p95) / 2.0, 95.0: p95},
+        {},
+        (0, 1, 2),
+        (),
+    )
+
+
+SPIKE_FRAMES = 300_001  # a 300 s envelope at 1 ms
+SPIKE_INSIDE = 123_457  # inside a column of 900 (edges are j * 300000 // 900)
+SPIKE_EDGE = 1_000  # a column edge (j = 3)
+SPIKE_EDGE_UP = 200_000  # a column edge (j = 600)
+NAN_FRAMES = slice(250_001, 250_101)  # part of the column 250000 .. 250333
+
+
+def _spike_envelope() -> mc_analysis.Envelope:
+    """A smooth, slightly rough base with one-frame spikes up in the maximum and the 95 % line,
+    down in the minimum and the 5 % line, and a partly NaN column."""
+    k = np.arange(SPIKE_FRAMES, dtype=np.float64)
+    base = np.sin(k * 2e-5) + 0.05 * np.sin(k * 0.37)
+    lo, p5, p95, hi = base - 2.0, base - 1.0, base + 1.0, base + 2.0
+    hi[SPIKE_INSIDE] += 50.0
+    p95[SPIKE_INSIDE] += 40.0
+    hi[SPIKE_EDGE_UP] += 30.0
+    lo[SPIKE_EDGE] -= 50.0
+    p5[SPIKE_EDGE] -= 40.0
+    for array in (lo, p5, p95, hi):
+        array[NAN_FRAMES] = np.nan
+    return _synthetic(lo, hi, p5, p95)
+
+
+def _pairs(env: mc_analysis.Envelope) -> list[tuple[np.ndarray, np.ndarray]]:
+    return [(env.minimum, env.maximum), (env.percentiles[5.0], env.percentiles[95.0])]
+
+
+@pytest.mark.parametrize("columns", [None, 37], ids=["shipped", "columns_37"])
+@pytest.mark.parametrize("signal", [ALTITUDE, SLOW])
+def test_mc_analysis_envelope_band_contains_every_frame_of_the_descent_batch(
+    descent_batch: Path, signal: str, columns: int | None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 37 divides neither 499 nor 49 frame steps, so real data meets columns of unequal width.
+    if columns is not None:
+        monkeypatch.setattr(mc_analysis, "ENVELOPE_COLUMNS", columns)
+    batch = mc_analysis.load_batch(descent_batch)
+    drawn = mc_analysis.draw_envelope(
+        mc_analysis.envelope(batch, signal, mc_analysis.outcomes(batch))
+    )
+    _traces, longest, dt, _count, statistics = _expected_envelope(descent_batch, signal)
+    t = longest.astype(np.float64) * dt
+    expected = [(statistics["min"], statistics["max"]), (statistics["5 %"], statistics["95 %"])]
+    for path, (lo, hi) in zip(_bands(drawn), expected, strict=True):
+        if columns is None:
+            assert longest.size - 1 <= mc_analysis.ENVELOPE_COLUMNS
+            assert np.array_equal(np.asarray(path.vertices), _direct(t, lo, hi))
+        else:
+            assert _edges(path, t).size == columns + 1
+        contained = _contains(path, t, lo, hi)
+        assert contained.all(), np.flatnonzero(~contained)[:10]
+
+
+def test_mc_analysis_envelope_of_at_most_901_frames_draws_the_unreduced_band() -> None:
+    assert mc_analysis.ENVELOPE_COLUMNS == 900
+    for n, reduced in ((901, False), (902, True)):
+        k = np.arange(n, dtype=np.float64)
+        base = np.sin(k * 0.37)
+        env = _synthetic(base - 2.0, base + 2.0, base - 1.0, base + 1.0)
+        for path, (lo, hi) in zip(_bands(mc_analysis.draw_envelope(env)), _pairs(env), strict=True):
+            vertices = np.asarray(path.vertices)
+            if reduced:
+                assert _edges(path, env.t).size == mc_analysis.ENVELOPE_COLUMNS + 1
+                assert len(vertices) == 4 * mc_analysis.ENVELOPE_COLUMNS + 5
+            else:
+                assert np.array_equal(vertices, _direct(env.t, lo, hi))
+                assert len(vertices) == 2 * n + 3
+            assert _contains(path, env.t, lo, hi).all()
+
+
+def test_mc_analysis_envelope_band_contains_a_one_frame_spike() -> None:
+    env = _spike_envelope()
+    bands = _bands(mc_analysis.draw_envelope(env))
+    for path, (lo, hi) in zip(bands, _pairs(env), strict=True):
+        edges = _edges(path, env.t)
+        assert edges.size == mc_analysis.ENVELOPE_COLUMNS + 1
+        assert SPIKE_INSIDE not in edges
+        assert SPIKE_EDGE in edges
+        assert SPIKE_EDGE_UP in edges
+        contained = _contains(path, env.t, lo, hi)
+        assert contained.all(), np.flatnonzero(~contained)[:10]
+        # So is the straight segment between every two neighboring frames, which is what the
+        # statistic lines draw: read at its midpoint (columns share their boundary frames).
+        middle = _contains(
+            path,
+            (env.t[:-1] + env.t[1:]) / 2.0,
+            (lo[:-1] + lo[1:]) / 2.0,
+            (hi[:-1] + hi[1:]) / 2.0,
+        )
+        assert middle.all(), np.flatnonzero(~middle)[:10]
+        # The finite frames of the partly NaN column are drawn and held.
+        column = slice(250_000, 250_334)
+        low, high = _band_at(path, env.t[column])
+        assert np.isfinite(low).all()
+        assert np.isfinite(high).all()
+    # Each spike frame is its band's top (or bottom) there.
+    minmax, percentile = bands
+    for path, values, frame in (
+        (minmax, env.maximum, SPIKE_INSIDE),
+        (percentile, env.percentiles[95.0], SPIKE_INSIDE),
+        (minmax, env.maximum, SPIKE_EDGE_UP),
+    ):
+        assert _band_at(path, env.t[[frame]])[1][0] == values[frame]
+    for path, values in ((minmax, env.minimum), (percentile, env.percentiles[5.0])):
+        assert _band_at(path, env.t[[SPIKE_EDGE]])[0][0] == values[SPIKE_EDGE]
+
+
+def test_mc_analysis_envelope_band_check_reads_the_full_band_and_catches_a_cut_corner() -> None:
+    env = _spike_envelope()
+    finite = np.isfinite(env.maximum)
+    t, lo, hi = env.t[finite], env.minimum[finite], env.maximum[finite]
+    # On the full band, the reader gives back exactly each frame's lo .. hi.
+    from matplotlib.figure import Figure
+
+    ax: Any = Figure().subplots()
+    (full,) = ax.fill_between(t, lo, hi).get_paths()
+    low, high = _band_at(full, t)
+    assert np.array_equal(low, lo)
+    assert np.array_equal(high, hi)
+    # A band through the column centers (interpolating between columns) cuts the spike's corner.
+    (reduced, _percentile) = _bands(mc_analysis.draw_envelope(env))
+    edges = _edges(reduced, env.t)
+    centers = (env.t[edges[:-1]] + env.t[edges[1:]]) / 2.0
+    top = [np.nanmax(env.maximum[a : b + 1]) for a, b in itertools.pairwise(edges)]
+    bottom = [np.nanmin(env.minimum[a : b + 1]) for a, b in itertools.pairwise(edges)]
+    ax = Figure().subplots()
+    (cut,) = ax.fill_between(centers, bottom, top).get_paths()
+    contained = _contains(cut, env.t, env.minimum, env.maximum)
+    assert not contained[SPIKE_INSIDE]
+    assert _contains(reduced, env.t, env.minimum, env.maximum)[SPIKE_INSIDE]
+
+
+def test_mc_analysis_envelope_band_is_each_columns_extent() -> None:
+    env = _spike_envelope()
+    for path, (lo, hi) in zip(_bands(mc_analysis.draw_envelope(env)), _pairs(env), strict=True):
+        edges = _edges(path, env.t)
+        # Strictly inside a column the band is one horizontal step: read it at the midpoint.
+        middle = (env.t[edges[:-1]] + env.t[edges[1:]]) / 2.0
+        low, high = _band_at(path, middle)
+        spans = list(itertools.pairwise(edges))
+        assert np.array_equal(low, [np.nanmin(lo[a : b + 1]) for a, b in spans])
+        assert np.array_equal(high, [np.nanmax(hi[a : b + 1]) for a, b in spans])
+
+
+def test_mc_analysis_envelope_band_vertex_count_is_bounded_independent_of_run_length() -> None:
+    bound = 4 * mc_analysis.ENVELOPE_COLUMNS + 5
+    for n in (1, 2, 901, 902, 10_001, SPIKE_FRAMES):
+        k = np.arange(n, dtype=np.float64)
+        base = np.sin(k * 0.37)
+        env = _synthetic(base - 2.0, base + 2.0, base - 1.0, base + 1.0)
+        for path in _bands(mc_analysis.draw_envelope(env)):
+            count = len(path.vertices)
+            assert count <= bound, n
+            assert count == (2 * n + 3 if n <= mc_analysis.ENVELOPE_COLUMNS + 1 else bound), n
+
+
+def test_mc_analysis_envelope_columns_are_at_most_one_pixel_at_the_save_dpi(
+    descent_batch: Path,
+) -> None:
+    import matplotlib
+
+    from astra import plot
+
+    batch = mc_analysis.load_batch(descent_batch)
+    env = mc_analysis.envelope(batch, ALTITUDE, mc_analysis.outcomes(batch))
+    with plot.pinned_style("mc", f"mc-envelope-{ALTITUDE}"):
+        dpi = float(matplotlib.rcParams["savefig.dpi"])
+        drawn = mc_analysis.draw_envelope(env)
+        # The invariant: the whole figure is at most ENVELOPE_COLUMNS pixels wide when saved.
+        assert drawn.get_figwidth() * dpi <= mc_analysis.ENVELOPE_COLUMNS
+        # And so is the band's axes, after layout.
+        drawn.draw_without_rendering()
+        width = drawn.axes[0].get_window_extent().width * dpi / drawn.dpi
+        assert width <= mc_analysis.ENVELOPE_COLUMNS
 
 
 def test_mc_analysis_a_missing_log_of_an_ok_run_is_refused_naming_the_run(
