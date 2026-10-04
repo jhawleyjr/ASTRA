@@ -1142,8 +1142,7 @@ def render_figures(
             with plot.pinned_style("mc", name):
                 drawn = draw()
                 with plot.create_exclusive(target, created) as stream:
-                    metadata = {"Date": None} if fmt == "svg" else {}
-                    drawn.savefig(stream, format=fmt, metadata=metadata)
+                    plot.write_figure(drawn, stream, fmt)
     except BaseException:
         for path in created:
             path.unlink(missing_ok=True)

@@ -1,0 +1,35 @@
+date: 2026-10-04T02:27:56Z
+command: rm -rf build && ./scripts/check-full.sh (a fresh configure: build/ removed first)
+base: 51410e25cac9eefb813f916fec0d848b0de406b2
+head: 3aadfa7 (review fix 1)
+exit: 0
+end: 2026-10-04T02:45:27Z
+load before: 0.70 1.80 4.00 2/9800 2240395 (a quiet machine: no other build or pytest process: pgrep -x
+  'just|ninja|ctest|clang-tidy-18|clang\+\+-18' empty). Other processes: xrdp, other Claude sessions, the
+  Claude desktop app and its cowork VM, none building.
+load after: 9.08 10.49 7.82 2/9767 2317883 (the gate's own load)
+context only: PR 8's first gate (6d1a26e, before review fix 1) took 1059.37 s; #94's (f184b4c) took 1114.28 s
+  with load averages 36.7 / 29.6 / 18.2 just after it. PR 8's own cost is the pytest delta,
+  d29ae23-pytest-delta.log (+10.0 s). Fix 1 adds 11 tests; this gate's pytest step took 122.74 s against
+  123.76 s at 6d1a26e, so their cost is below the run-to-run spread.
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 195 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr8-report/build/debug
+100% tests passed, 0 tests failed out of 669
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr8-report/build/release
+100% tests passed, 0 tests failed out of 670
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr8-report/build/static-plugins
+100% tests passed, 0 tests failed out of 671
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr8-report/build/asan
+100% tests passed, 0 tests failed out of 672
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+0 errors, 0 warnings, 0 informations
+1651 passed, 5 skipped in 122.74s (0:02:02)
+check: OK
+gate wall 1051.48 s

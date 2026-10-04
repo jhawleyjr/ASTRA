@@ -587,18 +587,65 @@ def _logged_maximum(run_log: log.RunLog, signal: str) -> float | None:
     return None
 
 
-def _check_failure(scenario: Scenario, check: Check, run_log: log.RunLog) -> str | None:
+@dataclasses.dataclass(frozen=True)
+class CheckResult:
+    """One check evaluated on a log (``evaluate``). ``label`` and ``span`` word it as ``verify``'s
+    message does (``span`` is ``None`` when the log cannot place the window). ``rows`` is how many
+    rows were checked; ``worst`` is the row with the largest violation (``violation``) as ``(value,
+    frame)``, or ``None`` when no row was checked; ``problem`` is a log that cannot answer the check
+    (the signal absent, or rows missing from the window), else ``None``."""
+
+    check: Check
+    label: str
+    span: str | None
+    rows: int
+    worst: tuple[float, int] | None
+    excess: float | None
+    problem: str | None
+    dt: float
+
+    @property
+    def passed(self) -> bool:
+        return self.problem is None and self.excess is not None and self.excess <= 0.0
+
+    def message(self) -> str | None:
+        """``verify``'s failure message for this check, or ``None`` when it passed."""
+        if self.problem is not None:
+            where = self.label if self.span is None else f"{self.label} over {self.span}"
+            return f"{where}: {self.problem}"
+        if self.passed or self.worst is None:
+            return None
+        value, frame = self.worst
+        return (
+            f"{self.label} over {self.span}: worst value {value!r} at frame {frame} "
+            f"(t = {frame * self.dt:g} s)"
+        )
+
+
+def evaluate(scenario: Scenario, check: Check, run_log: log.RunLog) -> CheckResult:
+    """``check`` on ``run_log``: the rows of its window, the worst one, and whether it holds
+    (module docstring, Verification). ``verify`` reports each failing check's ``message()``."""
     label = f"checks[{check.index}] {check.signal} {_describe_check(check)}"
+
+    def result(
+        span: str | None,
+        rows: int,
+        worst: tuple[float, int] | None,
+        excess: float | None,
+        problem: str | None,
+    ) -> CheckResult:
+        return CheckResult(check, label, span, rows, worst, excess, problem, scenario.dt)
+
     table = next((t for t in run_log.rates.values() if check.signal in t.columns), None)
     if table is None:
-        return f"{label}: the signal is not in the log"
+        return result(None, 0, None, None, "the signal is not in the log")
     data = cast(Any, table)
     frames = np.asarray(data.index.to_numpy(), dtype=np.int64)
     values = np.asarray(data[check.signal].to_numpy(), dtype=np.float64)
     window = check.window
     if window.stop is None:
         if frames.size == 0:
-            return f"{label} over final: the log has no rows"
+            return result("final", 0, None, None, "the log has no rows")
         selected = np.array([frames.size - 1])
         span = f"final (frame {int(frames[-1])})"
     else:
@@ -609,17 +656,22 @@ def _check_failure(scenario: Scenario, check: Check, run_log: log.RunLog) -> str
         )
         wanted = _rows(window.first, window.stop, check.divisor)
         if selected.size != wanted or wanted == 0:
-            return f"{label} over {span}: the log has {selected.size} of its {wanted} rows"
+            problem = f"the log has {selected.size} of its {wanted} rows"
+            return result(span, int(selected.size), None, None, problem)
     excess = violation(check.kind, check.a, check.b, values[selected])
     worst = int(np.argmax(excess))
-    if excess[worst] <= 0.0:
-        return None
     row = int(selected[worst])
-    frame = int(frames[row])
-    return (
-        f"{label} over {span}: worst value {float(values[row])!r} at frame {frame} "
-        f"(t = {frame * scenario.dt:g} s)"
+    return result(
+        span,
+        int(selected.size),
+        (float(values[row]), int(frames[row])),
+        float(excess[worst]),
+        None,
     )
+
+
+def _check_failure(scenario: Scenario, check: Check, run_log: log.RunLog) -> str | None:
+    return evaluate(scenario, check, run_log).message()
 
 
 def _describe_check(check: Check) -> str:

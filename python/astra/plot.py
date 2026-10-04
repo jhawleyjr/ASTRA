@@ -60,6 +60,7 @@ import dataclasses
 import hashlib
 import html
 import importlib
+import io
 import re
 import sys
 import types
@@ -754,7 +755,7 @@ def render(
             with pinned_style(package.name, figure.name):
                 drawn = draw_matplotlib(figure)
                 with create_exclusive(target, created) as stream:
-                    drawn.savefig(stream, format=fmt, metadata=_metadata(fmt))  # pyright: ignore[reportUnknownMemberType]
+                    write_figure(drawn, stream, fmt)
         if page is not None and text is not None:
             with create_exclusive(page, created) as stream:
                 stream.write(text.encode("utf-8"))
@@ -765,9 +766,22 @@ def render(
     return targets
 
 
-def _metadata(fmt: str) -> dict[str, Any]:
-    # No date in an SVG (and SOURCE_DATE_EPOCH is not consulted when Date is None).
-    return {"Date": None} if fmt == "svg" else {}
+def svg_bytes(drawn: MatplotlibFigure) -> bytes:
+    """``drawn`` as SVG: the one ``savefig`` call behind every ASTRA SVG (``render``,
+    ``astra.mc_analysis.render_figures`` and ``astra.report``'s inline figures), so a figure is the
+    same bytes wherever it lands. Call it under ``pinned_style``, which the bytes depend on. No date
+    metadata (and ``SOURCE_DATE_EPOCH`` is not consulted when ``Date`` is ``None``)."""
+    stream = io.BytesIO()
+    drawn.savefig(stream, format="svg", metadata={"Date": None})  # pyright: ignore[reportUnknownMemberType]
+    return stream.getvalue()
+
+
+def write_figure(drawn: MatplotlibFigure, stream: Any, fmt: str) -> None:
+    """``drawn`` written to the binary ``stream``: SVG through ``svg_bytes``, or PNG."""
+    if fmt == "svg":
+        stream.write(svg_bytes(drawn))
+    else:
+        drawn.savefig(stream, format=fmt, metadata={})  # pyright: ignore[reportUnknownMemberType]
 
 
 @contextlib.contextmanager

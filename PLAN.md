@@ -266,6 +266,12 @@ takes them as a prefix.
     batches of 130 on seed 707. KS and Spearman rank the cause first with the stated minimum effect and margin,
     and the control flags nothing. R9's config is also checked through `astra.montecarlo`'s PyYAML route. Plan:
     [plan](docs/plans/m6-pr7b-planted.md). Packet: in the PR body.
+  - PR 8 (#95): the run report (R13, R15's report case, C-11 to C-13). `astra.report` and `astra report` turn a
+    run log, a scenario's log (`--scenario`) or a batch (a directory) into one self-contained HTML file: the
+    summary, the scenario's check rows (`astra.scenario.evaluate`), every figure inline with its ids namespaced
+    by ordinal, the batch's outcomes, sizing table and rankings, and provenance read from the log (the config
+    text escaped, never re-parsed). `tests/python/resource_refs.py` becomes an allow-list (D9), closing that
+    open item; R3b uses it. `-k report`. Plan: [plan](docs/plans/m6-pr8-report.md). Packet: in the PR body.
   - PR 9 (#91): the frame-time benchmark. `astra_frame_benchmark` (`tests/benchmark/`) times each `step()` of the
     notional transport's cruise and still-air configs and of `dummy_1000`, after a warm-up instance, checking
     every timed frame ran with no halt. It also times R19b's five logged cases end to end through `close_log()`.
@@ -429,18 +435,25 @@ takes them as a prefix.
       avoids the round trip. Not started. One config is covered: M6 PR 7b's
       `test_planted_r9_config_pyyaml_route_matches_yaml_cpp` gives equal rate-group data for `cruise.yaml` (R9's
       base config) through `astra.montecarlo` and through yaml-cpp's file load.
-- [ ] (M6) `tests/python/resource_refs.py`, the self-contained-document check R3b uses and PR 8's report will
-      reuse, is an enumeration of loading constructs, so anything unlisted passes: known misses are an
-      `<?xml-stylesheet?>` processing instruction, CSS `image-set()` with a bare string, and SMIL `<set>`/`<animate>`
-      on `href` (origin: M6 PR 5, Joe's review, 2026-10-01). PR 8 replaces it with an approved set: any element,
-      attribute or CSS function outside an allowed set is flagged. Not started.
 - [ ] (M6) `aircraft/_template/plots/ground_track.py` draws without an equal aspect ratio, so near-straight flight
       autoscales the east axis around zero and exaggerates a tiny lateral drift (origin: M6 PR 5, Joe's review,
       2026-10-01). Not started.
 - [ ] (M6) `python/astra/plots/flight.yaml` puts TAS and CAS on one panel, which spans 270 to 475 kt and flattens
       both (origin: M6 PR 5, Joe's look at a 60 s run, 2026-10-01). Not started.
-- [ ] (M6) A 60 s run gives a 25 MB HTML page, because every 1 ms frame is plotted (origin: M6 PR 5, Joe's look
-      at a 60 s run, 2026-10-01). Consider an opt-in decimation for HTML, and perhaps SVG. Not started.
+- [ ] (M6) A 60 s run gives a 25 MB plotly page (`astra plot --html`), because plotly stores every 1 ms sample
+      and grows linearly (origin: M6 PR 5, Joe's look at a 60 s run, 2026-10-01). Consider an opt-in decimation
+      for the plotly page. The SVG is not affected: matplotlib simplifies each line before writing it, so the
+      default log report (flight, attitude, health) is 1.32 MB at 60 s and 1.59 MB at 300 s of the notional
+      cruise (M6 PR 8's plan, Size; Joe's D1a: no decimation). Not started.
+- [ ] (M6) A batch report's envelope figures grow with the run length and the failing runs (origin: M6 PR 8's
+      plan, Size, D1b; Joe 2026-10-03, milestone M6 at his review of #95). Two costs, measured on R9's spec:
+      the two fill polygons (min-max and 5-95 %), which matplotlib does not simplify, at about 51 bytes per frame
+      each (31 MB of a 35 MB envelope for 16 runs of 300 s); and the failing-run overlays, simplified lines whose
+      cost per failing run depends on the signal (1 to 5 KB for altitude, 116 to 241 KB for alpha in
+      turbulence; R9's 58 overlays are 6.7 MB of its 8.4 MB alpha envelope). The proposal: replace each polygon
+      with a per-column minimum and maximum, so the band still holds every sample, in its own reviewed change
+      (it changes `astra mc analyze`'s figure and R5's drawing). Capping the overlays would change PR 6's contract.
+      Not started.
 - [ ] (M7) §18 step 4 fails on a template copy: `aircraft/_template/configs/cruise.yaml` uses `earth/flat`, which
       `astra.trim` refuses (altitude is geodetic only), so `astra trim` on a new aircraft exits 65 (origin: M6 PR 3;
       Joe 2026-09-30). M7 builds the F-16 from the template. Not started.

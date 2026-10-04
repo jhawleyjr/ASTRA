@@ -2,7 +2,8 @@
 §12, §15 and §18).
 
 Subcommands: ``run``, ``trim``, ``plot`` (M6 PR 5, docs/plans/m6-pr5-plots.md), ``mc analyze`` and
-``mc rerun`` (M6 PR 6), and ``mc size`` (M6 PR 7). ``report`` comes with its tool (M6 plan).
+``mc rerun`` (M6 PR 6), ``mc size`` (M6 PR 7), and ``report`` (M6 PR 8,
+docs/plans/m6-pr8-report.md).
 ``main(argv)`` returns the exit code and changes no signal handler; ``console()`` is the script.
 
 ``astra run <config> [--strict] [--log PATH]``
@@ -116,6 +117,21 @@ Subcommands: ``run``, ``trim``, ``plot`` (M6 PR 5, docs/plans/m6-pr5-plots.md), 
     Codes: 64 a usage error, including a value outside its domain or an argument of the other
     mode; 65 a refused batch, criterion, metric or claims file; 74 stdout could not be written; 70
     an internal error; 0 printed, a ``violated`` verdict included.
+
+``astra report <input> --out FILE [--package P]... [--scenario FILE]`` (a log) and
+``astra report <batch> --out FILE [--criterion EXPR] [--metric COLUMN] [--q Q] [--claims FILE]
+[--signal NAME]...`` (M6 PR 8, docs/plans/m6-pr8-report.md D2, D3)
+    Writes one self-contained HTML report (``astra.report``). A directory is a batch; anything else
+    is a run log, read strictly; a log with ``--scenario`` is that scenario's report, its checks
+    evaluated on the log. The packages default to ``flight``, ``attitude`` and ``health``; given
+    ones replace them. The batch options are ``astra mc analyze``'s, plus ``astra mc size check``'s
+    claims file. An option for the other kind of input is a usage error. FILE is created and never
+    replaced; one inside the batch is refused. It prints the path written. Codes: 64 a usage error;
+    65 a refused input, scenario (including one whose dt or events differ from the log's), package,
+    criterion, metric, claims file, signal or run log (including a kept run whose log is missing,
+    or whose build provenance differs), or an existing FILE; 74 a failed write (the file is
+    deleted) or stdout; 70 an internal error; 0 written, including a report that shows a halt, a
+    failed check or a ``violated`` verdict.
 """
 
 from __future__ import annotations
@@ -305,7 +321,8 @@ def _parser() -> tuple[_Parser, dict[str, _Parser]]:
         f"{', '.join(RERUN_PACKAGES)})",
     )
     size = _size_parser(mc_commands)
-    return parser, {"run": run, "trim": trim, "plot": plot, "size": size}
+    report = _report_parser(commands)
+    return parser, {"run": run, "trim": trim, "plot": plot, "size": size, "report": report}
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -320,6 +337,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _run(args, commands["run"])
         if args.command == "plot":
             return _plot(args)
+        if args.command == "report":
+            return _report(args, commands["report"])
         if args.command == "mc":
             if args.mc_command == "size":
                 return _mc_size(args, commands["size"])
@@ -1032,6 +1051,127 @@ def _size_claim(args: argparse.Namespace) -> Any:
     if not args.top:
         raise mc_sizing.SizingError("--top or --null is required with --batch")
     return mc_sizing.RankingClaim(args.metric, "top", None, confidence)
+
+
+# --- astra report (M6 PR 8, docs/plans/m6-pr8-report.md D2, D3) ---------------------------------
+
+_LOG_ONLY = ("package", "scenario")
+_BATCH_ONLY_REPORT = ("criterion", "metric", "q", "claims", "signal")
+
+
+def _report_parser(commands: Any) -> _Parser:
+    report = commands.add_parser(
+        "report",
+        help="write one self-contained HTML report of a log, a scenario or a batch",
+        description="Write one self-contained HTML report (astra.report): of a run log, of a "
+        "scenario's log (--scenario), or of a Monte Carlo batch (a directory). Exit codes: 64 "
+        "usage, 65 a refused input, scenario, package, criterion, metric, claims file, signal or "
+        "log, or an existing output, 74 a failed write, 0 written (a halt, a failed check or a "
+        "violated claim included); 70 an internal error.",
+    )
+    report.add_argument("input", help="a run log (a file) or a batch (a directory)")
+    report.add_argument("--out", metavar="FILE", required=True, help="the report (never replaced)")
+    report.add_argument(
+        "--package",
+        action="append",
+        metavar="P",
+        help="(log) a plot package, a file or a framework name (repeatable; default: "
+        f"{', '.join(_REPORT_PACKAGES)})",
+    )
+    report.add_argument("--scenario", metavar="FILE", help="(log) the scenario the log ran")
+    report.add_argument(
+        "--criterion",
+        metavar="EXPR",
+        help="(batch) the failure criterion (default: status == halt)",
+    )
+    report.add_argument("--metric", metavar="COLUMN", help="(batch) for Spearman and PRCC")
+    report.add_argument(
+        "--q", type=_rate, metavar="Q", help="(batch) the Benjamini-Hochberg rate (default 0.05)"
+    )
+    report.add_argument(
+        "--claims", metavar="FILE", help="(batch) a claims file for the sizing check"
+    )
+    report.add_argument(
+        "--signal",
+        action="append",
+        metavar="NAME",
+        help="(batch) an envelope of this signal (repeatable)",
+    )
+    return report
+
+
+_REPORT_PACKAGES = ("flight", "attitude", "health")  # astra.report.DEFAULT_PACKAGES
+
+
+def _report(args: argparse.Namespace, parser: _Parser) -> int:
+    # h5py, pandas, pyarrow, scipy and matplotlib, only for this command.
+    from astra import log, mc_analysis, mc_sizing, montecarlo, plot, report, scenario
+
+    command = "report"
+    source = cast(str, args.input)
+    batch_input = Path(source).is_dir()
+    wrong = _LOG_ONLY if batch_input else _BATCH_ONLY_REPORT
+    extra = [name for name in wrong if _given(args, name)]
+    if extra:
+        kind = "a log" if batch_input else "a batch"
+        return _usage(parser, f"--{extra[0]} is for {kind}; {source} is not one")
+    refused = (
+        report.ReportError,
+        log.LogFormatError,
+        log.IncompleteLogError,
+        plot.PlotPackageError,
+        scenario.ScenarioError,
+        mc_analysis.BatchError,
+        mc_analysis.CriterionError,
+        mc_analysis.EnvelopeError,
+        mc_sizing.SizingError,
+    )
+    out = Path(args.out)
+    if out.exists() or out.is_symlink():  # refused before any work; write() refuses it again
+        _say(command, f"output error: {out}: already exists; astra report never overwrites a file")
+        return EX_DATAERR
+    try:
+        if batch_input:
+            batch = mc_analysis.load_batch(source)
+            if montecarlo.inside(out, Path(source)):
+                raise report.ReportError(
+                    f"{out}: is the batch {source} or inside it; astra report never writes into "
+                    "the batch it reads"
+                )
+            claims = mc_sizing.load_claims(args.claims) if args.claims is not None else None
+            text = report.batch_report(
+                batch,
+                source=source,
+                criterion=args.criterion,
+                metric=args.metric,
+                q=args.q if args.q is not None else mc_analysis.DEFAULT_Q,
+                claims=claims,
+                signals=args.signal or [],
+            )
+        else:
+            names = args.package or list(report.DEFAULT_PACKAGES)
+            packages = [plot.load_package(plot.package_path(name)) for name in names]
+            case = scenario.load(args.scenario) if args.scenario is not None else None
+            run_log = log.load(source)
+            text = report.log_report(
+                run_log,
+                packages,
+                source=source,
+                case=case,
+                case_source=args.scenario or "",
+            )
+    except refused as error:
+        _say(command, f"refused: {error}")
+        return EX_DATAERR
+    try:
+        written = report.write(text, out)
+    except report.ReportOutputExistsError as error:
+        _say(command, f"output error: {error}")
+        return EX_DATAERR
+    except OSError as error:
+        _say(command, f"cannot write the report: {error}")
+        return EX_IOERR
+    return 0 if _write(command, f"{written}\n") else EX_IOERR
 
 
 if __name__ == "__main__":
