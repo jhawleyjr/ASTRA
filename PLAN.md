@@ -298,6 +298,9 @@ takes them as a prefix.
     R9's, the descent and Q19 batches, the scenarios, `astra trim`, `astra.linearize` and the lockstep config
     are byte-identical to `72877da` ([before/after](docs/reviews/evidence/5461294-before-after.log)).
     `-k pyyaml_route`. Plan: [plan](docs/plans/m6-pr11-yaml-route.md). Packet: in the PR body.
+  - Gate fix (#98): `just embedded-standalone`'s dependency check reads the CMakeCache's dependency entries and the
+    compile and link lines (`scripts/embedded_deps_check.py`), not the checkout path, which failed M6 PR 11's
+    worktree `m6-pr11-yaml-route`. Tier 1. Brief: [brief](docs/plans/embedded-deps-check.md). Packet: in the PR body.
   - Workflow (#83): plan-mode drafts land in the session's `docs/plans/` (`plansDirectory`), with the rule for
     renaming, committing or deleting them in `docs/agents/claude-code.md` and `/wrap`; 27 never-committed plans
     recovered from `~/.claude/plans`. Plan: [plan](docs/plans/claude-plans-directory.md). Packet: in the PR body.

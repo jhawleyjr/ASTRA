@@ -1,0 +1,27 @@
+date: 2026-10-04T08:14:30Z
+command: ./scripts/check-full.sh (fresh configure: build/ removed first)
+base: 72877da3e7f18088c551a03590424a5ae156daac
+head: 5d097a7f5c20772a10c48b0e6d0495e9cee42a16
+exit: 0
+duration: about 1057 s (started 01:14:30, log last written 01:32:07 local)
+load: 1-minute average 0.39 at start; no other build (pgrep -x just|ninja|ctest|clang-tidy|clang++-18|cmake|make, and pytest: none)
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 195 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/embedded-deps-check/build/debug
+100% tests passed, 0 tests failed out of 669
+Test project /home/joe/repos/ASTRA/.claude/worktrees/embedded-deps-check/build/release
+100% tests passed, 0 tests failed out of 670
+Test project /home/joe/repos/ASTRA/.claude/worktrees/embedded-deps-check/build/static-plugins
+100% tests passed, 0 tests failed out of 671
+Test project /home/joe/repos/ASTRA/.claude/worktrees/embedded-deps-check/build/asan
+100% tests passed, 0 tests failed out of 672
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+0 errors, 0 warnings, 0 informations
+1711 passed, 5 skipped in 123.63s (0:02:03)
+check: OK
