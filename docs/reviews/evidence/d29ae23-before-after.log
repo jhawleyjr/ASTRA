@@ -1,0 +1,255 @@
+M6 PR 8 before/after check (docs/plans/m6-pr8-report.md, Verification step 3; Joe's addition 1)
+Question: do plot.svg_bytes (now behind astra plot's and mc analyze's SVG writes) and
+scenario.evaluate (now behind verify's check messages) change what they replace?
+date: 2026-10-03
+before: the main checkout's .venv, astra imported from /home/joe/repos/ASTRA/python (source at 51410e2)
+after:  the worktree's .venv, astra imported from the worktree (branch head d29ae23)
+
+== main checkout state (asserted by the script before the before-side run, and again at evidence time)
+main worktree HEAD (git worktree list --porcelain, run in the PR worktree): 51410e25cac9eefb813f916fec0d848b0de406b2, branch main
+method: every blob of `git ls-tree -r 51410e2` hashed from the main checkout's file (sha1 of "blob <len>\0"
++ bytes) and compared, then every file under python, tests, aircraft, plugins, core, scripts, icd and
+embedded that is not tracked (generated caches aside: __pycache__, *.pyc, python/astra/_core.pyi,
+python/compile_commands.json) listed. No git command ran against the main checkout (this session is
+isolated to its worktree).
+tracked blobs compared: 774; differing: 0
+untracked files under python, tests, aircraft, plugins, core, scripts, icd, embedded (generated caches aside): 0
+main checkout: clean 51410e2 tree
+
+== main's _core build
+build/python/python/_core.cpython-312-x86_64-linux-gnu.so modified 2026-10-01 19:37 (-0700).
+main's reflog: 8e97040 (M6 PR 5) from 2026-10-01 19:33:26 to 8b4852b at 22:50:50, so _core and its
+plugins (build/python/plugins) were built from 8e97040. No commit from 8e97040 to 51410e2 touches core/,
+plugins/, aircraft/, python/bindings/, python/CMakeLists.txt, CMakeLists.txt or icd/
+(git log 8e97040..51410e2 -- those paths: empty), so the before side ran 51410e2's Python on the same C++.
+
+== inputs (produced once, by the worktree's .venv, read by both sides)
+scenario logs (astra.scenario.run): aileron_step, atmosphere_ceiling_halt, cruise_hold, elevator_step,
+throttle_step; the descent batch (tests/python/mc_analysis_fixtures/descent_batch.yaml, 24 runs).
+
+== outputs, per side (cwd = that side's repo root, PYTHONDONTWRITEBYTECODE=1)
+- astra plot of every shipped package (flight, attitude, health, the template's controls, wrench and
+  ground_track, notional cruise) against elevator_step and atmosphere_ceiling_halt
+- astra mc analyze of the descent batch with --signal v0.derived.altitude --signal v0.slow_rate.value,
+  once with the default criterion and once with --metric max.v0.derived.altitude
+- verify() messages: each seed scenario on its own log; a copy of each with every check tightened until it
+  fails (within/angle_within tol 0, between hi = lo); and elevator_step on three altered copies of its log
+  (a NaN in the window, a window row missing, the signal absent). That prints every message path: a window,
+  final, within, between, angle_within, a NaN worst value, missing rows, and an absent signal.
+before: figure files: 28; verify cases: 13; messages: 10
+after:  figure files: 28; verify cases: 13; messages: 10
+
+== compare (filecmp, shallow=False; verify.json compared as lists of strings)
+files compared: 29 (28 figures, verify.json); differing: 0
+verify cases: 13; messages before 10, after 10
+  aileron_step: 0 message(s), equal
+  aileron_step tightened: 1 message(s), equal
+  atmosphere_ceiling_halt: 0 message(s), equal
+  atmosphere_ceiling_halt tightened: 1 message(s), equal
+  cruise_hold: 0 message(s), equal
+  cruise_hold tightened: 3 message(s), equal
+  elevator_step: 0 message(s), equal
+  elevator_step NaN: 1 message(s), equal
+  elevator_step missing row: 1 message(s), equal
+  elevator_step signal absent: 1 message(s), equal
+  elevator_step tightened: 1 message(s), equal
+  throttle_step: 0 message(s), equal
+  throttle_step tightened: 1 message(s), equal
+before/after: identical
+
+== the script (scratchpad, not committed)
+"""M6 PR 8 before/after check (docs/plans/m6-pr8-report.md, step 3).
+
+svg_bytes and scenario.evaluate must not change what they replace. The same inputs are rendered and
+verified twice: by the main checkout's venv (source at 51410e2) and by the worktree's (the branch).
+
+    python before_after.py tree MAIN_ROOT LS_TREE_FILE     # main's tree equals 51410e2, no extra source
+    python before_after.py inputs DIR                      # once: scenario logs, the descent batch
+    python before_after.py outputs DIR OUT                 # per venv, cwd = that venv's repo root
+    python before_after.py compare BEFORE AFTER
+"""
+
+from __future__ import annotations
+
+import dataclasses
+import filecmp
+import hashlib
+import json
+import math
+import sys
+from pathlib import Path
+
+SCENARIOS = ("aileron_step", "atmosphere_ceiling_halt", "cruise_hold", "elevator_step", "throttle_step")
+PLOT_LOGS = ("elevator_step", "atmosphere_ceiling_halt")
+PACKAGES = (
+    "flight",
+    "attitude",
+    "health",
+    "aircraft/_template/plots/controls.yaml",
+    "aircraft/_template/plots/wrench.yaml",
+    "aircraft/_template/plots/ground_track.yaml",
+    "aircraft/notional_transport/plots/cruise.yaml",
+)
+SOURCE_DIRS = ("python", "tests", "aircraft", "plugins", "core", "scripts", "icd", "embedded")
+GENERATED = ("__pycache__", ".pyc", "python/astra/_core.pyi", "python/compile_commands.json")
+
+
+def tree(main_root: Path, ls_tree: Path) -> None:
+    tracked: dict[str, str] = {}
+    for line in ls_tree.read_text().splitlines():
+        meta, path = line.split("\t", 1)
+        _mode, kind, sha = meta.split()
+        if kind == "blob":
+            tracked[path] = sha
+    differ = []
+    for path, sha in tracked.items():
+        file = main_root / path
+        if file.is_symlink():
+            data = str(file.readlink()).encode()
+        elif file.is_file():
+            data = file.read_bytes()
+        else:
+            differ.append(f"missing {path}")
+            continue
+        blob = hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+        if blob != sha:
+            differ.append(f"modified {path}")
+    extra = []
+    for top in SOURCE_DIRS:
+        for file in sorted((main_root / top).rglob("*")):
+            rel = file.relative_to(main_root).as_posix()
+            if file.is_dir() or rel in tracked or any(g in rel for g in GENERATED):
+                continue
+            extra.append(rel)
+    print(f"tracked blobs compared: {len(tracked)}; differing: {len(differ)}")
+    for item in differ:
+        print(f"  {item}")
+    print(f"untracked files under {', '.join(SOURCE_DIRS)} (generated caches aside): {len(extra)}")
+    for item in extra:
+        print(f"  {item}")
+    assert not differ and not extra, "the main checkout is not a clean 51410e2 tree"
+    print("main checkout: clean 51410e2 tree")
+
+
+def inputs(out: Path) -> None:
+    from astra import montecarlo, scenario
+
+    out.mkdir(parents=True)
+    for name in SCENARIOS:
+        loaded = scenario.load(f"tests/scenarios/{name}.yaml", root=".")
+        result = scenario.run(loaded, out / f"{name}.h5")
+        print(f"{name}: frames {result.log.frames_run}, failures {len(result.failures)}")
+    montecarlo.run(
+        montecarlo.load("tests/python/mc_analysis_fixtures/descent_batch.yaml", root="."),
+        out / "descent",
+    )
+    print("descent batch written")
+
+
+def _tightened(path: Path, out: Path) -> Path:
+    import yaml
+
+    data = yaml.safe_load(path.read_text())
+    for check in data.get("checks", []):
+        if "within" in check:
+            check["within"]["tol"] = 0.0
+        if "angle_within" in check:
+            check["angle_within"]["tol"] = 0.0
+        if "between" in check:
+            check["between"]["hi"] = check["between"]["lo"]
+    target = out / f"{path.stem}_tight.yaml"
+    target.write_text(yaml.safe_dump(data))
+    return target
+
+
+def _messages(inputs_dir: Path, out: Path) -> dict[str, list[str]]:
+    import numpy as np
+
+    from astra import log, scenario
+
+    messages: dict[str, list[str]] = {}
+    variants = out / "variants"
+    variants.mkdir()
+    for name in SCENARIOS:
+        source = Path(f"tests/scenarios/{name}.yaml")
+        run_log = log.load(inputs_dir / f"{name}.h5")
+        messages[name] = scenario.verify(scenario.load(source, root="."), run_log)
+        tight = scenario.load(_tightened(source, variants), root=".")
+        messages[f"{name} tightened"] = scenario.verify(tight, run_log)
+    # elevator_step's check (v0.derived.q over [1.1, 1.5) s) on two altered copies of its log:
+    # a NaN in the window (the worst value is NaN), and the window missing one row.
+    base = scenario.load("tests/scenarios/elevator_step.yaml", root=".")
+    run_log = log.load(inputs_dir / "elevator_step.h5")
+    divisor, table = next((d, t) for d, t in run_log.rates.items() if "v0.derived.q" in t.columns)
+    with_nan = table.copy()
+    with_nan.loc[1200, "v0.derived.q"] = math.nan
+    messages["elevator_step NaN"] = scenario.verify(
+        base, dataclasses.replace(run_log, rates={**run_log.rates, divisor: with_nan})
+    )
+    short = table.drop(index=1300)
+    messages["elevator_step missing row"] = scenario.verify(
+        base, dataclasses.replace(run_log, rates={**run_log.rates, divisor: short})
+    )
+    messages["elevator_step signal absent"] = scenario.verify(
+        base,
+        dataclasses.replace(
+            run_log, rates={**run_log.rates, divisor: table.drop(columns=["v0.derived.q"])}
+        ),
+    )
+    assert np.isnan(with_nan.loc[1200, "v0.derived.q"])
+    return messages
+
+
+def outputs(inputs_dir: Path, out: Path) -> None:
+    import astra
+    from astra import cli
+
+    out.mkdir(parents=True)
+    print(f"astra imported from {astra.__file__}")
+    count = 0
+    for name in PLOT_LOGS:
+        for package in PACKAGES:
+            code = cli.main(["plot", str(inputs_dir / f"{name}.h5"), package, "--out", str(out / name)])
+            assert code == 0, (name, package, code)
+        count += len(list((out / name).iterdir()))
+    for label, extra in (("default", []), ("metric", ["--metric", "max.v0.derived.altitude"])):
+        code = cli.main(
+            ["mc", "analyze", str(inputs_dir / "descent"), "--signal", "v0.derived.altitude",
+             "--signal", "v0.slow_rate.value", "--out", str(out / f"mc-{label}"), *extra]
+        )
+        assert code == 0, (label, code)
+        count += len(list((out / f"mc-{label}").iterdir()))
+    messages = _messages(inputs_dir, out)
+    (out / "verify.json").write_text(json.dumps(messages, indent=1, sort_keys=True))
+    print(f"figure files: {count}; verify cases: {len(messages)}; messages: "
+          f"{sum(len(v) for v in messages.values())}")
+
+
+def compare(before: Path, after: Path) -> None:
+    files = sorted(p.relative_to(before) for p in before.rglob("*") if p.is_file() and "variants" not in p.parts)
+    other = sorted(p.relative_to(after) for p in after.rglob("*") if p.is_file() and "variants" not in p.parts)
+    assert files == other, sorted(set(files) ^ set(other))
+    differ = [str(p) for p in files if not filecmp.cmp(before / p, after / p, shallow=False)]
+    figures = [p for p in files if p.suffix in (".svg", ".png")]
+    print(f"files compared: {len(files)} ({len(figures)} figures, verify.json); differing: {len(differ)}")
+    for p in differ:
+        print(f"  differs: {p}")
+    a = json.loads((before / "verify.json").read_text())
+    b = json.loads((after / "verify.json").read_text())
+    print(f"verify cases: {len(a)}; messages before {sum(map(len, a.values()))}, after {sum(map(len, b.values()))}")
+    for case in sorted(a):
+        print(f"  {case}: {len(a[case])} message(s), {'equal' if a[case] == b.get(case) else 'DIFFERENT'}")
+    assert not differ and a == b
+    print("before/after: identical")
+
+
+if __name__ == "__main__":
+    mode = sys.argv[1]
+    if mode == "tree":
+        tree(Path(sys.argv[2]), Path(sys.argv[3]))
+    elif mode == "inputs":
+        inputs(Path(sys.argv[2]))
+    elif mode == "outputs":
+        outputs(Path(sys.argv[2]), Path(sys.argv[3]))
+    else:
+        compare(Path(sys.argv[2]), Path(sys.argv[3]))

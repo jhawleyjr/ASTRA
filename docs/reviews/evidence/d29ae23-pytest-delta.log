@@ -1,0 +1,60 @@
+M6 PR 8 gate time (docs/plans/m6-pr8-report.md, Verification step 5; Joe's addition 3)
+PR 8 adds no C++, so its full-gate cost is the pytest delta: the whole `pytest tests/python` on the branch
+and on origin/main, back to back in this worktree (origin/main by `git switch --detach origin/main` in the
+same worktree, so both runs use the same build/python _core and plugins and the same venv).
+date: 2026-10-03 (local evening)
+command (each run): .venv/bin/pytest tests/python -q -p no:cacheprovider, wall time measured around it,
+the 1-minute/5-minute/15-minute load read from /proc/loadavg just before it.
+
+== machine before the runs
+Another project's full gate (Algorithmic-Trader, worktree m5-closeout, `just check`, pid 2048145, then in
+its pytest step) was running at 18:2x; this session waited for it to exit (18:39:37, load 11.76 8.94 5.86)
+and then for the 1-minute load to drop below 2 (18:43:00, load 1.91 7.04 5.88). No other build or pytest
+process ran during the runs below (pgrep -x 'just|ninja|ctest|clang-tidy-18|clang\+\+-18' and
+pgrep -f '[b]in/pytest', checked between runs). The rising load across runs is these runs' own (the Monte
+Carlo tests use worker processes; test_new_aircraft_build compiles).
+
+== runs, in order
+branch:          HEAD d29ae23, load before 1.75 6.93 5.85,   exit 0, wall 122.5 s; 1635 passed, 5 skipped in 122.16s
+origin/main:     HEAD 51410e2, load before 8.01 8.46 6.59,   exit 0, wall 112.5 s; 1480 passed, 5 skipped in 112.21s
+branch (again):  HEAD d29ae23, load before 10.56 10.40 7.59, exit 0, wall 122.5 s; 1635 passed, 5 skipped in 122.14s
+The second branch run follows a run, as origin/main's did; both branch runs took 122.5 s.
+
+== delta
+pytest: +10.0 s (122.5 s against 112.5 s), +155 tests (1640 against 1485 collected): test_report.py's 173,
+less the 18 resource-check tests moved out of test_plot.py into it.
+Inside a warm full run test_report.py costs about 10 s; alone, cold (fresh imports and font cache), it took
+21.6 s (173 passed). The three cross-process determinism tests are the largest part (6.3 s, below).
+
+== the acceptance command, `.venv/bin/pytest tests/python -k report --durations=15`
+-k report:       HEAD d29ae23, load before 11.93 11.88 8.53, exit 0, wall 18.8 s; 181 passed, 1459 deselected in 18.52s
+181 = test_report.py's 173, plus the 8 existing tests whose names contain "report" (unchanged by this PR):
+  test_autopilot_design.py::test_one_extra_exchange_of_delay_is_reported[longitudinal|lateral]
+  test_derivative.py::test_state_owner_slices_reports_the_correct_offset_and_count_for_a_state_owning_model
+  test_lockstep.py::test_r2c_hold_is_reported[E_light_hold|G_moderate_hold]
+  test_lockstep.py::test_seed_sweep_light_is_reported
+  test_mc_analysis.py::test_mc_analysis_cli_rerun_reports_a_row_that_differs_and_exits_1
+  test_scenario.py::test_verify_reports_a_rate_group_window_without_its_rows_instead_of_raising
+Their cost inside the command: about 6.4 s, mostly test_seed_sweep_light_is_reported (4.09 s).
+slowest 15:
+  4.09s call     tests/python/test_lockstep.py::test_seed_sweep_light_is_reported
+  2.37s call     tests/python/test_report.py::test_report_is_byte_identical_across_processes[batch]
+  1.99s call     tests/python/test_report.py::test_report_is_byte_identical_across_processes[scenario]
+  1.96s call     tests/python/test_report.py::test_report_is_byte_identical_across_processes[log]
+  0.86s setup    tests/python/test_report.py::test_report_batch_outcomes_equal_the_summary
+  0.65s call     tests/python/test_lockstep.py::test_r2c_hold_is_reported[E_light_hold]
+  0.64s call     tests/python/test_report.py::test_report_cli_a_halt_and_a_failed_check_exit_0
+  0.61s call     tests/python/test_lockstep.py::test_r2c_hold_is_reported[G_moderate_hold]
+  0.56s call     tests/python/test_report.py::test_report_log_holds_each_package_figure_as_astra_plot_writes_it
+  0.56s setup    tests/python/test_report.py::test_report_log_holds_each_package_figure_as_astra_plot_writes_it
+  0.52s setup    tests/python/test_mc_analysis.py::test_mc_analysis_cli_rerun_reports_a_row_that_differs_and_exits_1
+  0.37s call     tests/python/test_report.py::test_report_batch_figures_are_mc_analyze_s_files
+  0.35s call     tests/python/test_report.py::test_report_cli_unwritable_directory_exits_74
+  0.31s setup    tests/python/test_report.py::test_report_scenario_rows_equal_an_independent_computation
+  0.29s call     tests/python/test_mc_analysis.py::test_mc_analysis_cli_rerun_reports_a_row_that_differs_and_exits_1
+
+== context only: the full gate's elapsed time
+#94's gate (f184b4c): 1114.28 s wall, pytest 1485 passed, 5 skipped in 127.94 s; load averages 36.7 / 29.6 /
+18.2 just after it (another project's overlapping build; #94's PR body). PR 8's fresh gate: in
+<head>-gate-summary.log, with its own load before and after. The gates collect 5 more pytest items than these
+local runs (1490 against 1485 on main); both sides of the delta above ran in the same environment.
