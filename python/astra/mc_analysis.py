@@ -104,6 +104,7 @@ from __future__ import annotations
 
 import dataclasses
 import importlib
+import itertools
 import math
 import re
 from collections.abc import Mapping, Sequence
@@ -1090,8 +1091,8 @@ def _band(
 
 def _overlay(n: int, y: FloatArray) -> IntArray:
     """The frames of a failing run's values ``y`` that its line is drawn through, in an envelope of
-    ``n`` frames: all of them, or, over more than ``ENVELOPE_COLUMNS + 1`` frames, the band's columns'
-    reduction (module docstring, Figures)."""
+    ``n`` frames: all of them, or, over more than ``ENVELOPE_COLUMNS + 1`` frames, their reduction
+    on the band's columns (module docstring, Figures)."""
     columns = ENVELOPE_COLUMNS
     size = y.size
     if n - 1 <= columns or size <= 2:
@@ -1104,7 +1105,7 @@ def _overlay(n: int, y: FloatArray) -> IntArray:
     keep = [np.array([0, size - 1]), ends[ends + 1 < size] + 1]  # the first NaN after a stretch
     for a, b in zip(starts, ends, strict=True):
         cuts = np.concatenate(([a], edges[(edges > a) & (edges < b)], [b]))
-        for lo, hi in zip(cuts[:-1], cuts[1:], strict=True):
+        for lo, hi in itertools.pairwise(cuts):
             piece = y[lo : hi + 1]
             keep.append(np.array([lo, hi, lo + np.argmin(piece), lo + np.argmax(piece)]))
     return np.unique(np.concatenate(keep)).astype(np.int64)
