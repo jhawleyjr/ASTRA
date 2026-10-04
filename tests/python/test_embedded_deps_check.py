@@ -144,3 +144,72 @@ def test_a_real_configure_that_finds_yaml_cpp_fails(tmp_path: Path) -> None:
     result = _check(build, root)
     assert result.returncode == 1
     assert "yaml-cpp_DIR" in result.stderr
+
+
+# --- follow-ups from #98's approval (Joe, 2026-10-04) ---------------------------------------------
+
+
+def test_a_symlinked_checkout_whose_real_path_holds_a_word_passes(tmp_path: Path) -> None:
+    """--root "$(pwd)" is the logical path; CMake records the physical one."""
+    real = tmp_path / "real-yaml-python-checkout"
+    real.mkdir()
+    link = tmp_path / "checkout"
+    link.symlink_to(real)
+    build = real / "build"
+    _cache(build, real)
+    _link(build, f"/usr/bin/clang++-18 {build}/autopilot/main.o -o astra_autopilot")
+    result = _check(link / "build", link)
+    assert result.returncode == 0, result.stderr
+
+
+def _configure_from(checkout: Path, extra: str = "") -> None:
+    """As the recipe runs it: from inside ``checkout``, with relative paths, so CMake resolves them
+    through getcwd() and records the physical path, while ``$(pwd)`` gives the logical one."""
+    for part in ("embedded", "cmake", "icd"):
+        shutil.copytree(REPO_ROOT / part, checkout / part)
+    lists = checkout / "embedded" / "CMakeLists.txt"
+    lists.write_text(lists.read_text(encoding="utf-8") + extra, encoding="utf-8")
+    subprocess.run(
+        ["cmake", "-S", "embedded", "-B", "build", f"-DCMAKE_CXX_COMPILER={CXX}"],
+        cwd=checkout,
+        check=True,
+        capture_output=True,
+    )
+
+
+def test_a_real_configure_through_a_symlinked_checkout_passes(tmp_path: Path) -> None:
+    real = tmp_path / "real-yaml-python-gtest-eigen"
+    link = tmp_path / "checkout"
+    real.mkdir()
+    link.symlink_to(real)
+    _configure_from(link)
+    cache = (link / "build" / "CMakeCache.txt").read_text(encoding="utf-8")
+    assert str(real) in cache  # CMake recorded the physical path
+    result = _check(link / "build", link)
+    assert result.returncode == 0, result.stderr
+
+
+def test_a_dependency_through_a_symlinked_checkout_still_fails(tmp_path: Path) -> None:
+    real = tmp_path / "real"
+    link = tmp_path / "checkout"
+    real.mkdir()
+    link.symlink_to(real)
+    _configure_from(link, "find_package(yaml-cpp REQUIRED)\n")
+    result = _check(link / "build", link)
+    assert result.returncode == 1
+    assert "yaml-cpp_DIR" in result.stderr
+
+
+def test_an_undecodable_byte_in_a_generated_file_does_not_stop_the_check(tmp_path: Path) -> None:
+    root = tmp_path / "checkout"
+    build = root / "build"
+    _cache(build, root)
+    with (build / "CMakeCache.txt").open("ab") as f:
+        f.write(b"ODD:STRING=caf\xe9\n")
+    directory = build / "autopilot" / "CMakeFiles" / "astra_autopilot.dir"
+    directory.mkdir(parents=True)
+    (directory / "link.txt").write_bytes(b"/usr/bin/clang++-18 \xff main.o -o a -lyaml-cpp\n")
+    result = _check(build, root)
+    assert result.returncode == 1
+    assert "link.txt" in result.stderr
+    assert "Traceback" not in result.stderr
