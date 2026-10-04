@@ -1,0 +1,29 @@
+date: 2026-10-04T08:54:10Z
+command: ./scripts/check-full.sh (fresh configure: build/ removed first)
+base: 2794a0c (origin/main, #98 merged)
+head: d04a7ac4606d04a795493b4b07045676bbfeea6e
+exit: 0
+duration: about 1071 s (started 01:54:10, log last written 02:12:01 local)
+load: 1-minute average 1.27 at start; no other build. One other `just` was running: Algorithmic-Trader's
+  long-running `just autopilot` dispatcher (python3 dispatch.py, not a build). A read-only Codex review ran
+  alongside.
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 195 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/embedded-deps-check/build/debug
+100% tests passed, 0 tests failed out of 669
+Test project /home/joe/repos/ASTRA/.claude/worktrees/embedded-deps-check/build/release
+100% tests passed, 0 tests failed out of 670
+Test project /home/joe/repos/ASTRA/.claude/worktrees/embedded-deps-check/build/static-plugins
+100% tests passed, 0 tests failed out of 671
+Test project /home/joe/repos/ASTRA/.claude/worktrees/embedded-deps-check/build/asan
+100% tests passed, 0 tests failed out of 672
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+0 errors, 0 warnings, 0 informations
+1715 passed, 5 skipped in 128.56s (0:02:08)
+check: OK
