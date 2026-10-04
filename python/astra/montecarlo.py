@@ -10,7 +10,12 @@ file and the key).
 - ``config``: path of the base config, relative to ``load``'s ``root``. A config with a
   ``transport`` block is refused (the Monte Carlo runs open loop); so is one with a ``log`` block,
   because the batch writes each run's log itself. The config must build: ``load`` builds a
-  ``Simulation`` from it, with no log and no trim, to learn ``dt`` and the signal names.
+  ``Simulation`` from it, with no log and no trim, to learn ``dt`` and the signal names. The config
+  is read as the core reads it (``astra._yaml_route``, M6 PR 11): a value PyYAML reads differently
+  (``off``, ``010``, ``1_000``) keeps the core's own text, so a dispersion of it is refused as not
+  a number, and what text cannot carry (a null, a duplicate or merge key) is refused, naming the
+  key. The spec itself is Python's own format, YAML 1.1 as ``yaml.safe_load`` reads it (D3):
+  ``seed: 010`` is 8, ``runs: 1_000`` is 1000 and ``duration: 1:30`` is 90 s.
 - ``trim``: optional ``{true_airspeed, altitude}``, the same trim as ``astra.scenario``'s: each run
   is trimmed after its draws are applied, on a copy of its config without the ``log`` block (and
   without ``transport``, which is refused anyway), so trim never creates the run's file.
@@ -116,7 +121,10 @@ column of the new row with the recorded one, and, when the batch still holds the
 two logs byte for byte. The record is not a frozen build: plugins are loaded from the current
 build, so a rebuild can change the result. The new log's provenance (``git_describe``, the plugin
 table) and the row comparison show it when it does. Rerun never touches the batch's own files, and
-it refuses an output directory that is the batch or lies inside it (symlinks resolved). A run whose
+it refuses an output directory that is the batch or lies inside it (symlinks resolved). A batch
+written before M6 PR 11 whose config has a value PyYAML reads differently from the core ran with
+PyYAML's reading; its rerun reads the core's, so the rows that value reaches are reported as
+differences, and a dispersion of such a value is refused (the plan's D4). A run whose
 log cannot be written (a ``LogError``, an ``OSError``, a ``LOG`` halt, or a ``ConfigError`` at
 ``log.path``, how ADR-0027 reports a log that cannot be created) raises
 ``RerunWriteError``: nothing was compared, so it is not reported as a row that differs.
@@ -148,7 +156,7 @@ import pyarrow  # pyright: ignore[reportMissingTypeStubs] -- pyarrow 25.0.1 ship
 import pyarrow.parquet  # pyright: ignore[reportMissingTypeStubs]
 import yaml
 
-from astra import _core, _runkit, log
+from astra import _core, _runkit, _yaml_route, log
 from astra._runkit import TrimSetpoint
 
 _pa = cast(Any, pyarrow)
@@ -350,10 +358,16 @@ def loads(spec_bytes: bytes, config_bytes: bytes, *, path: Path, config_path: Pa
     return _validated(path, spec_bytes, top, config_path, config_bytes)
 
 
-def _yaml(path: Path, data: bytes, failure: str) -> Any:
-    """``data`` decoded as UTF-8 and read by ``yaml.safe_load``, as every spec and config is."""
+def _yaml(path: Path, data: bytes, failure: str, *, config_path: Path | None = None) -> Any:
+    """``data`` decoded as UTF-8 and read by ``yaml.safe_load``; with ``config_path`` (the base
+    config) through ``_yaml_route.load``, so the dict reads as the core reads the file."""
     try:
-        return yaml.safe_load(data.decode("utf-8"))
+        text = data.decode("utf-8")
+        if config_path is None:
+            return yaml.safe_load(text)
+        return _yaml_route.load(
+            text, str(config_path), error=lambda message: SpecError(f"{path}: config: {message}")
+        )
     except (UnicodeDecodeError, yaml.YAMLError) as error:
         raise SpecError(f"{path}: {failure} ({error})") from error
 
@@ -404,7 +418,7 @@ def _validated(
 
 
 def _base_config(path: Path, config_path: Path, config_bytes: bytes) -> dict[str, Any]:
-    data = _yaml(path, config_bytes, f"config: cannot read {config_path}")
+    data = _yaml(path, config_bytes, f"config: cannot read {config_path}", config_path=config_path)
     config = _runkit.closed_map(
         path, data, f"config {config_path}", required=set(), optional=None, error=SpecError
     )

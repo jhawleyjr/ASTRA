@@ -4,7 +4,8 @@ Private: each tool documents the rules it takes from here in its own docstring.
 - Schema validators (``closed_map``, ``number``, ``text``, ``frames_of``, ``trim_setpoint``)
   that raise the caller's own error class, so each tool keeps its error type and message.
 - Leaf rules (``numeric_leaf``, ``set_numeric_leaf``): an existing numeric leaf only, reached by
-  a dotted path whose integer segments index lists; never a new key.
+  a dotted path whose integer segments index lists; never a new key. A leaf ``astra._yaml_route``
+  kept as the core's text (``010``, ``1_000``) is not numeric, and the refusal says so.
 - ``TRIM_OWNED``: the leaves trim sets or assumes (``astra.scenario``'s docstring says why).
 - ``WARN_COUNTERS`` and ``HEALTH_SIGNALS``: the health counters a ``warn`` action leaves nonzero,
   and every ``health.*`` signal, shared by ``astra.scenario`` and ``astra.cli`` (M6 PR 3).
@@ -183,7 +184,12 @@ def _slot(config: dict[str, Any], key: str) -> tuple[Any, Any]:
 
 def _require_number(old: Any) -> None:
     if isinstance(old, bool) or not isinstance(old, int | float):
-        raise LeafError(f"the config's value {old!r} is not a number")
+        hint = ""
+        if isinstance(old, str):
+            # A form PyYAML reads as text (1.0e3), or one astra._yaml_route kept as the core's text
+            # because PyYAML reads it differently (010, 1_000, 0x10).
+            hint = " (text to PyYAML or to the core: write it as a plain decimal, such as 10.0)"
+        raise LeafError(f"the config's value {old!r} is not a number{hint}")
 
 
 def numeric_leaf(config: dict[str, Any], key: str) -> int | float:

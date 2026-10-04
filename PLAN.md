@@ -288,6 +288,16 @@ takes them as a prefix.
     It writes JSON (mean, median, p99, max, fps, margins against `dt`, toolchain, CPU, load) only after every
     check passes. `just benchmark` takes a Release baseline; the gate runs its smoke, which asserts no speed.
     Closes C-19 and N-05. Plan: [plan](docs/plans/m6-pr9-benchmark.md). Packet: in the PR body.
+  - PR 11 (#97): configs read through PyYAML, closing that open item. `astra.montecarlo`, `astra.scenario`,
+    `astra.trim` and `astra.lockstep` read a config through `astra._yaml_route.load`, which compares PyYAML's
+    dict leaf by leaf with the core's reading of the same text (the four getters and the node kind; a number
+    written two ways does not count). A differing scalar keeps the core's own text, so `sim.health.nan: off`
+    builds and `1_000`, `1:30`, `0x10` or `0b101` in a number key is refused at build as `astra run` refuses
+    it. What text cannot repair (a null, a duplicate or merge key, a key that is not text, a set) is refused
+    through the tool's own error, naming the key. No binding change. Every tracked config needs no repair, and
+    R9's, the descent and Q19 batches, the scenarios, `astra trim`, `astra.linearize` and the lockstep config
+    are byte-identical to `72877da` ([before/after](docs/reviews/evidence/18bb8c1-before-after.log)).
+    `-k pyyaml_route`. Plan: [plan](docs/plans/m6-pr11-yaml-route.md). Packet: in the PR body.
   - Gate fix (#98): `just embedded-standalone`'s dependency check reads the CMakeCache's dependency entries and the
     compile and link lines (`scripts/embedded_deps_check.py`), not the checkout path, which failed M6 PR 11's
     worktree `m6-pr11-yaml-route`. Tier 1. Brief: [brief](docs/plans/embedded-deps-check.md). Packet: in the PR body.
@@ -340,6 +350,20 @@ takes them as a prefix.
 
 ## Open items
 
+- [ ] (M7) `Config::unknown_keys()` and `Config.from_dict`'s emitter (`value_to_yaml`) are not cycle-safe: a recursive
+      YAML alias makes them recurse without end, and the process segfaults (exit -11). No run starts and no file is
+      written (origin: M6 PR 11 review V-001, 2026-10-04; Joe's decision: fix the core, accept the Python-side
+      residual meanwhile). It is a core change, at its own tier. Reproducers, each probed on M6 PR 11's build:
+      - `astra run` on `tests/python/mc_analysis_fixtures/descent.yaml` plus a line `extra: &c [*c]` exits -11 (the
+        core's own path, `unknown_keys()` after the build).
+      - The two residual forms, which `astra._yaml_route.load` cannot see because PyYAML's construction erases
+        the cycle. Each segfaults `load` (exit -11) in all four tools, as it does in `astra run`:
+        - a self-merge, `m: &m {<<: *m}\nk: 1\n` (PyYAML reads `{'m': {}, 'k': 1}`);
+        - a cyclic value overwritten by a duplicate key, `extra: &c [*c]\nextra: 1\nk: 1\n` (PyYAML reads
+          `{'extra': 1, 'k': 1}`).
+      - `_yaml_route` refuses the recursive aliases PyYAML does keep (`cycle: &c [*c]`, `m: &m {self: *m}`)
+        before the core reads the text; that guard can go once the core is safe. Before M6 PR 11, `from_dict`
+        crashed on those too. Not started.
 - [ ] (M7) Earth/gravity rotation-consistency check at init (origin: M2 case05 fix; deferred by Joe, 2026-09-19) —
       `docs/plans/nesc-case05-gravity-centripetal.md`'s D2(b), deferred (D2(a), disclosed only, for that task).
       Two independently-configured plugins can each pass their own init-time validation while disagreeing about
@@ -443,14 +467,6 @@ takes them as a prefix.
       statistic before any maximum is compared. The JSON should also record the frame index of the maximum, so a
       stall can be told apart from a frame whose model work is costly (today it records only the value). Not
       started.
-- [ ] (M6) Configs round-tripped through PyYAML (YAML 1.1: `yaml.safe_load`, then `Config.from_dict`) in
-      `astra.montecarlo`, `astra.scenario`, `astra.trim` and `astra.lockstep` are read differently from the core's
-      yaml-cpp (origin: M6 PR 3 review; Joe 2026-09-30). Probed on M6 PR 3's build: `on`/`off`/`yes`/`no` become
-      booleans, which the core then reads as `true`/`false` (so `sim.health.nan: off` is refused); `010` is 8 (the
-      core reads 10); `1:30` is 90 and `1_000` is 1000 (the core reads neither as a number). `astra run --log`
-      avoids the round trip. Not started. One config is covered: M6 PR 7b's
-      `test_planted_r9_config_pyyaml_route_matches_yaml_cpp` gives equal rate-group data for `cruise.yaml` (R9's
-      base config) through `astra.montecarlo` and through yaml-cpp's file load.
 - [ ] (M6) `aircraft/_template/plots/ground_track.py` draws without an equal aspect ratio, so near-straight flight
       autoscales the east axis around zero and exaggerates a tiny lateral drift (origin: M6 PR 5, Joe's review,
       2026-10-01). Not started.
@@ -471,6 +487,10 @@ takes them as a prefix.
       and 0.52 MB for alpha), but changes PR 6's overlay check (the line's data becomes the column reduction of
       the log column); capping at 10 runs changes R5 and bounds only the count; a 1 px simplify threshold is not
       bounded and is hard to scope to the overlays alone. Not started.
+- [ ] (M6) A review fix's final Codex verification has no place in `docs/reviews/*-review.md` (origin: #95's
+      V-001 and #96's R-001; Joe 2026-10-03). Review-dispatch's no-record-only-commit rule keeps the verification
+      result out of a commit of its own, so the review record's last finding stays "fixed-unverified" there while
+      the PR body holds the verified result. Not started.
 - [ ] (M7) §18 step 4 fails on a template copy: `aircraft/_template/configs/cruise.yaml` uses `earth/flat`, which
       `astra.trim` refuses (altitude is geodetic only), so `astra trim` on a new aircraft exits 65 (origin: M6 PR 3;
       Joe 2026-09-30). M7 builds the F-16 from the template. Not started.

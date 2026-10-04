@@ -10,7 +10,12 @@ Schema (Q14). Every map is closed: an unknown key at any level is an error.
 
 - ``config``: path of the base config, relative to ``load``'s ``root``. A config with a
   ``transport`` block is refused (these scenarios are open loop, Q16); so is one with a ``log``
-  block, because the harness owns the run's log.
+  block, because the harness owns the run's log. The config is read as the core reads it
+  (``astra._yaml_route``, M6 PR 11): a value PyYAML reads differently (``off``, ``010``,
+  ``1_000``) keeps the core's own text, so an override of it is refused as not a number, and what
+  text cannot carry (a null, a duplicate or merge key) is refused, naming the key. The scenario
+  file itself is Python's own format, YAML 1.1 as ``yaml.safe_load`` reads it (M6 PR 11's D3):
+  ``duration: 1:30`` is 90 s, and an override written ``010`` reaches the config as 8.
 - ``overrides``: ``{dotted.path: number}``. Integer segments index lists
   (``initial.state.p_n.2``). Only an existing numeric leaf can be changed, never a new key.
 - ``trim``: ``{true_airspeed, altitude}``, for ``astra.trim.trim_straight_and_level``. It works
@@ -104,7 +109,7 @@ from typing import Any, cast
 import numpy as np
 import yaml
 
-from astra import _core, _runkit, log
+from astra import _core, _runkit, _yaml_route, log
 
 # Shared through astra._runkit, the trim names with astra.montecarlo and the warn counters and
 # health.* signals with astra.cli; re-exported so each reads one list.
@@ -286,7 +291,11 @@ def _frames(path: Path, value: Any, where: str, dt: float) -> int:
 
 def _base_config(path: Path, config_path: Path) -> dict[str, Any]:
     try:
-        data: Any = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        data: Any = _yaml_route.load(
+            config_path.read_text(encoding="utf-8"),
+            str(config_path),
+            error=lambda message: ScenarioError(f"{path}: config: {message}"),
+        )
     except (OSError, yaml.YAMLError) as error:
         raise ScenarioError(f"{path}: config: cannot read {config_path} ({error})") from error
     config = _closed(path, data, f"config {config_path}", required=set(), optional=None)

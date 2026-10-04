@@ -1,0 +1,41 @@
+# M6 PR 11, D5: before/after against 72877da (trimmed; full logs and both manifests stay in the session scratchpad)
+# Candidate: worktree-m6-pr11-yaml-route at 5461294 (every python/ change of the PR; later commits touch only
+# Markdown and evidence, and the D5 rule reruns this if python/ changes again).
+# Base: `git archive 72877da python/astra`, with the candidate's _core .so copied in (the PR has no C++, so one build
+# serves both). The base pass ran with PYTHONPATH=<scratch>/shim:<scratch>/base/python, where shim/ holds an empty
+# _editable_skbc_astra.py, so neither the parent nor any spawned worker installs the editable finder (lessons
+# 2026-10-04). A first base pass without the shim was discarded: its workers imported the candidate tree.
+# Driver: scratchpad compare.py <tree> <out>; both passes wrote to the same path (cmp/work), renamed afterwards, from
+# the worktree root, with 4 workers per batch. 2026-10-04, load average 0.14 before the passes.
+
+== base
+astra: <scratch>/base/python/astra/__init__.py
+_core: <scratch>/base/python/astra/_core.cpython-312-x86_64-linux-gnu.so
+plugin dir: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr11-yaml-route/build/python/plugins
+worker astra: <scratch>/base/python/astra/__init__.py
+worker _core: <scratch>/base/python/astra/_core.cpython-312-x86_64-linux-gnu.so
+planted: 130 runs on 4 workers; planted_control: 130 runs on 4 workers; descent_batch: 24 runs on 4 workers;
+cruise_64: 64 runs on 4 workers (trimmed); scenarios 10; files 373
+
+== candidate
+astra: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr11-yaml-route/python/astra/__init__.py
+_core: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr11-yaml-route/.venv/lib/python3.12/site-packages/astra/_core.cpython-312-x86_64-linux-gnu.so
+plugin dir: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr11-yaml-route/build/python/plugins
+worker astra: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr11-yaml-route/python/astra/__init__.py
+worker _core: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr11-yaml-route/.venv/lib/python3.12/site-packages/astra/_core.cpython-312-x86_64-linux-gnu.so
+planted: 130 runs on 4 workers; planted_control: 130 runs on 4 workers; descent_batch: 24 runs on 4 workers;
+cruise_64: 64 runs on 4 workers (trimmed); scenarios 10; files 373
+
+== files compared (sha256 of every output file)
+mc/{planted,planted_control,descent_batch,cruise_64}/summary.parquet           4
+mc/*/run_*.h5 (130 + 130 + 22 ok/halt rows of 24 + 64)                       346
+scenario/<name>.h5 and <name>.txt (failures list, or the refusal), for the 5 seed scenarios
+  in tests/scenarios/ (cruise_hold trimmed) and the 5 scenarios in tests/python/scenario_fixtures/  20
+trim_stdout.txt (astra trim on cruise.yaml: exit code and stdout)               1
+linearize.npy (astra.linearize A and B on cruise.yaml at 230 m/s, 10000 m)     1
+lockstep.txt (repr of load_config on cruise_light_turbulence.yaml with a fixed segment, and of trim_for)  1
+total                                                                        373
+
+== result
+diff manifest-base.txt manifest-cand.txt: no output (exit 0)
+manifests identical: 373 files; sha256 of the manifest c4894eece66c8071d121cf953bedb708c105fd6e65e357da0968fbf79e2c6f55
