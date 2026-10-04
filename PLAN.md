@@ -304,6 +304,14 @@ takes them as a prefix.
   - Gate fix follow-ups (#99): the check also strips the checkout's real path (CMake records the physical path
     of a symlinked checkout) and reads generated files with `errors="replace"`. Tier 1. Brief: the same, its
     Follow-ups. Packet: in the PR body.
+  - PR 12 (#100): the TAS/CAS panels and the ground track's aspect, closing those two open items. `flight`'s
+    `air_data` draws TAS and CAS on panels of their own. `astra.plot.Panel` gains `aspect` (`"auto"` or
+    `"equal"`; no YAML key, since YAML's x is always `t`). An equal panel draws one unit the same length on both
+    axes (matplotlib `adjustable="datalim"`, to its own 0.5 % tolerance; plotly `scaleanchor`), and it must be
+    its figure's only panel. The template's ground track is equal-aspect. Every other figure, report section,
+    batch figure and plotly page is byte-identical to `6458e04`
+    ([before/after](docs/reviews/evidence/800149c-before-after.log)). `-k panel_scale`. Plan:
+    [plan](docs/plans/m6-pr12-plots-fixes.md). Packet: in the PR body.
   - Workflow (#83): plan-mode drafts land in the session's `docs/plans/` (`plansDirectory`), with the rule for
     renaming, committing or deleting them in `docs/agents/claude-code.md` and `/wrap`; 27 never-committed plans
     recovered from `~/.claude/plans`. Plan: [plan](docs/plans/claude-plans-directory.md). Packet: in the PR body.
@@ -467,11 +475,6 @@ takes them as a prefix.
       statistic before any maximum is compared. The JSON should also record the frame index of the maximum, so a
       stall can be told apart from a frame whose model work is costly (today it records only the value). Not
       started.
-- [ ] (M6) `aircraft/_template/plots/ground_track.py` draws without an equal aspect ratio, so near-straight flight
-      autoscales the east axis around zero and exaggerates a tiny lateral drift (origin: M6 PR 5, Joe's review,
-      2026-10-01). Not started.
-- [ ] (M6) `python/astra/plots/flight.yaml` puts TAS and CAS on one panel, which spans 270 to 475 kt and flattens
-      both (origin: M6 PR 5, Joe's look at a 60 s run, 2026-10-01). Not started.
 - [ ] (M6) A 60 s run gives a 25 MB plotly page (`astra plot --html`), because plotly stores every 1 ms sample
       and grows linearly (origin: M6 PR 5, Joe's look at a 60 s run, 2026-10-01). Consider an opt-in decimation
       for the plotly page. The SVG is not affected: matplotlib simplifies each line before writing it, so the

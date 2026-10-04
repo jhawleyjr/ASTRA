@@ -1,0 +1,151 @@
+# M6 PR 12, D3: before/after against 6458e04 (docs/plans/m6-pr12-plots-fixes.md, D3, amendments 2 to 4 and 7). Candidate 800149c.
+# Scripts (scratchpad, not committed): d3/prepare.sh, d3/make_inputs.py, d3/side.py, d3/run.sh, d3/compare.py; probe/make_logs.sh made the three probe logs.
+# S = /tmp/claude-1000/-home-joe-repos-ASTRA/b10c9bd6-e75f-47ab-aca2-cf7254b9ed07/scratchpad
+
+## Probe load check, build and input digests (probe/evidence-header.txt)
+== load check at probe start
+2026-10-04T13:43:24-07:00
+8.80 7.70 6.67 3/13051 206633
+nproc 32
+(no pgrep hit above = no build running)
+other projects:
+ 206690       00:00  100 /home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d/.venv/bin/python /home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap
+ 206440       00:00  6.3 python3 -I /home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d/scripts/autopilot/dispatch.py --dry-run
+ 187948       13:26  1.0 claude -p --permission-mode auto --model fable --effort xhigh --max-turns 240 --output-format json --append-system-prompt Autopilot ses
+ 110006       23:22  0.0 python3 -I /home/joe/repos/Algorithmic-Trader/scripts/autopilot/dispatch.py
+4100422    09:49:19  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-P6J
+2226182    18:31:52  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-1La
+3857686  1-17:14:08  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-hl8
+2443014  2-00:03:43  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-u7N
+3413603  1-20:00:13  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-BMU
+2014381  2-14:50:02  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-byZ
+3619570  1-18:32:09  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-MAQ
+1559101  2-16:32:30  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-wvt
+3209140  1-20:45:49  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-1cY
+2967190  1-21:43:39  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-K6e
+ 765597  2-21:35:49  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-i2B
+2770786  1-22:40:00  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-4ob
+1790820  2-15:47:58  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-8lm
+ 579697  2-22:27:28  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-kQR
+   6892  3-00:27:05  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-k4A
+ 206184  2-23:34:34  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-QRM
+ 401231  2-23:00:25  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-TIO
+3430946    12:19:19  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-ghQ
+1402878  2-17:15:05  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-iKJ
+3853074    10:34:19  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-GDy
+1550754  1-00:36:52  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-gFR
+2990743    15:07:07  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-oa3
+3389354    12:38:10  0.0 /usr/bin/node /home/joe/.claude/plugins/synced/fa264182-d9c1-433d-b75d-a533d5598c09_d9be9118-f2ff-444e-9bbb-ff84792a3317/codex/scripts/
+2011007    19:25:38  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-FZ2
+3233203    13:15:01  0.0 /usr/bin/node /home/joe/.claude/plugins/synced/fa264182-d9c1-433d-b75d-a533d5598c09_d9be9118-f2ff-444e-9bbb-ff84792a3317/codex/scripts/
+1779306    23:39:40  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-Zll
+ 796270  1-12:30:45  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-6tn
+ 275249  1-14:14:54  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-EZC
+1014479  1-11:24:47  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-jYj
+1262116  1-10:32:11  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-i56
+ 492174  1-13:12:04  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-Sor
+  59171  1-14:58:19  0.0 /usr/bin/node /home/joe/.claude/plugins/cache/openai-codex/codex/1.0.6/scripts/app-server-broker.mjs serve --endpoint unix:/tmp/cxc-58x
+ 194398       03:07  0.0 /bin/bash -c source /home/joe/.claude/shell-snapshots/snapshot-bash-1791145810868-5fyseu.sh 2>/dev/null || true && export CODEX_COMPANI
+== main checkout build (read-only)
+6458e04
+/home/joe/repos/ASTRA/.venv/lib/python3.12/site-packages/astra/_core.cpython-312-x86_64-linux-gnu.so
+/home/joe/repos/ASTRA/build/python/plugins
+== input digests (amendment 7), 2026-10-04T13:48:36-07:00
+63e766ff272c5916af253e1309509d21f75b546bca450ac4fd2dc499cb47329f  S/probe/logs/cruise_300s.h5
+6f9559bac4ccd735b03bbcc479eb7c615d7a7489c03a984ec73339a5d734072d  S/probe/logs/cruise_60s.h5
+95cffd7aef2c58d82e4c84fcf352a94d90f4d58df8cbca8e9b597b6ff2a3f69c  S/probe/logs/turn_300s.h5
+793d60e273093a9d56d6ab0f4173dcaabf31657d93de2f714400b031680a09b8  S/probe/cfg/cruise_300s.yaml
+7cdf9c7a1ebca92db661c59d6f7246dc300dbf8d808c73431a8e91960a9285c6  S/probe/cfg/cruise_60s.yaml
+0486eb1c0b894af4558d06d2445b94f7d052737a3957a2701eec6b7c1135c582  S/probe/cfg/turn_300s.yaml
+
+## Shared inputs made once with the candidate (d3/prepare.sh)
+e0e972e0026b529ba4520c31e85a0b13012e881ddd70d408b715df123fe88d4a  S/d3/inputs/elevator_step.h5
+b5b282385f7af793676f80881eaac5a8130d782a3d3a3886a6855104a2c988d4  S/d3/inputs/descent_batch/summary.parquet
+0da9a664b6d02889df2d00c346ab32d43579337c02749e29f3aff908da245932  S/d3/inputs/planted/summary.parquet
+
+## Sides: base twice (the control), then the candidate (d3/run.out)
+== candidate HEAD 800149c, status: 0 changed paths
+== probe inputs (amendment 7)
+63e766ff272c5916af253e1309509d21f75b546bca450ac4fd2dc499cb47329f  S/d3/../probe/logs/cruise_300s.h5
+6f9559bac4ccd735b03bbcc479eb7c615d7a7489c03a984ec73339a5d734072d  S/d3/../probe/logs/cruise_60s.h5
+95cffd7aef2c58d82e4c84fcf352a94d90f4d58df8cbca8e9b597b6ff2a3f69c  S/d3/../probe/logs/turn_300s.h5
+0486eb1c0b894af4558d06d2445b94f7d052737a3957a2701eec6b7c1135c582  S/d3/../probe/cfg/turn_300s.yaml
+== base1 (2026-10-04T13:55:52-07:00, load 2.74 6.90 6.48)
+tree: S/d3/base
+astra: S/d3/base/python/astra/__init__.py
+astra.plot: S/d3/base/python/astra/plot.py
+astra._core: S/d3/base/python/astra/_core.cpython-312-x86_64-linux-gnu.so
+plugin dir: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr12-plots-fixes/build/python/plugins
+package flight: S/d3/base/python/astra/plots/flight.yaml
+package attitude: S/d3/base/python/astra/plots/attitude.yaml
+package health: S/d3/base/python/astra/plots/health.yaml
+package controls: S/d3/base/aircraft/_template/plots/controls.yaml
+package wrench: S/d3/base/aircraft/_template/plots/wrench.yaml
+package ground_track: S/d3/base/aircraft/_template/plots/ground_track.yaml, function file S/d3/base/aircraft/_template/plots/ground_track.py
+package cruise: S/d3/base/aircraft/notional_transport/plots/cruise.yaml
+done: 73 files
+== base2 (2026-10-04T13:56:02-07:00, load 2.70 6.75 6.43)
+tree: S/d3/base
+astra: S/d3/base/python/astra/__init__.py
+astra.plot: S/d3/base/python/astra/plot.py
+astra._core: S/d3/base/python/astra/_core.cpython-312-x86_64-linux-gnu.so
+plugin dir: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr12-plots-fixes/build/python/plugins
+package flight: S/d3/base/python/astra/plots/flight.yaml
+package attitude: S/d3/base/python/astra/plots/attitude.yaml
+package health: S/d3/base/python/astra/plots/health.yaml
+package controls: S/d3/base/aircraft/_template/plots/controls.yaml
+package wrench: S/d3/base/aircraft/_template/plots/wrench.yaml
+package ground_track: S/d3/base/aircraft/_template/plots/ground_track.yaml, function file S/d3/base/aircraft/_template/plots/ground_track.py
+package cruise: S/d3/base/aircraft/notional_transport/plots/cruise.yaml
+done: 73 files
+== cand (2026-10-04T13:56:13-07:00, load 5.05 7.11 6.56)
+tree: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr12-plots-fixes
+astra: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr12-plots-fixes/python/astra/__init__.py
+astra.plot: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr12-plots-fixes/python/astra/plot.py
+astra._core: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr12-plots-fixes/.venv/lib/python3.12/site-packages/astra/_core.cpython-312-x86_64-linux-gnu.so
+plugin dir: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr12-plots-fixes/build/python/plugins
+package flight: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr12-plots-fixes/python/astra/plots/flight.yaml
+package attitude: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr12-plots-fixes/python/astra/plots/attitude.yaml
+package health: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr12-plots-fixes/python/astra/plots/health.yaml
+package controls: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr12-plots-fixes/aircraft/_template/plots/controls.yaml
+package wrench: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr12-plots-fixes/aircraft/_template/plots/wrench.yaml
+package ground_track: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr12-plots-fixes/aircraft/_template/plots/ground_track.yaml, function file /home/joe/repos/ASTRA/.claude/worktrees/m6-pr12-plots-fixes/aircraft/_template/plots/ground_track.py
+package cruise: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr12-plots-fixes/aircraft/notional_transport/plots/cruise.yaml
+done: 73 files
+
+## Comparison (d3/compare.py)
+base1: 73 files, manifest sha256 ce6c75f817434e1457a38a9d8a773c0e921c96b55beb1b7ab3f08034babe6c84
+base2: 73 files, manifest sha256 ce6c75f817434e1457a38a9d8a773c0e921c96b55beb1b7ab3f08034babe6c84
+cand: 73 files, manifest sha256 a2c6932df31b7043b760b3e9ed6e6b59a5601916ece634ab800701638beeb001
+base vs cand: 56 identical, 17 differing
+  differs: plot/cruise_300s/flight-air_data.svg
+  differs: plot/cruise_300s/ground_track-ground_track.svg
+  differs: plot/cruise_60s/flight-air_data.svg
+  differs: plot/cruise_60s/flight.html
+  differs: plot/cruise_60s/ground_track-ground_track.svg
+  differs: plot/cruise_60s/ground_track.html
+  differs: plot/elevator_step/flight-air_data.svg
+  differs: plot/elevator_step/flight.html
+  differs: plot/elevator_step/ground_track-ground_track.svg
+  differs: plot/elevator_step/ground_track.html
+  differs: plot/turn_300s/flight-air_data.svg
+  differs: plot/turn_300s/ground_track-ground_track.svg
+  differs: report/cruise_300s.html
+  differs: report/cruise_60s.html
+  differs: report/elevator_step.html
+  differs: report/turn_300s.html
+  differs: rerun/flight-air_data.svg
+  report/cruise_300s.html fig1 (air_data): differs
+  report/cruise_300s.html: 5 figures, non-figure bytes identical
+  report/cruise_60s.html fig1 (air_data): differs
+  report/cruise_60s.html: 5 figures, non-figure bytes identical
+  report/descent_batch.html: 3 figures, non-figure bytes identical
+  report/elevator_step.html fig1 (air_data): differs
+  report/elevator_step.html: 5 figures, non-figure bytes identical
+  report/planted.html: 3 figures, non-figure bytes identical
+  report/turn_300s.html fig1 (air_data): differs
+  report/turn_300s.html: 5 figures, non-figure bytes identical
+report split: 6 reports, 22 figures other than air_data compared, 6 non-figure strings compared
+  rerun/flight-aero_angles.svg: identical
+  rerun/health-health.svg: identical
+D3: PASS
