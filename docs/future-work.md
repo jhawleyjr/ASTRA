@@ -53,7 +53,7 @@ Decisions (Joe, 2026-09-29):
 - **Plotting.** Time histories from the HDF5 run logs, and an easy way to define plot packages: named,
   reusable sets of plots for one purpose (longitudinal, lateral, controls, health, a debugging view)
   applied to any log. Output to files. Built in M6 PR 5 as `astra.plot` and `astra plot` (matplotlib and
-  plotly, Joe's Q2 decision); Monte Carlo figures are built in PR 6; the run report (PR 8) remains *planned*.
+  plotly, Joe's Q2 decision); Monte Carlo figures are built in PR 6, and the run report in PR 8.
 - **Monte Carlo visualization.** Distributions of each dispersed parameter's draws, draws against each
   other colored by outcome, and trajectory envelopes (percentile bands) across runs. Built in M6 PR 6
   (`astra.mc_analysis`, `astra mc analyze`).
@@ -77,7 +77,8 @@ Decisions (Joe, 2026-09-29):
   data mode on a batch. R9, the end-to-end planted cause, is M6 PR 7b's test: a pilot sizes its batches with
   the ranking option.
 - **Run report.** One command produces the plots, the check results and the provenance (commit, config,
-  seed) for a scenario or a Monte Carlo batch, usable in a review packet.
+  seed) for a scenario or a Monte Carlo batch, usable in a review packet. Built in M6 PR 8 (`astra.report`,
+  `astra report`): one self-contained HTML file per log, scenario or batch.
 - **Frequency domain and handling qualities** on top of `astra.linearize`: Bode plots, margins, and
   criteria from MIL-HDBK-1797 (in `docs/refs/textbooks`).
 - **A generated reference** of every plugin's config keys.
