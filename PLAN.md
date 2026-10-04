@@ -288,6 +288,16 @@ takes them as a prefix.
     It writes JSON (mean, median, p99, max, fps, margins against `dt`, toolchain, CPU, load) only after every
     check passes. `just benchmark` takes a Release baseline; the gate runs its smoke, which asserts no speed.
     Closes C-19 and N-05. Plan: [plan](docs/plans/m6-pr9-benchmark.md). Packet: in the PR body.
+  - PR 11 (#97): configs read through PyYAML, closing that open item. `astra.montecarlo`, `astra.scenario`,
+    `astra.trim` and `astra.lockstep` read a config through `astra._yaml_route.load`, which compares PyYAML's
+    dict leaf by leaf with the core's reading of the same text (the four getters and the node kind; a number
+    written two ways does not count). A differing scalar keeps the core's own text, so `sim.health.nan: off`
+    builds and `1_000`, `1:30`, `0x10` or `0b101` in a number key is refused at build as `astra run` refuses
+    it. What text cannot repair (a null, a duplicate or merge key, a key that is not text, a set) is refused
+    through the tool's own error, naming the key. No binding change. Every tracked config needs no repair, and
+    R9's, the descent and Q19 batches, the scenarios, `astra trim`, `astra.linearize` and the lockstep config
+    are byte-identical to `72877da` ([before/after](docs/reviews/evidence/5461294-before-after.log)).
+    `-k pyyaml_route`. Plan: [plan](docs/plans/m6-pr11-yaml-route.md). Packet: in the PR body.
   - Workflow (#83): plan-mode drafts land in the session's `docs/plans/` (`plansDirectory`), with the rule for
     renaming, committing or deleting them in `docs/agents/claude-code.md` and `/wrap`; 27 never-committed plans
     recovered from `~/.claude/plans`. Plan: [plan](docs/plans/claude-plans-directory.md). Packet: in the PR body.
@@ -437,14 +447,6 @@ takes them as a prefix.
       statistic before any maximum is compared. The JSON should also record the frame index of the maximum, so a
       stall can be told apart from a frame whose model work is costly (today it records only the value). Not
       started.
-- [ ] (M6) Configs round-tripped through PyYAML (YAML 1.1: `yaml.safe_load`, then `Config.from_dict`) in
-      `astra.montecarlo`, `astra.scenario`, `astra.trim` and `astra.lockstep` are read differently from the core's
-      yaml-cpp (origin: M6 PR 3 review; Joe 2026-09-30). Probed on M6 PR 3's build: `on`/`off`/`yes`/`no` become
-      booleans, which the core then reads as `true`/`false` (so `sim.health.nan: off` is refused); `010` is 8 (the
-      core reads 10); `1:30` is 90 and `1_000` is 1000 (the core reads neither as a number). `astra run --log`
-      avoids the round trip. Not started. One config is covered: M6 PR 7b's
-      `test_planted_r9_config_pyyaml_route_matches_yaml_cpp` gives equal rate-group data for `cruise.yaml` (R9's
-      base config) through `astra.montecarlo` and through yaml-cpp's file load.
 - [ ] (M6) `aircraft/_template/plots/ground_track.py` draws without an equal aspect ratio, so near-straight flight
       autoscales the east axis around zero and exaggerates a tiny lateral drift (origin: M6 PR 5, Joe's review,
       2026-10-01). Not started.
@@ -465,6 +467,10 @@ takes them as a prefix.
       and 0.52 MB for alpha), but changes PR 6's overlay check (the line's data becomes the column reduction of
       the log column); capping at 10 runs changes R5 and bounds only the count; a 1 px simplify threshold is not
       bounded and is hard to scope to the overlays alone. Not started.
+- [ ] (M6) A review fix's final Codex verification has no place in `docs/reviews/*-review.md` (origin: #95's
+      V-001 and #96's R-001; Joe 2026-10-03). Review-dispatch's no-record-only-commit rule keeps the verification
+      result out of a commit of its own, so the review record's last finding stays "fixed-unverified" there while
+      the PR body holds the verified result. Not started.
 - [ ] (M7) §18 step 4 fails on a template copy: `aircraft/_template/configs/cruise.yaml` uses `earth/flat`, which
       `astra.trim` refuses (altitude is geodetic only), so `astra trim` on a new aircraft exits 65 (origin: M6 PR 3;
       Joe 2026-09-30). M7 builds the F-16 from the template. Not started.
