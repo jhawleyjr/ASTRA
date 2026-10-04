@@ -390,6 +390,26 @@ def test_pyyaml_route_scenario_number_written_two_ways(tmp_path: Path) -> None:
     assert results[0] == results[1]
 
 
+def test_pyyaml_route_scenario_trimmed_same_as_quoted(tmp_path: Path) -> None:
+    """A repaired config through trim: _runkit.apply_trim safe-dumps the dict to a copy, which
+    astra.trim reads through _yaml_route again; the run equals the quoted spelling's."""
+    results: list[tuple[list[str], bytes]] = []
+    for name, form in (("plain", "off"), ("quoted", "'off'")):
+        directory = tmp_path / name
+        config = _variant(
+            CRUISE,
+            "sim:\n  dt: 0.001\n  frames: 1000\n",
+            f"sim:\n  health: {{nan: {form}}}\n  dt: 0.001\n  frames: 1000\n",
+            directory,
+        )
+        trimmed = "trim: {true_airspeed: 230.0, altitude: 10000.0}\n"
+        case = scenario.load(_scenario(directory, config, trimmed))
+        result = scenario.run(case, directory / "run.h5")
+        results.append((result.failures, (directory / "run.h5").read_bytes()))
+    assert results[0][0] == []
+    assert results[0] == results[1]
+
+
 # --- astra.trim -----------------------------------------------------------------------------------
 
 CRUISE_SIM = "sim:\n  dt: 0.001\n  frames: 1000\n"
