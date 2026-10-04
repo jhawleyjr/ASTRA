@@ -4,7 +4,8 @@ Private: each tool documents the rules it takes from here in its own docstring.
 - Schema validators (``closed_map``, ``number``, ``text``, ``frames_of``, ``trim_setpoint``)
   that raise the caller's own error class, so each tool keeps its error type and message.
 - Leaf rules (``numeric_leaf``, ``set_numeric_leaf``): an existing numeric leaf only, reached by
-  a dotted path whose integer segments index lists; never a new key.
+  a dotted path whose integer segments index lists; never a new key. A leaf ``astra._yaml_route``
+  kept as the core's text (``010``, ``1_000``) is not numeric, and the refusal says so.
 - ``TRIM_OWNED``: the leaves trim sets or assumes (``astra.scenario``'s docstring says why).
 - ``WARN_COUNTERS`` and ``HEALTH_SIGNALS``: the health counters a ``warn`` action leaves nonzero,
   and every ``health.*`` signal, shared by ``astra.scenario`` and ``astra.cli`` (M6 PR 3).

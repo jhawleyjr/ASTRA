@@ -63,8 +63,9 @@ docs/plans/m6-pr8-report.md).
     ``_runkit.apply_trim`` writes (``euler_nb`` replaces any ``q_nb``). Floats are written by
     ``yaml.safe_dump``, whose text reads back exactly. Codes: 64 a usage error (a non-finite value,
     or an airspeed not above zero); 65 a config error (including a document that is not a map, a
-    ``transport`` block, a flat Earth, a zero default airspeed, and a file ``astra.trim``'s own
-    YAML 1.1 read refuses); 1 not trimmed (``astra.trim``'s non-convergence, or a residual above
+    ``transport`` block, a flat Earth, a zero default airspeed, a file ``astra.trim``'s own
+    YAML 1.1 read refuses, and a config whose PyYAML reading ``astra._yaml_route`` refuses, such
+    as a null); 1 not trimmed (``astra.trim``'s non-convergence, or a residual above
     ``_runkit.TRIM_RESIDUAL_BOUND``); 74 stdout could not be written; 70 an internal error,
     including any other ``ValueError`` or ``RuntimeError`` from a trim; 0 trimmed.
 

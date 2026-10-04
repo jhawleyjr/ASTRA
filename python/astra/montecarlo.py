@@ -10,7 +10,12 @@ file and the key).
 - ``config``: path of the base config, relative to ``load``'s ``root``. A config with a
   ``transport`` block is refused (the Monte Carlo runs open loop); so is one with a ``log`` block,
   because the batch writes each run's log itself. The config must build: ``load`` builds a
-  ``Simulation`` from it, with no log and no trim, to learn ``dt`` and the signal names.
+  ``Simulation`` from it, with no log and no trim, to learn ``dt`` and the signal names. The config
+  is read as the core reads it (``astra._yaml_route``, M6 PR 11): a value PyYAML reads differently
+  (``off``, ``010``, ``1_000``) keeps the core's own text, so a dispersion of it is refused as not
+  a number, and what text cannot carry (a null, a duplicate or merge key) is refused, naming the
+  key. The spec itself is Python's own format, YAML 1.1 as ``yaml.safe_load`` reads it (D3):
+  ``seed: 010`` is 8, ``runs: 1_000`` is 1000 and ``duration: 1:30`` is 90 s.
 - ``trim``: optional ``{true_airspeed, altitude}``, the same trim as ``astra.scenario``'s: each run
   is trimmed after its draws are applied, on a copy of its config without the ``log`` block (and
   without ``transport``, which is refused anyway), so trim never creates the run's file.
@@ -116,7 +121,10 @@ column of the new row with the recorded one, and, when the batch still holds the
 two logs byte for byte. The record is not a frozen build: plugins are loaded from the current
 build, so a rebuild can change the result. The new log's provenance (``git_describe``, the plugin
 table) and the row comparison show it when it does. Rerun never touches the batch's own files, and
-it refuses an output directory that is the batch or lies inside it (symlinks resolved). A run whose
+it refuses an output directory that is the batch or lies inside it (symlinks resolved). A batch
+written before M6 PR 11 whose config has a value PyYAML reads differently from the core ran with
+PyYAML's reading; its rerun reads the core's, so the rows that value reaches are reported as
+differences, and a dispersion of such a value is refused (the plan's D4). A run whose
 log cannot be written (a ``LogError``, an ``OSError``, a ``LOG`` halt, or a ``ConfigError`` at
 ``log.path``, how ADR-0027 reports a log that cannot be created) raises
 ``RerunWriteError``: nothing was compared, so it is not reported as a row that differs.

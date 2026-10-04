@@ -278,6 +278,10 @@ def load_config(
 ) -> dict[str, Any]:
     """Reads a lockstep config as a dict and sets ``transport.segment`` to ``segment``.
 
+    The dict reads as the core reads the file (``astra._yaml_route``, M6 PR 11): a value PyYAML
+    reads differently keeps the core's own text (so ``timeout_ms: 1_000`` is not an integer here,
+    as it is not to the core), and a null or a duplicate or merge key is a ``LockstepError``.
+
     The file must carry an shm ``transport`` block with no ``segment`` of its own (the name is the
     driver's) and all three timeouts (the peer is given the same values, so the driver never assumes
     a

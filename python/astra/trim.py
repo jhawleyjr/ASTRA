@@ -10,7 +10,9 @@ north at latitude 0 puts the Earth-rate vector parallel to velocity, and this ai
 off-diagonal inertia term, ixz, couples only x/z) -- checked at the solution, not assumed silently.
 
 Never steps the Simulation: this is a static algebraic solve, and `Simulation.derivative()` is
-bit-identical to the real integrator's own k1 (PR 5's R9). Still air only -- wind is dropped from
+bit-identical to the real integrator's own k1 (PR 5's R9). The config is read once, as the core
+reads it (`astra._yaml_route`, M6 PR 11); what that read refuses is the core's own `ConfigError`,
+naming the file and the key. Still air only -- wind is dropped from
 the config entirely (see `_load_still_air_config`), since `derivative()` raises on a
 wind-configured, never-stepped Simulation by design (PR 5's R7a).
 
