@@ -1,6 +1,6 @@
-# M6 PR 11, D5 rerun after review fix 1 (A-001): before/after against 72877da, on one build (trimmed; full logs and
+# M6 PR 11, D5 rerun after review fixes 1 (A-001) and 2 (V-001): before/after against 72877da, on one build (trimmed; full logs and
 # manifests stay in the session scratchpad). Replaces 5461294-before-after.log as the record for the final python/.
-# Candidate: f77b6e8 (python/ as it will merge). Base: `git archive 72877da python/astra`.
+# Candidates: f77b6e8 (fix 1), then 18bb8c1 (fix 2, python/ as it will merge), each its own pass. Base: `git archive 72877da python/astra`.
 # Build: the gate's fresh build at 0e90176. Both passes used its _core module (copied into the base tree), its
 # libastra_core and its plugin dir, so each log's provenance names git_describe 0e90176 on both sides.
 # Base pass: PYTHONPATH=<scratch>/shim:<scratch>/base/python. The shim is an empty _editable_skbc_astra.py, so no
@@ -40,3 +40,5 @@ total                                                                        373
 == result
 diff manifest-base.txt manifest-cand-f77b6e8.txt: no output (exit 0)
 manifests identical: 373 files; sha256 of the manifest 693be34242090bdeb28a63a0edb18c3b7a59ef28fa86db88a4260fdca54c5856
+diff manifest-base.txt manifest-cand.txt (the 18bb8c1 pass, same build, same output path): no output (exit 0)
+manifests identical: 373 files; the same manifest, sha256 693be34242090bdeb28a63a0edb18c3b7a59ef28fa86db88a4260fdca54c5856
