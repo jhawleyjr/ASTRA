@@ -490,6 +490,11 @@ takes them as a prefix.
       and 0.52 MB for alpha), but changes PR 6's overlay check (the line's data becomes the column reduction of
       the log column); capping at 10 runs changes R5 and bounds only the count; a 1 px simplify threshold is not
       bounded and is hard to scope to the overlays alone. Not started.
+- [ ] (unscheduled) An equal-aspect panel keeps `draw_matplotlib`'s canvas, 8 × 3.2 in for one panel, so a
+      north-going ground track gets only about 2.2 in of height and the panel's width is mostly empty east limits
+      (origin: M6 PR 12's plan, D2b; Joe 2026-10-04: deferred). A taller canvas for an equal panel would change
+      the figure-size rule for one kind of panel. The same PR may lift PR 12's rule that an equal panel be its
+      figure's only panel (with a shared x, matplotlib's `datalim` moves the y limits instead). Not started.
 - [ ] (M6) A review fix's final Codex verification has no place in `docs/reviews/*-review.md` (origin: #95's
       V-001 and #96's R-001; Joe 2026-10-03). Review-dispatch's no-record-only-commit rule keeps the verification
       result out of a commit of its own, so the review record's last finding stays "fixed-unverified" there while
