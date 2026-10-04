@@ -1,0 +1,29 @@
+date: 2026-10-03, started 21:22:12 local, ended 21:40:29 (about 18 min)
+command: rm -rf build && ./scripts/check-full.sh (in the background; no edits during the run)
+base: 8055ce753632b2647a6b917d9df7682f8bed6a0c
+head: a2dbf3c7b849877b331276bd95b1f6ca6ccd69cb
+exit: 0
+working tree: clean
+load before: 1.93 7.52 6.64 (21:22:12); no other just, ninja, ctest, clang-tidy-18, clang++-18, clangd
+or pytest process on the machine; the other project's gate seen at planning time (Algorithmic-Trader,
+`just check`) had exited. Background: the cowork VM (qemu) and the desktop, each under 2 % CPU.
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 195 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr8b-envelope/build/debug
+100% tests passed, 0 tests failed out of 669
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr8b-envelope/build/release
+100% tests passed, 0 tests failed out of 670
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr8b-envelope/build/static-plugins
+100% tests passed, 0 tests failed out of 671
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr8b-envelope/build/asan
+100% tests passed, 0 tests failed out of 672
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+0 errors, 0 warnings, 0 informations
+1697 passed, 5 skipped in 122.52s (0:02:02)
+check: OK

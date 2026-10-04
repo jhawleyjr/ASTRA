@@ -1,0 +1,43 @@
+M6 PR 8b gate time (docs/plans/m6-pr8b-envelope.md, Verification step 5)
+PR 8b adds no C++, so its full-gate cost is the pytest delta: the whole `pytest tests/python` on the branch
+and on 8055ce7, back to back in this worktree (8055ce7 by `git switch --detach 8055ce7` in the same
+worktree, so both runs use the same build/python _core and plugins and the same venv).
+date: 2026-10-03 (local evening)
+command (each run): .venv/bin/pytest tests/python -q -p no:cacheprovider; the time is pytest's own, with
+`date +%T` around it; the 1-, 5- and 15-minute load read from /proc/loadavg just before it.
+
+== machine before the runs
+21:13, load 0.17 1.40 3.83. No other build or pytest process (pgrep -x 'just|ninja|ctest|clang-tidy-18|
+clang\+\+-18|clangd' empty; pgrep -f '[b]in/pytest' matched only the measuring shell's own command line).
+The other project's gate seen at planning time (Algorithmic-Trader, `just check`) had exited. The rising
+load across runs is these runs' own (the Monte Carlo tests use worker processes; test_new_aircraft_build
+compiles). Background: the cowork VM (qemu) and the desktop, each under 2 % CPU.
+
+== runs, in order
+branch:          HEAD 6d02b0c, load before 0.17 1.40 3.83,  exit 0, 21:13:43-21:15:45; 1692 passed, 5 skipped in 121.68s
+8055ce7:         HEAD 8055ce7, load before 12.34 5.91 5.17, exit 0, 21:15:50-21:17:51; 1682 passed, 5 skipped in 121.15s
+branch (again):  HEAD 6d02b0c, load before 9.18 8.08 6.12,  exit 0, 21:18:08-21:20:10; 1692 passed, 5 skipped in 121.54s
+(6d02b0c's python/ and tests/ equal 4e9730a's; 6d02b0c added only the before/after evidence log.)
+
+== delta
+pytest: +0.4 to +0.5 s (121.54 and 121.68 s against 121.15 s), within run-to-run noise; +10 tests
+(1697 against 1687 collected), all in test_mc_analysis.py.
+
+== the new tests, alone (`-k 'envelope_band or envelope_of or envelope_columns' --durations=0`)
+10 passed in 2.28 s, of which 0.51 s is the session descent-batch fixture (already built in a full run).
+  0.28s T1 descent [v0.derived.altitude-shipped]     0.16s T1 descent [v0.derived.altitude-columns_37]
+  0.14s T1 descent [v0.slow_rate.value-shipped]      0.14s T1 descent [v0.slow_rate.value-columns_37]
+  0.11s T6 columns at most one pixel                 0.10s T2 one-frame spike (300,001 frames)
+  0.10s T3 reads the full band, catches a cut corner 0.05s T5 vertex bound (1 to 300,001 frames)
+  0.03s T4 each column's extent                      0.02s T1b at most 901 frames unreduced
+
+== the acceptance command, `.venv/bin/pytest tests/python -k 'mc_analysis or report'`
+load before 12.34 10.94 7.48, exit 0; 312 passed, 1385 deselected in 24.31s
+312 = test_mc_analysis.py's 85 (75 + this PR's 10) + test_report.py's 220 + 7 other tests whose names
+contain "report" (unchanged by this PR):
+  test_autopilot_design.py::test_one_extra_exchange_of_delay_is_reported[longitudinal|lateral]
+  test_derivative.py::test_state_owner_slices_reports_the_correct_offset_and_count_for_a_state_owning_model
+  test_lockstep.py::test_r2c_hold_is_reported[E_light_hold|G_moderate_hold]
+  test_lockstep.py::test_seed_sweep_light_is_reported
+  test_scenario.py::test_verify_reports_a_rate_group_window_without_its_rows_instead_of_raising
+`-k mc_analysis` alone selects only test_mc_analysis.py.

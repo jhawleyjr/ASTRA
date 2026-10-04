@@ -73,6 +73,14 @@ every legend outside its axes (``astra.plot.legend_outside``):
   95th percentile and the maximum (``numpy.percentile``, linear) over exactly the runs that reached
   each frame, each failing run labeled ``run <i>``, and a second panel with that count. The legend
   shows at most ``MAX_LEGEND_RUNS`` failing runs (the lowest indices) and then ``and k more``.
+  Two bands fill min to max and 5 % to 95 % (M6 PR 8b, docs/plans/m6-pr8b-envelope.md). Over
+  ``n`` frames with ``n - 1 > ENVELOPE_COLUMNS``, each band is reduced to ``ENVELOPE_COLUMNS``
+  columns: contiguous frame ranges ``e_j .. e_(j+1)``, ``e_j = j (n - 1) // ENVELOPE_COLUMNS``,
+  that share their boundary frames, each drawn as a step at the minimum and maximum of its frames
+  (NaN frames ignored; an all-NaN column is a gap, and the columns beside it keep their width).
+  The band then contains every finite frame's values and the straight segments between them, in
+  at most ``4 ENVELOPE_COLUMNS + 3`` vertices whatever the run length. Shorter envelopes draw the
+  exact band. The lines, the count and the overlays keep every frame.
   Logs are read strictly (``astra.log.load``) one at a time. A missing or refused log of an ``ok``
   or ``halt`` row, a ``dt`` or a divisor that differs from the first log's, and a signal no log
   holds are each an ``EnvelopeError`` naming the run or the signal.
@@ -123,6 +131,9 @@ MIN_LEAF = 5
 HIST_BINS = 20
 PERCENTILES = (5.0, 50.0, 95.0)
 MAX_LEGEND_RUNS = 10
+# The envelope figure's width (9 in) at the pinned save dpi (100): a band column is at most one
+# pixel of its axes, which is narrower than the figure.
+ENVELOPE_COLUMNS = 900
 
 _OPERATORS = ("<=", ">=", "==", "!=", "<", ">")
 _OPERATOR_CHARS = frozenset("<>=!~")
@@ -1049,6 +1060,25 @@ def draw_scatter(batch: Batch, result: Outcomes) -> MatplotlibFigure:
     return drawn
 
 
+def _band(
+    t: FloatArray, lo: FloatArray, hi: FloatArray
+) -> tuple[FloatArray, FloatArray, FloatArray]:
+    """A band's ``fill_between`` arguments ``(x, lo, hi)``: the frames themselves, or, over more
+    than ``ENVELOPE_COLUMNS + 1`` frames, its columns as steps (module docstring, Figures)."""
+    columns = ENVELOPE_COLUMNS
+    n = t.size
+    if n - 1 <= columns:
+        return t, lo, hi
+    edges = (np.arange(columns + 1, dtype=np.int64) * (n - 1)) // columns
+    # reduceat spans e_j .. e_(j+1) - 1; the boundary frame e_(j+1) belongs to both columns.
+    low = np.fmin(np.fmin.reduceat(lo, edges[:-1]), lo[edges[1:]])
+    high = np.fmax(np.fmax.reduceat(hi, edges[:-1]), hi[edges[1:]])
+    # Each column is its own two points, (e_j, v_j) and (e_(j+1), v_j), not step="post": that
+    # ends a region at its last x, so a NaN column would also drop the column before it.
+    x = np.repeat(t[edges], 2)[1:-1]
+    return x, np.repeat(low, 2), np.repeat(high, 2)
+
+
 def draw_envelope(env: Envelope) -> MatplotlibFigure:
     """``mc-envelope-<signal>`` (module docstring, Figures)."""
     from matplotlib.lines import Line2D
@@ -1056,10 +1086,12 @@ def draw_envelope(env: Envelope) -> MatplotlibFigure:
     drawn = _figure(9.0, 6.4)
     axes = drawn.subplots(2, 1, sharex=True, height_ratios=(3.0, 1.0), squeeze=False)
     ax = axes[0][0]
-    ax.fill_between(env.t, env.minimum, env.maximum, color="#d9d9d9", linewidth=0.0)
-    ax.fill_between(
-        env.t, env.percentiles[5.0], env.percentiles[95.0], color="#9ecae1", linewidth=0.0
-    )
+    for lo, hi, color in (
+        (env.minimum, env.maximum, "#d9d9d9"),
+        (env.percentiles[5.0], env.percentiles[95.0], "#9ecae1"),
+    ):
+        x, low, high = _band(env.t, lo, hi)
+        ax.fill_between(x, low, high, color=color, linewidth=0.0)
     handles: list[Any] = []
     for label, values, style in (
         ("max", env.maximum, ":"),
