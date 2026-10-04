@@ -80,7 +80,16 @@ every legend outside its axes (``astra.plot.legend_outside``):
   (NaN frames ignored; an all-NaN column is a gap, and the columns beside it keep their width).
   The band then contains every finite frame's values and the straight segments between them, in
   at most ``4 ENVELOPE_COLUMNS + 3`` vertices whatever the run length. Shorter envelopes draw the
-  exact band. The lines, the count and the overlays keep every frame.
+  exact band. The statistic lines and the count keep every frame.
+  Over the same ``n - 1 > ENVELOPE_COLUMNS`` frames, each failing run's line is reduced on the
+  band's columns (M6 PR 13, docs/plans/m6-pr13-envelope-overlays.md), clipped to the run's own
+  frames (a halted run's frames are a prefix). Each stretch of finite frames is cut at the column
+  edges into pieces, and each piece keeps its first frame, its minimum, its maximum (the first of
+  equal values) and its last frame. The run's first and last frames, and the first NaN after each
+  finite stretch, are kept too. So the line is drawn through the run's own samples only, spans each
+  column's minimum to maximum, breaks exactly where the full line breaks, and ends at the run's last
+  frame, in at most ``3 ENVELOPE_COLUMNS + 1`` points for a trace with no NaN (each further finite
+  stretch adds at most 5). Shorter envelopes draw every frame of every failing run.
   Logs are read strictly (``astra.log.load``) one at a time. A missing or refused log of an ``ok``
   or ``halt`` row, a ``dt`` or a divisor that differs from the first log's, and a signal no log
   holds are each an ``EnvelopeError`` naming the run or the signal.
@@ -1079,6 +1088,28 @@ def _band(
     return x, np.repeat(low, 2), np.repeat(high, 2)
 
 
+def _overlay(n: int, y: FloatArray) -> IntArray:
+    """The frames of a failing run's values ``y`` that its line is drawn through, in an envelope of
+    ``n`` frames: all of them, or, over more than ``ENVELOPE_COLUMNS + 1`` frames, the band's columns'
+    reduction (module docstring, Figures)."""
+    columns = ENVELOPE_COLUMNS
+    size = y.size
+    if n - 1 <= columns or size <= 2:
+        return np.arange(size, dtype=np.int64)
+    edges = (np.arange(columns + 1, dtype=np.int64) * (n - 1)) // columns
+    edges = edges[edges < size]  # a halted run is a prefix: its columns end at its last frame
+    finite = np.concatenate(([0], np.isfinite(y).astype(np.int8), [0]))
+    starts = np.flatnonzero(np.diff(finite) == 1)
+    ends = np.flatnonzero(np.diff(finite) == -1) - 1
+    keep = [np.array([0, size - 1]), ends[ends + 1 < size] + 1]  # the first NaN after a stretch
+    for a, b in zip(starts, ends, strict=True):
+        cuts = np.concatenate(([a], edges[(edges > a) & (edges < b)], [b]))
+        for lo, hi in zip(cuts[:-1], cuts[1:], strict=True):
+            piece = y[lo : hi + 1]
+            keep.append(np.array([lo, hi, lo + np.argmin(piece), lo + np.argmax(piece)]))
+    return np.unique(np.concatenate(keep)).astype(np.int64)
+
+
 def draw_envelope(env: Envelope) -> MatplotlibFigure:
     """``mc-envelope-<signal>`` (module docstring, Figures)."""
     from matplotlib.lines import Line2D
@@ -1105,7 +1136,8 @@ def draw_envelope(env: Envelope) -> MatplotlibFigure:
         )
         handles.append(line)
     for k, (run, (t, y)) in enumerate(sorted(env.failing.items())):
-        (line,) = ax.plot(t, y, linewidth=0.8, label=f"run {run}")
+        index = _overlay(env.t.size, y)
+        (line,) = ax.plot(t[index], y[index], linewidth=0.8, label=f"run {run}")
         if k < MAX_LEGEND_RUNS:
             handles.append(line)
     more = len(env.failing) - MAX_LEGEND_RUNS
