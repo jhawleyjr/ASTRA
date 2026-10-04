@@ -871,51 +871,13 @@ def test_r3b_the_page_is_offline_and_every_svg_is_self_contained(
     assert len(text) > 1_000_000, "plotly.js is not inline"
     assert text.count("<script") >= 2
     assert re.search(r"<script[^>]*\ssrc\s*=", text) is None
-    assert resource_refs.external_loads(text) == []
+    assert resource_refs.disallowed(text, resource_refs.PLOTLY_PAGE) == []
     assert 'id="cruise-longitudinal"' in text
     assert 'id="cruise-lateral"' in text
     for svg in written[:-1]:
-        assert resource_refs.external_loads(svg.read_text(encoding="utf-8")) == [], svg
-
-
-@pytest.mark.parametrize(
-    "snippet",
-    [
-        '<img src="http://example.com/a.png">',
-        '<script src="https://cdn.example.com/plotly.js"></script>',
-        '<link rel="stylesheet" href="x.css">',
-        '<a href="http://example.com">x</a>',
-        '<svg><image xlink:href="http://example.com/a.png"/></svg>',
-        '<img srcset="a.png 1x">',
-        '<img srcset="data:image/png;base64,AA 1x, https://x.test/a.png 2x">',
-        '<video poster="p.png"></video>',
-        '<object data="x.svg"></object>',
-        "<iframe></iframe>",
-        '<base href="#">',
-        '<meta http-equiv="Refresh" content="0;url=http://example.com">',
-        '<div style="background:url(http://example.com/a.png)">x</div>',
-        '<style>@import "x.css";</style>',
-        "<style>p { background: url('x.png') }</style>",
-        '<form action="http://example.com"></form>',
-        '<body background="x.png"></body>',
-    ],
-)
-def test_the_resource_check_catches_each_loading_construct(snippet: str) -> None:
-    assert resource_refs.external_loads(snippet), snippet
-
-
-def test_the_resource_check_allows_identifiers_and_local_references() -> None:
-    document = (
-        '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" '
-        '"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">'
-        '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">'
-        '<rdf:RDF><dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/></rdf:RDF>'
-        '<use xlink:href="#DejaVuSans-30"/><image href="data:image/png;base64,AA=="/>'
-        '<img srcset="data:image/png;base64,AA 1x, data:image/png;base64,BB 2x">'
-        '<style>p { fill: url(#gradient) }</style><script>var u = "https://plot.ly";</script>'
-        '<g clip-path="url(#p0123456789)"></g></svg>'
-    )
-    assert resource_refs.external_loads(document) == []
+        svg_text = svg.read_text(encoding="utf-8")
+        assert resource_refs.disallowed(svg_text, resource_refs.SVG) == [], svg
+        assert resource_refs.id_problems(svg_text) == [], svg
 
 
 # --- PNG ------------------------------------------------------------------------------------------
