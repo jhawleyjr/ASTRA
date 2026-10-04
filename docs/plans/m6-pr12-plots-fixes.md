@@ -272,3 +272,14 @@ tests); R1's and R4's durations at base and candidate (`--durations=0` on `test_
 - **D3:** the before/after method, fixtures and expected-difference list above.
 - **D4:** the tests, with `panel_scale` as the one keyword.
 - **D5:** Tier 2.
+
+## Amendments found in the build
+
+- **D4's tolerance.** The plan's "relative difference under 1e-9" was wrong. matplotlib reaches an equal aspect
+  only to its own tolerance: `Axes.apply_aspect` leaves the limits alone when the ratio it would correct,
+  `x_scale / y_scale - 1`, is under 0.005 (matplotlib 3.11.2, `axes/_base.py:2090`, `abs(y_expander) < 0.005`).
+  The first run failed the turn and still cases at 6e-5. The test now asserts `|x_scale / y_scale - 1| <= 0.005`,
+  matplotlib's own bound, and the negative control's straight track is off by a factor of over 1000. The
+  remaining assertions (`get_aspect() == 1.0`, `get_adjustable() == "datalim"`, the straight track's widened east
+  limits) are unchanged. Joe's call: accept this bound, or ask for exact equal scales. The latter would mean
+  computing the limits in `draw_matplotlib` instead of asking matplotlib for the aspect.

@@ -120,6 +120,36 @@ def ground_track(run_log: log.RunLog) -> list[tuple[str, FloatArray, FloatArray]
     return lines
 
 
+def display_scale(drawn: Any, ax: Any) -> tuple[float, float]:
+    """Display units per data unit along x and along y, from matplotlib's own data transform after
+    layout (M6 PR 12): the diagonal of ``transData``'s affine part. No pixel is compared."""
+    drawn.draw_without_rendering()  # applies the aspect and the layout, so the limits are final
+    matrix = ax.transData.get_affine().get_matrix()
+    assert matrix[0][1] == 0.0, matrix
+    assert matrix[1][0] == 0.0, matrix
+    return float(matrix[0][0]), float(matrix[1][1])
+
+
+# matplotlib's own tolerance for an equal aspect: Axes.apply_aspect leaves the limits as they are
+# when the scale ratio it would correct, x_scale / y_scale - 1, is under 0.005 (matplotlib 3.11.2,
+# axes/_base.py, ``abs(y_expander) < 0.005``). An unequal autoscale misses by far more: the
+# straight-track control below is off by over 1000 times.
+_ASPECT_TOLERANCE = 0.005
+
+
+def assert_equal_scale(drawn: Any, ax: Any, what: str) -> None:
+    """An equal-aspect panel: one data unit is the same length on both axes (to matplotlib's own
+    tolerance), and matplotlib got there by moving the limits (``datalim``), not by shrinking the
+    axes."""
+    assert ax.get_aspect() == 1.0, f"{what}: aspect {ax.get_aspect()!r}"
+    assert ax.get_adjustable() == "datalim", f"{what}: adjustable {ax.get_adjustable()!r}"
+    x_scale, y_scale = display_scale(drawn, ax)
+    assert x_scale > 0.0, (x_scale, y_scale)
+    assert y_scale > 0.0, (x_scale, y_scale)
+    ratio = x_scale / y_scale
+    assert abs(ratio - 1.0) <= _ASPECT_TOLERANCE, f"{what}: x {x_scale} / y {y_scale} = {ratio}"
+
+
 def assert_legend_outside(drawn: Any, ax: Any) -> None:
     """M6 PR 6, D1: the legend lies wholly to the right of its axes, so it covers no data."""
     drawn.draw_without_rendering()  # lays the figure out, so the extents are final
@@ -151,6 +181,11 @@ def check_package(path: Path, run_log: log.RunLog, out_dir: Path) -> list[Path]:
             assert_bits(line.get_ydata(), y, f"{path} {label} y")
         assert ax.get_xlabel() == "east [m]"
         assert ax.get_ylabel() == "north [m]"
+        # M6 PR 12: the track's one panel is equal-aspect, and drawn so.
+        assert [panel.aspect for panel in figure.panels] == ["equal"]
+        for drawn_ax, panel in zip(drawn.axes, figure.panels, strict=True):
+            if panel.aspect == "equal":
+                assert_equal_scale(drawn, drawn_ax, f"{path} {figure.name}")
         return written
 
     assert package.figures is not None
@@ -673,6 +708,148 @@ def test_a_file_function_leaves_nothing_beside_it(tmp_path: Path) -> None:
     )
     plot.render(plot.load_package(path), synthetic_log(_LOG_COLUMNS), tmp_path / "out")
     assert sorted(p.name for p in directory.iterdir()) == ["fn.py", "pkg.yaml"]
+
+
+# --- M6 PR 12: each panel at a readable scale (docs/plans/m6-pr12-plots-fixes.md) ---------------
+
+_GROUND_TRACK = TEMPLATE_PLOTS / "ground_track.yaml"
+_TRACK_DT = 1.0  # s; 301 rows over 300 s
+_TRACK_T = np.arange(301) * _TRACK_DT
+
+
+def _track_log(north_velocity: FloatArray, east_velocity: FloatArray) -> log.RunLog:
+    return synthetic_log(
+        {
+            "v0.derived.v_n_0": ("m/s", north_velocity.tolist()),
+            "v0.derived.v_n_1": ("m/s", east_velocity.tolist()),
+        },
+        dt=_TRACK_DT,
+    )
+
+
+# Straight: 69 km north with 1 m of east drift. Turn: one full circle at 230 m/s. Still: no motion.
+_OMEGA = 2.0 * math.pi / 300.0
+_TRACKS: dict[str, tuple[FloatArray, FloatArray]] = {
+    "straight": (np.full(301, 230.0), np.full(301, 1.0 / 300.0)),
+    "turn": (230.0 * np.cos(_OMEGA * _TRACK_T), 230.0 * np.sin(_OMEGA * _TRACK_T)),
+    "still": (np.zeros(301), np.zeros(301)),
+}
+
+
+def _drawn_track(run_log: log.RunLog) -> tuple[Any, Any]:
+    (figure,) = plot.resolve(plot.load_package(_GROUND_TRACK), run_log)
+    drawn = plot.draw_matplotlib(figure)
+    (ax,) = drawn.axes
+    return drawn, ax
+
+
+@pytest.mark.parametrize("track", list(_TRACKS))
+def test_panel_scale_ground_track_draws_meters_equal_on_both_axes(track: str) -> None:
+    drawn, ax = _drawn_track(_track_log(*_TRACKS[track]))
+    assert_equal_scale(drawn, ax, track)
+    x_low, x_high = ax.get_xlim()
+    y_low, y_high = ax.get_ylim()
+    for low, high in ((x_low, x_high), (y_low, y_high)):
+        assert math.isfinite(low), (track, low, high)
+        assert math.isfinite(high), (track, low, high)
+        assert high > low, (track, low, high)
+    if track == "straight":
+        # The east limits widen to the north scale: they span the north span times the axes'
+        # width over height, so 1 m of drift is drawn at its size, not zoomed to fill the panel.
+        box = ax.get_window_extent()
+        x_span, y_span = x_high - x_low, y_high - y_low
+        assert y_span >= 69_000.0, y_span
+        assert x_span >= y_span * (box.width / box.height) * (1.0 - 1e-9), (x_span, y_span)
+
+
+def test_panel_scale_auto_aspect_is_the_default_and_unequal() -> None:
+    # The negative control: the same straight track on a panel without an aspect autoscales each
+    # axis, so a meter east is drawn far longer than a meter north (the assertion above bites).
+    run_log = _track_log(*_TRACKS["straight"])
+    (figure,) = plot.resolve(plot.load_package(_GROUND_TRACK), run_log)
+    (equal,) = figure.panels
+    auto = plot.Panel(equal.title, equal.ylabel, equal.unit, equal.series, xlabel="east", xunit="m")
+    assert auto.aspect == "auto"
+    drawn = plot.draw_matplotlib(plot.Figure(figure.name, figure.title, [auto]))
+    (ax,) = drawn.axes
+    assert ax.get_aspect() == "auto"
+    x_scale, y_scale = display_scale(drawn, ax)
+    assert x_scale > 1000.0 * y_scale, (x_scale, y_scale)
+
+
+def test_panel_scale_plotly_anchors_the_y_axis_on_an_equal_panel() -> None:
+    run_log = _track_log(*_TRACKS["turn"])
+    (figure,) = plot.resolve(plot.load_package(_GROUND_TRACK), run_log)
+    layout = cast(dict[str, Any], plot.draw_plotly(figure).to_dict())["layout"]
+    assert layout["yaxis"]["scaleanchor"] == "x"
+    assert layout["yaxis"]["scaleratio"] == 1
+    (panel,) = figure.panels
+    auto = plot.Panel(panel.title, panel.ylabel, panel.unit, panel.series, "east", "m")
+    layout = cast(dict[str, Any], plot.draw_plotly(plot.Figure("f", "", [auto])).to_dict())[
+        "layout"
+    ]
+    assert "scaleanchor" not in layout["yaxis"]
+    assert "scaleratio" not in layout["yaxis"]
+
+
+def _refused_function(tmp_path: Path, panels: str) -> tuple[Path, str]:
+    """Renders a file function returning one figure of ``panels``; the refusal's message."""
+    directory = tmp_path / "pkg"
+    path = write_package(directory, "function: { file: fn.py, name: figures }\n")
+    (directory / "fn.py").write_text(
+        _FN_HEADER + f"def figures(run_log):\n    return [plot.Figure('f', '', [{panels}])]\n",
+        encoding="utf-8",
+    )
+    out = tmp_path / "out"
+    with pytest.raises(plot.PlotPackageError) as caught:
+        plot.render(plot.load_package(path), synthetic_log(_LOG_COLUMNS), out)
+    assert not out.exists()
+    return path, str(caught.value)
+
+
+def test_panel_scale_a_bad_aspect_is_refused(tmp_path: Path) -> None:
+    path, message = _refused_function(
+        tmp_path, f"plot.Panel('', '', '', [{_GOOD_SERIES}], aspect='square')"
+    )
+    assert message == (
+        f"{path}: function[0].panels[0].aspect: must be 'auto' or 'equal', got 'square'"
+    )
+
+
+def test_panel_scale_an_equal_panel_must_be_its_figure_only_panel(tmp_path: Path) -> None:
+    # Amendment 1: panels share x when their x labels match, and a shared x would make
+    # matplotlib's datalim move the y limits, so an equal panel stands alone in its figure.
+    path, message = _refused_function(
+        tmp_path,
+        f"plot.Panel('', '', '', [{_GOOD_SERIES}]), "
+        f"plot.Panel('', '', '', [{_GOOD_SERIES}], aspect='equal')",
+    )
+    assert message == (
+        f"{path}: function[0].panels[1].aspect: an 'equal' panel must be its figure's only "
+        "panel (this figure has 2)"
+    )
+
+
+def test_panel_scale_tas_and_cas_have_their_own_panels(scenario_log: log.RunLog) -> None:
+    package = plot.load_package(plot.framework_package("flight"))
+    assert package.figures is not None
+    (air_data,) = [figure for figure in package.figures if figure.name == "air_data"]
+    assert [
+        (panel.ylabel, [(s.signal, s.unit) for s in panel.series]) for panel in air_data.panels
+    ] == [
+        ("altitude", [("v{v}.derived.altitude", "ft")]),
+        ("TAS", [("v{v}.derived.tas", "kt")]),
+        ("CAS", [("v{v}.derived.cas", "kt")]),
+        ("Mach", [("v{v}.derived.mach", None)]),
+        ("vertical speed", [("v{v}.derived.vertical_speed", "ft/s")]),
+    ]
+    (figure,) = [f for f in plot.resolve(package, scenario_log) if f.name == "air_data"]
+    vehicles = log_vehicles(scenario_log)
+    assert [[s.label for s in panel.series] for panel in figure.panels] == [
+        [f"v{v} {name}" for v in vehicles]
+        for name in ("altitude", "TAS", "CAS", "Mach", "vertical speed")
+    ]
+    assert all(panel.aspect == "auto" for panel in figure.panels)
 
 
 # --- C-15: display-unit dispatch ------------------------------------------------------------------
