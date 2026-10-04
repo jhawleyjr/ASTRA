@@ -28,7 +28,12 @@ Format. Every map is closed: an unknown key at any level is an error, and so is 
   loaded by path so an aircraft's own Python plots travel with its directory. ``name`` is a
   callable that takes a ``RunLog`` and returns a list of ``Figure``, for plots YAML cannot
   express; its result is checked like YAML-built figures. ``vehicles`` and ``column`` help write
-  one.
+  one. Such a ``Panel`` may set ``aspect="equal"`` (default ``"auto"``), for an x and a y in the
+  same unit, such as a ground track: both renderers then draw one unit the same length on both
+  axes, matplotlib by widening the limits (``adjustable="datalim"``) rather than shrinking the
+  axes. An equal panel must be its figure's only panel, since the figure's panels share x when
+  their x labels match and a shared x would make matplotlib move the y limits instead (M6 PR 12).
+  YAML has no ``aspect`` key: its x is always ``t``.
 
 Strings must be YAML strings: YAML 1.1 reads ``on``, ``off``, ``yes`` and ``no`` as booleans, and a
 value starting with ``{`` as a flow map, so quote such a value. The format has no numeric key.
@@ -112,7 +117,9 @@ class Series:
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class Panel:
-    """One axes. The y axis reads ``<ylabel> [<unit>]`` and the x axis ``<xlabel> [<xunit>]``."""
+    """One axes. The y axis reads ``<ylabel> [<unit>]`` and the x axis ``<xlabel> [<xunit>]``.
+    ``aspect="equal"`` draws one x unit and one y unit the same length (module docstring,
+    Format)."""
 
     title: str
     ylabel: str
@@ -120,6 +127,7 @@ class Panel:
     series: Sequence[Series]
     xlabel: str = "t"
     xunit: str = "s"
+    aspect: Literal["auto", "equal"] = "auto"
 
 
 @dataclasses.dataclass(frozen=True, eq=False)
@@ -561,12 +569,23 @@ def _check_text(path: Path, where: str, value: object) -> None:
 def _check_panels(path: Path, where: str, panels: object) -> None:
     if not isinstance(panels, collections.abc.Sequence) or isinstance(panels, str) or not panels:
         raise PlotPackageError(f"{path}: {where}.panels: must be a non-empty sequence of Panel")
+    count = len(cast(Sequence[object], panels))
     for j, panel in enumerate(cast(Sequence[object], panels)):
         key = f"{where}.panels[{j}]"
         if not isinstance(panel, Panel):
             raise PlotPackageError(f"{path}: {key}: {type(panel).__name__} is not a Panel")
         for field in ("title", "ylabel", "unit", "xlabel", "xunit"):
             _check_text(path, f"{key}.{field}", getattr(panel, field))
+        aspect = cast(object, panel.aspect)
+        if not isinstance(aspect, str) or aspect not in ("auto", "equal"):
+            raise PlotPackageError(
+                f"{path}: {key}.aspect: must be 'auto' or 'equal', got {aspect!r}"
+            )
+        if aspect == "equal" and count > 1:
+            raise PlotPackageError(
+                f"{path}: {key}.aspect: an 'equal' panel must be its figure's only panel "
+                f"(this figure has {count})"
+            )
         series = cast(object, panel.series)
         if (
             not isinstance(series, collections.abc.Sequence)
@@ -664,6 +683,8 @@ def draw_matplotlib(figure: Figure) -> MatplotlibFigure:
         if panel.title:
             ax.set_title(panel.title)
         ax.set_ylabel(_axis_label(panel.ylabel, panel.unit))
+        if panel.aspect == "equal":
+            ax.set_aspect("equal", adjustable="datalim")
         legend_outside(ax)
         if not shared or i == count - 1:
             ax.set_xlabel(_axis_label(panel.xlabel, panel.xunit))
@@ -691,6 +712,9 @@ def draw_plotly(figure: Figure) -> Any:
                 go.Scatter(x=line.x, y=line.y, name=line.label, mode="lines"), row=i + 1, col=1
             )
         drawn.update_yaxes(title_text=_axis_label(panel.ylabel, panel.unit), row=i + 1, col=1)
+        if panel.aspect == "equal":
+            anchor = drawn.get_subplot(i + 1, 1).yaxis.anchor  # this row's x axis
+            drawn.update_yaxes(scaleanchor=anchor, scaleratio=1, row=i + 1, col=1)
         if not shared or i == count - 1:
             drawn.update_xaxes(title_text=_axis_label(panel.xlabel, panel.xunit), row=i + 1, col=1)
     drawn.update_layout(title_text=figure.title or figure.name, height=120 + 260 * count)

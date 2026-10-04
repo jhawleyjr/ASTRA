@@ -10,11 +10,15 @@ figures:
           - signal: v{v}.derived.altitude
             unit: ft
             label: altitude
-      - ylabel: airspeed
+      # TAS and CAS on panels of their own (M6 PR 12): at cruise they differ by about 170 kt, so one axis
+      # flattens both.
+      - ylabel: TAS
         series:
           - signal: v{v}.derived.tas
             unit: kt
             label: TAS
+      - ylabel: CAS
+        series:
           - signal: v{v}.derived.cas
             unit: kt
             label: CAS

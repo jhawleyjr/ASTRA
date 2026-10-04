@@ -1,0 +1,35 @@
+date: 2026-10-04T14:16:14-07:00 (start 2026-10-04T13:57:53-07:00)
+command: rm -rf build && ./scripts/check-full.sh
+base: 6458e04ae9409e6bd0dadabf11c0373825818f52
+head: 02af82068f87fc22cea0a2d7d8eba86a43c8e3ea
+exit: 0
+duration: 1101 s
+uncommitted changes during the run: 0 paths
+load check before the run (codex app-server broker lines, all idle at 0.0 %, omitted):
+  full gate 1: 2026-10-04T13:57:42-07:00 at 02af820
+  loadavg: 2.20 5.74 6.12 1/13079 318138; nproc 32
+  no build process (pgrep -x: clang-tidy cmake ninja make ctest clang++ clang cc1plus ld.lld pytest)
+  other projects:
+   254862       07:06  0.0 python3 -I /home/joe/repos/Algorithmic-Trader/scripts/autopilot/dispatch.py
+  3389354    12:52:28  0.0 /usr/bin/node /home/joe/.claude/plugins/synced/fa264182-d9c1-433d-b75d-a533d5598c09_d9be9118-f2ff-444e-9bbb-ff84792
+  3233203    13:29:19  0.0 /usr/bin/node /home/joe/.claude/plugins/synced/fa264182-d9c1-433d-b75d-a533d5598c09_d9be9118-f2ff-444e-9bbb-ff84792
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 195 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr12-plots-fixes/build/debug
+100% tests passed, 0 tests failed out of 669
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr12-plots-fixes/build/release
+100% tests passed, 0 tests failed out of 670
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr12-plots-fixes/build/static-plugins
+100% tests passed, 0 tests failed out of 671
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr12-plots-fixes/build/asan
+100% tests passed, 0 tests failed out of 672
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+0 errors, 0 warnings, 0 informations
+1834 passed, 5 skipped in 169.83s (0:02:49)
+check: OK

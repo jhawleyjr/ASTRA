@@ -4,7 +4,9 @@ ground_track.yaml (astra.plot's escape hatch, docs/plans/m6-pr5-plots.md).
 The displacement integrates the derived NED velocity (``v<i>.derived.v_n_0`` and ``v_n_1``,
 ADR-0026) over each logged row, holding each row's velocity until the next row, so it works for
 every Earth model (``p_n`` is NED meters on a flat Earth but latitude and longitude on a round
-one). It is a local flat-Earth picture of the path, not a geodetic track.
+one). It is a local flat-Earth picture of the path, not a geodetic track. The panel's equal aspect
+draws a meter the same length north and east, so a few meters of drift over kilometers of
+straight flight is not magnified into a swerve.
 """
 
 from __future__ import annotations
@@ -28,5 +30,13 @@ def figures(run_log: log.RunLog) -> list[plot.Figure]:
         north = displacement(t, north_velocity)
         east = displacement(t, east_velocity)
         series.append(plot.Series(f"v{vehicle}", east, north))
-    panel = plot.Panel(title="", ylabel="north", unit="m", series=series, xlabel="east", xunit="m")
+    panel = plot.Panel(
+        title="",
+        ylabel="north",
+        unit="m",
+        series=series,
+        xlabel="east",
+        xunit="m",
+        aspect="equal",
+    )
     return [plot.Figure("ground_track", "Ground track", [panel])]
