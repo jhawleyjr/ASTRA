@@ -1,10 +1,9 @@
 # STATE (written at /wrap as main reads it after the merge; ≤ 40 lines, never appended)
 
 ## Next step
-1. Next M6 task: PR 13, the batch envelope's failing-run overlays (PLAN.md's (M6) overlay item). Then, in Joe's
-   order (2026-10-03): PR 14, the plotly page's size (PLAN.md's (M6) 25 MB item); then PR 10, M6's closeout
-   (`docs/plans/m6-analysis-tooling.md`, the PR 10 row; Tier 0; its `/wrap` runs the docs step in **repo
-   scope**).
+1. Next M6 task: PR 14, the plotly page's size (PLAN.md's (M6) 25 MB item). Then, in Joe's order (2026-10-03):
+   PR 10, M6's closeout (`docs/plans/m6-analysis-tooling.md`, the PR 10 row; Tier 0; its `/wrap` runs the docs
+   step in **repo scope**).
 
 ## Open threads
 - PLAN.md's (M6) review-record item: a fix's final Codex verification has no place in
