@@ -296,7 +296,7 @@ takes them as a prefix.
     it. What text cannot repair (a null, a duplicate or merge key, a key that is not text, a set) is refused
     through the tool's own error, naming the key. No binding change. Every tracked config needs no repair, and
     R9's, the descent and Q19 batches, the scenarios, `astra trim`, `astra.linearize` and the lockstep config
-    are byte-identical to `72877da` ([before/after](docs/reviews/evidence/5461294-before-after.log)).
+    are byte-identical to `72877da` ([before/after](docs/reviews/evidence/f77b6e8-before-after.log)).
     `-k pyyaml_route`. Plan: [plan](docs/plans/m6-pr11-yaml-route.md). Packet: in the PR body.
   - Gate fix (#98): `just embedded-standalone`'s dependency check reads the CMakeCache's dependency entries and the
     compile and link lines (`scripts/embedded_deps_check.py`), not the checkout path, which failed M6 PR 11's

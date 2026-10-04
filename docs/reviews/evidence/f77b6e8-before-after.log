@@ -1,0 +1,42 @@
+# M6 PR 11, D5 rerun after review fix 1 (A-001): before/after against 72877da, on one build (trimmed; full logs and
+# manifests stay in the session scratchpad). Replaces 5461294-before-after.log as the record for the final python/.
+# Candidate: f77b6e8 (python/ as it will merge). Base: `git archive 72877da python/astra`.
+# Build: the gate's fresh build at 0e90176. Both passes used its _core module (copied into the base tree), its
+# libastra_core and its plugin dir, so each log's provenance names git_describe 0e90176 on both sides.
+# Base pass: PYTHONPATH=<scratch>/shim:<scratch>/base/python. The shim is an empty _editable_skbc_astra.py, so no
+# editable finder is installed in the parent or in any spawned worker (lessons 2026-10-04).
+# Driver: scratchpad compare.py; both passes wrote to cmp/work (renamed afterwards), from the worktree root, with
+# 4 workers per batch.
+#
+# Why rerun both passes: a candidate-only rerun on the new build differed from the earlier base manifest in
+# exactly the 346 batch logs and 10 scenario logs, and in each of them only in the root attribute git_describe
+# (72877da against 0e90176: the build each pass ran on). Summaries, scenario results, trim, linearize and
+# lockstep outputs were identical. Rerunning the base on the same build removed that difference.
+
+== base (72877da tree, 0e90176 build)
+astra: <scratch>/base/python/astra/__init__.py
+_core: <scratch>/base/python/astra/_core.cpython-312-x86_64-linux-gnu.so
+plugin dir: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr11-yaml-route/build/python/plugins
+worker astra: <scratch>/base/python/astra/__init__.py
+worker _core: <scratch>/base/python/astra/_core.cpython-312-x86_64-linux-gnu.so
+planted, planted_control (130 runs each), descent_batch (24), cruise_64 (64, trimmed) on 4 workers; scenarios 10;
+files 373
+
+== candidate (f77b6e8 tree, 0e90176 build)
+astra: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr11-yaml-route/python/astra/__init__.py
+_core: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr11-yaml-route/.venv/lib/python3.12/site-packages/astra/_core.cpython-312-x86_64-linux-gnu.so
+plugin dir: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr11-yaml-route/build/python/plugins
+worker astra: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr11-yaml-route/python/astra/__init__.py
+worker _core: /home/joe/repos/ASTRA/.claude/worktrees/m6-pr11-yaml-route/.venv/lib/python3.12/site-packages/astra/_core.cpython-312-x86_64-linux-gnu.so
+the same batches, scenarios and outputs; files 373
+
+== files compared (sha256 of every output file)
+mc/{planted,planted_control,descent_batch,cruise_64}/summary.parquet           4
+mc/*/run_*.h5 (130 + 130 + 22 ok/halt rows of 24 + 64)                       346
+scenario/<name>.h5 and <name>.txt (5 seed scenarios, cruise_hold trimmed; 5 scenario fixtures)  20
+trim_stdout.txt, linearize.npy, lockstep.txt                                   3
+total                                                                        373
+
+== result
+diff manifest-base.txt manifest-cand-f77b6e8.txt: no output (exit 0)
+manifests identical: 373 files; sha256 of the manifest 693be34242090bdeb28a63a0edb18c3b7a59ef28fa86db88a4260fdca54c5856
