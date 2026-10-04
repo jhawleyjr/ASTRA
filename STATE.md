@@ -10,6 +10,8 @@
 ## Open threads
 - PLAN.md's (M6) review-record item: a fix's final Codex verification has no place in
   `docs/reviews/*-review.md` under the no-record-only-commit rule; it needs Joe's choice of where it goes.
+- PLAN.md's (M7) core item: `Config::unknown_keys` and `from_dict`'s emitter crash on a recursive alias (M6 PR
+  11's accepted residual; two reproducers in the item); a core PR at its own tier.
 - PLAN.md's (M7) envelope-monitor item is unblocked (`alpha_max_rad = 0.23` from the source's CLalpha peak would
   make R9's criterion a halt); a Tier 3 PR of its own, scheduled by Joe.
 - M11: PLAN.md's (M11) open item on the frame-time benchmark's maximum (isolated CPUs, a fixed governor and a

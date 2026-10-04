@@ -347,6 +347,20 @@ takes them as a prefix.
 
 ## Open items
 
+- [ ] (M7) `Config::unknown_keys()` and `Config.from_dict`'s emitter (`value_to_yaml`) are not cycle-safe: a recursive
+      YAML alias makes them recurse without end, and the process segfaults (exit -11). No run starts and no file is
+      written (origin: M6 PR 11 review V-001, 2026-10-04; Joe's decision: fix the core, accept the Python-side
+      residual meanwhile). It is a core change, at its own tier. Reproducers, each probed on M6 PR 11's build:
+      - `astra run` on `tests/python/mc_analysis_fixtures/descent.yaml` plus a line `extra: &c [*c]` exits -11 (the
+        core's own path, `unknown_keys()` after the build).
+      - The two residual forms, which `astra._yaml_route.load` cannot see because PyYAML's construction erases
+        the cycle. Each segfaults `load` (exit -11) in all four tools, as it does in `astra run`:
+        - a self-merge, `m: &m {<<: *m}\nk: 1\n` (PyYAML reads `{'m': {}, 'k': 1}`);
+        - a cyclic value overwritten by a duplicate key, `extra: &c [*c]\nextra: 1\nk: 1\n` (PyYAML reads
+          `{'extra': 1, 'k': 1}`).
+      - `_yaml_route` refuses the recursive aliases PyYAML does keep (`cycle: &c [*c]`, `m: &m {self: *m}`)
+        before the core reads the text; that guard can go once the core is safe. Before M6 PR 11, `from_dict`
+        crashed on those too. Not started.
 - [ ] (M7) Earth/gravity rotation-consistency check at init (origin: M2 case05 fix; deferred by Joe, 2026-09-19) —
       `docs/plans/nesc-case05-gravity-centripetal.md`'s D2(b), deferred (D2(a), disclosed only, for that task).
       Two independently-configured plugins can each pass their own init-time validation while disagreeing about
@@ -450,11 +464,6 @@ takes them as a prefix.
       statistic before any maximum is compared. The JSON should also record the frame index of the maximum, so a
       stall can be told apart from a frame whose model work is costly (today it records only the value). Not
       started.
-- [ ] (unscheduled) `Config::unknown_keys()` recurses without end on a recursive YAML alias (`extra: &c [*c]`),
-      so `astra run` on such a config segfaults (exit -11), as did the PyYAML route's `from_dict` before M6 PR 11
-      (origin: M6 PR 11 review V-001, 2026-10-04). `astra._yaml_route` now refuses a recursive alias before the
-      core reads the text, so only the core's own path (`astra run`, `Config.from_file` then a build) still
-      crashes. A core fix (`core/src/config/config.cpp`) is Tier 3 and Joe's call. Not started.
 - [ ] (M6) `aircraft/_template/plots/ground_track.py` draws without an equal aspect ratio, so near-straight flight
       autoscales the east axis around zero and exaggerates a tiny lateral drift (origin: M6 PR 5, Joe's review,
       2026-10-01). Not started.

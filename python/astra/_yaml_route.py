@@ -25,12 +25,16 @@ every leaf of the core's reading with the core's reading of the dict (D2):
   PyYAML the last), a merge key (yaml-cpp 0.8 does not merge ``<<``), a document PyYAML
   reads but the core does not, a scalar PyYAML's constructors cannot build (``0000-01-01``,
   ``!!bool warn``: they raise plain ``ValueError``/``KeyError``), and a recursive alias (an
-  anchor used inside itself), refused before the core sees the text because the core's
-  unknown-key scan does not end on one.
+  anchor used inside itself) that PyYAML's dict keeps, refused before the core sees the text
+  because the core's unknown-key scan does not end on one.
 
 Two residuals stay as they were (D2): an integer-typed key written ``1000.0`` reaches the core as
 ``1000``, which ``integer`` accepts and ``astra run`` refuses; and a key read with ``text`` keeps
 the dict's spelling of a numeric-looking value (``0.10`` reaches it as ``0.10000000000000001``).
+A third is Joe's accepted residual of review V-001: a recursive alias PyYAML's construction erases
+(a self-merge ``m: &m {<<: *m}``, or a cyclic value a duplicate key overwrites) is not seen here,
+and the core's scan of the text crashes the process, as it does in ``astra run``. No run starts
+and no file is written; PLAN.md's (M7) item makes the core cycle-safe.
 A config with no differing leaf comes back exactly as ``yaml.safe_load`` read it.
 """
 

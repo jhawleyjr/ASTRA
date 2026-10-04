@@ -292,3 +292,30 @@ on a quiet machine:
 - **D4:** old batches get no legacy route. Rerun reports any difference, and a dispersion base in a 1.1 form
   is refused.
 - **D5:** the before/after method and fixture list above.
+
+## Amendments found in the build and review
+
+- **amendment 3's premise.** `cli._trim` exits 70, not 65, on any `ValueError` without the flat-Earth prefix. So
+  each caller passes its own error class (`SpecError`, `ScenarioError`, `LockstepError`), and `astra.trim`
+  passes the core's `_core.ConfigError`. Python can raise it, and `cli._trim` already maps it to 65. There is no
+  new exception class and no new clause.
+- **The gate and the worktree's name.** The first full gate (`0f806d8`) failed only at `embedded-standalone`:
+  its grep matched "yaml" in this worktree's path. Joe's direction was a separate Tier 1 fix. #98
+  (`scripts/embedded_deps_check.py`) merged, then its follow-ups (#99, the real path and `errors="replace"`).
+  `main` was merged here (`0e90176`), and the gate passed there.
+- **D5 and the build.** A spawned worker of an editable install imports the editable tree, so the first base
+  pass compared candidate code with itself. It was discarded, and the base was rerun with an empty
+  `_editable_skbc_astra` shim on `PYTHONPATH`. After review fix 1, the base was rerun on the gate's new build,
+  because every log records `git_describe` (lessons 2026-10-04). The final result: 373 files identical at
+  `18bb8c1` ([evidence](../reviews/evidence/18bb8c1-before-after.log)).
+- **review A-001 (fix 1, verified).** PyYAML's constructors raise plain `ValueError`/`KeyError`
+  (`0000-01-01`, `!!bool warn`), which escaped every caller's error class. They are now refused through the
+  caller's error, naming the key and the core's reading.
+- **review V-001 (fix 2, partially verified).** The diagnostic walk followed a recursive alias until
+  `RecursionError`, and a recursive alias segfaulted the core's `unknown_keys()`. The walk is now cycle-safe, and
+  a recursive alias PyYAML keeps is refused before the core reads the text. The remainder, a recursive alias
+  PyYAML's construction erases (a self-merge, or a cyclic value a duplicate key overwrites), still crashes as
+  `astra run` does. **Joe (2026-10-04): no round 3; accept this as a residual.** Risk: such a config segfaults
+  `load` in the tools, no run starts and no file is written. The owner is PLAN.md's (M7) item, which makes
+  `Config::unknown_keys` and `from_dict`'s emitter cycle-safe and holds both reproducers.
+
