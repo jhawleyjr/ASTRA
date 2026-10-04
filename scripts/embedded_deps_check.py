@@ -12,13 +12,17 @@ those words (a worktree named `m6-pr11-yaml-route`) passes:
 - the generated compile and link lines (`flags.make`, `link.txt`, `build.ninja`), with the
   checkout root removed first, so an include directory or a library on a link line is caught.
 
-Only the checkout root itself is removed, so a dependency vendored inside the checkout still
-matches. Usage: embedded_deps_check.py <build_dir> --root <checkout root>; exit 1 names each hit.
+Only the checkout root itself is removed, as given and as its real path (`os.path.realpath`):
+`--root "$(pwd)"` is the logical path and CMake records the physical one, so a symlinked checkout
+is covered either way. A dependency vendored inside the checkout still matches. Generated files
+are read with undecodable bytes replaced, so a stray byte in a path cannot stop the check.
+Usage: embedded_deps_check.py <build_dir> --root <checkout root>; exit 1 names each hit.
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from pathlib import Path
@@ -28,27 +32,40 @@ _ENTRY = re.compile(r"^(?P<name>[^/#:][^:]*):(?P<type>[A-Z]+)=(?P<value>.*)$")
 GENERATED = ("flags.make", "link.txt", "build.ninja")
 
 
-def _strip(text: str, root: str) -> str:
-    return text.replace(root, "<root>")
+def _strip(text: str, roots: tuple[str, ...]) -> str:
+    for root in roots:
+        text = text.replace(root, "<root>")
+    return text
+
+
+def _roots(root: str) -> tuple[str, ...]:
+    """The checkout root as given and as its real path, longest first, so neither is left
+    half-replaced when one contains the other."""
+    paths = {root.rstrip("/") or "/", os.path.realpath(root)}
+    return tuple(sorted(paths, key=len, reverse=True))
+
+
+def _lines(path: Path) -> list[str]:
+    return path.read_text(encoding="utf-8", errors="replace").splitlines()
 
 
 def findings(build_dir: Path, root: str) -> list[str]:
     """Every dependency entry or generated line in ``build_dir`` that matches ``PATTERN``."""
-    root = root.rstrip("/")
+    roots = _roots(root)
     hits: list[str] = []
     cache = build_dir / "CMakeCache.txt"
-    for number, line in enumerate(cache.read_text(encoding="utf-8").splitlines(), 1):
+    for number, line in enumerate(_lines(cache), 1):
         entry = _ENTRY.match(line)
         if entry is None:
             continue
         name, kind, value = entry["name"], entry["type"], entry["value"]
         if PATTERN.search(name):
             hits.append(f"{cache}:{number}: entry {name}")
-        elif kind in ("PATH", "FILEPATH") and PATTERN.search(_strip(value, root)):
+        elif kind in ("PATH", "FILEPATH") and PATTERN.search(_strip(value, roots)):
             hits.append(f"{cache}:{number}: {name} = {value}")
     for path in sorted(p for p in build_dir.rglob("*") if p.name in GENERATED and p.is_file()):
-        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-            if PATTERN.search(_strip(line, root)):
+        for number, line in enumerate(_lines(path), 1):
+            if PATTERN.search(_strip(line, roots)):
                 hits.append(f"{path}:{number}: {line.strip()[:200]}")
     return hits
 

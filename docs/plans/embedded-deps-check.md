@@ -34,3 +34,14 @@ fails the full gate with "configure pulled in a dependency beyond a C++17 compil
     same copy with `find_package(yaml-cpp REQUIRED)` fails, naming `yaml-cpp_DIR`.
 - `just embedded-standalone` passes in this worktree; the full gate passes; then M6 PR 11 merges `main` and
   reruns its gate in `m6-pr11-yaml-route`.
+
+## Follow-ups (Joe, at #98's approval, 2026-10-04; not a correction round)
+
+- `--root "$(pwd)"` is the logical path, but CMake resolves the recipe's relative `-S`/`-B` through `getcwd()`,
+  which gives the physical one. A symlinked checkout whose real path holds one of the words therefore failed as
+  before. The script now removes both the root as given and `os.path.realpath(root)`, longest first.
+- Generated files are read with `errors="replace"`, so an undecodable byte cannot raise.
+- Tests (17 in all; the 3 new regressions fail on #98's script): a synthetic symlinked checkout; a real configure
+  run from inside a symlinked checkout with relative paths, as the recipe runs it, which asserts that CMake
+  recorded the physical path; the same with `find_package(yaml-cpp)`, which still fails; and an undecodable byte
+  in the cache and in `link.txt`.
