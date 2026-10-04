@@ -1,0 +1,37 @@
+date: 2026-10-04T03:18:01Z
+command: rm -rf build && ./scripts/check-full.sh (a fresh configure: build/ removed first)
+base: 51410e25cac9eefb813f916fec0d848b0de406b2
+head: 02152f2 (review fixes 1 to 3)
+exit: 0
+end: 2026-10-04T03:36:41Z
+load before: 2.27 7.06 6.20 4/10013 2422592 (at the start no other build or pytest process ran: pgrep -x
+  'just|ninja|ctest|clang-tidy-18|clang\+\+-18' empty, after this session waited for another project's
+  gate, Algorithmic-Trader m6-plan, to exit). Other processes: xrdp, other Claude sessions, the Claude
+  desktop app and its cowork VM.
+load after: 15.82 19.27 13.37 3/10126 2531321. Not this gate's alone: Algorithmic-Trader started a new
+  `just check` in its m6-plan worktree (pid 2475885) during this gate and was still running at its end, so
+  this wall time (1119.32 s, against 1051.48 s on the quiet 3aadfa7 gate) carries that overlap.
+context only: PR 8's own cost is the pytest delta, d29ae23-pytest-delta.log (+10.0 s). Fixes 2 and 3 add 36
+  allow-list construct tests (each well under a second; the pytest step here is 126.98 s under the overlap,
+  against 122.74 s at 3aadfa7).
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 195 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr8-report/build/debug
+100% tests passed, 0 tests failed out of 669
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr8-report/build/release
+100% tests passed, 0 tests failed out of 670
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr8-report/build/static-plugins
+100% tests passed, 0 tests failed out of 671
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr8-report/build/asan
+100% tests passed, 0 tests failed out of 672
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+0 errors, 0 warnings, 0 informations
+1687 passed, 5 skipped in 126.98s (0:02:06)
+check: OK
+gate wall 1119.32 s
