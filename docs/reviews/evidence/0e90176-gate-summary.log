@@ -1,0 +1,30 @@
+date: 2026-10-04T09:12:20Z
+command: ./scripts/check-full.sh (fresh configure: build/ removed first)
+base: 2794a0c (origin/main, #98 merged into the branch at 0e90176)
+head: 0e90176289c6ad08b1f49b7c2c617f42f351cb13
+exit: 0
+duration: about 1040 s (started 02:12:20, log last written 02:29:40 local)
+load: 1-minute average 8.98 at start, the tail of #99's gate, which had just finished; no other build running.
+  One other `just` was running: Algorithmic-Trader's long-running `just autopilot` dispatcher (not a build).
+earlier attempt: at 0f806d8 the gate failed only at embedded-standalone (exit 1). The check grepped the whole
+  CMakeCache, and this worktree's path contains "yaml". Fixed by #98, then merged here.
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 195 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr11-yaml-route/build/debug
+100% tests passed, 0 tests failed out of 669
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr11-yaml-route/build/release
+100% tests passed, 0 tests failed out of 670
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr11-yaml-route/build/static-plugins
+100% tests passed, 0 tests failed out of 671
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr11-yaml-route/build/asan
+100% tests passed, 0 tests failed out of 672
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+0 errors, 0 warnings, 0 informations
+1806 passed, 5 skipped in 132.94s (0:02:12)
+check: OK
