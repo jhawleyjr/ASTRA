@@ -64,6 +64,7 @@ Everything below is on `main` today.
   and the config fragment that applies it. `astra plot` renders a plot package against a run log.
   `astra mc analyze` analyzes a Monte Carlo batch, and `astra mc rerun` re-executes one of its runs.
   `astra mc size` sizes a batch from the claim it must answer, or checks that claim against a batch.
+  `astra report` writes one self-contained HTML report of a log, a scenario's log or a batch.
 - **Monte Carlo analysis.** `astra.mc_analysis` draws a batch's draws by outcome and a signal's envelope across
   its run logs. It ranks the dispersed parameters against a pass/fail criterion (KS with Benjamini-Hochberg)
   or a continuous metric (Spearman and partial rank correlation), and fits a depth-3 tree for interactions.
@@ -249,6 +250,22 @@ Probability and percentile give calibrated verdicts (met, violated or undetermin
 give nominal projections, never verdicts. A pilot only sizes: run the final batch with another master seed
 and take the verdict from it alone. The options, the claims file and the stated limits are in
 [mc_sizing.py](python/astra/mc_sizing.py)'s docstring.
+
+### Report a run
+
+```bash
+astra report build/cruise.h5 --out build/cruise.html            # flight, attitude and health figures
+astra report build/step.h5 --scenario tests/scenarios/elevator_step.yaml --out build/step.html
+astra report build/mc_batch --claims claims.yaml --signal v0.derived.altitude --out build/mc.html
+```
+
+A report is one HTML file that opens offline: no script, nothing loaded from outside it, and the same bytes
+from the same inputs. A log report holds the summary (frames, halt, health counters), every figure of its plot
+packages (`--package` replaces the default three) and the provenance read from the log, its config text
+included. With `--scenario`, it adds each check's rows, worst value and result. A batch report holds the
+outcome counts, the sizing check of a claims file, the rankings and tree of `astra mc analyze` (the same
+`--criterion`, `--metric` and `--q`) and its figures. The sections are in [report.py](python/astra/report.py)'s
+docstring.
 
 ### Stream to FlightGear
 
