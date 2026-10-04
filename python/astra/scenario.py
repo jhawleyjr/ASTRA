@@ -104,7 +104,7 @@ from typing import Any, cast
 import numpy as np
 import yaml
 
-from astra import _core, _runkit, log
+from astra import _core, _runkit, _yaml_route, log
 
 # Shared through astra._runkit, the trim names with astra.montecarlo and the warn counters and
 # health.* signals with astra.cli; re-exported so each reads one list.
@@ -286,7 +286,11 @@ def _frames(path: Path, value: Any, where: str, dt: float) -> int:
 
 def _base_config(path: Path, config_path: Path) -> dict[str, Any]:
     try:
-        data: Any = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        data: Any = _yaml_route.load(
+            config_path.read_text(encoding="utf-8"),
+            str(config_path),
+            error=lambda message: ScenarioError(f"{path}: config: {message}"),
+        )
     except (OSError, yaml.YAMLError) as error:
         raise ScenarioError(f"{path}: config: cannot read {config_path} ({error})") from error
     config = _closed(path, data, f"config {config_path}", required=set(), optional=None)

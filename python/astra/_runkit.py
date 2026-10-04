@@ -183,7 +183,12 @@ def _slot(config: dict[str, Any], key: str) -> tuple[Any, Any]:
 
 def _require_number(old: Any) -> None:
     if isinstance(old, bool) or not isinstance(old, int | float):
-        raise LeafError(f"the config's value {old!r} is not a number")
+        hint = ""
+        if isinstance(old, str):
+            # A form PyYAML reads as text (1.0e3), or one astra._yaml_route kept as the core's text
+            # because PyYAML reads it differently (010, 1_000, 0x10).
+            hint = " (text to PyYAML or to the core: write it as a plain decimal, such as 10.0)"
+        raise LeafError(f"the config's value {old!r} is not a number{hint}")
 
 
 def numeric_leaf(config: dict[str, Any], key: str) -> int | float:

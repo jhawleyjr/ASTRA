@@ -45,7 +45,7 @@ from typing import IO, Any, cast
 import numpy as np
 import yaml
 
-from astra import _core
+from astra import _core, _yaml_route
 from astra.trim import trim_straight_and_level
 
 SHM_PLUGIN = "plugins/sim/transport/shm"
@@ -177,8 +177,7 @@ def trim_for(config_path: str | os.PathLike[str], setpoints: Setpoints) -> Autop
     """
     if setpoints.heading_rad != 0.0:
         raise ValueError("trim_for: astra.trim pins psi = 0, so the heading setpoint must be 0")
-    with open(config_path, encoding="utf-8") as f:
-        config = _mapping(yaml.safe_load(f), str(config_path))
+    config = _read(config_path)
     config.pop("transport", None)
     with tempfile.TemporaryDirectory(prefix="astra_trim_") as directory:
         still_air = Path(directory) / Path(config_path).name
@@ -252,6 +251,13 @@ def _mapping(value: object, where: str) -> dict[str, Any]:
     return cast(dict[str, Any], value)
 
 
+def _read(config_path: str | os.PathLike[str]) -> dict[str, Any]:
+    """The config as a map, read as the core reads it (``astra._yaml_route``)."""
+    with open(config_path, encoding="utf-8") as f:
+        text = f.read()
+    return _mapping(_yaml_route.load(text, str(config_path), error=LockstepError), str(config_path))
+
+
 def transport_block(config: dict[str, Any]) -> dict[str, Any]:
     """The config's ``transport`` map, which must name the shm plugin."""
     transport = _mapping(config.get("transport"), "transport")
@@ -278,8 +284,7 @@ def load_config(
     core default). The overrides are for tests; none of them changes a trajectory except ``seed``.
     """
     checked_segment(segment)
-    with open(config_path, encoding="utf-8") as f:
-        config = _mapping(yaml.safe_load(f), str(config_path))
+    config = _read(config_path)
     transport = transport_block(config)
     if "segment" in transport:
         raise LockstepError(f"{config_path}: transport.segment is the driver's; remove it")

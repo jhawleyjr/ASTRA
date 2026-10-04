@@ -148,7 +148,7 @@ import pyarrow  # pyright: ignore[reportMissingTypeStubs] -- pyarrow 25.0.1 ship
 import pyarrow.parquet  # pyright: ignore[reportMissingTypeStubs]
 import yaml
 
-from astra import _core, _runkit, log
+from astra import _core, _runkit, _yaml_route, log
 from astra._runkit import TrimSetpoint
 
 _pa = cast(Any, pyarrow)
@@ -350,10 +350,16 @@ def loads(spec_bytes: bytes, config_bytes: bytes, *, path: Path, config_path: Pa
     return _validated(path, spec_bytes, top, config_path, config_bytes)
 
 
-def _yaml(path: Path, data: bytes, failure: str) -> Any:
-    """``data`` decoded as UTF-8 and read by ``yaml.safe_load``, as every spec and config is."""
+def _yaml(path: Path, data: bytes, failure: str, *, config_path: Path | None = None) -> Any:
+    """``data`` decoded as UTF-8 and read by ``yaml.safe_load``; with ``config_path`` (the base
+    config) through ``_yaml_route.load``, so the dict reads as the core reads the file."""
     try:
-        return yaml.safe_load(data.decode("utf-8"))
+        text = data.decode("utf-8")
+        if config_path is None:
+            return yaml.safe_load(text)
+        return _yaml_route.load(
+            text, str(config_path), error=lambda message: SpecError(f"{path}: config: {message}")
+        )
     except (UnicodeDecodeError, yaml.YAMLError) as error:
         raise SpecError(f"{path}: {failure} ({error})") from error
 
@@ -404,7 +410,7 @@ def _validated(
 
 
 def _base_config(path: Path, config_path: Path, config_bytes: bytes) -> dict[str, Any]:
-    data = _yaml(path, config_bytes, f"config: cannot read {config_path}")
+    data = _yaml(path, config_bytes, f"config: cannot read {config_path}", config_path=config_path)
     config = _runkit.closed_map(
         path, data, f"config {config_path}", required=set(), optional=None, error=SpecError
     )

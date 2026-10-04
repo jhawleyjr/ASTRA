@@ -31,9 +31,8 @@ from typing import Any, cast
 
 import numpy as np
 import scipy.optimize  # pyright: ignore[reportMissingTypeStubs] -- scipy ships no py.typed marker
-import yaml
 
-from astra import _core
+from astra import _core, _yaml_route
 
 
 @dataclass(frozen=True)
@@ -53,8 +52,11 @@ class TrimResult:
 
 
 def _read_yaml_dict(config_path: str | os.PathLike[str]) -> dict[str, Any]:
+    """The config as a dict that reads as the core reads the file (``astra._yaml_route``); a
+    leaf PyYAML reads differently and cannot be repaired is the core's own ``ConfigError``."""
     with open(config_path, encoding="utf-8") as f:
-        return cast(dict[str, Any], yaml.safe_load(f))
+        text = f.read()
+    return cast(dict[str, Any], _yaml_route.load(text, str(config_path), error=_core.ConfigError))
 
 
 def _earth_plugin_path(data: dict[str, Any]) -> str | None:
@@ -70,14 +72,20 @@ def _earth_plugin_path(data: dict[str, Any]) -> str | None:
     return cast("str | None", earth)
 
 
-def _load_still_air_config(config_path: str | os.PathLike[str]) -> _core.Config:
+def _load_still_air_config(  # pyright: ignore[reportUnusedFunction] -- astra.linearize, astra.cli
+    config_path: str | os.PathLike[str],
+) -> _core.Config:
     """Loads `config_path` as YAML and drops `physical.wind` if present -- still air only (PR 6's
     own scope; see the module docstring) -- and the top-level `log` block (M5 PR 4, ADR-0025: an
     analysis Simulation must not create, or finalize, the run's own log file, whose path a later
     run then finds taken). Every other key is passed through unchanged, so the config file itself
     stays the single source of truth for models/coefficients/initial state. `astra.linearize` and
     `astra.lockstep.trim_for` build through this too."""
-    data = _read_yaml_dict(config_path)
+    return _still_air_config(_read_yaml_dict(config_path), config_path)
+
+
+def _still_air_config(data: dict[str, Any], config_path: str | os.PathLike[str]) -> _core.Config:
+    """`_load_still_air_config` on a dict already read (it drops keys from `data`)."""
     data.pop("log", None)
     physical = data.get("physical")
     if isinstance(physical, dict):
@@ -137,7 +145,8 @@ def trim_straight_and_level(
     bound for this aircraft, so a caller relying on this function's own D8-style bound should pass
     a `xtol` tight enough to clear it, not assume the default suffices).
     """
-    earth_plugin = _earth_plugin_path(_read_yaml_dict(config_path))
+    data = _read_yaml_dict(config_path)  # read once: _yaml_route checks it (M6 PR 11)
+    earth_plugin = _earth_plugin_path(data)
     if earth_plugin == "plugins/physical/earth/flat":
         # ADR-0003: the Earth model owns the position representation. p_n[-1] below assumes
         # geodetic altitude (round/wgs84_rotating's own [lat, lon, altitude] layout); under
@@ -149,7 +158,7 @@ def trim_straight_and_level(
             "Earth model -- pass a config using one of those instead"
         )
 
-    config = _load_still_air_config(config_path)
+    config = _still_air_config(data, config_path)
     sim = _core.Simulation.from_config(config, _core.default_plugin_dir())
     p_n = np.array(sim.vehicles[0].state[_core.POSITION : _core.POSITION + _core.POSITION_SIZE])
     p_n[-1] = altitude_m
