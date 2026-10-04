@@ -42,3 +42,4 @@ diff manifest-base.txt manifest-cand-f77b6e8.txt: no output (exit 0)
 manifests identical: 373 files; sha256 of the manifest 693be34242090bdeb28a63a0edb18c3b7a59ef28fa86db88a4260fdca54c5856
 diff manifest-base.txt manifest-cand.txt (the 18bb8c1 pass, same build, same output path): no output (exit 0)
 manifests identical: 373 files; the same manifest, sha256 693be34242090bdeb28a63a0edb18c3b7a59ef28fa86db88a4260fdca54c5856
+diff manifest-base.txt manifest-cand.txt (the 58d1c55 pass: the loader docstring states the accepted residual; same build): no output (exit 0); 373 files
