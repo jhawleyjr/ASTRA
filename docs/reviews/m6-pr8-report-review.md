@@ -13,7 +13,9 @@ Scope: the committed branch diff, base `51410e2` (origin/main), head `08e286f`. 
 unstaged or untracked files).
 Validation: `rm -rf build && ./scripts/check-full.sh` exit 0 with `check: OK` on `6d1a26e`, the same code as
 `08e286f`, which adds only the gate summary.
-Round: initial review; fix 1 (`3aadfa7`); verification of fix 1; fix 2, for J-001 from Joe's review of #95 (this commit).
+Round: initial review; fix 1 (`3aadfa7`, autonomous round 1); verification of fix 1; fix 2 (`fecbc50`), for
+J-001 from Joe's review of #95 (Joe-directed); verification of fix 2, which raised V-001; fix 3, for V-001
+(this commit; autonomous round 2 of 2, so any further finding goes to Joe).
 
 The general pass gave one finding (G-001, P2). The adversarial pass's verdict was "needs-attention", with two
 medium findings (A-001, A-002) and two nonblocking notes (N-1, N-2). Codex reproduced G-001, A-001 and A-002
@@ -120,7 +122,7 @@ Human exception if needed: none.
 ## Finding J-001
 
 Severity: major (Joe's review of #95, from a Cowork check)
-Status: fixed-unverified
+Status: verified
 Location: `tests/python/resource_refs.py`, `_Scanner.handle_data` and comment handling, at `12c9536`
 Requirement/ADR: plan D9 (the allow-list), C-11; R13 and R3b rely on it
 Failure: three constructs passed `disallowed` in every profile. A character reference in `<style>` text
@@ -138,14 +140,42 @@ either (every report kind, every SVG and the plotly page still check clean). On 
 comments per spec, the hidden markup is visible and flagged as elements, so both behaviors are covered. The
 module docstring states the three rules. Regressions: the seven probes are in `CONSTRUCTS`, checked in all
 three profiles and named by their own line in REPORT.
-Verification: pending (fix 2 verification pass).
-History: round 2 (Joe-directed), open → fixed-unverified.
+Verification: fix 2 verification pass (adversarial-review with a focus on J-001, thread
+`01a104dd-aba5-7931-b7e3-a16db8317d8c`) on head `fecbc50`, fix delta `12c9536..fecbc50`: the reported cases are
+fixed; the six new REPORT regressions fail against `12c9536` (`--!>` was already caught); no defect from the
+delta (30 real matplotlib SVGs, 11 reports of every kind and a real plotly page still pass). It also confirmed
+that the status changes of G-001, A-001, A-002, N-1 and N-2 match the fix 1 verification log. Its one new
+finding, which predates this fix, is V-001.
+History: round 2 (Joe-directed), open → fixed-unverified → verified.
+Human exception if needed: none.
+
+## Finding V-001
+
+Severity: major (fix 2 verification pass: medium)
+Status: fixed-unverified
+Location: `tests/python/resource_refs.py`, `_Scanner.handle_starttag`, at `fecbc50` (it predates fix 2)
+Requirement/ADR: plan D9 (the allow-list), C-11
+Failure: `disallowed('<svg><title><img src="https://example.com/a.png"></title></svg>', REPORT)` returned `[]`,
+and so did a `<style>` with `@import` in the same place. This Python's `html.parser` reads a title's content as
+text (RCDATA), but an SVG `<title>` is an HTML integration point, whose content a browser parses as live HTML.
+Claude reproduced both in this session. The HTML document's own escaped `<title>` text is correctly accepted.
+Requested outcome: reject a `title` inside an SVG (matplotlib writes none), keep accepting the HTML title;
+REPORT regressions for the hidden image and stylesheet.
+Builder response: fixed. The scanner tracks SVG nesting and flags a `<title>` inside an `<svg>`, in every
+profile. The document's `<title>` outside every SVG stays allowed, and the allowed-document test now gives it
+escaped markup (`a &lt;b&gt; &amp; c`). The module docstring lists the four `html.parser` divergences it
+flags, and says that every other element whose content `html.parser` hides (`textarea`, `xmp`, `iframe`,
+`noembed`, `noframes`, `script` outside the plotly page) is outside every profile. Regressions: both probes are
+in `CONSTRUCTS`, checked in all three profiles and named by their own line in REPORT.
+Verification: pending (fix 3 verification pass).
+History: round 3 (autonomous round 2 of 2), open → fixed-unverified.
 Human exception if needed: none.
 
 ## Completion
 
-G-001, A-001, A-002, N-1 and N-2 are verified (fix 1 verification pass, approve, new findings: none). J-001,
-from Joe's review of #95, is fixed-unverified, pending the fix 2 verification pass on the fix delta. No finding
-was rejected or deferred. Scope not reviewed: none (the whole committed diff). Validation after fix 2: the
-affected tests, `just ruff`, pyright, and a fresh full gate on the fix head (recorded in the PR body). Codex's
-recommendation is not Joe's approval.
+G-001, A-001, A-002, N-1, N-2 and J-001 are verified. V-001 is fixed-unverified, pending the fix 3
+verification pass on the fix delta. No finding was rejected or deferred. Scope not reviewed: none (the whole
+committed diff). Correction budget: both autonomous rounds are used (fix 1 and fix 3; fix 2 was Joe's), so a
+further finding goes to Joe rather than to another round. Validation after fix 3: the affected tests, `just
+ruff`, pyright, and a fresh full gate on the fix head (recorded in the PR body). Codex's recommendation is not
+Joe's approval.

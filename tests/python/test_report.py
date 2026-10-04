@@ -105,6 +105,13 @@ CONSTRUCTS = [
     ('<!--><img src="https://example.com/a.png"><!-- -->', "<img"),
     ('<!---><img src="https://example.com/a.png"><!-- -->', "<img"),
     ('<!-- a --!><img src="https://example.com/a.png"><!-- b -->', "<img"),
+    # review V-001: an SVG <title> is an HTML integration point, whose content a browser parses
+    # as HTML
+    ('<svg><title><img src="https://example.com/a.png"></title></svg>', "<title> inside an <svg>"),
+    (
+        '<svg><title><style>@import "https://example.com/x.css";</style></title></svg>',
+        "<title> inside an <svg>",
+    ),
     ('<svg><use xlink:href="data:image/svg+xml;base64,AA=="/></svg>', "not a #fragment"),
     ('<svg><g clip-path="url(data:x)"></g></svg>', "clip-path"),
     ('<svg><g transform="translate(1,2) url(x)"></g></svg>', "transform"),
@@ -171,7 +178,8 @@ def test_report_resource_check_allows_each_profile_s_own_constructs() -> None:
     assert resource_refs.id_problems(_MATPLOTLIB_LIKE) == []
     body = _MATPLOTLIB_LIKE.split("\n", 3)[3]  # the inline SVG, without its prolog
     report = (
-        '<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8"><title>t</title>'
+        '<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">'
+        "<title>astra report: a &lt;b&gt; &amp; c</title>"
         "<style>body { margin: 0 } .x th { text-align: left }</style></head><body><main>"
         '<section id="sec-summary"><h2>Summary</h2><p class="x"><a href="#sec-summary">top</a></p>'
         "<table><caption>c</caption><thead><tr><th>a</th></tr></thead><tbody><tr><td>1</td></tr>"

@@ -29,7 +29,7 @@ Value rules:
   calls over numbers.
 - a few attributes take one exact value (the namespace URIs, ``charset="utf-8"``, ...).
 
-``html.parser`` is not a browser's parser, so three constructs it reads differently are flagged in
+``html.parser`` is not a browser's parser, so four constructs it reads differently are flagged in
 every profile (nothing ASTRA writes uses one):
 
 - a self-closing ``<style/>`` or ``<script/>``: an HTML parser ignores the slash, so the text after
@@ -38,7 +38,14 @@ every profile (nothing ASTRA writes uses one):
   standalone file, a browser decodes the references and parses the tags as elements, while
   ``html.parser`` hands the text over raw;
 - a comment a browser closes early: ``<!-->`` and ``<!--->`` close at once and ``--!>`` ends a
-  comment, while ``html.parser`` may read on to the next ``-->`` and hide the markup between.
+  comment, while ``html.parser`` may read on to the next ``-->`` and hide the markup between;
+- a ``<title>`` inside an ``<svg>``: ``html.parser`` reads a title's content as text, but an SVG
+  title is an HTML integration point whose content a browser parses as live HTML. The HTML
+  document's own ``<title>``, outside every SVG, is text in a browser too and stays allowed.
+
+Every other element whose content ``html.parser`` hides (``textarea``, ``xmp``, ``iframe``,
+``noembed``, ``noframes``, and ``script`` outside the plotly page) is outside every profile, so it
+is flagged as an element.
 
 ``id_problems(text)`` returns every ``id`` used twice in the document and every reference (``#X`` in
 ``href`` or ``xlink:href``, ``url(#X)`` anywhere) that does not resolve. A reference inside an
@@ -237,11 +244,20 @@ class _Scanner(html.parser.HTMLParser):
         self.profile = profile
         self.found: list[str] = []
         self._text_of: str | None = None  # "style" or "script" while inside one
+        self._svg_depth = 0
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         self._element(tag, attrs)
         if tag in ("style", "script"):
             self._text_of = tag
+        if tag == "svg":
+            self._svg_depth += 1
+        if tag == "title" and self._svg_depth > 0:
+            # html.parser reads a title's content as text (RCDATA), but an SVG <title> is an HTML
+            # integration point: a browser parses its content as live HTML (review V-001).
+            # matplotlib writes none; the HTML document's own title, outside every SVG, stays
+            # allowed.
+            self.found.append("<title> inside an <svg>: a browser parses its content as HTML")
 
     def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         self._element(tag, attrs)
@@ -254,6 +270,8 @@ class _Scanner(html.parser.HTMLParser):
     def handle_endtag(self, tag: str) -> None:
         if tag == self._text_of:
             self._text_of = None
+        if tag == "svg" and self._svg_depth > 0:
+            self._svg_depth -= 1
 
     def handle_data(self, data: str) -> None:
         if self._text_of == "style":
