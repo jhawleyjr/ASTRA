@@ -272,6 +272,15 @@ takes them as a prefix.
     by ordinal, the batch's outcomes, sizing table and rankings, and provenance read from the log (the config
     text escaped, never re-parsed). `tests/python/resource_refs.py` becomes an allow-list (D9), closing that
     open item; R3b uses it. `-k report`. Plan: [plan](docs/plans/m6-pr8-report.md). Packet: in the PR body.
+  - PR 8b (#96): the batch envelope's size, closing that open item. Over more than 901 frames,
+    `mc_analysis.draw_envelope` draws each band (min-max, 5-95 %) as a step over `ENVELOPE_COLUMNS = 900`
+    columns that share their boundary frames, so the band still contains every frame and the segments between
+    them, in at most 3,605 vertices per band. Shorter envelopes draw the exact band. The lines, the count and
+    the overlays keep every frame, so R5 stands. 16 runs of 300 s: the alpha envelope goes from 34.9 to 4.2 MB,
+    and the batch report with alpha and altitude from 66.2 to 4.8 MB. Everything else is byte-identical, and
+    the envelopes differ only inside their two fill groups
+    ([before/after](docs/reviews/evidence/4e9730a-before-after.log)). `-k mc_analysis`. Plan:
+    [plan](docs/plans/m6-pr8b-envelope.md). Packet: in the PR body.
   - PR 9 (#91): the frame-time benchmark. `astra_frame_benchmark` (`tests/benchmark/`) times each `step()` of the
     notional transport's cruise and still-air configs and of `dummy_1000`, after a warm-up instance, checking
     every timed frame ran with no halt. It also times R19b's five logged cases end to end through `close_log()`.
@@ -445,15 +454,16 @@ takes them as a prefix.
       for the plotly page. The SVG is not affected: matplotlib simplifies each line before writing it, so the
       default log report (flight, attitude, health) is 1.32 MB at 60 s and 1.59 MB at 300 s of the notional
       cruise (M6 PR 8's plan, Size; Joe's D1a: no decimation). Not started.
-- [ ] (M6) A batch report's envelope figures grow with the run length and the failing runs (origin: M6 PR 8's
-      plan, Size, D1b; Joe 2026-10-03, milestone M6 at his review of #95). Two costs, measured on R9's spec:
-      the two fill polygons (min-max and 5-95 %), which matplotlib does not simplify, at about 51 bytes per frame
-      each (31 MB of a 35 MB envelope for 16 runs of 300 s); and the failing-run overlays, simplified lines whose
-      cost per failing run depends on the signal (1 to 5 KB for altitude, 116 to 241 KB for alpha in
-      turbulence; R9's 58 overlays are 6.7 MB of its 8.4 MB alpha envelope). The proposal: replace each polygon
-      with a per-column minimum and maximum, so the band still holds every sample, in its own reviewed change
-      (it changes `astra mc analyze`'s figure and R5's drawing). Capping the overlays would change PR 6's contract.
-      Not started.
+- [ ] (M6) A batch envelope's failing-run overlays cost what each line does on screen, times the failing runs
+      (origin: M6 PR 8b's plan, D3; Joe 2026-10-03: left as PR 6's contract has them, an item in M6). After PR 8b's
+      band reduction they are most of a rough signal's envelope: alpha's overlays are 6.7 MB of R9's 7.5 MB
+      envelope (58 failing runs of 10 s), 1.9 MB at 16 runs of 60 s and 2.9 MB at 16 runs of 300 s (12 failing);
+      altitude's are 38 to 75 KB. Options measured on those batches
+      ([sizes](docs/reviews/evidence/4e9730a-before-after.log)): a per-column first/min/max/last reduction over
+      the same 900 columns bounds each overlay at 3,600 points whatever the duration or the signal (2.5 MB, 0.43 MB
+      and 0.52 MB for alpha), but changes PR 6's overlay check (the line's data becomes the column reduction of
+      the log column); capping at 10 runs changes R5 and bounds only the count; a 1 px simplify threshold is not
+      bounded and is hard to scope to the overlays alone. Not started.
 - [ ] (M7) §18 step 4 fails on a template copy: `aircraft/_template/configs/cruise.yaml` uses `earth/flat`, which
       `astra.trim` refuses (altitude is geodetic only), so `astra trim` on a new aircraft exits 65 (origin: M6 PR 3;
       Joe 2026-09-30). M7 builds the F-16 from the template. Not started.
