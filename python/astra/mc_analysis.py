@@ -77,10 +77,10 @@ every legend outside its axes (``astra.plot.legend_outside``):
   ``n`` frames with ``n - 1 > ENVELOPE_COLUMNS``, each band is reduced to ``ENVELOPE_COLUMNS``
   columns: contiguous frame ranges ``e_j .. e_(j+1)``, ``e_j = j (n - 1) // ENVELOPE_COLUMNS``,
   that share their boundary frames, each drawn as a step at the minimum and maximum of its frames
-  (NaN frames ignored; an all-NaN column is a gap). The band then contains every frame's values
-  and the straight segments between them, in at most ``4 ENVELOPE_COLUMNS + 5`` vertices whatever
-  the run length. Shorter envelopes draw the exact band. The lines, the count and the overlays keep
-  every frame.
+  (NaN frames ignored; an all-NaN column is a gap, and the columns beside it keep their width).
+  The band then contains every finite frame's values and the straight segments between them, in
+  at most ``4 ENVELOPE_COLUMNS + 3`` vertices whatever the run length. Shorter envelopes draw the
+  exact band. The lines, the count and the overlays keep every frame.
   Logs are read strictly (``astra.log.load``) one at a time. A missing or refused log of an ``ok``
   or ``halt`` row, a ``dt`` or a divisor that differs from the first log's, and a signal no log
   holds are each an ``EnvelopeError`` naming the run or the signal.
@@ -1062,18 +1062,21 @@ def draw_scatter(batch: Batch, result: Outcomes) -> MatplotlibFigure:
 
 def _band(
     t: FloatArray, lo: FloatArray, hi: FloatArray
-) -> tuple[FloatArray, FloatArray, FloatArray, Literal["post"] | None]:
-    """A band's ``fill_between`` arguments ``(x, lo, hi, step)``: the frames themselves, or, over
-    more than ``ENVELOPE_COLUMNS + 1`` frames, its columns as steps (module docstring, Figures)."""
+) -> tuple[FloatArray, FloatArray, FloatArray]:
+    """A band's ``fill_between`` arguments ``(x, lo, hi)``: the frames themselves, or, over more
+    than ``ENVELOPE_COLUMNS + 1`` frames, its columns as steps (module docstring, Figures)."""
     columns = ENVELOPE_COLUMNS
     n = t.size
     if n - 1 <= columns:
-        return t, lo, hi, None
+        return t, lo, hi
     edges = (np.arange(columns + 1, dtype=np.int64) * (n - 1)) // columns
     # reduceat spans e_j .. e_(j+1) - 1; the boundary frame e_(j+1) belongs to both columns.
     low = np.fmin(np.fmin.reduceat(lo, edges[:-1]), lo[edges[1:]])
     high = np.fmax(np.fmax.reduceat(hi, edges[:-1]), hi[edges[1:]])
-    return t[edges], np.append(low, low[-1]), np.append(high, high[-1]), "post"
+    # Each column is its own two points, (e_j, v_j) and (e_(j+1), v_j), not step="post": that
+    # ends a region at its last x, so a NaN column would also drop the column before it.
+    x = np.repeat(t[edges], 2)[1:-1]
+    return x, np.repeat(low, 2), np.repeat(high, 2)
 
 
 def draw_envelope(env: Envelope) -> MatplotlibFigure:
@@ -1087,8 +1090,8 @@ def draw_envelope(env: Envelope) -> MatplotlibFigure:
         (env.minimum, env.maximum, "#d9d9d9"),
         (env.percentiles[5.0], env.percentiles[95.0], "#9ecae1"),
     ):
-        x, low, high, step = _band(env.t, lo, hi)
-        ax.fill_between(x, low, high, step=step, color=color, linewidth=0.0)
+        x, low, high = _band(env.t, lo, hi)
+        ax.fill_between(x, low, high, color=color, linewidth=0.0)
     handles: list[Any] = []
     for label, values, style in (
         ("max", env.maximum, ":"),
