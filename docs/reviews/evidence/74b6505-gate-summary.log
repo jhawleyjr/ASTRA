@@ -1,0 +1,26 @@
+date: 2026-10-04T23:49:53Z
+command: rm -rf build && ./scripts/check-full.sh
+base: fa3a3c026da6c787be2f9fc75777ac38f9b07d24
+head: 74b6505b36d4c610eb44eb77fc61dda665b93cf3
+exit: 0
+load: before: 11.43 16.67 11.65, 2 other-checkout build/test hits; after: 12.33 13.53 12.20, 0 hits
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 195 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr13-envelope-overlays/build/debug
+100% tests passed, 0 tests failed out of 669
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr13-envelope-overlays/build/release
+100% tests passed, 0 tests failed out of 670
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr13-envelope-overlays/build/static-plugins
+100% tests passed, 0 tests failed out of 671
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr13-envelope-overlays/build/asan
+100% tests passed, 0 tests failed out of 672
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+0 errors, 0 warnings, 0 informations
+1843 passed, 5 skipped in 122.44s (0:02:02)
+check: OK
