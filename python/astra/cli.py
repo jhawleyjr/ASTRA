@@ -69,13 +69,17 @@ docs/plans/m6-pr8-report.md).
     ``_runkit.TRIM_RESIDUAL_BOUND``); 74 stdout could not be written; 70 an internal error,
     including any other ``ValueError`` or ``RuntimeError`` from a trim; 0 trimmed.
 
-``astra plot <log> <package> [--out DIR] [--format svg|png] [--html]``
+``astra plot <log> <package> [--out DIR] [--format svg|png] [--html [--html-columns N]]``
     Renders a plot package (``astra.plot``) against a run log, read strictly with
     ``astra.log.load``. ``<package>`` is a file if it contains ``/`` or ends in ``.yaml`` or
     ``.yml``, and otherwise a framework package name (``python/astra/plots/``). It writes
     ``<package>-<figure>.svg`` (or ``.png``) per figure into DIR (default ``.``, created if
     missing), plus ``<package>.html`` with ``--html``, never overwriting a file, and prints each
-    path written, one per line. Codes: 64 a usage error; 65 the package is refused
+    path written, one per line. ``--html-columns N`` (M6 PR 14) reduces each page trace of more
+    than N + 1 points on N columns (``astra.plot``'s docstring, Renderers: at most 3N + 1 points
+    with increasing x and no gap, 5N + 1 for an x-y path, more with gaps), and the figure's title
+    says so. Codes: 64 a usage error (``--html-columns`` without ``--html``, or an N that is not an
+    integer of at least 1); 65 the package is refused
     (``PlotPackageError``), the log is refused (``LogFormatError`` or ``IncompleteLogError``, a
     missing file included), or an output file already exists (as ``astra run`` refuses an
     existing ``log.path``); 74 a write that fails, or stdout could not be written; 70 an internal
@@ -257,6 +261,14 @@ def _parser() -> tuple[_Parser, dict[str, _Parser]]:
         "--format", choices=("svg", "png"), default="svg", help="figure file format (default: svg)"
     )
     plot.add_argument("--html", action="store_true", help="also write the interactive HTML page")
+    plot.add_argument(
+        "--html-columns",
+        type=_count,
+        metavar="N",
+        help="(with --html) reduce each trace of more than N + 1 points on N columns: each "
+        "column's first, last, minimum and maximum (at most 3N + 1 points with increasing x and "
+        "no gap, 5N + 1 for an x-y path, more with gaps); the figure's title says so",
+    )
     mc = commands.add_parser(
         "mc",
         help="analyze a Monte Carlo batch, or rerun one of its runs",
@@ -337,7 +349,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "run":
             return _run(args, commands["run"])
         if args.command == "plot":
-            return _plot(args)
+            return _plot(args, commands["plot"])
         if args.command == "report":
             return _report(args, commands["report"])
         if args.command == "mc":
@@ -687,7 +699,9 @@ def _initial_setpoint(
 # --- astra plot -----------------------------------------------------------------------------------
 
 
-def _plot(args: argparse.Namespace) -> int:
+def _plot(args: argparse.Namespace, parser: _Parser) -> int:
+    if args.html_columns is not None and not args.html:
+        return _usage(parser, "--html-columns needs --html")
     from astra import log, plot  # h5py, pandas and the plotting libraries, only for this command
 
     try:
@@ -701,7 +715,14 @@ def _plot(args: argparse.Namespace) -> int:
         _say("plot", f"log error: {error}")
         return EX_DATAERR
     try:
-        written = plot.render(package, run_log, args.out, fmt=args.format, html=args.html)
+        written = plot.render(
+            package,
+            run_log,
+            args.out,
+            fmt=args.format,
+            html=args.html,
+            html_columns=args.html_columns,
+        )
     except plot.PlotPackageError as error:
         _say("plot", f"package error: {error}")
         return EX_DATAERR
