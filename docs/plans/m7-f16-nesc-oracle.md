@@ -1,7 +1,10 @@
 # M7 F-16 and the NESC oracle: spec, plan and PR decomposition
 
-Status: **draft; Joe decided Q1 to Q27 on 2026-10-04** (recorded under "Joe's decisions"), with his
-amendments folded in. The spec and plan as a whole are **not yet approved**, and nothing is implemented.
+Status: **approved by Joe (spec and plan), 2026-10-04, at `3381693`**, with Q1 to Q27 as recorded under
+"Joe's decisions" and his amendments folded in. The approval came after the Codex plan critique and its
+verification pass; Joe waived a further final-diff pass. His two follow-ups are recorded under
+"Obligations carried to PR plans". Approval of the plan does not approve any PR's diff. Nothing is
+implemented: PR 1a and PRs 2, 3 and 4 wait for Joe's go.
 - The Codex plan critique (verdict rework, C-01 to C-11) is folded in: all 11 are accepted, and C-04's unit
   question became Q26.
 - The Q25 verification pass (verdict rework, N-01 to N-08) is folded in too: all 8 accepted.
@@ -154,6 +157,9 @@ reports, not the model files. The model's upstream sources, Vol II refs [3] and 
 
 **Prerequisites for Joe to place in `docs/refs`.** Each blocks the PR named. Nothing is transcribed from
 memory, and the figures are a cross-check only (Q1).
+- **Source of P1 and P2 (Joe, 2026-10-04).** Both come from the NESC Academy 2015 page as one archive,
+  `https://nescacademy.nasa.gov/src/flightsim/Models/Atmospheric_models.zip`. PR 6a's addendum records the
+  files actually used, with the archive's URL and SHA-256.
 - **P1.** The F-16 aero, propulsion and inertia DAVE-ML files, as published in the NESC flightsim
   repository. Vol II does not name them. Blocks PR 6a and PR 6b.
 - **P2.** `F16_control.dml` (blocks PR 11a) and `F16_gnc.dml` (blocks PR 11b), same source.
@@ -769,7 +775,22 @@ is enough. Blocks: the first PR that cannot start without it.
   finalized there too, before PR 1b.
 
 The Q25 verification pass ran (verdict rework, N-01 to N-08), and its findings are folded in with Q27.
-Approval of the spec and plan as a whole is Joe's next decision; nothing is implemented.
+
+**Spec and plan approved by Joe, 2026-10-04, at `3381693`**, with Q1 to Q27 as recorded above. There is no
+further Codex pass on the plan: the critique and the verification pass were its two rounds, and Joe waived
+the Tier 0 final-diff pass. Approval of the plan does not approve any PR's diff; each PR still gets its
+tier's review and Joe's merge.
+
+Next owner: Joe gives the go for PR 1a and PRs 2, 3 and 4, and places P1 and P2 for PR 6a.
+
+## Obligations carried to PR plans
+
+Joe's follow-ups at approval (2026-10-04). Each PR's own plan starts from them.
+
+| PR | Obligation |
+|---|---|
+| 11a | R11's comparison at 1e-12 relative needs an absolute floor, so commands near zero do not fail on roundoff. Its randomized frames must also avoid inputs within roundoff of a limit or saturation boundary: a limit stated in degrees and the same limit in radians can saturate on opposite sides there. The plan states the floor and the exclusion margin |
+| 6a | The addendum records the files actually used from `Atmospheric_models.zip`, with the archive's URL and SHA-256. It also corrects `docs/refs/README.md`: `Atmospheric_checkcases/` and `Initial_Conditions.xlsx` come from the same NESC Academy 2015 page (`https://nescacademy.nasa.gov/flightsim/2015`), not NTRS |
 
 ## PR decomposition
 

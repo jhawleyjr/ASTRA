@@ -408,9 +408,9 @@ takes them as a prefix.
       `embedded/` first and are shown to match the ensemble, then are ported to `embedded/` (Joe,
       2026-09-29). Plan questions: where the sim-side control law lives, the port's equivalence criterion, and
       hand-porting the aero tables versus a generic DAVE-ML table plugin.
-  - Planning (#104): M7 spec, plan and PR decomposition (PR 0 to 16, PR 1 split into 1a and 1b); Q1 to Q27
-    decided by Joe with his amendments, after a Codex plan critique and a verification pass; the
-    NESC DAVE-ML files (P1, P2) to be placed in `docs/refs`. Plans:
+  - Planning (#104): M7 spec, plan and PR decomposition (PR 0 to 16, PR 1 split into 1a and 1b); approved
+    by Joe with Q1 to Q27 and his amendments, after a Codex plan critique and a verification pass. The NESC
+    DAVE-ML files (P1, P2) are still to be placed in `docs/refs`. Plans:
     [milestone](docs/plans/m7-f16-nesc-oracle.md), [critique](docs/plans/m7-plan-critique.md). Packet: in
     the PR body.
 - [ ] **M8 Actuators and controller tuning** — a first-order lag and a nonlinear second-order actuator model
