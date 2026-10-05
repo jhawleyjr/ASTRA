@@ -475,9 +475,6 @@ takes them as a prefix.
       `epoll_pwait2`, `aio_suspend` (and `aio_suspend64`) and `recvmmsg`. Each shows as an undefined symbol under
       `nm -u -C` on clang++-18 and passes the scan today. Add anchored patterns and one compiled case per family.
       The scan stays a tripwire, not a proof (its docstring and architecture §15 list the blind spots). Not started.
-- [ ] (unscheduled) Evaluate Jev (TypeSafe AI) for workflow routing: model/effort selection at session launch and context
-      selection, advisory with today's fixed settings as the fallback and file-path rules for Tier 3 kept
-      (origin: Joe, 2026-09-26; owner: Joe, starting with console.typesafe.ai signup).
 - [ ] (unscheduled) Replace `no-main.sh` rule 3's command-text scanner (`.claude/hooks/commit_trailer.py`) with a check
       of the message git records: a versioned `commit-msg` hook reached through `core.hooksPath`, with `no-main.sh`
       refusing `--no-verify`/`-n` and any `core.hooksPath` override (origin: #90's Codex review; Joe 2026-10-01).
