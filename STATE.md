@@ -1,18 +1,27 @@
 # STATE (written at /wrap as main reads it after the merge; ≤ 40 lines, never appended)
 
 ## Next step
-1. M6 is checked off in PLAN.md. Next: M7 planning (F-16 and the NESC oracle), with `/plan-feature` from
-   PLAN.md's M7 row and its plan questions; Joe launches it. M7 takes the (M7) open items.
+1. M7 is planned and approved: `docs/plans/m7-f16-nesc-oracle.md` (Q1 to Q27, R1 to R23, PR 0 to 16).
+   Joe places P1 and P2, the NESC F-16 DAVE-ML files from
+   `https://nescacademy.nasa.gov/src/flightsim/Models/Atmospheric_models.zip`, in `docs/refs`.
+2. Without them, on Joe's go:
+   - PR 1a: ADR-0028, ADR-0030 and ADR-0031, with the `docs/decisions/` guard armed by Joe.
+   - PR 2: `Config` cycle safety.
+   - PR 3: Earth/gravity rotation consistency, with its own plan review.
+   - PR 4: `mass/constant`'s product-of-inertia convention.
+   - PR 5: trim, measuring every gated caller.
+   - PR 8, the band headers (Joe runs the generator under `touch-goldens`), needs only PR 1a.
+3. Everything else waits on PR 6a, the inventory addendum built from P1 and P2.
 
 ## Open threads
+- The M7 plan's "Obligations carried to PR plans":
+  - PR 11a's R11 floor and saturation-boundary margin;
+  - PR 6a's archive SHA-256 and the `docs/refs/README.md` source correction (the trajectories and
+    `Initial_Conditions.xlsx` come from the NESC Academy 2015 page, not NTRS).
 - PLAN.md's (unscheduled) review-record item: Joe chose the PR body only (M6 PR 10's D3); a Tier 2 workflow
   PR to `review-dispatch.md` and the findings template, scheduled by Joe.
 - PLAN.md's (unscheduled) docs-check item: `git diff --check` reads only the uncommitted diff; until a gate PR
   fixes it, run `git diff --check <base>..HEAD` before review.
-- PLAN.md's (M7) core item: `Config::unknown_keys` and `from_dict`'s emitter crash on a recursive alias (M6 PR
-  11's accepted residual; two reproducers in the item); a core PR at its own tier.
-- PLAN.md's (M7) envelope-monitor item is unblocked (`alpha_max_rad = 0.23` from the source's CLalpha peak would
-  make R9's criterion a halt); a Tier 3 PR of its own, scheduled by Joe.
 - PLAN.md's (unscheduled) equal-aspect canvas item (M6 PR 12's D2b, deferred by Joe).
 - PLAN.md's (unscheduled) plotly.js-floor item: the page's 4.8 MB floor is plotly.js inline; a partial bundle
   would be a new vendored asset, Joe's call (M6 PR 14's D3).
