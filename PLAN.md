@@ -413,7 +413,7 @@ takes them as a prefix.
     DAVE-ML files (P1, P2) are still to be placed in `docs/refs`. Plans:
     [milestone](docs/plans/m7-f16-nesc-oracle.md), [critique](docs/plans/m7-plan-critique.md). Packet: in
     the PR body.
-  - PR 1a: three records and architecture rev 11, docs only. ADR-0028, the F-16 oracle: SIM 4 and SIM 5,
+  - PR 1a (#105): three records and architecture rev 11, docs only. ADR-0028, the F-16 oracle: SIM 4 and SIM 5,
     SIM 2 reported and never gated, a gated window of t ≥ 8 s, 1e-5 s matching, ADR-0013's scalar band
     with k = 3, footnotes governing exclusion, the aero channels against an aero-only frame-start wrench.
     It supersedes ADR-0013 in part, for cases 11 to 16 only. ADR-0030: no unit suffix in signal names, and
