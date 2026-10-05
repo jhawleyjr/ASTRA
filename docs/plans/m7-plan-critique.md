@@ -1,9 +1,10 @@
 # M7 plan critique: one fresh read-only Codex critique of the M7 spec and plan
 
-Status: **critique pending** (dispatched after the draft PR opens; the record below is filled from the
-companion's own output). This file started as the session's plan-mode draft and was moved into the worktree
-(`docs/agents/claude-code.md`). The M7 spec and plan, [m7-f16-nesc-oracle.md](m7-f16-nesc-oracle.md), is the
-record of every question, requirement and PR; this file records only the critique.
+Status: **critique done**, verdict rework, all 11 findings accepted and folded into the spec. A
+verification pass on the final diff is Joe's call (the spec's Q25). This file started as the session's
+plan-mode draft and was moved into the worktree (`docs/agents/claude-code.md`). The M7 spec and plan,
+[m7-f16-nesc-oracle.md](m7-f16-nesc-oracle.md), is the record of every question, requirement and PR; this
+file records only the critique.
 
 ## Context
 
@@ -53,4 +54,40 @@ into the spec, and explains rejected ones here.
 
 ## Record
 
-Pending.
+**The run.**
+- Companion 1.0.6 (`openai-codex` plugin), Codex CLI 0.160.0.
+- `task --fresh --effort high --cwd .claude/worktrees/m7-planning`, read-only (no `--write`, no
+  `--model`).
+- The model is the companion's default; the log does not name it, and `~/.codex/config.toml` sets
+  `gpt-6.1-sol`.
+- Job `task-muure8f3-4om5ig`, thread `01a10a5a-b750-77e1-94e2-4021b1562130`, 10 min 14 s.
+- Candidate `8fd7f32` against base `9c534c5`. Exit 0, a final message, verdict **rework**.
+- The worktree stayed clean, and the critique made no edits.
+
+**Verification.** Claude Code re-read every cited line. These were confirmed:
+- `_runkit.py:250-264` and `:63-64`; `cli.py:501`, `:522`, `:656-673` and `:694`; `_core.cpp:661`;
+- `wrench_source.hpp:61-69`, `core_api.hpp.in:18-20` and `icd_pack.hpp:125-128`;
+- SIM 5's case 15 CSV row at t = 0 (yawing moment 857.276 lbf·ft, side force -63.005 lbf, rolling moment
+  -225.830 lbf·ft).
+C-01's magnitudes were checked against the Coriolis term alone, 2Ω·sin(lat)·V, about 0.015 m/s² in case
+11.
+
+| # | Sev. | Finding | Verdict | Where it is resolved |
+|---|---|---|---|---|
+| C-01 | high | Q7's 1e-4 lateral trim bound is incompatible with cases 11 and 12 (about 0.017 and 0.082 m/s² under Q6's rates) | accepted | Q7, R4, PR 5 |
+| C-02 | medium | Case 15 mixed derivative residuals with aero forces; CSV yawing moment 857.28 vs the prose's 786 lbf·ft | accepted | Q7 (separate checks, the CSV used, the t = 0 aero comparison reported) |
+| C-03 | high | Trim's consumers (`trim_fragment`, `astra trim`'s bound and default altitude) rebuild the old state | accepted | Findings, the trim contract, R4, PR 5 |
+| C-04 | high | The law's input units and the trim-to-normalized mapping are unspecified | accepted | Contract, R11, R23, new Q26 |
+| C-05 | high | The aileron conversion stops before the aero model's own convention | accepted | Contract, R2, PR 6a and 6b |
+| C-06 | medium | Equivalence does not check the ungated command onset | accepted | Q3, R22 |
+| C-07 | medium | The independent evaluator ignores ADR-0021's state bindings, and its self-check ran on M2 only | accepted | Q5, PR 6a, PR 7 |
+| C-08 | medium | R12 included supersonic case 12, and flagged inputs were unhandled | accepted | Contract, R12 |
+| C-09 | medium | R13's exclusions too broad; streams, counts and `/final_state` omitted | accepted | R13 |
+| C-10 | medium | PR 3 needs a `kCoreApiVersion` bump and a stale-plugin rejection | accepted | Contract, R15, PR 3 |
+| C-11 | medium | Envelope monitors stop before the tools' health consumers | accepted | Contract, R18, PR 13 |
+
+None rejected. One resolution departs from the requested outcome. C-02 asked for dimensional numerical
+bounds on the case-15 aero comparison. The spec instead reports that comparison without asserting it,
+because t = 0 lies in the ungated span and SIM 4's untrimmed start (pitching moment -42,923 lbf·ft) leaves
+no member-derived tolerance there. The derivative checks get the derived bounds C-01 asks for. C-04's
+choice between an SI realization of the law and the DML's own units is Joe's (Q26).
