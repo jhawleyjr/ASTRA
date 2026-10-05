@@ -1,7 +1,8 @@
 # M7 plan critique: one fresh read-only Codex critique of the M7 spec and plan
 
-Status: **critique done**, verdict rework, all 11 findings accepted and folded into the spec. A
-verification pass on the final diff is Joe's call (the spec's Q25). This file started as the session's
+Status: **critique done**, verdict rework, all 11 findings accepted and folded into the spec. Joe
+decided Q25 on 2026-10-04: one fresh read-only verification pass after his eight amendments are folded
+in; its record is below. This file started as the session's
 plan-mode draft and was moved into the worktree (`docs/agents/claude-code.md`). The M7 spec and plan,
 [m7-f16-nesc-oracle.md](m7-f16-nesc-oracle.md), is the record of every question, requirement and PR; this
 file records only the critique.
@@ -91,3 +92,18 @@ bounds on the case-15 aero comparison. The spec instead reports that comparison 
 because t = 0 lies in the ungated span and SIM 4's untrimmed start (pitching moment -42,923 lbf·ft) leaves
 no member-derived tolerance there. The derivative checks get the derived bounds C-01 asks for. C-04's
 choice between an SI realization of the law and the DML's own units is Joe's (Q26).
+
+## Verification pass (Q25)
+
+Joe decided the spec's Q1 to Q26 on 2026-10-04 and gave eight amendments:
+- 1: PR 1 split into 1a and 1b;
+- 2: Q7's aero and engine terms, which need P1;
+- 3: PR 5's blast radius;
+- 4: the new Q27, 13.4's lateral-deviation logic;
+- 5: Q11 and Q12 fixed before any run;
+- 6: the propulsion's frame-start state in Q5's self-check;
+- 7: Q13's two implementations and one trim result;
+- 8: case 12 under the envelope monitors.
+Once they are folded in, one fresh read-only Codex task (same companion route and flags as above) checks
+C-01 to C-11's resolutions and the amendments, and reports any new finding. The result is recorded here.
+Pending.
