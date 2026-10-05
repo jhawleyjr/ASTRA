@@ -1,6 +1,6 @@
 # ADR-0031: The aero envelope declaration and its health check
 
-Status: proposed
+Status: **accepted**, 2026-10-05
 Date: 2026-10-04
 Owner: Joe
 Related/supersedes: supersedes **one sentence** of ADR-0020's Decision, "`AeroModel`/`PropulsionModel` become
@@ -169,4 +169,4 @@ Facts the design rests on, observed at `9772031`:
 
 ## Approval
 
-Proposed. Awaiting Joe's explicit acceptance.
+Accepted by Joe, 2026-10-05.

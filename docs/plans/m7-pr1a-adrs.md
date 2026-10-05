@@ -5,7 +5,9 @@ R18, and the PR table's row 1a.
 Risk: Tier 3. It writes accepted-record candidates for the oracle (ADR-0013's family) and a core interface
 (`AeroModel`, `HealthMonitor`). Docs only: no code, tests, goldens or build files.
 Status: **approved by Joe, 2026-10-04, in plan mode.** D1 to D7 are accepted as recommended, as amended by his
-amendments 1 to 12, which are folded in below (marked A1 to A12).
+amendments 1 to 12, which are folded in below (marked A1 to A12). **ADR-0028, ADR-0030 and ADR-0031 were
+accepted by Joe, 2026-10-05**, as written at `975cec6`, with both choices outside D1 to D8 confirmed: ADR-0030's
+`*_timeout_ms` exception, and ADR-0031's skipped q̄ or n_z publishing 0. He also approved architecture rev 11.
 Base: `origin/main` `9772031` (#104), re-checked after `git fetch`. Worktree `m7-pr1a`, branch
 `worktree-m7-pr1a`. Joe arms the `docs/decisions/` guard; Claude never arms it.
 
@@ -167,7 +169,7 @@ A script imported the generator's constants and `CHANNELS` and read the main che
 | 6a, 13 | The F-16's Mach limit (A4). If the F-16 aero has no Mach dependence, its declared Mach limit is a validity limit stated by P1. If P1 states none, case 12's expected nonzero Mach counter (R18, N-07) has no basis, and the expectation returns to Joe before PR 13 fixes it |
 | 11a | R12 compares the peer's EAS against TAS·√(ρ/ρ0) from "the sim's own atmosphere signals", and no atmosphere signal is logged (A12). PR 11a's plan states where ρ comes from |
 
-## Deliverable 1: `docs/decisions/0028-f16-nesc-oracle.md` (proposed)
+## Deliverable 1: `docs/decisions/0028-f16-nesc-oracle.md` (written proposed; accepted by Joe, 2026-10-05)
 
 Status, then the related records (D2).
 
@@ -226,7 +228,7 @@ Status, then the related records (D2).
 - the Table 80 cells against the CSV columns.
 It is not committed. A mismatch goes to Joe and is never edited to fit.
 
-## Deliverable 2: `docs/decisions/0030-unit-suffixes-in-identifiers.md` (proposed)
+## Deliverable 2: `docs/decisions/0030-unit-suffixes-in-identifiers.md` (written proposed; accepted by Joe, 2026-10-05)
 
 It supersedes only ADR-0002's bullet "No unit suffixes in identifiers (`altitude`, not `altitude_m`) inside
 the framework…".
@@ -249,7 +251,7 @@ the framework…".
 - The test-plugin signal is disclosed.
 - The PLAN.md (M7) item is closed.
 
-## Deliverable 3: `docs/decisions/0031-aero-envelope-declaration.md` (proposed)
+## Deliverable 3: `docs/decisions/0031-aero-envelope-declaration.md` (written proposed; accepted by Joe, 2026-10-05)
 
 **Decision.** D3 to D6 with A4 to A6: the mechanism, the data-domain rule, what is read, the skip table,
 the one-frame n_z lag, the check, the counters and the two published signals.
@@ -275,7 +277,7 @@ the one-frame n_z lag, the check, the counters and the two published signals.
 
 ## Deliverable 4: `docs/architecture.md` rev 11
 
-The status line gains rev 11, proposed until Joe accepts the three records.
+The status line gains rev 11, proposed until Joe accepted the three records (2026-10-05).
 - §6: the units paragraph per ADR-0030.
 - §7: `AeroModel`'s `envelope()`, *planned, PR 13*.
 - §12: `astra.trim`'s planned changes (PR 5), and the tools' envelope counters (PR 13).

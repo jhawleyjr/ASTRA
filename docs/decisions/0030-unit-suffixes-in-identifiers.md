@@ -1,6 +1,6 @@
 # ADR-0030: Unit suffixes: never in signal names, allowed in C++ identifiers and config keys
 
-Status: proposed
+Status: **accepted**, 2026-10-05
 Date: 2026-10-04
 Owner: Joe
 Related/supersedes: supersedes **one bullet** of ADR-0002's Consequences: "No unit suffixes in identifiers
@@ -70,4 +70,4 @@ duplicate that metadata, and the two could disagree.
 
 ## Approval
 
-Proposed. Awaiting Joe's explicit acceptance.
+Accepted by Joe, 2026-10-05.

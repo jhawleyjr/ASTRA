@@ -1,6 +1,6 @@
 # ADR-0028: The F-16 NESC oracle: two members, a gated window, ADR-0013's scalar band
 
-Status: proposed
+Status: **accepted**, 2026-10-05
 Date: 2026-10-04
 Owner: Joe
 Related/supersedes: supersedes ADR-0013 **in part, for NESC atmospheric cases 11, 12, 13.1 to 13.4, 15 and 16
@@ -184,4 +184,4 @@ What the preview shows:
 
 ## Approval
 
-Proposed. Awaiting Joe's explicit acceptance.
+Accepted by Joe, 2026-10-05.

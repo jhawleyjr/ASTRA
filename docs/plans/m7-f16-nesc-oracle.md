@@ -42,7 +42,7 @@ Architecture/ADRs:
 Proposed records (Q20): ADR-0028 (the F-16 oracle, elaborating ADR-0013 to ADR-0015), ADR-0029 (sim-side
 flight software as an in-process peer, and the port's equivalence criterion), ADR-0030 (ADR-0002's
 identifier wording), and ADR-0031 (the envelope declaration; Q16 keeps it in M7). ADR-0028, 0030 and 0031
-are written in PR 1a. ADR-0029 is written in PR 1b, after PR 6a (amendment 1). Q5 and Q9 are decided as
+are written in PR 1a, and Joe accepted all three on 2026-10-05. ADR-0029 is written in PR 1b, after PR 6a (amendment 1). Q5 and Q9 are decided as
 options (c) and (b), so no further record is needed.
 
 System context: M7 is the first vehicle built from `aircraft/_template` by the §18 on-ramp, and the first
