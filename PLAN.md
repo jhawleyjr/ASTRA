@@ -204,11 +204,48 @@ M6 to M11 were mapped from [future work](docs/future-work.md) by Joe on 2026-09-
 gets its own spec, plan and architecture §16 row at its planning step. Open items carry the milestone that
 takes them as a prefix.
 
-- [ ] **M6 Analysis tooling** — plotting with reusable plot packages over run logs; Monte Carlo visualization
+- [x] **M6 Analysis tooling** — plotting with reusable plot packages over run logs; Monte Carlo visualization
       (draws, outcomes, trajectory envelopes); failure-to-draw correlation over `summary.parquet`; a tool that
       sizes a Monte Carlo from the question asked and the number of dispersed parameters; a run report with
       provenance; a frame-time benchmark; `astra run --strict`; the superseding ADR to ADR-0025's
-      Finalization (Tier 3). Detail: [future work](docs/future-work.md#analysis-and-debugging-tools).
+      Finalization (Tier 3). Detail: [future work](docs/future-work.md#analysis-and-debugging-tools). Spec and
+      plan: [plan](docs/plans/m6-analysis-tooling.md). Evidence, clause by clause. Each summary is its PR's last
+      gated candidate (`check-full.sh` exit 0, `check: OK`; CTest counts are debug/release/static-plugins/asan),
+      and the R-IDs are the plan's:
+      - plot packages over run logs: PR 5 (R1 to R4, R3b; CTest 658/659/660/661, pytest 1314 passed —
+        [summary](docs/reviews/evidence/8126aff-gate-summary.log); `-k plot` 110 passed in the PR body),
+        refined by PR 12 (the TAS/CAS panels and equal aspect; pytest 1834 passed —
+        [summary](docs/reviews/evidence/02af820-gate-summary.log)) and PR 14 (the plotly page's size; pytest
+        1863 passed — [summary](docs/reviews/evidence/5a08393-gate-summary.log));
+      - Monte Carlo visualization: PR 6 (R5; CTest 658/659/660/661, pytest 1402 passed —
+        [summary](docs/reviews/evidence/3a09f45-gate-summary.log); `-k mc_analysis` 75 passed in the PR body),
+        with the envelope's size in PR 8b (pytest 1698 passed —
+        [summary](docs/reviews/evidence/efbac92-gate-summary.log)) and its failing-run overlays in PR 13
+        (pytest 1843 passed — [summary](docs/reviews/evidence/74b6505-gate-summary.log)), each keeping R5;
+      - failure-to-draw correlation over `summary.parquet`: PR 6 (R6 to R8, R7b, R10; the same summary) and
+        PR 7b (R9, the planted cause in the notional transport with its negative control; CTest
+        669/670/671/672, pytest 1485 passed — [summary](docs/reviews/evidence/f184b4c-gate-summary.log),
+        [timing](docs/reviews/evidence/f184b4c-planted-timing.log); the `-k planted` runs in the PR body);
+      - sizing a Monte Carlo from the question and the number of dispersed parameters: PR 7 (R11, R12; pytest
+        1479 passed — [summary](docs/reviews/evidence/80f239e-gate-summary.log); `-k mc_sizing` 77 passed in
+        the PR body);
+      - a run report with provenance: PR 8 (R13; pytest 1687 passed —
+        [summary](docs/reviews/evidence/02152f2-gate-summary.log); `-k report` 228 passed in the PR body);
+      - a frame-time benchmark: PR 9 (R19, and R19b's end-to-end figure tracked; pytest 1402 passed —
+        [summary](docs/reviews/evidence/100f491-gate-summary.log); the smoke, 11/11, in the PR body);
+      - `astra run --strict`: PR 3 (R14; CTest 649/650/651/652, pytest 579 passed —
+        [summary](docs/reviews/evidence/e1a8dec-gate-summary.log); `-k cli` 72 passed in the PR body);
+      - the superseding ADR to ADR-0025's Finalization (Tier 3): PR 1 (ADR-0027; CTest 621/622/623/624,
+        pytest 473 passed — [summary](docs/reviews/evidence/574f9fe-gate-summary.log); Joe's two docs-only
+        commits after the gate, waived, in the PR body), implemented by PR 2 (R16 to R18b, R19b; CTest
+        649/650/651/652, pytest 510 passed — [summary](docs/reviews/evidence/ede0cf3-gate-summary.log); the
+        acceptance suites in the PR body).
+
+      Beyond the row: PR 4's units (R21; pytest 1204 passed —
+      [summary](docs/reviews/evidence/2de663a-gate-summary.log)) and PR 11's PyYAML route (pytest 1822 passed —
+      [summary](docs/reviews/evidence/53db70f-gate-summary.log); #99 merged after the gate, in the PR body). R15
+      is split across PR 3 (`run`, `trim`), PR 5 (`plot`), PR 6 (`mc analyze`, `mc rerun`), PR 7 (`mc size`)
+      and PR 8 (`report`). R20 is each summary above; PR 10 is Tier 0, with no gate.
   - Planning (#78): M6 spec, plan and ten-PR decomposition; Q1 to Q23 decided by Joe, after a Codex plan
     critique and a verification pass. Plans: [milestone](docs/plans/m6-analysis-tooling.md),
     [critique](docs/plans/m6-plan-critique.md). Packet: none.
@@ -288,6 +325,11 @@ takes them as a prefix.
     It writes JSON (mean, median, p99, max, fps, margins against `dt`, toolchain, CPU, load) only after every
     check passes. `just benchmark` takes a Release baseline; the gate runs its smoke, which asserts no speed.
     Closes C-19 and N-05. Plan: [plan](docs/plans/m6-pr9-benchmark.md). Packet: in the PR body.
+  - PR 10 (#103): M6 closeout: the check-off with evidence links, open items for the held-out scope (a plotting
+    UI or live plotting, PDF output, Sobol and adaptive sampling; the closed-loop item extended), the
+    docs-check item, the review-record item made unscheduled, PR 14's divisor clause, and architecture §12 and
+    §16 status. Plans: [milestone](docs/plans/m6-analysis-tooling.md), [PR](docs/plans/m6-pr10-closeout.md).
+    Packet: in the PR body.
   - PR 11 (#97): configs read through PyYAML, closing that open item. `astra.montecarlo`, `astra.scenario`,
     `astra.trim` and `astra.lockstep` read a config through `astra._yaml_route.load`, which compares PyYAML's
     dict leaf by leaf with the core's reading of the same text (the four getters and the node kind; a number
@@ -326,7 +368,9 @@ takes them as a prefix.
     [plan](docs/plans/m6-pr13-envelope-overlays.md). Packet: in the PR body.
   - PR 14 (#102): the plotly page's size, closing that open item. `draw_plotly` writes a trace's x as `x0`/`dx`
     when plotly.js's own rebuild, `x0 + i * dx` in float64, gives it bit for bit, and as an array otherwise:
-    lossless and always on. On request, `astra plot --html --html-columns N` reduces each trace of more than N + 1
+    lossless and always on, though not always `x0`/`dx`. At dt = 1 ms a rate group's t keeps an explicit
+    array at divisors such as 25, 50 and 100, while divisors such as 1 to 5, 7, 10, 20 and 40 rebuild exactly
+    (the full set in M6 PR 10's PR body). On request, `astra plot --html --html-columns N` reduces each trace of more than N + 1
     points on its own N index columns to each column's ends and extremes, all of them the trace's own samples,
     and the figure's title says so. That is at most 3N + 1 points with an increasing x and no gap, 5N + 1 for an
     x-y path, and more with gaps. The notional `cruise` page goes from 25.1 to 15.6 MB at 60 s and from 105 to
@@ -503,10 +547,31 @@ takes them as a prefix.
       (origin: M6 PR 12's plan, D2b; Joe 2026-10-04: deferred). A taller canvas for an equal panel would change
       the figure-size rule for one kind of panel. The same PR may lift PR 12's rule that an equal panel be its
       figure's only panel (with a shared x, matplotlib's `datalim` moves the y limits instead). Not started.
-- [ ] (M6) A review fix's final Codex verification has no place in `docs/reviews/*-review.md` (origin: #95's
-      V-001 and #96's R-001; Joe 2026-10-03). Review-dispatch's no-record-only-commit rule keeps the verification
-      result out of a commit of its own, so the review record's last finding stays "fixed-unverified" there while
-      the PR body holds the verified result. Not started.
+- [ ] (unscheduled) A review fix's final Codex verification has no place in `docs/reviews/*-review.md` (origin:
+      #95's V-001 and #96's R-001; Joe 2026-10-03; moved from M6 at its closeout, M6 PR 10's D3).
+      Review-dispatch's no-record-only-commit rule keeps the verification result out of a commit of its own, so
+      the review record's last finding stays "fixed-unverified" there while the PR body holds the verified
+      result. Joe's choice (M6 PR 10's D3, option (a)): the verification lives in the PR body only. The review
+      record ends at the fix batch it describes, and its last line points to the PR body's Codex section. The
+      workflow edit is a Tier 2 PR of its own, to `docs/agents/review-dispatch.md` and
+      `docs/templates/review-findings.md`. The template gains a terminal status that names the PR body (for
+      example "fixed; verification in the PR body"), so "fixed-unverified" is no longer the record's last word.
+      Not started.
+- [ ] (unscheduled) `just docs-check`'s `git diff --check` reads only the uncommitted diff, so a whitespace error
+      already committed passes a clean-tree gate (origin: `docs/lessons.md` 2026-10-04, M6 PR 14's review; Joe
+      at #102, M6 PR 10's D2). A fix also checks the committed range, `<base>..HEAD`. It has to choose the base
+      when `origin/main` is absent or shallow (a fresh clone, CI's `GATE=local`) and whether `hooks-test` gets
+      a case. It changes the gate, so it is a gate PR of its own, with the full gate. Until then the lesson's
+      rule holds: run `git diff --check <base>..HEAD` before review. Not started.
+- [ ] (unscheduled) A plotting UI, or plotting a live run (origin: M6 plan, Non-goals and "Held out"; Joe's
+      call): `astra.plot` writes files from a finished log (SVG or PNG per figure, one offline plotly HTML page
+      per package), and nothing draws while a `Simulation` runs. Not started.
+- [ ] (unscheduled) PDF output (origin: M6 plan, Non-goals and "Held out"; Joe's call): the run report is
+      one self-contained HTML file (`astra.report`), and figures are SVG, PNG or plotly HTML. Not started.
+- [ ] (unscheduled) Variance-based sensitivity (Sobol) and adaptive sampling (origin: M6 plan, Non-goals and
+      "Held out"; Joe's call): both need designed sample sets rather than an existing batch, while
+      `astra.mc_analysis` ranks the draws of a batch `astra.montecarlo` already ran (KS with
+      Benjamini-Hochberg, Spearman, PRCC, a depth-3 tree). Not started.
 - [ ] (M7) §18 step 4 fails on a template copy: `aircraft/_template/configs/cruise.yaml` uses `earth/flat`, which
       `astra.trim` refuses (altitude is geodetic only), so `astra trim` on a new aircraft exits 65 (origin: M6 PR 3;
       Joe 2026-09-30). M7 builds the F-16 from the template. Not started.
@@ -517,9 +582,11 @@ takes them as a prefix.
 - [ ] (M10) Wind events in scenarios (origin: M5 plan Q14; Joe's call): `astra.scenario` events are `write_input`
       only; there is no write seam for wind, so a wind change is a config choice (for example `wind/uniform`),
       not an event, until a seam exists. Not started.
-- [ ] (M10) Closed-loop (autopilot) scenarios and Monte Carlo (origin: M5 plan Q16; Joe's call): not in M5, since
-      adding the autopilot peer means subprocess management in the harness; M4's own acceptance already covers
-      closed loop. Not started.
+- [ ] (M10) Closed-loop (autopilot) scenarios and Monte Carlo (origin: M5 plan Q16, extended by the M6 plan's
+      held-out scope; Joe's call): not in M5, since adding the autopilot peer means subprocess management in the
+      harness; M4's own acceptance already covers closed loop. M6's tools inherit the limit. `astra.montecarlo`
+      refuses a `transport` block, so `astra.mc_analysis`, a batch's `astra report` and `astra mc rerun` see
+      only open-loop runs, and `astra run` refuses a `transport` block until M10 (exit 65). Not started.
 - [ ] (M10) Replaying a lockstep run (origin: M5 plan Q11; Joe's call): `astra.log.replay` refuses a log with a
       `transport` block, since replaying commands without the peer is a different feature. Not started.
 

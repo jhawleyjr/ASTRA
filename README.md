@@ -83,7 +83,8 @@ Everything below is on `main` today.
   [ADR-0013](docs/decisions/0013-nesc-check-case-oracle.md)), ISA table points, the Dryden PSD, torque-free
   energy and momentum conservation, and RK4's convergence order against Euler.
 - **Frame-time benchmark.** `just benchmark <out.json>` times each `step()` of the notional transport's
-  cruise configs, and a logged run end to end through `close_log()`, in a Release build. It writes JSON with the
+  cruise configs and of `tests/configs/dummy_1000.yaml`, and logged runs end to end through `close_log()`, in a
+  Release build. It writes JSON with the
   mean, median, p99 and maximum frame cost and the margin against `dt`, only after checking that every timed
   frame ran. The gate runs it only as a smoke, which asserts no speed.
 
@@ -387,7 +388,7 @@ made before code existed and the open questions deliberately deferred.
 | `aircraft/` | One folder per aircraft: `_template/` and `notional_transport/` |
 | `icd/` | `astra_icd.h`, the C11 frames exchanged with flight software |
 | `embedded/` | A separate C++17 project: the HAL and the example autopilot |
-| `python/` | The `astra` package (`trim`, `linearize`, `log`, `scenario`, `montecarlo`, `mc_analysis`, `mc_sizing`, `plot`, `fgbridge`, `lockstep`, `cli`) and the nanobind bindings |
+| `python/` | The `astra` package (`trim`, `linearize`, `log`, `scenario`, `montecarlo`, `mc_analysis`, `mc_sizing`, `plot`, `report`, `fgbridge`, `lockstep`, `cli`) and the nanobind bindings |
 | `tests/` | Unit, physics, lockstep and Python tests, scenarios, the frame-time benchmark, and human-owned goldens |
 | `scripts/` | Setup, check wrappers and docs and scan tools |
 | `cmake/` | The plugin helpers (`astra_add_plugin`, `astra_add_plugin_test`) |
@@ -410,11 +411,9 @@ save GitHub Actions minutes, so a green `check` on GitHub is not evidence that t
 
 ## Roadmap
 
-M0 to M5 are done: bootstrap, rigid body, environment, the notional transport, lockstep with the embedded
-autopilot, and tooling. Next, in order:
+M0 to M6 are done: bootstrap, rigid body, environment, the notional transport, lockstep with the embedded
+autopilot, tooling, and analysis tooling. Next, in order:
 
-- **M6 Analysis tooling:** plot packages, Monte Carlo figures and failure-to-draw correlation, Monte Carlo
-  sizing, a run report, a frame-time benchmark.
 - **M7 F-16 and the NESC oracle:** `aircraft/f16` from the template; NESC cases 11, 12, 13.1 to 13.4, 15 and
   16; a tutorial and a config-key reference.
 - **M8 Actuators and controller tuning:** actuator models with rate and position limits, gains loaded at
