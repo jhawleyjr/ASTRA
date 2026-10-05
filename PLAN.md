@@ -413,6 +413,13 @@ takes them as a prefix.
     DAVE-ML files (P1, P2) are still to be placed in `docs/refs`. Plans:
     [milestone](docs/plans/m7-f16-nesc-oracle.md), [critique](docs/plans/m7-plan-critique.md). Packet: in
     the PR body.
+  - PR 1a: three records and architecture rev 11, docs only. ADR-0028, the F-16 oracle: SIM 4 and SIM 5,
+    SIM 2 reported and never gated, a gated window of t ≥ 8 s, 1e-5 s matching, ADR-0013's scalar band
+    with k = 3, footnotes governing exclusion, the aero channels against an aero-only frame-start wrench.
+    It supersedes ADR-0013 in part, for cases 11 to 16 only. ADR-0030: no unit suffix in signal names, and
+    one allowed in C++ identifiers and config keys, superseding one ADR-0002 bullet. ADR-0031: `AeroModel`'s
+    envelope declaration, one `kEnvelope` check with five action keys and counters, and q̄ and n_z
+    published. Plan: [plan](docs/plans/m7-pr1a-adrs.md). Packet: in the PR body.
 - [ ] **M8 Actuators and controller tuning** — a first-order lag and a nonlinear second-order actuator model
       with rate and position limits; autopilot gains loaded at startup; the tuning tool (spec-driven on the
       linear model, time-domain on the nonlinear sim, robustness across draws, gain schedules) with
@@ -490,15 +497,6 @@ takes them as a prefix.
       `add_subdirectory(golden/dynamics)` as `tests/CMakeLists.txt`'s comment implies. Its script
       `capture_r1_golden.sh` also has no arming check of its own (unlike PR 8's); today it refuses at its
       clean-tree and baseline-drift (`26ad594`) steps, before its first commit. Not started.
-- [ ] (M7) ADR-0002's literal "no unit suffixes in identifiers (`altitude`, not `altitude_m`)" text (origin: M3 PR 3,
-      ADR-0018) vs. `AtmoState`'s own field names (`temperature_k`, `pressure_pa`, `density_kg_m3`,
-      `speed_of_sound_m_s`): whether the rule means signal-name strings specifically (its own example,
-      `registry.add("aero.CL", ...)`, is a string) or every C++ identifier is unresolved; PR 3's own plan accepted
-      the unit-suffix precedent rather than settling the wording. `AeroInputs`/`PropulsionInputs` (`alpha_rad`,
-      `dynamic_pressure_pa`, `true_airspeed_mps`) are gone under ADR-0020; `AtmoState`'s field names are
-      ADR-0020's cited precedent for whatever unit-suffixed fields a concrete plugin's own
-      `air_data.hpp`-derived, plugin-side `Inputs`-shaped struct uses instead; the wording question is otherwise
-      unchanged. Not started.
 - [ ] (M7) §15 envelope monitors (α, β, Mach, dynamic pressure, load-factor limits declared by the aero model)
       (origin: deferred from M3 PR 3, ADR-0018): no declaration hook exists yet on `AeroModel`, because no concrete
       plugin had real numbers to declare before M3 PR 4. A later PR adds
@@ -506,7 +504,7 @@ takes them as a prefix.
       per-frame check against it. Not started. Unblocked (Joe, 2026-10-03, at M6 PR 7b): the notional transport
       can declare `alpha_max_rad = 0.23` from the source's CLalpha peak (`docs/refs/aircrafts/737.xml`, CL 1.20 at
       0.23 rad), and a halt there would turn R9's criterion into `status == halt` instead of a threshold. A Tier 3
-      PR of its own; scheduling it is Joe's call.
+      PR of its own; scheduling it is Joe's call. Shape decided by ADR-0031 (M7 PR 1a); implemented by M7 PR 13.
 - [ ] (M8) Moderate-turbulence throttle jitter (origin: M4 PR 6; Joe 2026-09-26, nonblocking): airspeed gusts pass
       through the autopilot's speed loop to the throttle, up to 0.019 per exchange at moderate (throttle 0.310 to
       0.633 around trim 0.4986), no limit reached (`docs/reviews/m4-pr6-lockstep-acceptance-human.md`). Revisit
