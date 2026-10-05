@@ -13,6 +13,7 @@ directly, or by hand.
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import itertools
 import math
@@ -210,7 +211,7 @@ def test_mc_analysis_envelope_equals_numpy_over_the_runs_that_reached_each_frame
     result = mc_analysis.outcomes(batch)
     drawn = mc_analysis.draw_envelope(mc_analysis.envelope(batch, signal, result))
     summary = _summary(descent_batch)
-    traces, longest, dt, count, statistics = _expected_envelope(descent_batch, signal)
+    _traces, longest, dt, count, statistics = _expected_envelope(descent_batch, signal)
     lines = {str(line.get_label()): line for line in drawn.axes[0].get_lines()}
     (count_line,) = drawn.axes[1].get_lines()
     assert np.array_equal(np.asarray(count_line.get_xdata()), longest.astype(np.float64) * dt)
@@ -226,11 +227,8 @@ def test_mc_analysis_envelope_equals_numpy_over_the_runs_that_reached_each_frame
     ]
     overlaid = sorted(label for label in lines if label.startswith("run "))
     assert overlaid == sorted(f"run {run}" for run in halted)
-    for run in halted:
-        frames, values, _dt = traces[run]
-        line = lines[f"run {run}"]
-        assert np.array_equal(np.asarray(line.get_xdata()), frames.astype(np.float64) * dt)
-        assert np.array_equal(np.asarray(line.get_ydata()), values)
+    # Each overlay's data is checked by
+    # test_mc_analysis_envelope_overlay_is_the_reduction_of_each_failing_runs_log (M6 PR 13).
     errors = summary["status"].count("error")
     assert f"{errors} error runs without a log" in drawn.get_suptitle()
 
@@ -640,6 +638,282 @@ def test_mc_analysis_envelope_columns_are_at_most_one_pixel_at_the_save_dpi(
         drawn.draw_without_rendering()
         width = drawn.axes[0].get_window_extent().width * dpi / drawn.dpi
         assert width <= mc_analysis.ENVELOPE_COLUMNS
+
+
+# --- the overlays' reduction (M6 PR 13, docs/plans/m6-pr13-envelope-overlays.md D1, D3) ---------
+
+
+def _reference_overlay(edges: np.ndarray | None, y: np.ndarray) -> np.ndarray:
+    """The frames of a failing run's values ``y`` its overlay keeps, frame by frame from the module
+    docstring's rule, never through ``mc_analysis``: every frame of an unreduced envelope (``edges``
+    is ``None``); else, on the band's column edges (frame indices read from its path) clipped to the
+    run, each finite stretch inside a column keeps its first frame, its minimum, its maximum (the
+    first of equal values) and its last frame, plus the first NaN after it, and the run keeps its
+    first and last frames."""
+    n = y.size
+    if edges is None:
+        return np.arange(n)
+    finite = np.isfinite(y)
+    cuts = sorted({int(edge) for edge in edges if edge < n} | {n - 1})
+    keep = {0, n - 1} if n else set()
+    for a, b in itertools.pairwise(cuts):
+        k = a
+        while k <= b:
+            if not finite[k]:
+                k += 1
+                continue
+            first = k
+            while k < b and finite[k + 1]:
+                k += 1
+            piece = range(first, k + 1)
+            low = min(piece, key=lambda i: (y[i], i))
+            high = min(piece, key=lambda i: (-y[i], i))
+            keep |= {first, k, low, high}
+            if k + 1 < n and not finite[k + 1]:
+                keep.add(k + 1)
+            k += 1
+    return np.asarray(sorted(keep), dtype=np.int64)
+
+
+def _overlay_lines(drawn: Any) -> dict[int, tuple[np.ndarray, np.ndarray]]:
+    """Each failing run's drawn ``(x, y)``, by run index, from its ``run <i>`` line."""
+    return {
+        int(str(line.get_label()).removeprefix("run ")): (
+            np.asarray(line.get_xdata(), dtype=np.float64),
+            np.asarray(line.get_ydata(), dtype=np.float64),
+        )
+        for line in drawn.axes[0].get_lines()
+        if str(line.get_label()).startswith("run ")
+    }
+
+
+def _rough(n: int) -> np.ndarray:
+    k = np.arange(n, dtype=np.float64)
+    return np.sin(k * 2e-5) + 0.05 * np.sin(k * 0.37)
+
+
+def _with_failing(failing: dict[int, np.ndarray], n: int = SPIKE_FRAMES) -> mc_analysis.Envelope:
+    """A synthetic envelope of ``n`` frames (smooth, finite statistics) whose failing runs have the
+    values ``failing``, each a prefix of the envelope's frames."""
+    base = np.sin(np.arange(n, dtype=np.float64) * 2e-5)
+    env = _synthetic(base - 3.0, base + 3.0, base - 2.0, base + 2.0)
+    return dataclasses.replace(
+        env, failing={run: (env.t[: y.size], y) for run, y in failing.items()}
+    )
+
+
+def _drawn_frames(x: np.ndarray, t: np.ndarray) -> np.ndarray:
+    """The frame indices of a line's x: each must be a frame time, strictly increasing."""
+    index = np.searchsorted(t, x)
+    assert np.array_equal(t[index], x)
+    assert np.all(np.diff(index) > 0)
+    return index
+
+
+@pytest.mark.parametrize("columns", [None, 37], ids=["shipped", "columns_37"])
+@pytest.mark.parametrize("signal", [ALTITUDE, SLOW])
+def test_mc_analysis_envelope_overlay_is_the_reduction_of_each_failing_runs_log(
+    descent_batch: Path, signal: str, columns: int | None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # PR 6's overlay check (R5), moved here: each failing run's line against its log, read
+    # independently. As shipped (500 and 50 frames, below the threshold) that is the column itself.
+    if columns is not None:
+        monkeypatch.setattr(mc_analysis, "ENVELOPE_COLUMNS", columns)
+    batch = mc_analysis.load_batch(descent_batch)
+    drawn = mc_analysis.draw_envelope(
+        mc_analysis.envelope(batch, signal, mc_analysis.outcomes(batch))
+    )
+    summary = _summary(descent_batch)
+    traces, longest, dt, _count, _statistics = _expected_envelope(descent_batch, signal)
+    t = longest.astype(np.float64) * dt
+    halted = [
+        run
+        for run, status in zip(summary["run"], summary["status"], strict=True)
+        if status == "halt"
+    ]
+    lines = _overlay_lines(drawn)
+    assert sorted(lines) == sorted(halted)
+    if columns is None:
+        assert longest.size - 1 <= mc_analysis.ENVELOPE_COLUMNS
+        edges = None
+    else:
+        edges = _edges(_bands(drawn)[0], t)
+        assert edges.size == columns + 1
+    reduced = 0
+    for run in halted:
+        frames, values, _dt = traces[run]
+        index = _reference_overlay(edges, values)
+        x, y = lines[run]
+        assert np.array_equal(x, frames[index].astype(np.float64) * dt), run
+        assert np.array_equal(y, values[index]), run
+        assert x[-1] == frames[-1] * dt  # a halted run's line ends at its last frame
+        reduced += index.size < frames.size
+    if columns is None:
+        assert reduced == 0
+    elif signal == ALTITUDE:
+        assert reduced > 0  # 499 frame steps in 37 columns: real halted runs are reduced
+
+
+HALT_FRAME = 123_456
+
+
+def test_mc_analysis_envelope_overlay_of_a_halted_run_ends_at_its_last_frame() -> None:
+    long_halt = _rough(HALT_FRAME + 1)
+    short_halt = _rough(200)  # shorter than one column (333 frame steps), as an early halt is
+    short_halt[57] -= 1.0
+    short_halt[143] += 1.0
+    env = _with_failing({0: long_halt, 1: short_halt})
+    drawn = mc_analysis.draw_envelope(env)
+    edges = _edges(_bands(drawn)[0], env.t)
+    lines = _overlay_lines(drawn)
+    x, y = lines[0]
+    index = _drawn_frames(x, env.t)
+    assert np.array_equal(index, _reference_overlay(edges, long_halt))
+    assert np.array_equal(y, long_halt[index])
+    assert index[-1] == HALT_FRAME
+    # The columns are the envelope's, not the run's own: every band edge up to its last frame is
+    # one of its points.
+    assert set(edges[edges <= HALT_FRAME].tolist()) <= set(index.tolist())
+    x, y = lines[1]
+    index = _drawn_frames(x, env.t)
+    assert index.tolist() == [0, 57, 143, 199]  # first, minimum, maximum, last
+    assert np.array_equal(y, short_halt[index])
+
+
+NAN_FIRST, NAN_LAST = NAN_COLUMN  # column 450: frames 150,000 .. 150,333
+
+
+def test_mc_analysis_envelope_overlay_keeps_the_frames_either_side_of_an_all_nan_column() -> None:
+    values = _rough(SPIKE_FRAMES)
+    values[NAN_FIRST : NAN_LAST + 1] = np.nan
+    env = _with_failing({0: values})
+    drawn = mc_analysis.draw_envelope(env)
+    edges = _edges(_bands(drawn)[0], env.t)
+    x, y = _overlay_lines(drawn)[0]
+    index = _drawn_frames(x, env.t)
+    assert np.array_equal(index, _reference_overlay(edges, values))
+    assert np.array_equal(y, values[index], equal_nan=True)
+    # The line ends at the last finite frame before the gap and resumes at the first after it, with
+    # one NaN between them to break it: the gap is as wide as the full line's.
+    k = int(np.searchsorted(index, NAN_FIRST - 1))
+    assert index[k : k + 3].tolist() == [NAN_FIRST - 1, NAN_FIRST, NAN_LAST + 1]
+    assert np.isfinite(y[k])
+    assert np.isnan(y[k + 1])
+    assert np.isfinite(y[k + 2])
+
+
+def test_mc_analysis_envelope_overlay_keeps_a_columns_one_finite_frame() -> None:
+    values = _rough(SPIKE_FRAMES)
+    values[NAN_FIRST : NAN_LAST + 1] = np.nan
+    lone = NAN_FIRST + 200
+    values[lone] = 7.0
+    env = _with_failing({0: values})
+    drawn = mc_analysis.draw_envelope(env)
+    edges = _edges(_bands(drawn)[0], env.t)
+    x, y = _overlay_lines(drawn)[0]
+    index = _drawn_frames(x, env.t)
+    assert np.array_equal(index, _reference_overlay(edges, values))
+    assert np.array_equal(y, values[index], equal_nan=True)
+    # Kept, between NaNs: an isolated vertex, drawn as the full line draws it.
+    k = int(np.searchsorted(index, lone))
+    assert index[k] == lone
+    assert y[k] == 7.0
+    assert np.isnan(y[k - 1])
+    assert np.isnan(y[k + 1])
+
+
+def _spans_each_column(index: np.ndarray, values: np.ndarray, edges: np.ndarray) -> np.ndarray:
+    """Per column (between two band edges, inclusive): whether the kept frames' values span the
+    run's minimum to maximum there."""
+    kept = np.zeros(values.size, dtype=bool)
+    kept[index] = True
+    spans = []
+    for a, b in itertools.pairwise(edges):
+        column = values[a : b + 1]
+        drawn = column[kept[a : b + 1]]
+        spans.append(
+            drawn.size > 0
+            and np.nanmin(drawn) == np.nanmin(column)
+            and np.nanmax(drawn) == np.nanmax(column)
+        )
+    return np.asarray(spans)
+
+
+def test_mc_analysis_envelope_overlay_spans_each_columns_extent() -> None:
+    # Independent of the reference: the drawn points are the run's own samples, its first and last
+    # frames among them, and each column's extent is drawn. Twelve runs, so the legend says "and 2
+    # more"; run 3 has a one-frame spike inside a column.
+    failing = {run: _rough(SPIKE_FRAMES) + 0.1 * run for run in range(12)}
+    failing[3][SPIKE_INSIDE] += 5.0
+    env = _with_failing(failing)
+    drawn = mc_analysis.draw_envelope(env)
+    edges = _edges(_bands(drawn)[0], env.t)
+    lines = _overlay_lines(drawn)
+    for run, values in failing.items():
+        x, y = lines[run]
+        index = _drawn_frames(x, env.t)
+        assert np.array_equal(y, values[index]), run
+        assert index[0] == 0, run
+        assert index[-1] == values.size - 1, run
+        assert _spans_each_column(index, values, edges).all(), run
+        assert y.min() == values.min(), run
+        assert y.max() == values.max(), run
+    # The check has teeth: a stride decimation misses the spike's column.
+    stride = np.unique(np.r_[np.arange(0, SPIKE_FRAMES, 333), SPIKE_FRAMES - 1])
+    spans = _spans_each_column(stride, failing[3], edges)
+    spike_column = int(np.searchsorted(edges, SPIKE_INSIDE)) - 1
+    assert not spans[spike_column]
+    # Autoscaling and the legend are unchanged: the same figure with each overlay's full trace.
+    drawn.draw_without_rendering()
+    full = mc_analysis.draw_envelope(env)
+    for line in full.axes[0].get_lines():
+        label = str(line.get_label())
+        if label.startswith("run "):
+            line.set_data(env.t, failing[int(label.removeprefix("run "))])
+    full.axes[0].relim()
+    full.axes[0].autoscale_view()
+    full.draw_without_rendering()
+    assert drawn.axes[0].get_ylim() == full.axes[0].get_ylim()
+    assert drawn.axes[0].get_xlim() == full.axes[0].get_xlim()
+    texts: list[list[str]] = []
+    for figure in (drawn, full):
+        legend = figure.axes[0].get_legend()
+        assert legend is not None
+        texts.append([text.get_text() for text in legend.get_texts()])
+    assert texts[0] == texts[1]
+    assert texts[0][-1] == "and 2 more"
+
+
+def test_mc_analysis_envelope_overlay_vertex_count_is_bounded_independent_of_run_length() -> None:
+    columns = mc_analysis.ENVELOPE_COLUMNS
+    bound = 3 * columns + 1  # first, min, max and last per column, neighbors sharing a frame
+    for n in (1, 2, 901, 902, 10_001, SPIKE_FRAMES):
+        values = np.sin(np.arange(n, dtype=np.float64) * 0.37)  # rough: extremes inside columns
+        env = _with_failing({0: values}, n)
+        x, y = _overlay_lines(mc_analysis.draw_envelope(env))[0]
+        if n <= columns + 1:
+            assert np.array_equal(x, env.t), n  # every frame
+            assert np.array_equal(y, values), n
+        else:
+            assert x.size <= min(n, bound), n
+    # A trace of r finite stretches stays within 3 C + 5 r - 1; an all-NaN one keeps two frames.
+    values = np.sin(np.arange(SPIKE_FRAMES, dtype=np.float64) * 0.37)
+    gaps = [
+        (1_000, 1_003),
+        (50_100, 50_102),
+        (150_000, 150_333),
+        (200_000, 200_400),
+        (299_990, 299_995),
+    ]
+    for first, last in gaps:  # inside a column, on an edge, a whole column, across an edge, the end
+        values[first : last + 1] = np.nan
+    stretches = len(gaps) + 1
+    x, _y = _overlay_lines(mc_analysis.draw_envelope(_with_failing({0: values})))[0]
+    assert x.size <= 3 * columns + 5 * stretches - 1
+    x, _y = _overlay_lines(
+        mc_analysis.draw_envelope(_with_failing({0: np.full(SPIKE_FRAMES, np.nan)}))
+    )[0]
+    assert x.size == 2
 
 
 def test_mc_analysis_a_missing_log_of_an_ok_run_is_refused_naming_the_run(

@@ -1,0 +1,363 @@
+# M6 PR 13: D2 before/after against fa3a3c0, D4 sizes, and the pixel check (docs/plans/m6-pr13-envelope-overlays.md).
+# Candidate 444497e (python/ and tests/ as gated). WT = the worktree; P = WT/.cache/pr13 (gitignored, not committed).
+# Scripts in P: make_inputs.py, side.py + run.sh (one D2 side), compare.py, remeasure.py (D4), pixels.py, loadcheck.sh.
+# The planning probe's scratchpad (session d8c112ed: S/index.html, S/svg/, S/png/, S/sizes.json) and PR 8b's batches
+# (session 3ffe2739's scratchpad) did not survive the 2026-10-04 restart (boot 15:51). The probe gallery is not
+# redrawn; the inputs below are regenerated in the worktree, and this log's D4 re-measurement replaces the probe's.
+
+## Inputs, made once with the candidate's astra (montecarlo, scenario and the run path equal fa3a3c0's)
+== load check: before inputs
+2026-10-04T16:07:53-07:00
+loadavg: 0.69 1.43 0.72 2/1622 13973  nproc 32
+build/test hits from other checkouts: 0
+clangd:
+  (none)
+astra: WT/python/astra/__init__.py | _core: WT/.venv/lib/python3.12/site-packages/astra/_core.cpython-312-x86_64-linux-gnu.so | plugins: WT/build/python/plugins
+elevator_step failures: 0
+astra run cruise_60s exit 0
+astra.montecarlo: descent_batch: 24 runs on 4 workers in 0.51 s wall, 10.4 s simulated, real-time factor 20.4
+descent_batch: 24 rows, status {'ok': 14, 'halt': 8, 'error': 2}
+astra.montecarlo: planted: 130 runs on 4 workers in 1.26 s wall, 1300.0 s simulated, real-time factor 1030.6
+planted: 130 rows, status {'ok': 130}
+astra.montecarlo: 16x60: 16 runs on 4 workers in 0.92 s wall, 960.0 s simulated, real-time factor 1043.9
+16x60: 16 rows, status {'ok': 16}
+astra.montecarlo: 16x300: 16 runs on 4 workers in 2.94 s wall, 4800.0 s simulated, real-time factor 1633.7
+16x300: 16 rows, status {'ok': 16}
+== digests (sha256)
+51f22a709827e8e0c745ab5da981ba8c8827a59e96a41038ad4ee5d428a1fd08 inputs/16x300/summary.parquet
+a6aa302f309aa39f8cfd5e1f60e158f04dda09dd3923f358bc0c47086de3b0ce inputs/16x60/summary.parquet
+02332ad430fc7f6d5606a607560fd8de1bd2717669db20517d23e148e618711e inputs/cruise_60s.h5
+9d8d782603c846605a1ae6122b0d610a98ed63c48ecf37c64400979c3361850d inputs/descent_batch/summary.parquet
+4be544ab9e3d9216564662410c03d7e075c8d00f9f38478fc22f1d60ceb78c8c inputs/elevator_step.h5
+0da9a664b6d02889df2d00c346ab32d43579337c02749e29f3aff908da245932 inputs/planted/summary.parquet
+35d56bfb51e6790a37c7781923c47f66438096044a286772c57dbb682e849f2f specs/16x300.yaml
+beee3789fd5d1eb51b777ad40406659feb0bb0dfbdea4583f1ab5b434dd7aeaf specs/16x60.yaml
+7cdf9c7a1ebca92db661c59d6f7246dc300dbf8d808c73431a8e91960a9285c6 specs/cruise_60s.yaml
+batch digest descent_batch (23 files): ec6d0577de375b4a83543bdce8d32ac6a28a0f791ad28c3c83b4cd912ffe065f
+batch digest planted (131 files): 5cb414710dfe4fd26ff48ae5df27e440ca2493b4f8751b75a0149618e45e4c73
+batch digest 16x60 (17 files): 86d29d17ce6738305496cca46d19c042d908e0856f8eeb2bc09eebe47289c014
+batch digest 16x300 (17 files): 71896bf98f161e151e2811e0750235366c23b2ba5fa798932ecb865a9a847f41
+
+real	0m8.386s
+user	0m45.047s
+sys	0m3.177s
+make_inputs exit 0
+== load check: after inputs
+2026-10-04T16:08:02-07:00
+loadavg: 0.98 1.46 0.74 2/1614 15260  nproc 32
+build/test hits from other checkouts: 0
+clangd:
+  (none)
+Against the plan's recorded digests (made before the restart from PR 8b's batches): the three batch summaries
+match, 130x10 0da9a664...5932, 16x60 a6aa302f...b0ce, 16x300 51f22a70...1fd08, so these are the batches the probe
+measured. The plan's per-batch "batch digest" used a formula recorded only in the lost S/sizes.json; the digests
+above are this log's own (each file's relative path and sha256, one line each, in sorted order). specs/cruise_60s.yaml
+equals PR 12's probe config (7cdf9c7a...85c6).
+
+## D2 sides: base twice (the control), then the candidate; the same inputs, cwd P/run and output path P/run/out
+## (renamed to P/sides/<side>), one build (WT/build/python/plugins). The base side imports P/base (git archive
+## fa3a3c0 python/astra aircraft, plus the build's _core) through PYTHONPATH=P/shim:P/base/python, where
+## P/shim/_editable_skbc_astra.py is empty, so the editable finder is not installed.
+== load check: before base1
+2026-10-04T16:08:39-07:00
+loadavg: 0.69 1.33 0.72 1/1620 15588  nproc 32
+build/test hits from other checkouts: 0
+clangd:
+  (none)
+== base1 (2026-10-04T16:08:39-07:00, load 0.69 1.33 0.72)
+worktree HEAD 444497efc51f8963622f1a8836ee0c8e6df593a8, status: 0 changed paths
+tree: P/base
+astra: P/base/python/astra/__init__.py
+astra.mc_analysis: P/base/python/astra/mc_analysis.py
+astra.plot: P/base/python/astra/plot.py
+astra._core: P/base/python/astra/_core.cpython-312-x86_64-linux-gnu.so
+plugin dir: WT/build/python/plugins
+spawned worker astra: P/base/python/astra/__init__.py
+package flight: P/base/python/astra/plots/flight.yaml
+package attitude: P/base/python/astra/plots/attitude.yaml
+package health: P/base/python/astra/plots/health.yaml
+package controls: P/base/aircraft/_template/plots/controls.yaml
+package wrench: P/base/aircraft/_template/plots/wrench.yaml
+package ground_track: P/base/aircraft/_template/plots/ground_track.yaml
+package cruise: P/base/aircraft/notional_transport/plots/cruise.yaml
+package ground_track function file: P/base/aircraft/_template/plots/ground_track.py
+plot-elevator_step-flight: exit 0
+plot-elevator_step-attitude: exit 0
+plot-elevator_step-health: exit 0
+plot-elevator_step-controls: exit 0
+plot-elevator_step-wrench: exit 0
+plot-elevator_step-ground_track: exit 0
+plot-elevator_step-cruise: exit 0
+report-elevator_step: exit 0
+plot-cruise_60s-flight: exit 0
+plot-cruise_60s-attitude: exit 0
+plot-cruise_60s-health: exit 0
+plot-cruise_60s-controls: exit 0
+plot-cruise_60s-wrench: exit 0
+plot-cruise_60s-ground_track: exit 0
+plot-cruise_60s-cruise: exit 0
+report-cruise_60s: exit 0
+analyze-descent: exit 0
+analyze-r9: exit 0
+report-descent: exit 0
+report-r9: exit 0
+rerun-descent-0: exit 0
+done: 71 files
+== base1 end (2026-10-04T16:08:58-07:00, load 0.78 1.31 0.73)
+
+real	0m19.488s
+user	1m28.503s
+sys	0m1.602s
+== load check: before base2
+2026-10-04T16:09:04-07:00
+loadavg: 0.66 1.27 0.72 1/1612 17344  nproc 32
+build/test hits from other checkouts: 0
+clangd:
+  (none)
+== base2 (2026-10-04T16:09:04-07:00, load 0.66 1.27 0.72)
+worktree HEAD 444497efc51f8963622f1a8836ee0c8e6df593a8, status: 0 changed paths
+tree: P/base
+astra: P/base/python/astra/__init__.py
+astra.mc_analysis: P/base/python/astra/mc_analysis.py
+astra.plot: P/base/python/astra/plot.py
+astra._core: P/base/python/astra/_core.cpython-312-x86_64-linux-gnu.so
+plugin dir: WT/build/python/plugins
+spawned worker astra: P/base/python/astra/__init__.py
+package flight: P/base/python/astra/plots/flight.yaml
+package attitude: P/base/python/astra/plots/attitude.yaml
+package health: P/base/python/astra/plots/health.yaml
+package controls: P/base/aircraft/_template/plots/controls.yaml
+package wrench: P/base/aircraft/_template/plots/wrench.yaml
+package ground_track: P/base/aircraft/_template/plots/ground_track.yaml
+package cruise: P/base/aircraft/notional_transport/plots/cruise.yaml
+package ground_track function file: P/base/aircraft/_template/plots/ground_track.py
+plot-elevator_step-flight: exit 0
+plot-elevator_step-attitude: exit 0
+plot-elevator_step-health: exit 0
+plot-elevator_step-controls: exit 0
+plot-elevator_step-wrench: exit 0
+plot-elevator_step-ground_track: exit 0
+plot-elevator_step-cruise: exit 0
+report-elevator_step: exit 0
+plot-cruise_60s-flight: exit 0
+plot-cruise_60s-attitude: exit 0
+plot-cruise_60s-health: exit 0
+plot-cruise_60s-controls: exit 0
+plot-cruise_60s-wrench: exit 0
+plot-cruise_60s-ground_track: exit 0
+plot-cruise_60s-cruise: exit 0
+report-cruise_60s: exit 0
+analyze-descent: exit 0
+analyze-r9: exit 0
+report-descent: exit 0
+report-r9: exit 0
+rerun-descent-0: exit 0
+done: 71 files
+== base2 end (2026-10-04T16:09:23-07:00, load 0.74 1.25 0.73)
+
+real	0m19.371s
+user	1m28.039s
+sys	0m1.681s
+== load check: before cand
+2026-10-04T16:10:15-07:00
+loadavg: 0.40 1.07 0.70 1/1625 19441  nproc 32
+build/test hits from other checkouts: 0
+clangd:
+  (none)
+== cand (2026-10-04T16:10:15-07:00, load 0.40 1.07 0.70)
+worktree HEAD 444497efc51f8963622f1a8836ee0c8e6df593a8, status: 0 changed paths
+tree: WT
+astra: WT/python/astra/__init__.py
+astra.mc_analysis: WT/python/astra/mc_analysis.py
+astra.plot: WT/python/astra/plot.py
+astra._core: WT/.venv/lib/python3.12/site-packages/astra/_core.cpython-312-x86_64-linux-gnu.so
+plugin dir: WT/build/python/plugins
+spawned worker astra: WT/python/astra/__init__.py
+package flight: WT/python/astra/plots/flight.yaml
+package attitude: WT/python/astra/plots/attitude.yaml
+package health: WT/python/astra/plots/health.yaml
+package controls: WT/aircraft/_template/plots/controls.yaml
+package wrench: WT/aircraft/_template/plots/wrench.yaml
+package ground_track: WT/aircraft/_template/plots/ground_track.yaml
+package cruise: WT/aircraft/notional_transport/plots/cruise.yaml
+package ground_track function file: WT/aircraft/_template/plots/ground_track.py
+plot-elevator_step-flight: exit 0
+plot-elevator_step-attitude: exit 0
+plot-elevator_step-health: exit 0
+plot-elevator_step-controls: exit 0
+plot-elevator_step-wrench: exit 0
+plot-elevator_step-ground_track: exit 0
+plot-elevator_step-cruise: exit 0
+report-elevator_step: exit 0
+plot-cruise_60s-flight: exit 0
+plot-cruise_60s-attitude: exit 0
+plot-cruise_60s-health: exit 0
+plot-cruise_60s-controls: exit 0
+plot-cruise_60s-wrench: exit 0
+plot-cruise_60s-ground_track: exit 0
+plot-cruise_60s-cruise: exit 0
+report-cruise_60s: exit 0
+analyze-descent: exit 0
+analyze-r9: exit 0
+report-descent: exit 0
+report-r9: exit 0
+rerun-descent-0: exit 0
+done: 71 files
+== cand end (2026-10-04T16:10:34-07:00, load 0.73 1.10 0.71)
+
+real	0m19.650s
+user	1m27.842s
+sys	0m1.493s
+
+## D2 comparison (compare.py; expected differences stated in the plan before the run)
+base1: 71 files, manifest sha256 b81a309cede9e5aa78bb4eae14b14a84141ee4b8c21304cda68f2fe486c90b55
+base2: 71 files, manifest sha256 b81a309cede9e5aa78bb4eae14b14a84141ee4b8c21304cda68f2fe486c90b55
+cand: 71 files, manifest sha256 98c4034508a405cb83c8519d95453917c09341dc6bc6ad31d76a3fb2282acfef
+control: base1 == base2
+base vs cand: 68 identical, 3 differing
+  differs: analyze-r9/mc-envelope-v0.derived.alpha.svg (expected)
+  differs: analyze-r9/mc-envelope-v0.derived.altitude.svg (expected)
+  differs: report/planted.html (expected)
+R9 failing runs (max.v0.derived.alpha > 0.23): 58
+  analyze-r9/mc-envelope-v0.derived.alpha.svg: total 7,509,957 -> 3,290,932; 58 overlay groups; outside them identical: True
+    plan rule, each group no larger: PASS
+    finding, overlay groups in total: bytes 6,713,599 -> 2,494,574 (no larger: True); drawn vertices 273,276 -> 101,321 (no larger: True); most drawn vertices in one group 1,813 (T6 bound 2,701: within True)
+  analyze-r9/mc-envelope-v0.derived.altitude.svg: total 302,980 -> 302,938; 58 overlay groups; outside them identical: True
+    plan rule, each group no larger: FAIL: 25 of 58 larger, by 1 to 47 bytes (164 in total); 22 at equal drawn vertex count, 3 with [1, 2] more drawn vertices
+      group 0: 1160 -> 1164 bytes, 41 -> 41 drawn vertices
+      group 2: 1165 -> 1167 bytes, 41 -> 41 drawn vertices
+      group 6: 1142 -> 1143 bytes, 40 -> 40 drawn vertices
+      group 7: 1160 -> 1175 bytes, 41 -> 42 drawn vertices
+      group 8: 1165 -> 1212 bytes, 41 -> 43 drawn vertices
+      group 18: 1137 -> 1139 bytes, 40 -> 40 drawn vertices
+      group 24: 1139 -> 1140 bytes, 40 -> 40 drawn vertices
+      group 27: 1140 -> 1143 bytes, 40 -> 40 drawn vertices
+      group 28: 1089 -> 1093 bytes, 38 -> 38 drawn vertices
+      group 29: 1186 -> 1189 bytes, 42 -> 42 drawn vertices
+      group 30: 1166 -> 1168 bytes, 41 -> 41 drawn vertices
+      group 32: 1142 -> 1143 bytes, 40 -> 40 drawn vertices
+      group 33: 1162 -> 1163 bytes, 41 -> 41 drawn vertices
+      group 34: 1086 -> 1096 bytes, 38 -> 38 drawn vertices
+      group 37: 1141 -> 1147 bytes, 40 -> 40 drawn vertices
+      group 40: 1181 -> 1183 bytes, 42 -> 42 drawn vertices
+      group 42: 1159 -> 1161 bytes, 41 -> 41 drawn vertices
+      group 43: 1140 -> 1143 bytes, 40 -> 40 drawn vertices
+      group 44: 1158 -> 1168 bytes, 41 -> 41 drawn vertices
+      group 46: 1115 -> 1120 bytes, 39 -> 39 drawn vertices
+      group 48: 1110 -> 1112 bytes, 39 -> 39 drawn vertices
+      group 49: 1136 -> 1142 bytes, 40 -> 40 drawn vertices
+      group 51: 1139 -> 1168 bytes, 40 -> 41 drawn vertices
+      group 54: 1136 -> 1137 bytes, 40 -> 40 drawn vertices
+      group 57: 1142 -> 1144 bytes, 40 -> 40 drawn vertices
+    finding, overlay groups in total: bytes 66,431 -> 66,389 (no larger: True); drawn vertices 2,334 -> 2,333 (no larger: True); most drawn vertices in one group 43 (T6 bound 2,701: within True)
+  report/planted.html: total 8,175,876 -> 3,956,809; 116 overlay groups; outside them identical: True
+    plan rule, each group no larger: FAIL: 25 of 116 larger, by 1 to 47 bytes (164 in total); 22 at equal drawn vertex count, 3 with [1, 2] more drawn vertices
+      group 58: 1170 -> 1174 bytes, 41 -> 41 drawn vertices
+      group 60: 1175 -> 1177 bytes, 41 -> 41 drawn vertices
+      group 64: 1152 -> 1153 bytes, 40 -> 40 drawn vertices
+      group 65: 1170 -> 1185 bytes, 41 -> 42 drawn vertices
+      group 66: 1175 -> 1222 bytes, 41 -> 43 drawn vertices
+      group 76: 1147 -> 1149 bytes, 40 -> 40 drawn vertices
+      group 82: 1149 -> 1150 bytes, 40 -> 40 drawn vertices
+      group 85: 1150 -> 1153 bytes, 40 -> 40 drawn vertices
+      group 86: 1099 -> 1103 bytes, 38 -> 38 drawn vertices
+      group 87: 1196 -> 1199 bytes, 42 -> 42 drawn vertices
+      group 88: 1176 -> 1178 bytes, 41 -> 41 drawn vertices
+      group 90: 1152 -> 1153 bytes, 40 -> 40 drawn vertices
+      group 91: 1172 -> 1173 bytes, 41 -> 41 drawn vertices
+      group 92: 1096 -> 1106 bytes, 38 -> 38 drawn vertices
+      group 95: 1151 -> 1157 bytes, 40 -> 40 drawn vertices
+      group 98: 1191 -> 1193 bytes, 42 -> 42 drawn vertices
+      group 100: 1169 -> 1171 bytes, 41 -> 41 drawn vertices
+      group 101: 1150 -> 1153 bytes, 40 -> 40 drawn vertices
+      group 102: 1168 -> 1178 bytes, 41 -> 41 drawn vertices
+      group 104: 1125 -> 1130 bytes, 39 -> 39 drawn vertices
+      group 106: 1120 -> 1122 bytes, 39 -> 39 drawn vertices
+      group 107: 1146 -> 1152 bytes, 40 -> 40 drawn vertices
+      group 109: 1149 -> 1178 bytes, 40 -> 41 drawn vertices
+      group 112: 1146 -> 1147 bytes, 40 -> 40 drawn vertices
+      group 115: 1152 -> 1154 bytes, 40 -> 40 drawn vertices
+    finding, overlay groups in total: bytes 6,781,190 -> 2,562,123 (no larger: True); drawn vertices 275,610 -> 103,654 (no larger: True); most drawn vertices in one group 1,813 (T6 bound 2,701: within True)
+    figures 4 vs 4; non-figure bytes identical: True
+plan rule 'each candidate group no larger than its base group': FAIL (accepted by Joe, 2026-10-04: matplotlib's simplifier sits between a line's data and its bytes)
+D2, every other rule and the per-file finding: PASS
+
+The plan's rule "each candidate group is no larger than its base group" FAILED on R9's altitude envelope (the SVG, and
+the same figure in the batch report): 25 of 58 groups are larger, by 1 to 47 bytes (164 in total); 22 of them at an
+equal drawn vertex count (coordinate digit length), 3 with 1 or 2 more drawn vertices. Cause: matplotlib's path
+simplifier sits between a line's data and its bytes. It already draws each smooth 10,000-point altitude overlay as
+about 40 vertices, at base and after, and the reduction only moves where those vertices fall, so fewer data points
+do not give fewer drawn vertices or bytes per line. Joe (2026-10-04) accepted it as a recorded failure with no code
+change; the plan is not edited. The per-file finding in its place (above): the overlay groups' total bytes and drawn
+vertex count are no larger in all three files, and every byte outside them is identical.
+T6's bound on the altitude overlays: at most 43 drawn vertices in one group (above), and at most 905 data points in
+one overlay (D4's "most points", below), each within 3 x 900 + 1 = 2,701.
+
+## D4 sizes (remeasure.py, the row rules of PR 8b's D4; criterion max.v0.derived.alpha > 0.23; before = fa3a3c0
+## through the same PYTHONPATH as D2's base side, after = the candidate)
+== load check: before D4
+loadavg: 0.39 0.95 0.68 2/1630 21781  nproc 32
+build/test hits from other checkouts: 0
+== D4 base
+astra: P/base/python/astra/__init__.py
+exit 0
+== D4 cand
+astra: WT/python/astra/__init__.py
+exit 0
+== load check: after D4
+loadavg: 0.73 0.97 0.70 1/1625 23216  nproc 32
+build/test hits from other checkouts: 0
+planted v0.derived.alpha  (10000 frames, 58 failing)
+    total           7,509,957 ->    3,290,932
+    polygons          185,634 ->      185,634
+    overlays        6,716,272 ->    2,497,247
+    rest              608,051 ->      608,051
+    most points        10,000 ->        2,134
+planted v0.derived.altitude  (10000 frames, 58 failing)
+    total             302,980 ->      302,938
+    polygons          185,857 ->      185,857
+    overlays           75,318 ->       75,276
+    rest               41,805 ->       41,805
+    most points        10,000 ->          905
+planted report alpha                        7,870,274 ->    3,651,249
+planted report alpha+altitude               8,175,876 ->    3,956,809
+16x60 v0.derived.alpha  (60000 frames, 12 failing)
+    total           2,769,857 ->    1,303,774
+    polygons          185,682 ->      185,682
+    overlays        1,898,886 ->      432,803
+    rest              685,289 ->      685,289
+    most points        60,000 ->        2,450
+16x60 v0.derived.altitude  (60000 frames, 12 failing)
+    total             275,663 ->      275,438
+    polygons          185,854 ->      185,854
+    overlays           38,622 ->       38,397
+    rest               51,187 ->       51,187
+    most points        60,000 ->          905
+16x60 report alpha                          3,042,885 ->    1,576,802
+16x60 report alpha+altitude                 3,320,895 ->    1,854,587
+16x300 v0.derived.alpha  (300000 frames, 12 failing)
+    total           4,218,635 ->    1,844,394
+    polygons          185,609 ->      185,609
+    overlays        2,894,241 ->      520,000
+    rest            1,138,785 ->    1,138,785
+    most points       300,000 ->        2,589
+16x300 v0.derived.altitude  (300000 frames, 12 failing)
+    total             317,480 ->      316,894
+    polygons          185,928 ->      185,928
+    overlays           66,309 ->       65,723
+    rest               65,243 ->       65,243
+    most points       300,000 ->          923
+16x300 report alpha                         4,491,687 ->    2,117,446
+16x300 report alpha+altitude                4,811,569 ->    2,436,742
+The after column equals every cell the planning probe's "column" row has (total and overlays for R9 alpha and
+altitude, 16x60 alpha and 16x300 alpha and altitude; the most points in one overlay), and 16x60 altitude's overlays
+equal PR 8b's per-column 38,397. The before column's figure rows equal PR 8b's evidence (2579fd7). The before report
+sizes are 255 to 258 bytes above PR 8b's: fa3a3c0's reports, whose figure bytes are those same figures (not
+investigated further; base and after here are both fa3a3c0's report code).
+
+## Pixels (pixels.py: PNG at the pinned 100 dpi, as `mc analyze --format png` writes it; base vs candidate)
+planted v0.derived.alpha: 900x640 = 576,000 pixels; differing 43,135 (7.49 %); differing by more than a quarter of full scale (max channel |diff| > 0.25): 1,736
+16x300 v0.derived.alpha: 900x640 = 576,000 pixels; differing 46,702 (8.11 %); differing by more than a quarter of full scale (max channel |diff| > 0.25): 2,496
+planted v0.derived.altitude: 900x640 = 576,000 pixels; differing 19,676 (3.42 %); differing by more than a quarter of full scale (max channel |diff| > 0.25): 0
+16x300 v0.derived.altitude: 900x640 = 576,000 pixels; differing 13,886 (2.41 %); differing by more than a quarter of full scale (max channel |diff| > 0.25): 0
+Each row equals the planning probe's (plan D1, the PNG table): 7.49 % / 1,736; 8.11 % / 2,496; 3.42 % / 0; 2.41 % / 0.

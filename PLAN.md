@@ -312,6 +312,18 @@ takes them as a prefix.
     batch figure and plotly page is byte-identical to `6458e04`
     ([before/after](docs/reviews/evidence/800149c-before-after.log)). `-k panel_scale`. Plan:
     [plan](docs/plans/m6-pr12-plots-fixes.md). Packet: in the PR body.
+  - PR 13 (#101): the batch envelope's failing-run overlays, closing that open item. Over more than 901 frames,
+    `mc_analysis.draw_envelope` draws each failing run's line through a reduction on the band's own 900 columns,
+    clipped to the run: each finite stretch inside a column keeps its first, minimum, maximum and last frame,
+    plus the run's first and last frames and the first NaN after each stretch, all of them the run's own
+    samples. Neighboring columns share their boundary frame, so a trace with no NaN keeps at most 2,701 points
+    (`3 × 900 + 1`, not the item's 3,600). Every failing run is still overlaid under its index, so R5 stands; PR
+    6's overlay check becomes "the line equals the column reduction of the log column". Alpha's envelope goes
+    from 7.51 to 3.29 MB on R9 (58 failing runs of 10 s), 2.77 to 1.30 MB at 16 runs of 60 s and 4.22 to 1.84
+    MB at 16 runs of 300 s; altitude's is almost unchanged. Everything else is byte-identical to `fa3a3c0`, and
+    the envelopes differ only inside the overlay groups
+    ([before/after and sizes](docs/reviews/evidence/444497e-before-after.log)). `-k envelope_overlay`. Plan:
+    [plan](docs/plans/m6-pr13-envelope-overlays.md). Packet: in the PR body.
   - Workflow (#83): plan-mode drafts land in the session's `docs/plans/` (`plansDirectory`), with the rule for
     renaming, committing or deleting them in `docs/agents/claude-code.md` and `/wrap`; 27 never-committed plans
     recovered from `~/.claude/plans`. Plan: [plan](docs/plans/claude-plans-directory.md). Packet: in the PR body.
@@ -480,16 +492,6 @@ takes them as a prefix.
       for the plotly page. The SVG is not affected: matplotlib simplifies each line before writing it, so the
       default log report (flight, attitude, health) is 1.32 MB at 60 s and 1.59 MB at 300 s of the notional
       cruise (M6 PR 8's plan, Size; Joe's D1a: no decimation). Not started.
-- [ ] (M6) A batch envelope's failing-run overlays cost what each line does on screen, times the failing runs
-      (origin: M6 PR 8b's plan, D3; Joe 2026-10-03: left as PR 6's contract has them, an item in M6). After PR 8b's
-      band reduction they are most of a rough signal's envelope: alpha's overlays are 6.7 MB of R9's 7.5 MB
-      envelope (58 failing runs of 10 s), 1.9 MB at 16 runs of 60 s and 2.9 MB at 16 runs of 300 s (12 failing);
-      altitude's are 38 to 75 KB. Options measured on those batches
-      ([sizes](docs/reviews/evidence/2579fd7-before-after.log)): a per-column first/min/max/last reduction over
-      the same 900 columns bounds each overlay at 3,600 points whatever the duration or the signal (2.5 MB, 0.43 MB
-      and 0.52 MB for alpha), but changes PR 6's overlay check (the line's data becomes the column reduction of
-      the log column); capping at 10 runs changes R5 and bounds only the count; a 1 px simplify threshold is not
-      bounded and is hard to scope to the overlays alone. Not started.
 - [ ] (unscheduled) An equal-aspect panel keeps `draw_matplotlib`'s canvas, 8 × 3.2 in for one panel, so a
       north-going ground track gets only about 2.2 in of height and the panel's width is mostly empty east limits
       (origin: M6 PR 12's plan, D2b; Joe 2026-10-04: deferred). A taller canvas for an equal panel would change
