@@ -1,8 +1,8 @@
 # M7 plan critique: one fresh read-only Codex critique of the M7 spec and plan
 
-Status: **critique done**, verdict rework, all 11 findings accepted and folded into the spec. Joe
-decided Q25 on 2026-10-04: one fresh read-only verification pass after his eight amendments are folded
-in; its record is below. This file started as the session's
+Status: **critique and verification pass done**. Both verdicts were rework, and all 19 findings (C-01
+to C-11, N-01 to N-08) are accepted and folded into the spec. Joe decided Q25 on 2026-10-04: one
+verification pass after his eight amendments, recorded below. This file started as the session's
 plan-mode draft and was moved into the worktree (`docs/agents/claude-code.md`). The M7 spec and plan,
 [m7-f16-nesc-oracle.md](m7-f16-nesc-oracle.md), is the record of every question, requirement and PR; this
 file records only the critique.
@@ -104,6 +104,39 @@ Joe decided the spec's Q1 to Q26 on 2026-10-04 and gave eight amendments:
 - 6: the propulsion's frame-start state in Q5's self-check;
 - 7: Q13's two implementations and one trim result;
 - 8: case 12 under the envelope monitors.
-Once they are folded in, one fresh read-only Codex task (same companion route and flags as above) checks
-C-01 to C-11's resolutions and the amendments, and reports any new finding. The result is recorded here.
-Pending.
+Once they were folded in, one fresh read-only Codex task (same companion route and flags as above)
+checked C-01 to C-11's resolutions and the amendments.
+
+**The run.**
+- Companion 1.0.6, Codex CLI 0.160.0, `task --fresh --effort high`, read-only, the companion's default
+  model.
+- Job `task-muussfet-1xnlr9`, thread `01a10a7e-71ff-7c40-a6e6-70aca3dad1aa`, 8 min 19 s.
+- `8fd7f32..d436581` against base `9c534c5`. Exit 0, a final message, verdict **rework**.
+- The worktree stayed clean and unedited while the pass read it.
+
+**Status of the earlier findings and the amendments.**
+- C-01, C-02, C-05 to C-08, C-10 and C-11 were resolved.
+- C-03, C-04 and C-09 were partially resolved; N-03, N-01 and N-06 close them.
+- Amendments 1, 2 and 5 to 7 were implemented.
+- Amendments 3, 4 and 8 were partially implemented; N-04, N-02 and N-07 close them.
+
+**Verification.** Claude Code re-read every cited line. These were confirmed:
+- `_runkit.py:232`, which rejects any of six residuals above 1e-6;
+- `test_cruise_phugoid.py:197` and `autopilot_design.py:122`, both reaching trim through `linearize`;
+- `trim.py:104` and `_core.cpp:179`, the 13-element state against the full combined-state length;
+- `nesc_cases_test.cpp`, which has no warn-counter assertion.
+
+| # | Sev. | New finding | Verdict | Where it is resolved |
+|---|---|---|---|---|
+| N-01 | high | The contract and R11 used customary-unit law inputs, contradicting Q26's SI law | accepted | Contract (the law runs in SI), R11 |
+| N-02 | high | Q27's formula is a straight line in the initial plane, not the declared rhumb line (0.242 m at 20 s, 2.184 m at 60 s) | accepted | Q27 (Joe's amendments: the initial-plane line named, the rhumb line reported, the step error d(20 s) − 609.6 m), R11 fixtures |
+| N-03 | high | `_runkit.apply_trim` keeps the six-residual 1e-6 rejection | accepted | The trim contract, PR 5 |
+| N-04 | medium | `test_cruise_phugoid` and `autopilot_design.build_plants` missing from PR 5's callers | accepted | Q6's list, PR 5's selector |
+| N-05 | high | A model-owned engine state has no trim definition; trim builds 13 elements | accepted | Q7, R4, the new conditional PR 5b |
+| N-06 | medium | Q13 kept the exclusions C-09 removed from R13 | accepted | Q13 |
+| N-07 | medium | Case 12's exemption let unrelated envelope warnings pass | accepted | Q16, R18 |
+| N-08 | low | The C-01 summary contradicted amendment 2's ordering | accepted | The C-01 row |
+
+None rejected. Joe decided Q27 at the same time, with two amendments: the course named as the initial-plane
+line, with the rhumb line a reported variant; and the inputs stated (`lat` and `lon`, with h0 fixed). He
+also had PR 5's selector reach every caller. Both are folded in with these findings.

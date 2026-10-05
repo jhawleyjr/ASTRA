@@ -1,11 +1,11 @@
 # M7 F-16 and the NESC oracle: spec, plan and PR decomposition
 
-Status: **draft; Joe decided Q1 to Q26 on 2026-10-04** (recorded under "Joe's decisions"), with eight
-amendments folded in and one new question (Q27, 13.4's lateral-deviation logic) pending. A Codex
-verification pass (Q25) runs on this revision. The spec and plan are **not yet approved**, and nothing is
-implemented.
-- One fresh Codex plan critique (verdict rework, 11 findings) is folded in: all 11 are accepted, and C-04's
-  unit question becomes Q26. See "Plan critique" below, and [the critique record](m7-plan-critique.md).
+Status: **draft; Joe decided Q1 to Q27 on 2026-10-04** (recorded under "Joe's decisions"), with his
+amendments folded in. The spec and plan as a whole are **not yet approved**, and nothing is implemented.
+- The Codex plan critique (verdict rework, C-01 to C-11) is folded in: all 11 are accepted, and C-04's unit
+  question became Q26.
+- The Q25 verification pass (verdict rework, N-01 to N-08) is folded in too: all 8 accepted.
+- See "Plan critique" below, and [the critique record](m7-plan-critique.md).
 Owner: Joe
 Risk: 3 overall: `aircraft/**/physical`, `aircraft/**/hardware`, goldens and tolerances, ADR-0013's
 oracle, `core/` interfaces (rotation consistency, envelope monitors), and the transport seam. This planning
@@ -300,7 +300,8 @@ the residual; it never returns a state silently out of tolerance.
 
 Every consumer moves with the solver (critique C-03):
 - `_runkit.trim_fragment` writes the solved heading, attitude, rate and the solved controls' own names.
-- `astra trim` applies Q7's residual policy, not one bound on all six.
+- `astra trim` and `_runkit.apply_trim` (`_runkit.py:232`, the scenario and Monte Carlo path) apply Q7's
+  residual policy, not one 1e-6 bound on all six residuals (verification N-03).
 - `astra trim`'s default altitude comes from the Earth model's representation.
 - `astra.scenario`, `astra.linearize`, `astra.lockstep` and `astra.montecarlo` take the new result.
 A round trip proves it: a config rebuilt from what each tool emits reproduces the solved state, controls,
@@ -314,9 +315,13 @@ altitude and residuals.
   `ATMOSPHERE_INVALID`, `WIND_INVALID`), or whose Mach is not above zero, is refused: the peer returns
   non-finite commands, so the exchange halts `kTransport`, naming the field (architecture §15). It never
   computes from a placeholder zero.
-- It converts every input it reads from ICD v1's SI into the units the law's gains and limits are
-  written in, by Q26's choice (critique C-04). Tables 8 and 10 mix degrees, feet, KEAS, rad/s and
-  normalized pilot controls.
+- It runs in SI end to end (Q26, decided; verification N-01). Its inputs are ICD v1's SI fields and the
+  EAS above. Its gains and limits are the DML's values, each converted once into SI where it is declared.
+  Its outputs are radians and a 0..1 throttle. The only boundary steps are three: the aileron's sign
+  (Table 9's +LWD to ICD v1's right wing down), the PLA scale (percent of the DML's 0 to 100 to throttle 0
+  to 1), and the normalized pilot controls (Tables 8 and 10), which the law keeps as dimensionless.
+  Customary units (degrees, feet, KEAS) appear only in the independent DML reference that R11's and Q26's
+  tests compare against (critique C-04).
 - Trim's elevator and throttle become `trimmedPilotControl_long` and `trimmedPilotControl_throttle`
   through the inverse of the law's own limit-and-scale block (Vol II Figure 9; the DML is normative).
   The proof: the disengaged law (SAS and autopilot off) reproduces the trimmed physical controls (R23).
@@ -383,21 +388,21 @@ A test runs its commands on a throwaway copy.
 | R1 | F-16 mass properties | Unit test: the mass plugin's SI values equal Table 7 (and P1's inertia file, if it differs, reported) through exact conversions (Vol II Table 73's foot and slug constants); Izx's sign is pinned under the product-of-inertia convention |
 | R2 | Aero model equals its source | The compiled plugin, driven through `wrench_b`, reproduces the DML's `checkData` within the tolerance the DML states, or P3 if there is none (Q14). The `checkData` extraction shares no code path with the table emitter (lesson 2026-09-25). Points beyond every table's breakpoints follow that table's DAVE-ML extrapolation semantics. Driven through the write seam in ICD convention, a positive aileron gives a positive (right-wing-down) rolling moment, and positive elevator and rudder give the moments ADR-0001's signs require (critique C-05) |
 | R3 | Propulsion equals its source | As R2. Throttle 0..1 maps to PLA 0..100 % in one place, pinned by a test at 0, 0.5 (MIL) and 1 (MAX). Engine states, if any, follow ADR-0021 |
-| R4 | Trim | In PR 5, for synthetic and notional-transport conditions spanning latitude and heading (case 15's 89.95° N included), three checks: the three solved residuals, recomputed through `Simulation.derivative`, are at most 1e-6; the lateral residuals match Q7's closed-form kinematic and gravity derivation on a test wrench source with no rate dependence; and ω_b at the solution equals an independent n-frame-rate computation (Q6). For each F-16 case's initial condition, the solved residuals are at most 1e-6, and the lateral residuals equal that case's full expected residual. That residual comes from the DML, independently of ASTRA's plugin, and is brought to Joe in PR 9 (11, 12), PR 11a (13.x) and PR 11b (15, 16). Each consumer's before-and-after values are measured in PR 5 (Q6's blast radius). An arbitrary heading, flat Earth (the template copy) and names from `Simulation.input_names` are each seen to work. The round trip holds: each consumer's emitted config (`astra trim`, `_runkit` for scenarios and Monte Carlo, `astra.linearize`, `astra.lockstep`) rebuilds the solved state, controls, altitude and residuals (critique C-03). `astra trim` on a fresh template copy no longer exits 65 for its Earth model |
+| R4 | Trim | In PR 5, for synthetic and notional-transport conditions spanning latitude and heading (case 15's 89.95° N included), three checks: the three solved residuals, recomputed through `Simulation.derivative`, are at most 1e-6; the lateral residuals match Q7's closed-form kinematic and gravity derivation on a test wrench source with no rate dependence; and ω_b at the solution equals an independent n-frame-rate computation (Q6). For each F-16 case's initial condition, the solved residuals are at most 1e-6, and the lateral residuals equal that case's full expected residual. That residual comes from the DML, independently of ASTRA's plugin, and is brought to Joe in PR 9 (11, 12), PR 11a (13.x) and PR 11b (15, 16). Each consumer's before-and-after values are measured in PR 5 (Q6's blast radius). If PR 6a finds that a model owns continuous state (the engine's power lag), trim builds the full combined-state buffer, solves those states for equilibrium as the DML defines it, checks their derivatives against the same threshold, and carries them through every consumer's config round trip (PR 5b; verification N-05). An arbitrary heading, flat Earth (the template copy) and names from `Simulation.input_names` are each seen to work. The round trip holds: each consumer's emitted config (`astra trim`, `_runkit` for scenarios and Monte Carlo, `astra.linearize`, `astra.lockstep`) rebuilds the solved state, controls, altitude and residuals (critique C-03). `astra trim` on a fresh template copy no longer exits 65 for its Earth model |
 | R5 | Cases 11, 12 open loop | Every non-excluded channel within ADR-0028's band at every gated 10 Hz sample, aero channels via Q5's route; the ungated span is logged |
 | R6 | Cases 13.1 to 13.4, sim-side `F16_control` | As R5, with the peer flying Vol II Tables 37 to 40's schedules, Q11's and Q12's decided choices, and Q27's 13.4 logic. Reported, never selected: SIM 5's LQR references, divisor 1, and Q27's geometry variants |
 | R7 | Cases 15, 16, sim-side `F16_gnc` | As R5, yaw and longitude wrapped; latitude near 90° and the ±180° crossings in both directions (Vol II C.1.18, C.1.19) |
 | R8 | Discrimination is reported | The generator lists each case's zero-accepting channels and every band's ratio to its floor; ADR-0028 records them. A zero-accepting channel is never cited as evidence |
 | R9 | Negative controls (Q24) | Each planted defect fails at least one discriminating band of each case family it touches: Izx's sign (11, 13.x), the elevator's sign (11, 13.x), the aileron's sign at the law boundary (13.3, 13.4, 15, 16), SIM 2's zero-inertial-rate trim (11, 12, 16), and the law at the wrong divisor (13.x), unless Q12's measurement shows that divisor within the band, in which case that is recorded instead |
 | R10 | Command schedules agree | The peer's config schedule and the port's arguments give the same command timeline, frame for frame, in a test comparing both against Vol II Tables 37 to 43 |
-| R11 | Boundary conversions | Unit tests of the peer and of the port. Every input: a hand-built ICD v1 frame gives the law inputs in Q26's units (degrees, feet, KEAS, rad/s, as Tables 8 and 10 state). Every output: a hand-set law output in degrees and PLA percent gives the expected ICD radians (aileron sign flipped) and throttle pair (critique C-04) |
+| R11 | Boundary conversions | Unit tests of the peer and of the port. Every SI gain and limit equals the DML's value times its stated conversion. On hand-built and randomized ICD v1 frames, the SI law's ICD commands equal an independent reference evaluation of the DML law in its own units (degrees, feet, KEAS, rad/s, PLA percent), followed by the reference's own conversion, to 1e-12 relative. This covers the aileron's sign and the throttle pair (critique C-04, verification N-01). Q27's cross-track expression on fixtures on the course, 609.6 m left of it and 609.6 m right of it (signs -, +), with its h0 fixed, in the peer and the port alike (verification N-02) |
 | R12 | EAS from ICD v1 | For valid subsonic frames over 13.x's, 15's and 16's flight condition range, the peer's EAS from `tas`, `cas` and `mach` equals TAS·√(ρ/ρ0) from the sim's own atmosphere signals to 1e-12 relative, with ρ0 = p0·M0/(R*·T0) from `icd_pack`'s constants. A frame flagged `CAS_SUPERSONIC`, `ATMOSPHERE_INVALID` or `WIND_INVALID`, or with Mach not above zero, makes the peer return non-finite commands and the exchange halt `kTransport`, naming the field (critique C-08) |
 | R13 | Port equivalence (Q13) | For 13.1 to 13.4, 15 and 16, both runs complete (`complete = 1`) with the same `frames_run` and exchange count, and these are bit-identical: the `sim_to_sw` and `sw_to_sim` streams at every exchange (the recorder's), every signal name, unit and rate group, every state and physics signal column, and `/final_state`. The stored config and `/plugins` are compared after removing only the `transport` block and the transport plugin's row; every physics plugin's identity and SHA-256 must match. Excluded and named: the `transport` config block, the transport's `/plugins` row, and the `transport.*` signals (critique C-09). Both runs start from one trim result (amendment 7), and PR 12 records both builds' `-march` and `-ffp-contract` |
 | R14 | The port's boundary | `just embedded-standalone` and `scripts/embedded_deps_check.py` pass with the port added; it compiles as C++17 and links only `icd/` and `embedded/hal/` |
 | R15 | Rotation consistency | Both mismatch directions (`earth/round rotating: true` with a non-rotating `inverse_square`; `wgs84_j2` with a non-rotating Earth) are refused at init with a `ConfigError` naming both paths; every tracked config still builds; `kCoreApiVersion` is bumped and a descriptor carrying the preceding version is rejected (critique C-10) |
 | R16 | Config cycles | The three reproducers in PLAN.md's item give a `ConfigError` naming the key, `astra run` exits 65, and nothing segfaults |
 | R17 | `mass/constant`'s convention | The keys' convention is documented in the plugin and in the config-key reference, and a test pins the tensor entry's sign for a positive `ixz` |
-| R18 | Envelope monitors (Q16) | A test drives α, β, Mach, q̄ and n past declared limits and sees each check fire with its action and source; the default is `warn`; M6's R9 batch is unchanged under `warn`. An envelope-only warning gives `astra run --strict` exit 2, a scenario's strict outcome, and its counter in the summary and the report; a `kCoreApiVersion` bump rejects a stale plugin (critique C-11) |
+| R18 | Envelope monitors (Q16) | A test drives α, β, Mach, q̄ and n past declared limits and sees each check fire with its action and source; the default is `warn`; M6's R9 batch is unchanged under `warn`. An envelope-only warning gives `astra run --strict` exit 2, a scenario's strict outcome, and its counter in the summary and the report; a `kCoreApiVersion` bump rejects a stale plugin (critique C-11). The NESC harness's warn-counter policy (Q16): no halt and zero envelope counters in every case, except case 12's nonzero Mach counter, with its other envelope counters zero (verification N-07) |
 | R19 | Config-key reference | The generated file is current (docs-check), and every key consumed by every tracked config is documented (pytest via `Config::unknown_keys`'s complement) |
 | R20 | Tutorial | A pytest runs the tutorial's command blocks on a throwaway `just new-aircraft` copy and checks each step's stated outcome |
 | R22 | Law onset and engagement (critique C-06) | Law and exchange fixtures at engagement (frame 0) and at the command steps (frames 5000, 15000, 20000; at Q12's divisor, the exchange at or after each). Each step's hand-built ICD frame and schedule give the law's first changed command, computed independently from the DML's gains. That command is staged and latched at the same frame (ADR-0017, ADR-0022: zero compute delay). A planted one-exchange application delay fails these fixtures. This covers 13.1's and 13.2's onset, which the 8 s window does not gate |
@@ -482,7 +487,11 @@ is enough. Blocks: the first PR that cannot start without it.
     - `astra trim` (`test_cli`), and `test_trim` and `test_pyyaml_route`;
     - the scenarios `cruise_hold`, `elevator_step`, `throttle_step` and `aileron_step`;
     - the Monte Carlo fixture `cruise_64.yaml`;
-    - M6's batch fixtures `planted.yaml` and `planted_pilot.yaml` (R9 and its negative control).
+    - M6's batch fixtures `planted.yaml` and `planted_pilot.yaml` (R9 and its negative control);
+    - `test_cruise_phugoid` (`tests/python/test_cruise_phugoid.py:197`), whose linear reference
+      `linearize` recomputes while the nonlinear run starts from committed literals (verification N-04);
+    - `tests/python/autopilot_design.py:122` (`build_plants`), which `test_autopilot_design` checks against
+      recorded phugoid values and controller margins (N-04).
     PR 5's plan lists each caller, measures it before and after on the same build, and states whether any
     acceptance value, scenario check or fixture expectation moves. If any moves, PR 5 becomes Tier 3 and
     Joe decides.
@@ -525,6 +534,14 @@ is enough. Blocks: the first PR that cannot start without it.
     recorded. This comparison is reported, never asserted. t = 0 is inside Q3's ungated span, and no
     member-derived tolerance exists there: SIM 4 starts case 15 untrimmed, with a pitching moment of
     -42,923 lbf·ft in its CSV. The autopilot engages at the first frame and absorbs these terms.
+  - **Model-owned states (verification N-05).** `trim.py:104` builds a 13-element state, while
+    `Simulation.derivative` needs the full combined state (`_core.cpp:179`). If PR 6a finds that the F-16
+    owns continuous state (the engine's power lag), PR 5b extends trim:
+    - the full buffer is built;
+    - each model state is an added unknown, with its derivative an added residual at Q7's threshold;
+    - its equilibrium is checked against the DML's own definition;
+    - every consumer's round trip carries it.
+    Otherwise PR 5b is not scheduled.
   Alternative: a six-unknown solve (adding φ, aileron and rudder) that zeroes all six residuals in every
   case. It is more complete, but no member did it, and in case 15 it would bank the aircraft before the
   autopilot engages.
@@ -584,10 +601,14 @@ is enough. Blocks: the first PR that cannot start without it.
   at the decided divisor is a finding for Joe.
 - **Q13. The port's equivalence criterion (ADR-0029; blocks PR 12).** Recommend bitwise equality against
   the sim-side run, for the objects R13 names:
-  - the `sw_to_sim` stream;
-  - every state and physics column of the HDF5 log.
-  The excluded datasets differ by construction: the config text, the plugin table and its hashes, and the
-  `transport.*` signals. The inputs are identical by Q8's construction. Both builds use clang-18 with the
+  - the `sim_to_sw` and `sw_to_sim` streams at every exchange;
+  - every signal name, unit and rate group, and every state and physics column;
+  - `/final_state`, `frames_run`, the exchange count and completion;
+  - the stored config and `/plugins`, compared after removing only the `transport` block and the
+    transport's own row.
+  The only exclusions are the `transport` config block, the transport's `/plugins` row and the
+  `transport.*` signals, which differ by construction (verification N-06). The inputs are identical by
+  Q8's construction. Both builds use clang-18 with the
   same floating-point flags (no `-ffast-math`, the same `-ffp-contract`), so equality is the expected
   result, and any difference is a porting defect until shown otherwise. If a stated floating-point cause
   makes bitwise infeasible, it comes back to Joe. Alternatives:
@@ -627,10 +648,11 @@ is enough. Blocks: the first PR that cannot start without it.
   Alternative: after M7, leaving the item open with that reason.
   - **Case 12 (amendment 8).** At Mach about 2, case 12 is outside the F-16's declared domain once PR 13
     lands. Its config states the Mach envelope's action explicitly: `warn`, because NESC flew the case
-    there with the same model. The NESC harness states its warn-counter policy: it asserts no halt in
-    every case; it asserts the envelope counters zero in every case except case 12; and in case 12 it
-    asserts the Mach counter nonzero, documenting the excursion. PR 13 updates PR 9's case 12 accordingly
-    and must not break it.
+    there with the same model. The NESC harness gains a warn-counter policy, which today it lacks
+    (`nesc_cases_test.cpp` asserts only that no halt occurs). It asserts no halt in every case, and every
+    envelope counter zero in every case except one: in case 12 the Mach counter must be nonzero,
+    documenting the excursion, while its α, β, q̄ and load-factor counters must stay zero (verification
+    N-07). PR 13 updates PR 9's case 12 accordingly and must not break it.
 - **Q17. Earth/gravity rotation consistency (plan).** Recommend inside M7, as an early Tier 3 core PR with
   its own plan review, as the item asks. The F-16's configs pair `wgs84_rotating` with `wgs84_j2`
   consistently, so no F-16 PR depends on it. Alternative: after M7.
@@ -694,27 +716,37 @@ is enough. Blocks: the first PR that cannot start without it.
   - Alternative: keep the DML's units inside the law, converting ICD inputs to them and outputs back at the
     peer's boundary. Every gain then matches the DML's text exactly, but `aircraft/` holds a
     customary-unit interior, an exception to ADR-0002 that ADR-0029 would have to state.
-- **Q27. 13.4's lateral-deviation logic (ADR-0029; blocks PR 11a; amendment 4).** Vol II gives no
-  formula: C.1.16 says "user-supplied logic", and D.1.16 reports only the 2,000 ft asymptote and a heading
-  deviation of +0.14° to +0.21°. Recommend the following, fixed before PR 11a flies, never selected by its
-  fit to the bands:
-  - *Geometry.* The base course is the rhumb line through the initial position (t = 0) at 45° true, the
-    track a constant `trueBaseCourseCommand` holds. D.1.16 says the offset is "to the right of the
-    initial path". From t = 20 s the desired course is that rhumb line moved 2,000 ft to its right.
-  - *Distance.* The signed cross-track distance in the local north-east plane of the initial position:
-    - Δn = (lat − lat0)·(M0 + h0) and Δe = (lon − lon0)·(N0 + h0)·cos(lat0), with WGS-84's meridian and
-      prime-vertical radii at the initial latitude;
-    - d = −Δn·sin χ + Δe·cos χ, with χ = 45°;
-    - `lateralDeviationError` = d − 2,000 ft from t = 20 s, and 0 before (heading hold, as in 13.1 to
+- **Q27. 13.4's lateral-deviation logic (ADR-0029; blocks PR 11a; amendment 4). Decided by Joe
+  (2026-10-04), with his two amendments.** Vol II gives no formula: C.1.16 says "user-supplied logic", and
+  D.1.16 reports only the 2,000 ft asymptote and a heading deviation of +0.14° to +0.21°. The decision is
+  fixed before PR 11a flies and is never selected by its fit to the bands.
+  - *Geometry: the initial-plane line.* The base course is the straight line through the initial position
+    (t = 0) at χ = 45° true in that position's local north-east plane, with the plane's scales fixed at
+    the initial position. D.1.16 says the offset is "to the right of the initial path". From t = 20 s the
+    desired course is that line moved 609.6 m (2,000 ft) to its right.
+  - *What it is not.* A constant `trueBaseCourseCommand` holds a rhumb line, whose east scale follows
+    cos(lat). The decided line departs from that rhumb line by about tan χ·(M0 + h0)·tan(lat0)·Δlat²/2
+    in east, about 2 m of cross-track by 60 s. The verification pass computed 0.242 m at 20 s and 2.184 m
+    at 60 s from 13.4's initial condition (N-02).
+  - *Distance.* The signed cross-track distance from the base course:
+    - Δn = (lat − lat0)·(M0 + h0) and Δe = (lon − lon0)·(N0 + h0)·cos(lat0);
+    - M0 and N0 are WGS-84's meridian and prime-vertical radii at lat0, and h0 is the initial altitude;
+    - d = −Δn·sin χ + Δe·cos χ;
+    - `lateralDeviationError` = d − 609.6 m from t = 20 s, and 0 before (heading hold, as in 13.1 to
       13.3).
-  - *Sign.* Positive when the aircraft is right of the desired course (Table 8's "+right"), so at t = 20 s
-    the error is -2,000 ft and the law turns right.
-  - *Update rate.* Every exchange (Q12's divisor), from that exchange's ICD `lat`, `lon` and `altitude`,
-    in the peer and in the port alike.
-  R6 reports the sensitivity: the great-circle variant and the variant through the position at 20 s are
-  flown and reported, never selected. A great circle and a rhumb line diverge by about 4 m over the run,
-  against an end separation of 11.6 ft (3.5 m) between SIM 4 and SIM 5. Alternatives: the great circle
-  through the initial position, or either geometry through the position at t = 20 s.
+  - *Sign.* Positive when the aircraft is right of the desired course (Table 8's "+right"; the
+    verification pass confirmed it against Figure 3). At t = 20 s the error is d(20 s) − 609.6 m, which
+    is not exactly −609.6 m because d(20 s) need not be zero, and the law turns right.
+  - *Inputs and update rate.* The logic reads only the ICD's `lat` and `lon`, at every exchange (Q12's
+    divisor), in the peer and the port alike. h0 stays fixed at the initial altitude: the altitude's
+    effect on the offset's scale is below 1 cm over 13.4's few-meter altitude changes. R11's fixtures pin
+    the expression in both implementations.
+  R6 reports three variants, flown and never selected:
+  - the great circle through the initial position;
+  - the true rhumb line through the initial position;
+  - the decided line through the position at 20 s.
+  A great circle and a rhumb line diverge by about 4 m over the run, against an end separation of 11.6 ft
+  (3.5 m) between SIM 4 and SIM 5.
 
 ## Joe's decisions (2026-10-04)
 
@@ -729,13 +761,15 @@ is enough. Blocks: the first PR that cannot start without it.
 - **The other amendments:**
   - 1: PR 1 split into PR 1a and PR 1b, with the dependencies updated;
   - 3: PR 5's blast radius, under Q6;
-  - 4: the new Q27, 13.4's lateral-deviation logic, which is **pending Joe's decision**;
+  - 4: the new Q27, 13.4's lateral-deviation logic. Decided as recommended, with two amendments: name the
+    course as the initial-plane line it is, with the true rhumb line a reported variant; and state the
+    inputs it reads (`lat` and `lon`, with h0 fixed);
   - 8: case 12 and the envelope monitors, under Q16.
 - Q14 and Q15 stay provisional until PR 6a's addendum, as decided. Q12's divisor and Q26's details are
   finalized there too, before PR 1b.
 
-Approval of the spec and plan is not yet recorded: Q27 and the verification pass are open. Nothing is
-implemented.
+The Q25 verification pass ran (verdict rework, N-01 to N-08), and its findings are folded in with Q27.
+Approval of the spec and plan as a whole is Joe's next decision; nothing is implemented.
 
 ## PR decomposition
 
@@ -751,14 +785,15 @@ runs `./scripts/check-full.sh` (exit 0 and `check: OK`) and commits a trimmed ga
 | 2 | Config cycle safety: `unknown_keys` and `value_to_yaml` cycle-safe; the three reproducers; `_yaml_route`'s guard kept or removed | 2 | 0025 | Q19 | `ctest --preset asan -R Config --no-tests=error`; `.venv/bin/pytest tests/python -k 'pyyaml_route or cli'` (R16) |
 | 3 | Earth/gravity rotation consistency at init, both directions; the accessor pair on `EarthModel` and `GravityModel`, the `kCoreApiVersion` bump and a stale-plugin rejection test | 3 | 0003, 0009, 0021 | Q17; its own plan review | `ctest --preset asan -R 'Simulation\|Gravity\|Earth\|PluginLoader' --no-tests=error`; `ctest --preset release -R Nesc --no-tests=error` (R15) |
 | 4 | `mass/constant`'s product-of-inertia convention, documented and pinned | 3 | 0001, 0002 | Q19 | `ctest --preset asan -R Mass --no-tests=error` (R17) |
-| 5 | Trim: heading, Q6's rate convention, Q7's unknowns and the lateral residuals' closed-form kinematic and gravity parts, flat Earth, names from `Simulation.input_names`; every consumer (`_runkit.trim_fragment`, `astra trim`'s residual policy and default altitude, `astra.scenario`, `astra.linearize`, `astra.lockstep` and `trim_for`'s heading refusal, `astra.montecarlo`) with round-trip tests; Q7's kinematic and gravity parts only; every gated caller measured before and after (Q6's blast radius) | 2, or 3 if any acceptance value, scenario check or fixture expectation moves (Joe decides) | 0001, 0017, 0021 | Q6, Q7, Q18 | `.venv/bin/pytest tests/python -k 'trim or linearize or cli or scenario or montecarlo or lockstep'` (R4, less its F-16 cases) |
+| 5 | Trim: heading, Q6's rate convention, Q7's unknowns and the lateral residuals' closed-form kinematic and gravity parts, flat Earth, names from `Simulation.input_names`; every consumer (`_runkit.trim_fragment`, `_runkit.apply_trim`'s and `astra trim`'s residual policy, `astra trim`'s default altitude, `astra.scenario`, `astra.linearize`, `astra.lockstep` and `trim_for`'s heading refusal, `astra.montecarlo`) with round-trip tests; Q7's kinematic and gravity parts only; every gated caller measured before and after (Q6's blast radius) | 2, or 3 if any acceptance value, scenario check or fixture expectation moves (Joe decides) | 0001, 0017, 0021 | Q6, Q7, Q18 | `.venv/bin/pytest tests/python -k 'trim or linearize or cli or scenario or montecarlo or lockstep or planted or pyyaml_route or cruise_phugoid or autopilot_design'`, which reaches every caller Q6's list names; `.venv/bin/pytest tests/scenarios` (R4, less its F-16 cases) |
+| 5b | (Only if PR 6a finds a model-owned state.) Trim with model-owned states: the full combined buffer, each state's equilibrium as an added unknown and residual, every consumer's round trip | 2 | 0021 | PR 5, PR 6a | `.venv/bin/pytest tests/python -k 'trim or scenario or montecarlo or lockstep'` with `tests/plugins/state_owner` (R4) |
 | 6a | Inventory addendum to this spec from P1 and P2: tables, breakpoints, extrapolation, `checkData`, engine dynamics, gyroscopic terms, Mach dependence, the models' input conventions and units (the aileron's sign), whether the aero and the propulsion bind own or peer state (the engine's power lag), the aero rate terms and the engine gyroscopic term for Q7, and the law's units, limit-and-scale block and execution rate; Q5's condition, Q12, Q14, Q15 and Q26 finalized | 0 | none | P1, P2 | `python3 scripts/docs_check.py`; Joe confirms Q14 and Q15 |
 | 6b | `aircraft/f16` from the template: mass, the table generator and generated aero tables, propulsion; unit tests on `checkData`; ICD-convention control inputs converted once to the DML's | 3 | 0001, 0002, 0016, 0017, 0020, 0021 | PR 1a, PR 4, PR 6a | `ctest --preset asan -R F16 --no-tests=error`; `.venv/bin/pytest tests/python -k new_aircraft` (R1 to R3) |
 | 7 | The aero-only channel route (Q5): under (c), the harness's independent aero evaluator, valid only if PR 6a finds no aero state binding; its self-check on the F-16 with changing controls (aero plus independently evaluated propulsion, with the engine's frame-start state, equals `wrench_total`) | 3 | 0013, 0016, 0020, 0021 | PR 6a, PR 6b, Q5 (and its record under (a)) | `ctest --preset release -R 'Nesc\|F16Evaluator' --no-tests=error` (M2's cases unchanged; the self-check) |
 | 8 | Generator extension and band headers for cases 11 to 16; `nesc_band_common.hpp` per-case sample counts; cases 1 to 10 byte-identical. Joe arms `touch-goldens` and runs the generator (ADR-0013) | 3 | 0013 to 0015, 0028 | PR 1a | `python3 tests/golden/nesc/generate_nesc_band.py` (by Joe; byte-identical `case01` to `case10`); `ctest --preset release -R Nesc --no-tests=error` (R8) |
-| 9 | Cases 11 and 12 open loop: configs, trim to Vol II's initial conditions, the DML-derived full expected trim residuals brought to Joe (Q7), aero channels via PR 7, negative controls for this family. Not dependent on PR 3: the F-16 configs pair `wgs84_rotating` with `wgs84_j2` consistently | 3 | 0013 to 0016, 0028 | PR 5, 6b, 7, 8 | `ctest --preset release -R 'Nesc.*Case1[12]' --no-tests=error`; `ctest --preset asan -R NoAlloc --no-tests=error` (R4, R5, R9) |
+| 9 | Cases 11 and 12 open loop: configs, trim to Vol II's initial conditions, the DML-derived full expected trim residuals brought to Joe (Q7), aero channels via PR 7, negative controls for this family. Not dependent on PR 3: the F-16 configs pair `wgs84_rotating` with `wgs84_j2` consistently | 3 | 0013 to 0016, 0028 | PR 5 (and 5b if scheduled), 6b, 7, 8 | `ctest --preset release -R 'Nesc.*Case1[12]' --no-tests=error`; `ctest --preset asan -R NoAlloc --no-tests=error` (R4, R5, R9) |
 | 10 | Not scheduled: Joe chose Q9 (b), so the `transport` refusals stay until M10, and the tutorial's closed loop runs through `astra.lockstep` | none | none | none | none |
-| 11a | Sim-side `F16_control` peer: EAS, boundary conversions, schedule keys, 13.4's offset logic; cases 13.1 to 13.4; Q11's and Q12's decided choices (variants reported, never selected); Q27's 13.4 logic and its sensitivity; the DML-derived full expected trim residuals for 13.x brought to Joe; Q26's SI realization of the gains; the input conversions, the inverse limit-and-scale and the refusal of flagged inputs; onset and engagement fixtures; negative controls | 3 | 0002, 0007, 0017, 0022, 0028, 0029 | P2, PR 1b, PR 6a, PR 9, Q8, Q10 to Q12, Q26, Q27 | `ctest --preset release -R 'Nesc.*Case13' --no-tests=error`; `ctest --preset asan -R 'F16Control\|NoAlloc' --no-tests=error` (R6, R9 to R12, R22, R23) |
+| 11a | Sim-side `F16_control` peer: EAS, boundary conversions, schedule keys, 13.4's offset logic; cases 13.1 to 13.4; Q11's and Q12's decided choices (variants reported, never selected); Q27's 13.4 logic and its sensitivity; the DML-derived full expected trim residuals for 13.x brought to Joe; Q26's SI realization of the gains; the input conversions, the inverse limit-and-scale and the refusal of flagged inputs; onset and engagement fixtures; negative controls | 3 | 0002, 0007, 0017, 0022, 0028, 0029 | P2, PR 1b, PR 6a, PR 9, Q8, Q10 to Q13, Q26, Q27 | `ctest --preset release -R 'Nesc.*Case13' --no-tests=error`; `ctest --preset asan -R 'F16Control\|NoAlloc' --no-tests=error` (R6, R9 to R12, R22, R23) |
 | 11b | Sim-side `F16_gnc` peer (the circumnavigator); cases 15 and 16; their DML-derived full expected trim residuals brought to Joe | 3 | 0007, 0022, 0028, 0029 | PR 11a | `ctest --preset release -R 'Nesc.*Case1[56]' --no-tests=error` (R7, R9) |
 | 12 | The embedded port: a separate C++17 implementation in `embedded/` (`icd/` + `hal/` only), the schedule as arguments, the lockstep equivalence tests from one trim result; both builds' `-march` and `-ffp-contract` stated; gate scope proposed from measured time | 3 | 0006 to 0008, 0022 to 0024, 0029 | PR 11a, 11b, Q13 | `just embedded-standalone`; `.venv/bin/pytest tests/python -k f16_port` (R10, R11, R13, R14) |
 | 13 | §15 envelope monitors (Q16): the declaration virtual and `kCoreApiVersion` bump, the health check, the F-16's and the notional transport's limits, the tools' health consumers (`_runkit.WARN_COUNTERS`/`HEALTH_SIGNALS`, `astra run --strict`, scenarios, reports), and case 12's explicit Mach action with the NESC harness's warn-counter policy (Q16) | 3 | 0020, 0025, 0031 | PR 1a, PR 6b, PR 9 | `ctest --preset asan -R 'Health\|Envelope\|PluginLoader' --no-tests=error`; `.venv/bin/pytest tests/python -k 'planted or cli or scenario or report'` (R18) |
@@ -808,7 +843,7 @@ full record is in [the critique record](m7-plan-critique.md).
 
 | # | Sev. | Finding (verified) | Resolution in this plan |
 |---|---|---|---|
-| C-01 | high | Q7's guessed 1e-4 lateral trim bound is refuted by the rotation terms (about 0.017 m/s² in case 11, 0.082 m/s² in case 12) | Q7: per-case expected lateral residuals derived independently in closed form and approved by Joe before PR 5 merges; R4 |
+| C-01 | high | Q7's guessed 1e-4 lateral trim bound is refuted by the rotation terms (about 0.017 m/s² in case 11, 0.082 m/s² in case 12) | Q7 and R4: PR 5 derives and checks the kinematic and gravity parts on a rate-independent test model; each F-16 case's full residual is derived from the DML and brought to Joe in PR 9, 11a and 11b (amendment 2) |
 | C-02 | medium | Case 15 compared acceleration residuals with aero forces "within a factor"; SIM 5's CSV yawing moment is 857.28 lbf·ft, not the prose's 786 | Q7: derivative checks separate from aero reference checks; the CSV is used and the discrepancy recorded; the t = 0 aero comparison is reported, not asserted |
 | C-03 | high | Trim's consumers rebuild the old state (`_runkit.trim_fragment`, `astra trim`'s six-residual bound and flat default altitude); the names binding already exists | Findings, contract and PR 5: every consumer moves with the solver; round-trip tests (R4) |
 | C-04 | high | The law's input units and the trim-to-normalized-control mapping are unspecified | Contract, R11 (inputs), R23 (disengaged law reproduces trim), and Q26 (an SI realization of the gains, or the DML's units at the boundary) |
@@ -819,6 +854,27 @@ full record is in [the critique record](m7-plan-critique.md).
 | C-09 | medium | R13 excluded whole datasets that should stay comparable, and omitted the streams, counts and `/final_state` | R13: provenance compared after removing only the transport's parts; streams, counts, signal layout, completion and `/final_state` all bit-identical |
 | C-10 | medium | PR 3's accessor pair needs a `kCoreApiVersion` bump and a stale-plugin rejection | Contract, R15 and PR 3 |
 | C-11 | medium | Envelope monitors stopped before the tools' health consumers | Contract, R18 and PR 13 |
+
+Verification pass (Q25, decided by Joe):
+- one fresh read-only Codex task, same route and flags;
+- job `task-muussfet-1xnlr9`, thread `01a10a7e-71ff-7c40-a6e6-70aca3dad1aa`;
+- `8fd7f32..d436581`; exit 0; verdict **rework**.
+
+Of the first critique's findings, C-01, C-02 and C-05 to C-08, C-10 and C-11 were resolved, and C-03, C-04
+and C-09 partially (closed by N-03, N-01 and N-06 below). Amendments 1, 2 and 5 to 7 were implemented, and 3,
+4 and 8 partially (closed by N-04, N-02 and N-07). Claude Code re-read every cited line. All eight new
+findings are accepted and folded in; none is rejected.
+
+| # | Sev. | New finding (verified) | Resolution |
+|---|---|---|---|
+| N-01 | high | The contract and R11 converted the law's inputs to customary units, contradicting Q26's SI law | The law runs in SI; customary units appear only in the independent DML reference (contract, R11) |
+| N-02 | high | Q27 declared a rhumb line but its formula is a straight line in the initial plane (0.242 m off at 20 s, 2.184 m at 60 s) | Joe's Q27 amendments: named as the initial-plane line, the rhumb line a reported variant, the step error d(20 s) − 609.6 m, fixtures on, left of and right of the course (R11) |
+| N-03 | high | `_runkit.apply_trim` (`_runkit.py:232`) still rejects any of six residuals above 1e-6 | The trim contract and PR 5 move it to Q7's policy, covering scenarios and Monte Carlo |
+| N-04 | medium | `test_cruise_phugoid` and `autopilot_design.build_plants` were missing from PR 5's caller list | Added to Q6's list and PR 5's selector |
+| N-05 | high | A model-owned engine state has no trim definition, and `trim.py:104` builds 13 elements while `derivative` needs the full buffer (`_core.cpp:179`) | Q7 and R4: PR 5b (only if PR 6a finds model-owned state) extends trim to the full buffer with state equilibrium |
+| N-06 | medium | Q13 still excluded whole provenance datasets that R13 compares | Q13 restated around R13's objects and exclusions |
+| N-07 | medium | Case 12's exemption let unrelated envelope warnings pass, and the harness has no warn-counter assertion today | Q16 and R18: only case 12's Mach counter is exempt; the other counters stay zero |
+| N-08 | low | The C-01 summary contradicted amendment 2's ordering | The C-01 row restated |
 
 ## Done when
 
