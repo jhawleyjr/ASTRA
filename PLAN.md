@@ -325,7 +325,7 @@ takes them as a prefix.
     It writes JSON (mean, median, p99, max, fps, margins against `dt`, toolchain, CPU, load) only after every
     check passes. `just benchmark` takes a Release baseline; the gate runs its smoke, which asserts no speed.
     Closes C-19 and N-05. Plan: [plan](docs/plans/m6-pr9-benchmark.md). Packet: in the PR body.
-  - PR 10 (#NN): M6 closeout: the check-off with evidence links, open items for the held-out scope (a plotting
+  - PR 10 (#103): M6 closeout: the check-off with evidence links, open items for the held-out scope (a plotting
     UI or live plotting, PDF output, Sobol and adaptive sampling; the closed-loop item extended), the
     docs-check item, the review-record item made unscheduled, PR 14's divisor clause, and architecture §12 and
     §16 status. Plans: [milestone](docs/plans/m6-analysis-tooling.md), [PR](docs/plans/m6-pr10-closeout.md).

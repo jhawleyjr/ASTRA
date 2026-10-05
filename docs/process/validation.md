@@ -117,7 +117,8 @@ budget; `just`/`./scripts/` command names referenced from those docs; STATE.md's
 `## Next step`, `## Open threads`, `## Honesty rules` in order, at most 40 lines, the honesty rules text as
 the script's `STATE_HONESTY_RULES`); `bash -n` on each wrapper
 separately (`bash -n a b` only parses `a`; `b` becomes an unused positional argument, not a second
-file checked); and `git diff --check`. `just check` runs it on every
+file checked); and `git diff --check`, which reads only the uncommitted diff, so before review also run
+`git diff --check <base>..HEAD` over the committed range (PLAN.md's docs-check item). `just check` runs it on every
 full gate; CI also runs it as its own step whenever a pull request touches that surface, so a
 docs/skills-only PR is checked without the full toolchain (see [the workflow](workflow.md) for
 `GATE=local`'s scope and host protection; wrappers do not turn local results into remote required
