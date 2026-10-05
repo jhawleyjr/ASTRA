@@ -5,8 +5,8 @@
    PLAN.md's M7 row and its plan questions; Joe launches it. M7 takes the (M7) open items.
 
 ## Open threads
-- PLAN.md's (unscheduled) review-record item: where a fix's final Codex verification goes, options (a) the PR
-  body only and (b) the `/wrap` docs commit (M6 PR 10's D3); Joe's choice, then a Tier 2 workflow PR.
+- PLAN.md's (unscheduled) review-record item: Joe chose the PR body only (M6 PR 10's D3); a Tier 2 workflow
+  PR to `review-dispatch.md` and the findings template, scheduled by Joe.
 - PLAN.md's (unscheduled) docs-check item: `git diff --check` reads only the uncommitted diff; until a gate PR
   fixes it, run `git diff --check <base>..HEAD` before review.
 - PLAN.md's (M7) core item: `Config::unknown_keys` and `from_dict`'s emitter crash on a recursive alias (M6 PR

@@ -2,7 +2,8 @@
 
 Status: **approved by Joe with amendments 1 to 6, 2026-10-04**, in plan mode. Decisions: D1 yes (both), D2
 the PLAN.md open item, D3 restated per amendment 1 (below; Joe's choice comes at human review), D4 as stated,
-D5 yes. Base `origin/main` `3a50f6f`; worktree `m6-pr10-closeout`. The plan-mode draft was moved here from the
+D5 yes. At human review on #103 (2026-10-04), Joe chose D3 (a), approved the §12 and §16 edits, and asked
+for a §12 clause on PR 11's `astra._yaml_route` (none for PR 9). Base `origin/main` `3a50f6f`; worktree `m6-pr10-closeout`. The plan-mode draft was moved here from the
 main checkout and deleted there.
 
 ## Context

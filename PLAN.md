@@ -551,15 +551,12 @@ takes them as a prefix.
       #95's V-001 and #96's R-001; Joe 2026-10-03; moved from M6 at its closeout, M6 PR 10's D3).
       Review-dispatch's no-record-only-commit rule keeps the verification result out of a commit of its own, so
       the review record's last finding stays "fixed-unverified" there while the PR body holds the verified
-      result. Two options (M6 PR 10's plan, D3), each a workflow-policy edit to `docs/agents/review-dispatch.md`
-      and `docs/templates/review-findings.md` (Tier 2):
-      - (a) the PR body only: the record ends at the fix batch it describes and points to the PR body's Codex
-        section, so the verdict has one home and `/wrap` may run before or after the pass;
-      - (b) the `/wrap` docs commit updates the record: the file is complete in the repository, but `/wrap`
-        must follow the last verification, the verdict is kept in two places, and review-dispatch's
-        fix-batch-only rule gains an exception.
-
-      Recommended: (a). Joe's choice: pending. Not started.
+      result. Joe's choice (M6 PR 10's D3, option (a)): the verification lives in the PR body only. The review
+      record ends at the fix batch it describes, and its last line points to the PR body's Codex section. The
+      workflow edit is a Tier 2 PR of its own, to `docs/agents/review-dispatch.md` and
+      `docs/templates/review-findings.md`. The template gains a terminal status that names the PR body (for
+      example "fixed; verification in the PR body"), so "fixed-unverified" is no longer the record's last word.
+      Not started.
 - [ ] (unscheduled) `just docs-check`'s `git diff --check` reads only the uncommitted diff, so a whitespace error
       already committed passes a clean-tree gate (origin: `docs/lessons.md` 2026-10-04, M6 PR 14's review; Joe
       at #102, M6 PR 10's D2). A fix also checks the committed range, `<base>..HEAD`. It has to choose the base
