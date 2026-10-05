@@ -324,6 +324,16 @@ takes them as a prefix.
     the envelopes differ only inside the overlay groups
     ([before/after and sizes](docs/reviews/evidence/444497e-before-after.log)). `-k envelope_overlay`. Plan:
     [plan](docs/plans/m6-pr13-envelope-overlays.md). Packet: in the PR body.
+  - PR 14 (#102): the plotly page's size, closing that open item. `draw_plotly` writes a trace's x as `x0`/`dx`
+    when plotly.js's own rebuild, `x0 + i * dx` in float64, gives it bit for bit, and as an array otherwise:
+    lossless and always on. On request, `astra plot --html --html-columns N` reduces each trace of more than N + 1
+    points on its own N index columns to each column's ends and extremes, all of them the trace's own samples,
+    and the figure's title says so. That is at most 3N + 1 points with an increasing x and no gap, 5N + 1 for an
+    x-y path, and more with gaps. The notional `cruise` page goes from 25.1 to 15.6 MB at 60 s and from 105 to
+    58 MB at 300 s by default, and to 5.8 MB at both durations with 2,000 columns. Every SVG, report and batch
+    figure is byte-identical to `d851b8f`; every changed page draws the same doubles
+    ([before/after and sizes](docs/reviews/evidence/ec51474-before-after.log)). `-k plotly_size`. Plan:
+    [plan](docs/plans/m6-pr14-plotly-size.md). Packet: in the PR body.
   - Workflow (#83): plan-mode drafts land in the session's `docs/plans/` (`plansDirectory`), with the rule for
     renaming, committing or deleting them in `docs/agents/claude-code.md` and `/wrap`; 27 never-committed plans
     recovered from `~/.claude/plans`. Plan: [plan](docs/plans/claude-plans-directory.md). Packet: in the PR body.
@@ -487,11 +497,10 @@ takes them as a prefix.
       statistic before any maximum is compared. The JSON should also record the frame index of the maximum, so a
       stall can be told apart from a frame whose model work is costly (today it records only the value). Not
       started.
-- [ ] (M6) A 60 s run gives a 25 MB plotly page (`astra plot --html`), because plotly stores every 1 ms sample
-      and grows linearly (origin: M6 PR 5, Joe's look at a 60 s run, 2026-10-01). Consider an opt-in decimation
-      for the plotly page. The SVG is not affected: matplotlib simplifies each line before writing it, so the
-      default log report (flight, attitude, health) is 1.32 MB at 60 s and 1.59 MB at 300 s of the notional
-      cruise (M6 PR 8's plan, Size; Joe's D1a: no decimation). Not started.
+- [ ] (unscheduled) The plotly page's 4.8 MB floor is plotly.js inline (4,815,867 bytes of plotly 7.1.0's bundle):
+      after M6 PR 14, a `--html-columns 2000` page is 5.0 to 5.8 MB at any duration, mostly plotly.js (origin: M6
+      PR 14's plan, D3; Joe 2026-10-04). A partial bundle would be a new vendored asset, since plotly.py ships only
+      the full one: Joe's call. Not started.
 - [ ] (unscheduled) An equal-aspect panel keeps `draw_matplotlib`'s canvas, 8 × 3.2 in for one panel, so a
       north-going ground track gets only about 2.2 in of height and the panel's width is mostly empty east limits
       (origin: M6 PR 12's plan, D2b; Joe 2026-10-04: deferred). A taller canvas for an equal panel would change
