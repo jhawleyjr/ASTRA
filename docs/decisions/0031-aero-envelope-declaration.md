@@ -72,7 +72,8 @@ Facts the design rests on, observed at `9772031`:
    - q̄ = ½·ρ·tas², with ρ from the same frame-start environment sample the derived stage used;
    - n_z = −az / g0, with g0 = 9.80665 m/s², standard gravity, a named `core/util/units` constant.
 4. **Skips.** A quantity whose derived inputs a status bit marks invalid is skipped that frame. It is never
-   compared as the placeholder zero:
+   compared as the placeholder zero. Every skip maps to a bit already logged in `v<i>.derived.status_flags`,
+   and there is no other skip:
 
    | Status bit | Skips |
    |---|---|
@@ -80,8 +81,16 @@ Facts the design rests on, observed at `9772031`:
    | `ATMOSPHERE_INVALID` | Mach, q̄ |
    | `ACCEL_INVALID` (frame 0 included) | n_z |
 
-   `ATMOSPHERE_INVALID` tests pressure and speed of sound only (`icd_pack::pack_sim_to_sw`). So q̄ is also
-   skipped when ρ itself is not finite and positive, a case no status bit names.
+   - **What is checked.** Only a quantity with at least one finite bound is checked. A quantity with no
+     declared bound is never counted, NaN included.
+   - **Density.** `ATMOSPHERE_INVALID` tests pressure and speed of sound only (`icd_pack::pack_sim_to_sw`).
+     Density is not a skip:
+     - q̄ is computed from whatever ρ the sample holds;
+     - a non-finite q̄ counts as outside a declared q̄ interval, and the published q̄ carries the NaN for that
+       frame;
+     - a non-finite ρ is already caught by `Vehicle`'s environment check (`core/src/kernel/vehicle.cpp`). That
+       check tests density's finiteness and reports `kNonFiniteEnvironment` under `sim.health.nan`, which
+       halts by default and is counted in `health.nan`.
 
 5. **Timing.** n_z inherits `az`'s previous-frame timing, so the check sees a load-factor excursion one frame
    late, and a load-factor halt lands one frame after the excursion. The other four quantities describe the
@@ -104,8 +113,8 @@ Facts the design rests on, observed at `9772031`:
    (`"1"`). PR 13 sets the final names.
    - They are published for every vehicle of a config with physics, whether or not a model declares an
      envelope, so a log's columns do not depend on the declarations.
-   - A skipped quantity's signal holds 0, ADR-0026's convention, and the same row's derived `status_flags`
-     says why.
+   - A skipped q̄ or n_z publishes 0, ADR-0026's convention. A reader decodes such a 0 from the same row's
+     `v<i>.derived.status_flags`, through item 4's table. There is no separate envelope status signal.
    - With α, β and Mach already derived, every quantity a counter counts is then in the log and in the
      summary's min/max.
 8. **No separate init check.** §15's pre-run "airspeed inside the aero model's declared envelope" is
@@ -138,6 +147,9 @@ Facts the design rests on, observed at `9772031`:
 - **The log.** Every log gains the five counters and each vehicle's two signals. Tests that pin a log's column
   set move, and PR 13 lists them before and after. The summary's minimum of `load_factor` includes frame 0's
   defined 0 (item 7), which is disclosed.
+- **A non-positive density.** A defective atmosphere plugin can give a finite ρ ≤ 0. That gives q̄ ≤ 0, which
+  passes when the q̄ lower bound is undeclared. Nothing refuses a non-positive density today, and fixing that
+  is not this record's job. This is disclosed.
 - **M6's R9.** Its batch is unchanged under `warn`: an envelope warning changes no status, and its criterion
   reads `v0.derived.alpha`, not the counter.
 - **NESC case 12.** Its config states `sim.health.envelope.mach: warn` explicitly. The NESC harness gains the
@@ -149,7 +161,8 @@ Facts the design rests on, observed at `9772031`:
   plan carries to PR 6a and PR 13, and it returns to Joe if P1 states none.
 - **Acceptance (PR 13).**
   - `ctest --preset asan -R 'Health|Envelope|PluginLoader' --no-tests=error`: each quantity driven past a
-    declared bound fires with its action and source; each skip bit skips; the n_z lag is one frame; a stale
+    declared bound fires with its action and source; each skip bit skips; a quantity with no finite bound is
+    never counted; a non-finite q̄ counts as outside a declared q̄ interval; the n_z lag is one frame; a stale
     plugin is rejected.
   - `.venv/bin/pytest tests/python -k 'planted or cli or scenario or report'`: R9 unchanged; `--strict` exits 2
     on an envelope-only warning; the counters are in the summary and the report.

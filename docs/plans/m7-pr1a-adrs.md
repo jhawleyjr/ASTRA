@@ -146,6 +146,19 @@ A script imported the generator's constants and `CHANNELS` and read the main che
   - §15's pre-run "airspeed inside the declared envelope" bullet is removed. Frame 0's check, under the
     configured action, replaces it.
 - **D7, §6 joins rev 11** for ADR-0030.
+- **D8, Codex finding F-01 (Joe, 2026-10-04, in session).** The first draft added a ρ-only q̄ skip that no
+  status bit names, so a logged q̄ of 0 could not be told from a valid zero. Joe chose to drop that skip:
+  A5's table stands exactly.
+  - Every skip maps to a bit already logged in `v<i>.derived.status_flags`. A skipped q̄ or n_z publishes 0,
+    decoded from that row. There is no new status signal.
+  - Non-finite ρ is not a skip. `vehicle.cpp`'s environment check tests density's finiteness and reports
+    `kNonFiniteEnvironment` under `sim.health.nan` (halt by default, counted in `health.nan`). q̄ is computed
+    regardless. A non-finite q̄ counts as outside a declared q̄ interval, and the published q̄ carries the NaN
+    for that frame.
+  - Only a quantity with at least one finite bound is checked. One with no declared bound is never counted,
+    NaN included.
+  - Disclosed: a finite ρ ≤ 0 from a defective atmosphere plugin gives q̄ ≤ 0, which passes when the q̄ lower
+    bound is undeclared. Nothing refuses a non-positive density today, and fixing that is not ADR-0031's job.
 
 ## Obligations carried to later PR plans
 
