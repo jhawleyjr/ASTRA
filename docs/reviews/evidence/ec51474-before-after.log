@@ -8,8 +8,8 @@
 == load check: before inputs
 2026-10-04T18:41:17-07:00
 loadavg: 2.35 5.39 4.10 2/2234 829963  nproc 32
-  hit 777172 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: just check 
-  hit 787864 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: .venv/bin/python -m pytest -q tests/python 
+  hit 777172 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: just check
+  hit 787864 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: .venv/bin/python -m pytest -q tests/python
 build/test hits from other checkouts: 2
 clangd:
   (none)
@@ -39,8 +39,8 @@ make_inputs exit 0
 == load check: after inputs
 2026-10-04T18:41:21-07:00
 loadavg: 2.33 5.34 4.08 3/2236 831516  nproc 32
-  hit 777172 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: just check 
-  hit 787864 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: .venv/bin/python -m pytest -q tests/python 
+  hit 777172 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: just check
+  hit 787864 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: .venv/bin/python -m pytest -q tests/python
 build/test hits from other checkouts: 2
 clangd:
   (none)
@@ -53,8 +53,8 @@ clangd:
 == load check: before base1
 2026-10-04T18:41:25-07:00
 loadavg: 2.33 5.34 4.08 2/2241 832414  nproc 32
-  hit 777172 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: just check 
-  hit 787864 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: .venv/bin/python -m pytest -q tests/python 
+  hit 777172 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: just check
+  hit 787864 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: .venv/bin/python -m pytest -q tests/python
 build/test hits from other checkouts: 2
 clangd:
   (none)
@@ -85,8 +85,8 @@ sys	0m1.079s
 == load check: before base2
 2026-10-04T18:41:46-07:00
 loadavg: 2.86 5.25 4.08 39/2290 834382  nproc 32
-  hit 777172 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: just check 
-  hit 787864 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: .venv/bin/python -m pytest -q tests/python 
+  hit 777172 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: just check
+  hit 787864 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: .venv/bin/python -m pytest -q tests/python
 build/test hits from other checkouts: 2
 clangd:
   (none)
@@ -117,8 +117,8 @@ sys	0m1.050s
 == load check: before cand
 2026-10-04T18:49:37-07:00
 loadavg: 3.06 6.38 5.15 3/2185 874141  nproc 32
-  hit 839861 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: just check 
-  hit 850255 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: .venv/bin/python -m pytest -q tests/python 
+  hit 839861 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: just check
+  hit 850255 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: .venv/bin/python -m pytest -q tests/python
 build/test hits from other checkouts: 2
 clangd:
   (none)
@@ -194,8 +194,8 @@ divisor 10 rebuilds t bitwise (x0/dx), and divisor 50 does not (explicit x).
 == load check: before sizes
 2026-10-04T18:50:18-07:00
 loadavg: 2.38 5.79 5.00 1/2186 883922  nproc 32
-  hit 839861 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: just check 
-  hit 850255 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: .venv/bin/python -m pytest -q tests/python 
+  hit 839861 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: just check
+  hit 850255 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: .venv/bin/python -m pytest -q tests/python
 build/test hits from other checkouts: 2
 clangd:
   (none)
@@ -220,8 +220,8 @@ exit 0
 == load check: after sizes
 2026-10-04T18:50:26-07:00
 loadavg: 2.17 5.63 4.96 2/2185 885962  nproc 32
-  hit 839861 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: just check 
-  hit 850255 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: .venv/bin/python -m pytest -q tests/python 
+  hit 839861 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: just check
+  hit 850255 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: .venv/bin/python -m pytest -q tests/python
 build/test hits from other checkouts: 2
 clangd:
   (none)
