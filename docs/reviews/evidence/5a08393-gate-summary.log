@@ -1,0 +1,28 @@
+date: 2026-10-05T02:09:36Z
+command: rm -rf build && ./scripts/check-full.sh
+base: d851b8f42f5f75d36d274670343f81b32dd78386
+head: 5a0839344d310e5d6d1c8d1f298d97342ae9d70b
+exit: 0
+working tree: clean at the start (git status --porcelain empty); no edits during the run
+duration: 17 min 17 s (log created 18:52:03 -0700, last written 19:09:20 -0700)
+load: 1-minute 2.78 before, no other project's build or test (loadcheck); 1.78 near the end
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 195 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr14-plotly-size/build/debug
+100% tests passed, 0 tests failed out of 669
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr14-plotly-size/build/release
+100% tests passed, 0 tests failed out of 670
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr14-plotly-size/build/static-plugins
+100% tests passed, 0 tests failed out of 671
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m6-pr14-plotly-size/build/asan
+100% tests passed, 0 tests failed out of 672
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+0 errors, 0 warnings, 0 informations
+1863 passed, 5 skipped in 119.69s (0:01:59)
+check: OK

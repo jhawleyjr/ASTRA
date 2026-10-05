@@ -55,6 +55,22 @@ versions on one machine give a byte-identical SVG in any process. PNG is not byt
 legend sits outside its axes, to the right (``legend_outside``; M6 PR 6, D1), so none covers
 data. plotly writes one interactive HTML file per package, ``<package>.html``, with plotly.js
 inline so it opens offline; it is several megabytes, so it is written only on request.
+
+The plotly page's data (M6 PR 14, docs/plans/m6-pr14-plotly-size.md). Each trace holds every point
+it is given. Its x is written as ``x0``/``dx`` when plotly.js's rebuild, ``x0 + i * dx`` in float64,
+gives it bit for bit (a log's ``t = frame * dt`` at most rates), and as an explicit array otherwise,
+so the page draws and hovers the same doubles either way. With ``html_columns`` N (``astra plot
+--html --html-columns N``), a trace of more than N + 1 points is reduced on its own index columns,
+whose edges are ``j (n - 1) // N`` for ``j = 0..N``. Each piece is a stretch of finite x and y
+inside one column, and the page keeps its first and last points and the points with its minimum and
+maximum y and x. The page also keeps the trace's first and last points, and the first non-finite
+point after each stretch, so a gap stays a gap. Every kept point is one of the trace's own samples,
+and each column's y range is drawn in full, but zooming in shows the reduction, not every frame. A
+trace with no non-finite point keeps at most 3N + 1 points when its x increases strictly, and at
+most 5N + 1 otherwise, an x-y path such as a ground track. A trace with gaps keeps more: with r
+finite stretches, at most 3N + 5r - 1 points, or 5N + 7r - 3 points for a path. A figure with a
+reduced trace says so in its title: ``(reduced: N columns per trace)``. The SVG renderer is
+unaffected.
 """
 
 from __future__ import annotations
@@ -66,6 +82,8 @@ import hashlib
 import html
 import importlib
 import io
+import itertools
+import math
 import re
 import sys
 import types
@@ -84,6 +102,7 @@ if TYPE_CHECKING:
     from matplotlib.typing import RcKeyType
 
 FloatArray = npt.NDArray[np.float64]
+IntArray = npt.NDArray[np.int64]
 
 FRAMEWORK_DIR = Path(__file__).resolve().parent / "plots"
 
@@ -693,9 +712,44 @@ def draw_matplotlib(figure: Figure) -> MatplotlibFigure:
     return drawn
 
 
-def draw_plotly(figure: Figure) -> Any:
-    """``figure`` as a ``plotly.graph_objects.Figure``, one subplot row per panel. plotly ships no
-    type information (no py.typed), so it is handled as ``Any`` at this boundary."""
+def _uniform(x: FloatArray) -> tuple[float, float] | None:
+    """``(x0, dx)`` when plotly.js's own rebuild of a trace's x, ``x0 + i * dx`` in float64
+    (``makeCalcdata``, plotly.js 7.1.0), gives ``x`` bit for bit; otherwise ``None``."""
+    if x.size < 2:
+        return None
+    x0, dx = x[0], x[1] - x[0]
+    if not (math.isfinite(x0) and math.isfinite(dx) and dx > 0.0):
+        return None  # plotly.js reads a zero or missing dx as 1
+    rebuilt = x0 + np.arange(x.size, dtype=np.float64) * dx
+    if not np.array_equal(rebuilt.view(np.uint64), x.view(np.uint64)):
+        return None
+    return float(x0), float(dx)
+
+
+def _columns(x: FloatArray, y: FloatArray, columns: int) -> IntArray:
+    """The indices of the points a trace keeps under ``columns`` (module docstring, Renderers):
+    all of them, or their reduction on the trace's own index columns."""
+    size = y.size
+    if size - 1 <= columns:
+        return np.arange(size, dtype=np.int64)
+    edges = (np.arange(columns + 1, dtype=np.int64) * (size - 1)) // columns
+    finite = np.concatenate(([0], (np.isfinite(x) & np.isfinite(y)).astype(np.int8), [0]))
+    starts = np.flatnonzero(np.diff(finite) == 1)
+    ends = np.flatnonzero(np.diff(finite) == -1) - 1
+    keep = [np.array([0, size - 1]), ends[ends + 1 < size] + 1]  # the first non-finite after each
+    for a, b in zip(starts, ends, strict=True):
+        cuts = np.concatenate(([a], edges[(edges > a) & (edges < b)], [b]))
+        for lo, hi in itertools.pairwise(cuts):
+            xs, ys = x[lo : hi + 1], y[lo : hi + 1]
+            extremes = (np.argmin(ys), np.argmax(ys), np.argmin(xs), np.argmax(xs))
+            keep.append(np.array([lo, hi, *(lo + k for k in extremes)]))
+    return np.unique(np.concatenate(keep)).astype(np.int64)
+
+
+def draw_plotly(figure: Figure, *, columns: int | None = None) -> Any:
+    """``figure`` as a ``plotly.graph_objects.Figure``, one subplot row per panel, each trace
+    reduced to ``columns`` when given (module docstring, Renderers). plotly ships no type
+    information (no py.typed), so it is handled as ``Any`` at this boundary."""
     go: Any = importlib.import_module("plotly.graph_objects")
     subplots: Any = importlib.import_module("plotly.subplots")
     count = len(figure.panels)
@@ -706,22 +760,33 @@ def draw_plotly(figure: Figure) -> Any:
         shared_xaxes=shared,
         subplot_titles=[panel.title for panel in figure.panels],
     )
+    reduced = False
     for i, panel in enumerate(figure.panels):
         for line in panel.series:
-            drawn.add_trace(
-                go.Scatter(x=line.x, y=line.y, name=line.label, mode="lines"), row=i + 1, col=1
+            x, y = line.x, line.y
+            if columns is not None and x.size - 1 > columns:
+                index = _columns(x, y, columns)
+                x, y = x[index], y[index]
+                reduced = True
+            uniform = _uniform(x)
+            xs: dict[str, Any] = (
+                {"x": x} if uniform is None else {"x0": uniform[0], "dx": uniform[1]}
             )
+            drawn.add_trace(go.Scatter(y=y, name=line.label, mode="lines", **xs), row=i + 1, col=1)
         drawn.update_yaxes(title_text=_axis_label(panel.ylabel, panel.unit), row=i + 1, col=1)
         if panel.aspect == "equal":
             anchor = drawn.get_subplot(i + 1, 1).yaxis.anchor  # this row's x axis
             drawn.update_yaxes(scaleanchor=anchor, scaleratio=1, row=i + 1, col=1)
         if not shared or i == count - 1:
             drawn.update_xaxes(title_text=_axis_label(panel.xlabel, panel.xunit), row=i + 1, col=1)
-    drawn.update_layout(title_text=figure.title or figure.name, height=120 + 260 * count)
+    title = figure.title or figure.name
+    if reduced:
+        title = f"{title} (reduced: {columns} columns per trace)"
+    drawn.update_layout(title_text=title, height=120 + 260 * count)
     return drawn
 
 
-def _html(package: Package, figures: Sequence[Figure]) -> str:
+def _html(package: Package, figures: Sequence[Figure], columns: int | None = None) -> str:
     """One offline page: plotly.js inline once, then one div per figure."""
     pio: Any = importlib.import_module("plotly.io")
     title = html.escape(package.title or package.name)
@@ -735,7 +800,7 @@ def _html(package: Package, figures: Sequence[Figure]) -> str:
     parts += ["</head>", "<body>"]
     for i, figure in enumerate(figures):
         part = pio.to_html(
-            draw_plotly(figure),
+            draw_plotly(figure, columns=columns),
             full_html=False,
             include_plotlyjs=i == 0,
             include_mathjax=False,
@@ -754,12 +819,19 @@ def render(
     *,
     fmt: Literal["svg", "png"] = "svg",
     html: bool = False,
+    html_columns: int | None = None,
 ) -> list[Path]:
     """Writes the package's figures for ``run_log`` into ``out_dir`` and returns the paths written:
-    one ``<package>-<figure>.<fmt>`` per figure, then ``<package>.html`` when ``html`` is true
-    (module docstring, Errors and Renderers)."""
+    one ``<package>-<figure>.<fmt>`` per figure, then ``<package>.html`` when ``html`` is true,
+    its traces reduced to ``html_columns`` when given (module docstring, Errors and Renderers)."""
     if fmt not in ("svg", "png"):
         raise ValueError(f"fmt must be 'svg' or 'png', got {fmt!r}")
+    if html_columns is not None:
+        if not html:
+            raise ValueError("html_columns needs html=True")
+        given = cast(object, html_columns)
+        if isinstance(given, bool) or not isinstance(given, int) or given < 1:
+            raise ValueError(f"html_columns must be an integer of at least 1, got {given!r}")
     figures = resolve(package, run_log)
     out_dir = Path(out_dir)
     files = [out_dir / f"{package.name}-{figure.name}.{fmt}" for figure in figures]
@@ -770,7 +842,7 @@ def render(
             raise PlotOutputExistsError(
                 f"{target}: already exists; astra.plot never overwrites a file"
             )
-    text = _html(package, figures) if page is not None else None
+    text = _html(package, figures, html_columns) if page is not None else None
 
     out_dir.mkdir(parents=True, exist_ok=True)
     created: list[Path] = []

@@ -14,6 +14,7 @@ returns.
 from __future__ import annotations
 
 import base64
+import json
 import math
 import os
 import re
@@ -26,6 +27,7 @@ from typing import Any, cast
 import numpy as np
 import pandas as pd
 import pytest
+import yaml
 
 import resource_refs
 from astra import _core, cli, log, plot
@@ -1014,6 +1016,19 @@ def _trace_array(value: Any) -> FloatArray:
     return np.asarray(value, dtype=np.float64)
 
 
+def _trace_x(trace: dict[str, Any]) -> FloatArray:
+    """A trace's x as plotly.js computes it (M6 PR 14, D1): its ``x`` array, or ``x0 + i * dx`` in
+    float64 for ``i`` over its y (``makeCalcdata``, plotly.js 7.1.0)."""
+    if "x0" in trace or "dx" in trace:
+        assert "x" not in trace, sorted(trace)
+        x0, dx = trace["x0"], trace["dx"]
+        assert isinstance(x0, float), type(x0)
+        assert isinstance(dx, float), type(dx)
+        assert dx > 0.0, dx
+        return x0 + np.arange(_trace_array(trace["y"]).size, dtype=np.float64) * dx
+    return _trace_array(trace["x"])
+
+
 @pytest.mark.parametrize(
     "path", [plot.framework_package("flight"), NOTIONAL], ids=["flight", "notional"]
 )
@@ -1033,7 +1048,7 @@ def test_r3b_plotly_data_equals_the_log_after_conversion(
         assert len(traces) == len(expected)
         for trace, (label, x, y, _unit) in zip(traces, expected, strict=True):
             assert trace["name"] == label
-            assert_bits(_trace_array(trace["x"]), x, f"{figure.name} {label} x")
+            assert_bits(_trace_x(trace), x, f"{figure.name} {label} x")
             assert_bits(_trace_array(trace["y"]), y, f"{figure.name} {label} y")
 
 
@@ -1159,3 +1174,417 @@ def test_cli_plot_failed_write_exits_74(
     assert (code, stdout) == (cli.EX_IOERR, "")
     assert stderr.startswith("astra plot: cannot write the figures: ")
     assert list(out.iterdir()) == []
+
+
+# --- M6 PR 14: the plotly page's size (docs/plans/m6-pr14-plotly-size.md D1, D2, D4) -------------
+#
+# Every test here is named test_plotly_size_*, so ``pytest tests/python -k plotly_size`` selects
+# them. The reduction's reference, _reference_columns, is a plain loop written from astra.plot's
+# docstring (Renderers), and never calls astra.plot.
+
+SLOW_RATE = ROOT / "tests/configs/log_slow_rate.yaml"  # /rate_1 and /rate_<divisor>
+
+
+def _plotly_calls(text: str) -> list[tuple[list[dict[str, Any]], dict[str, Any], dict[str, Any]]]:
+    """Each ``Plotly.newPlot(id, data, layout, config)`` call's arguments, parsed from the page's
+    own text with ``json``, which rounds each number as JavaScript's parser does."""
+    decoder = json.JSONDecoder()
+    calls: list[tuple[list[dict[str, Any]], dict[str, Any], dict[str, Any]]] = []
+    for match in re.finditer(r"Plotly\.newPlot\(", text):
+        arguments: list[Any] = []
+        at = match.end()
+        for _ in range(4):
+            at = len(text) - len(text[at:].lstrip(" \n\r\t,"))
+            value, at = decoder.raw_decode(text, at)
+            arguments.append(value)
+        _, data, layout, config = arguments
+        calls.append((data, layout, config))
+    return calls
+
+
+def _uniform_rebuild(x: FloatArray) -> bool:
+    """The test's own reading of D1's condition: plotly.js's ``x0 + i * dx`` gives x bitwise."""
+    if x.size < 2 or not (np.isfinite(x[0]) and np.isfinite(x[1] - x[0]) and x[1] - x[0] > 0):
+        return False
+    rebuilt = x[0] + np.arange(x.size, dtype=np.float64) * (x[1] - x[0])
+    return bool(np.array_equal(rebuilt.view(np.uint64), x.view(np.uint64)))
+
+
+def _reference_columns(x: FloatArray, y: FloatArray, columns: int) -> list[int]:
+    """The points a trace keeps, frame by frame from the docstring: within each column
+    ``[j (n - 1) // N, (j + 1) (n - 1) // N]``, each run of finite x and y keeps its ends and its
+    first minimum and maximum of y and of x; plus the trace's ends, and each first non-finite point
+    after a finite one."""
+    n = len(y)
+    if n - 1 <= columns:
+        return list(range(n))
+    finite = [math.isfinite(x[i]) and math.isfinite(y[i]) for i in range(n)]
+    keep = {0, n - 1}
+    for j in range(columns):
+        lo, hi = j * (n - 1) // columns, (j + 1) * (n - 1) // columns
+        i = lo
+        while i <= hi:
+            if not finite[i]:
+                i += 1
+                continue
+            start = i
+            while i + 1 <= hi and finite[i + 1]:
+                i += 1
+            piece = range(start, i + 1)
+            keep |= {start, i}
+            keep.add(min(piece, key=lambda k: (y[k], k)))
+            keep.add(max(piece, key=lambda k: (y[k], -k)))
+            keep.add(min(piece, key=lambda k: (x[k], k)))
+            keep.add(max(piece, key=lambda k: (x[k], -k)))
+            i += 1
+    keep |= {i for i in range(1, n) if finite[i - 1] and not finite[i]}
+    return sorted(keep)
+
+
+def _one_trace(x: FloatArray, y: FloatArray, columns: int | None = None) -> dict[str, Any]:
+    figure = plot.Figure("f", "", [plot.Panel("", "y", "", [plot.Series("s", x, y)])])
+    (trace,) = cast(dict[str, Any], plot.draw_plotly(figure, columns=columns).to_dict())["data"]
+    return cast(dict[str, Any], trace)
+
+
+def _drawn(trace: dict[str, Any]) -> tuple[FloatArray, FloatArray]:
+    return _trace_x(trace), _trace_array(trace["y"])
+
+
+def _rough(n: int, seed: int) -> tuple[FloatArray, FloatArray]:
+    """A time trace (``t = frame * 0.001``) with a rough y: a random walk."""
+    rng = np.random.default_rng(seed)
+    return np.arange(n, dtype=np.float64) * 0.001, np.cumsum(rng.standard_normal(n))
+
+
+def _path(n: int, seed: int) -> tuple[FloatArray, FloatArray]:
+    """An x-y path whose x is not monotone, like a ground track: a 2-D random walk."""
+    rng = np.random.default_rng(seed)
+    return np.cumsum(rng.standard_normal(n)), np.cumsum(rng.standard_normal(n))
+
+
+def _span_problems(
+    x: FloatArray, y: FloatArray, drawn_x: FloatArray, drawn_y: FloatArray, columns: int
+) -> list[str]:
+    """D4's T4, independent of the reference: the drawn points are samples of a time trace, in
+    order, with its first and last; in each column, the drawn y range is the samples' range."""
+    problems: list[str] = []
+    index = np.searchsorted(x, drawn_x)
+    if not (np.all(index < x.size) and np.array_equal(x[np.minimum(index, x.size - 1)], drawn_x)):
+        return ["a drawn x is not a sample time"]
+    if not np.all(np.diff(index) > 0):
+        problems.append("the drawn points are not in time order")
+    if not np.array_equal(y[index].view(np.uint64), drawn_y.view(np.uint64)):
+        problems.append("a drawn y is not the sample at its time")
+    if index[0] != 0 or index[-1] != x.size - 1:
+        problems.append("the first or last sample is missing")
+    n = x.size
+    for j in range(columns):
+        lo, hi = j * (n - 1) // columns, (j + 1) * (n - 1) // columns
+        inside = (index >= lo) & (index <= hi)
+        samples = y[lo : hi + 1]
+        if np.all(np.isnan(samples)):
+            continue
+        drawn = drawn_y[inside]
+        if not np.any(np.isfinite(drawn)):
+            problems.append(f"column {j}: nothing finite drawn")
+            continue
+        if (np.nanmin(drawn), np.nanmax(drawn)) != (np.nanmin(samples), np.nanmax(samples)):
+            problems.append(f"column {j}: the drawn y range is not the samples' range")
+    return problems
+
+
+def _slow_rate_log(tmp_path: Path, divisor: int) -> log.RunLog:
+    """A real log with a decimated rate group: ``tests/configs/log_slow_rate.yaml`` with the
+    slow_rate plugin at ``divisor``, run 3,000 frames and closed."""
+    data = yaml.safe_load(SLOW_RATE.read_text(encoding="utf-8"))
+    (model,) = [m for m in data["vehicle"]["models"] if m["plugin"] == "tests/plugins/slow_rate"]
+    model["divisor"] = divisor
+    path = tmp_path / f"slow_rate_{divisor}.h5"
+    config = _core.Config.from_dict({**data, "log": {"path": str(path)}})
+    sim = _core.Simulation.from_config(config, _core.default_plugin_dir())
+    assert not sim.run(3000)
+    sim.close_log()
+    del sim
+    run_log = log.load(path)
+    assert sorted(run_log.rates) == [1, divisor]
+    return run_log
+
+
+@pytest.mark.parametrize(
+    "path", [plot.framework_package("flight"), NOTIONAL], ids=["flight", "notional"]
+)
+def test_plotly_size_uniform_x_is_x0_dx(
+    path: Path, scenario_log: log.RunLog, tmp_path: Path
+) -> None:
+    """T1: every YAML trace's x (the log's t) is written as x0/dx, which rebuilds t bitwise, in
+    the figure and in the written page's own JSON text (amendment 2)."""
+    package = plot.load_package(path)
+    assert package.figures is not None
+    figures = plot.resolve(package, scenario_log)
+    plot.render(package, scenario_log, tmp_path, html=True)
+    calls = _plotly_calls((tmp_path / f"{package.name}.html").read_text(encoding="utf-8"))
+    assert len(calls) == len(figures)
+    for figure, spec, (page_traces, _, _) in zip(figures, package.figures, calls, strict=True):
+        traces = cast(dict[str, Any], plot.draw_plotly(figure).to_dict())["data"]
+        expected = [
+            line
+            for panel in spec.panels
+            for series in panel.series
+            for line in expected_series(scenario_log, series)
+        ]
+        assert len(traces) == len(page_traces) == len(expected)
+        for trace, page_trace, (label, t, y, _unit) in zip(
+            traces, page_traces, expected, strict=True
+        ):
+            what = f"{figure.name} {label}"
+            assert "x" not in trace, what
+            assert "x" not in page_trace, what
+            for key in ("x0", "dx"):
+                written = np.array([page_trace[key]], dtype=np.float64)
+                assert_bits(written, np.array([trace[key]], dtype=np.float64), f"{what} {key}")
+            assert_bits(_trace_x(page_trace), t, f"{what} page x")
+            assert_bits(_trace_x(trace), t, f"{what} x")
+            assert_bits(_trace_array(page_trace["y"]), y, f"{what} page y")
+
+
+def test_plotly_size_nonuniform_x_stays_explicit(scenario_log: log.RunLog) -> None:
+    """T2: an x that x0 + i * dx does not give bitwise keeps its array, and either way the trace's
+    x is the given x, bit for bit."""
+    near = np.arange(1000, dtype=np.float64) * 0.1
+    off = near.copy()
+    off[500] = np.nextafter(off[500], np.inf)
+    two = np.array([0.7, 2.9])  # 0.7 + (2.9 - 0.7) is 2.9000000000000004
+    cases: dict[str, FloatArray] = {
+        "gapped": np.array([0.0, 1.0, 3.0]),
+        "one ulp off": off,
+        "two, rounded": two,
+        "two, exact": np.array([0.0, 0.5]),
+        "one": np.array([2.0]),
+        "none": np.array([], dtype=np.float64),
+        "nan": np.array([0.0, 1.0, np.nan, 3.0]),
+        "decreasing": np.array([3.0, 2.0, 1.0]),
+        "constant": np.array([1.0, 1.0, 1.0]),
+    }
+    assert _uniform_rebuild(near)  # the precondition: one ulp is the only difference
+    assert not _uniform_rebuild(off)
+    assert not _uniform_rebuild(two)
+    assert _uniform_rebuild(cases["two, exact"])
+    for name, x in cases.items():
+        trace = _one_trace(x, np.zeros(x.size))
+        assert ("x" not in trace) == _uniform_rebuild(x), name
+        assert ("x" in trace) == (name != "two, exact"), name
+        if x.size:
+            assert_bits(_trace_x(trace), x, name)
+
+    package = plot.load_package(TEMPLATE_PLOTS / "ground_track.yaml")
+    (figure,) = plot.resolve(package, scenario_log)
+    traces = cast(dict[str, Any], plot.draw_plotly(figure).to_dict())["data"]
+    for trace, (label, east, north) in zip(traces, ground_track(scenario_log), strict=True):
+        assert trace["name"] == label
+        assert "x" in trace
+        assert "x0" not in trace
+        assert_bits(_trace_array(trace["x"]), east, f"ground track {label} x")
+        assert_bits(_trace_array(trace["y"]), north, f"ground track {label} y")
+
+
+@pytest.mark.parametrize(("divisor", "form"), [(10, "x0/dx"), (50, "x")], ids=["div10", "div50"])
+def test_plotly_size_a_decimated_rate_group_through_a_yaml_series(
+    divisor: int, form: str, tmp_path: Path
+) -> None:
+    """T2, a real decimated rate group (amendment 3): plotly.js's ``i * (d * dt)`` against the
+    log's ``(i * d) * dt``, measured. At 3,000 frames and dt = 1 ms, divisor 10 rebuilds every t
+    bitwise and divisor 50 does not, so the page keeps that x as an array. Either way the drawn x
+    is the log's t."""
+    run_log = _slow_rate_log(tmp_path, divisor)
+    path = write_package(
+        tmp_path,
+        "figures:\n  - name: slow\n    panels:\n      - series:\n"
+        "          - signal: v{v}.slow_rate.value\n",
+    )
+    package = plot.load_package(path)
+    (figure,) = plot.resolve(package, run_log)
+    (trace,) = cast(dict[str, Any], plot.draw_plotly(figure).to_dict())["data"]
+    t, values = log_column(run_log, "v0.slow_rate.value")
+    frames = run_log.rates[divisor].index.to_numpy()
+    assert np.array_equal(frames, np.arange(t.size) * divisor)
+    assert _uniform_rebuild(t) == (form == "x0/dx")
+    assert ("x0" in trace) == (form == "x0/dx")
+    assert ("x" in trace) == (form == "x")
+    assert_bits(_trace_x(trace), t, f"divisor {divisor} x")
+    assert_bits(_trace_array(trace["y"]), values, f"divisor {divisor} y")
+
+
+@pytest.mark.parametrize(
+    "case",
+    ["time", "time_spikes", "time_gaps", "path", "path_gaps", "short_columns"],
+)
+def test_plotly_size_reduction_equals_the_reference(case: str) -> None:
+    """T3: the drawn trace is ``_reference_columns`` of the given one, bit for bit."""
+    columns = 37
+    if case.startswith("time"):
+        x, y = _rough(10_001, 1)
+    elif case.startswith("path"):
+        x, y = _path(10_001, 2)
+    else:
+        x, y = _rough(50, 3)  # 49 > 37 columns, so most columns hold two frames
+    if case == "time_spikes":
+        y[[17, 4_321, 9_999]] = [1e6, -1e6, 1e6]
+    if case.endswith("gaps"):
+        y[100:400] = np.nan
+        y[5_000] = np.nan
+        x[7_000:7_003] = np.nan
+    index = _reference_columns(x, y, columns)
+    trace = _one_trace(x, y, columns)
+    drawn_x, drawn_y = _drawn(trace)
+    assert_bits(drawn_x, x[index], f"{case} x")
+    assert_bits(drawn_y, y[index], f"{case} y")
+
+
+def test_plotly_size_reduction_spans_each_column() -> None:
+    """T4: the reduced trace's points are samples in time order with the first and last, and each
+    column's drawn y range is its samples' range. It has teeth: a stride decimation fails at a
+    one-frame spike."""
+    columns = 37
+    x, y = _rough(30_001, 4)
+    y[12_345] = 1e6  # a one-frame spike
+    drawn_x, drawn_y = _drawn(_one_trace(x, y, columns))
+    assert _span_problems(x, y, drawn_x, drawn_y, columns) == []
+    stride = np.arange(0, x.size, 100)
+    stride = np.unique(np.concatenate((stride, [x.size - 1])))
+    assert 12_345 not in stride
+    problems = _span_problems(x, y, x[stride], y[stride], columns)
+    assert any("drawn y range" in p for p in problems), problems
+
+
+def test_plotly_size_reduction_keeps_nan_gaps() -> None:
+    """T5: an all-NaN column stays a gap, and a column's single finite frame is drawn with a
+    non-finite point on each side."""
+    columns = 37
+    n = 3_701  # 3700 / 37: each column is exactly 100 frames, [100 j, 100 (j + 1)]
+    x, y = _rough(n, 5)
+    y[1_000:1_101] = np.nan  # column 10, its edges included
+    y[2_000:2_101] = np.nan  # column 20 ...
+    y[2_050] = 7.0  # ... except one finite frame
+    drawn_x, drawn_y = _drawn(_one_trace(x, y, columns))
+    index = np.searchsorted(x, drawn_x)
+    assert_bits(drawn_x, x[_reference_columns(x, y, columns)], "x")
+    assert_bits(drawn_y, y[_reference_columns(x, y, columns)], "y")
+    gap = (index >= 1_000) & (index <= 1_100)
+    assert list(index[gap]) == [1_000]  # the first NaN after the stretch, and nothing finite
+    assert np.isnan(drawn_y[gap]).all()
+    assert 999 in index
+    assert 1_101 in index
+    k = int(np.flatnonzero(index == 2_050)[0])
+    assert drawn_y[k] == 7.0
+    assert np.isnan(drawn_y[k - 1])
+    assert np.isnan(drawn_y[k + 1])
+
+
+def test_plotly_size_reduction_is_bounded() -> None:
+    """T6: the count is n up to N + 1 points; then at most 3N + 1 for a time trace with no gap and
+    5N + 1 for a path, whatever n. A gapped trace may exceed 3N + 1 and stays within the
+    docstring's 3N + 5r - 1 for r finite stretches (amendment 1)."""
+    columns = 37
+    for n in (1, 2, columns + 1, columns + 2, 10 * columns, 300_001):
+        x, y = _rough(n, n)
+        count = _drawn(_one_trace(x, y, columns))[0].size
+        if n - 1 <= columns:
+            assert count == n, (n, count)
+        else:
+            assert count <= 3 * columns + 1, (n, count)
+        px, py = _path(n, n)
+        count = _drawn(_one_trace(px, py, columns))[0].size
+        assert count == n if n - 1 <= columns else count <= 5 * columns + 1, (n, count)
+    x, y = _rough(300_001, 6)
+    y[np.arange(1_000, 300_000, 2_000)] = np.nan  # 150 one-frame gaps, 151 finite stretches
+    stretches = 151
+    count = _drawn(_one_trace(x, y, columns))[0].size
+    assert count > 3 * columns + 1, count
+    assert count <= 3 * columns + 5 * stretches - 1, count
+
+
+def test_plotly_size_reduced_title_and_default_unreduced(
+    scenario_log: log.RunLog, tmp_path: Path
+) -> None:
+    """T7: a figure with a reduced trace says so in its title; one whose traces all fit does not,
+    and neither does a figure drawn without columns, which keeps every point. ``render`` refuses
+    html_columns without html, or a value that is not an integer of at least 1, before writing."""
+    x, y = _rough(1_000, 7)
+    figure = plot.Figure("f", "Title", [plot.Panel("", "y", "", [plot.Series("s", x, y)])])
+    layout = cast(dict[str, Any], plot.draw_plotly(figure, columns=5).to_dict())["layout"]
+    assert layout["title"]["text"] == "Title (reduced: 5 columns per trace)"
+    full = cast(dict[str, Any], plot.draw_plotly(figure).to_dict())
+    assert full["layout"]["title"]["text"] == "Title"
+    assert_bits(_trace_array(full["data"][0]["y"]), y, "unreduced y")
+    fits = cast(dict[str, Any], plot.draw_plotly(figure, columns=999).to_dict())
+    assert fits["layout"]["title"]["text"] == "Title"
+    assert_bits(_trace_array(fits["data"][0]["y"]), y, "999 columns y")
+
+    package = plot.load_package(plot.framework_package("health"))
+    for options in (
+        {"html_columns": 5},
+        {"html": True, "html_columns": 0},
+        {"html": True, "html_columns": True},
+        {"html": True, "html_columns": 1.5},
+    ):
+        with pytest.raises(ValueError, match="html_columns"):
+            plot.render(package, scenario_log, tmp_path / "out", **cast(Any, options))
+    assert not (tmp_path / "out").exists()
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["--html-columns", "5"],
+        ["--html", "--html-columns", "0"],
+        ["--html", "--html-columns", "-1"],
+        ["--html", "--html-columns", "x"],
+    ],
+    ids=["no-html", "zero", "negative", "not-a-number"],
+)
+def test_plotly_size_cli_html_columns_usage_exits_64(
+    argv: list[str], scenario_log: log.RunLog, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """T8: a usage error, 64, and no file."""
+    out = tmp_path / "out"
+    code, stdout, stderr = run_main(
+        capsys, "plot", scenario_log.path, "health", "--out", out, *argv
+    )
+    assert (code, stdout) == (cli.EX_USAGE, "")
+    assert "usage: astra plot" in stderr
+    assert not out.exists()
+
+
+def test_plotly_size_cli_html_columns_bounds_the_page(
+    scenario_log: log.RunLog, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """T8: ``--html --html-columns N`` writes a page whose every trace is within 3N + 1 points
+    (the log's traces have no gap), with the title marked, and the same SVG as without it."""
+    columns = 5
+    out = tmp_path / "out"
+    code, stdout, stderr = run_main(
+        capsys,
+        "plot",
+        scenario_log.path,
+        "flight",
+        "--out",
+        out,
+        "--html",
+        "--html-columns",
+        str(columns),
+    )
+    assert (code, stderr) == (0, "")
+    assert stdout.splitlines()[-1] == str(out / "flight.html")
+    calls = _plotly_calls((out / "flight.html").read_text(encoding="utf-8"))
+    assert len(calls) == 2
+    rows = next(iter(scenario_log.rates.values())).shape[0]
+    assert rows - 1 > columns
+    for data, layout, _ in calls:
+        assert layout["title"]["text"].endswith(f"(reduced: {columns} columns per trace)")
+        for trace in data:
+            assert 0 < _trace_x(trace).size <= 3 * columns + 1, trace["name"]
+    plain = tmp_path / "plain"
+    plot.render(plot.load_package(plot.framework_package("flight")), scenario_log, plain)
+    for svg in plain.iterdir():
+        assert (out / svg.name).read_bytes() == svg.read_bytes(), svg.name

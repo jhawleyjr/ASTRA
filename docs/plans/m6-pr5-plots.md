@@ -106,6 +106,8 @@ the call deletes only files it created (ADR-0027's who-deletes-what spirit) and 
 - **plotly renderer:** one `make_subplots` figure per package figure (shared x), `go.Scatter`; one HTML
   `<package>.html`: our own skeleton, plotly.js inline once (first `to_html(include_plotlyjs=True,
   full_html=False)`, later ones `False`), fixed `div_id`s, config `displaylogo: False`, no MathJax.
+  Amended by M6 PR 14 ([its plan](m6-pr14-plotly-size.md), D1 and D2): an exactly uniform x is written as
+  `x0`/`dx`, and `--html-columns N` reduces each trace on request. `plot.py`'s docstring has the current contract.
 - Lazy imports: matplotlib and plotly load only inside the renderers.
 
 **`astra plot LOG PACKAGE [--out DIR] [--format svg|png] [--html]`** in `astra.cli`. PACKAGE is a path if it

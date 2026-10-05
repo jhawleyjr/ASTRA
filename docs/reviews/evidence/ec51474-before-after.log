@@ -1,0 +1,354 @@
+# M6 PR 14: before/after against d851b8f, and the sizes (docs/plans/m6-pr14-plotly-size.md).
+# Candidate ec51474 (python/ and tests/ as run). WT = the worktree; P = WT/.cache/pr14 (gitignored, not committed).
+# Scripts in P: make_inputs.py, side.py + run.sh (one side), compare.py, remeasure.py, loadcheck.sh.
+# The load checks name another project's `just check` and pytest (Algorithmic-Trader). The comparison is of
+# bytes and parsed data, not of timings, so the load does not enter it; it is recorded as the rule asks.
+
+## Inputs, made once before any product edit (worktree at the plan commit, astra equal to d851b8f)
+== load check: before inputs
+2026-10-04T18:41:17-07:00
+loadavg: 2.35 5.39 4.10 2/2234 829963  nproc 32
+  hit 777172 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: just check
+  hit 787864 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: .venv/bin/python -m pytest -q tests/python
+build/test hits from other checkouts: 2
+clangd:
+  (none)
+astra: WT/python/astra/__init__.py | _core: WT/.venv/lib/python3.12/site-packages/astra/_core.cpython-312-x86_64-linux-gnu.so | plugins: WT/build/python/plugins
+elevator_step failures: 0
+astra run cruise_60s exit 0
+astra run cruise_300s exit 0
+astra.montecarlo: descent_batch: 24 runs on 4 workers in 0.51 s wall, 10.4 s simulated, real-time factor 20.4
+descent_batch: 24 rows, status {'ok': 14, 'halt': 8, 'error': 2}
+astra.montecarlo: planted: 130 runs on 4 workers in 1.30 s wall, 1300.0 s simulated, real-time factor 998.6
+planted: 130 rows, status {'ok': 130}
+== digests (sha256)
+4a6f6129ac2b0e1ca738f67625aef1d8c7cc3c1a162c080469b8aaa401cfe40a inputs/cruise_300s.h5
+4b897fce35798240467da5578e4e63f3335e8f01f6eeaf7454b441ceda56edf1 inputs/cruise_60s.h5
+f18bbe9229707f434b7f1732abcfcec7fb0602299a51117a6d8d14cc550d6bed inputs/descent_batch/summary.parquet
+cd27b5a1a3d2193f88a071a1f7e92f838e6460dfe6c68e9e460e5d3addc659c3 inputs/elevator_step.h5
+0da9a664b6d02889df2d00c346ab32d43579337c02749e29f3aff908da245932 inputs/planted/summary.parquet
+793d60e273093a9d56d6ab0f4173dcaabf31657d93de2f714400b031680a09b8 specs/cruise_300s.yaml
+7cdf9c7a1ebca92db661c59d6f7246dc300dbf8d808c73431a8e91960a9285c6 specs/cruise_60s.yaml
+batch digest descent_batch (23 files): b49b3d32d07d3d75edabb52e404bb3efb79e3c4315d613f1a9019c67fff0e7b9
+batch digest planted (131 files): b4c9b36cbba3603471df6c7fee89b46dcfe05b9ad2bbb2f92602adb94a9fa102
+
+real	0m3.850s
+user	0m29.219s
+sys	0m1.148s
+make_inputs exit 0
+== load check: after inputs
+2026-10-04T18:41:21-07:00
+loadavg: 2.33 5.34 4.08 3/2236 831516  nproc 32
+  hit 777172 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: just check
+  hit 787864 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: .venv/bin/python -m pytest -q tests/python
+build/test hits from other checkouts: 2
+clangd:
+  (none)
+
+## Sides: base twice (the control), then the candidate; the same inputs, cwd P/run and output path
+## P/run/out (renamed to P/sides/<side>), one build (WT/build/python/plugins). The base side imports P/base
+## (git archive d851b8f python/astra aircraft, plus the build's _core) through PYTHONPATH=P/shim:P/base/python,
+## where P/shim/_editable_skbc_astra.py is empty, so the editable finder is not installed. Every command's
+## line reads `exit 0` (29 per side); only the header and summary lines are kept here.
+== load check: before base1
+2026-10-04T18:41:25-07:00
+loadavg: 2.33 5.34 4.08 2/2241 832414  nproc 32
+  hit 777172 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: just check
+  hit 787864 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: .venv/bin/python -m pytest -q tests/python
+build/test hits from other checkouts: 2
+clangd:
+  (none)
+== base1 (2026-10-04T18:41:25-07:00, load 2.33 5.34 4.08)
+worktree HEAD 3327cca3360e14b8c2a9cd599aafd77bc7dacbdd, status: 0 changed paths
+tree: P/base
+astra: P/base/python/astra/__init__.py
+astra.plot: P/base/python/astra/plot.py
+astra.mc_analysis: P/base/python/astra/mc_analysis.py
+astra._core: P/base/python/astra/_core.cpython-312-x86_64-linux-gnu.so
+plugin dir: WT/build/python/plugins
+spawned worker astra: P/base/python/astra/__init__.py
+package flight: P/base/python/astra/plots/flight.yaml
+package attitude: P/base/python/astra/plots/attitude.yaml
+package health: P/base/python/astra/plots/health.yaml
+package controls: P/base/aircraft/_template/plots/controls.yaml
+package wrench: P/base/aircraft/_template/plots/wrench.yaml
+package ground_track: P/base/aircraft/_template/plots/ground_track.yaml
+package cruise: P/base/aircraft/notional_transport/plots/cruise.yaml
+package ground_track function file: P/base/aircraft/_template/plots/ground_track.py
+done: 126 files
+
+real	0m12.420s
+user	0m18.523s
+sys	0m1.079s
+== base1 end (2026-10-04T18:41:37-07:00, load 2.33 5.19 4.06), exit 0
+(29 command lines read `exit 0`)
+== load check: before base2
+2026-10-04T18:41:46-07:00
+loadavg: 2.86 5.25 4.08 39/2290 834382  nproc 32
+  hit 777172 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: just check
+  hit 787864 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: .venv/bin/python -m pytest -q tests/python
+build/test hits from other checkouts: 2
+clangd:
+  (none)
+== base2 (2026-10-04T18:41:46-07:00, load 2.86 5.25 4.08)
+worktree HEAD 3327cca3360e14b8c2a9cd599aafd77bc7dacbdd, status: 0 changed paths
+tree: P/base
+astra: P/base/python/astra/__init__.py
+astra.plot: P/base/python/astra/plot.py
+astra.mc_analysis: P/base/python/astra/mc_analysis.py
+astra._core: P/base/python/astra/_core.cpython-312-x86_64-linux-gnu.so
+plugin dir: WT/build/python/plugins
+spawned worker astra: P/base/python/astra/__init__.py
+package flight: P/base/python/astra/plots/flight.yaml
+package attitude: P/base/python/astra/plots/attitude.yaml
+package health: P/base/python/astra/plots/health.yaml
+package controls: P/base/aircraft/_template/plots/controls.yaml
+package wrench: P/base/aircraft/_template/plots/wrench.yaml
+package ground_track: P/base/aircraft/_template/plots/ground_track.yaml
+package cruise: P/base/aircraft/notional_transport/plots/cruise.yaml
+package ground_track function file: P/base/aircraft/_template/plots/ground_track.py
+done: 126 files
+
+real	0m12.333s
+user	0m17.035s
+sys	0m1.050s
+== base2 end (2026-10-04T18:41:58-07:00, load 4.69 5.58 4.21), exit 0
+(29 command lines read `exit 0`)
+== load check: before cand
+2026-10-04T18:49:37-07:00
+loadavg: 3.06 6.38 5.15 3/2185 874141  nproc 32
+  hit 839861 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: just check
+  hit 850255 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: .venv/bin/python -m pytest -q tests/python
+build/test hits from other checkouts: 2
+clangd:
+  (none)
+== cand (2026-10-04T18:49:38-07:00, load 3.06 6.38 5.15)
+worktree HEAD ec51474bb39d50750bd4e5fd6bdf43b7ffc93684, status: 0 changed paths
+tree: WT
+astra: WT/python/astra/__init__.py
+astra.plot: WT/python/astra/plot.py
+astra.mc_analysis: WT/python/astra/mc_analysis.py
+astra._core: WT/.venv/lib/python3.12/site-packages/astra/_core.cpython-312-x86_64-linux-gnu.so
+plugin dir: WT/build/python/plugins
+spawned worker astra: WT/python/astra/__init__.py
+package flight: WT/python/astra/plots/flight.yaml
+package attitude: WT/python/astra/plots/attitude.yaml
+package health: WT/python/astra/plots/health.yaml
+package controls: WT/aircraft/_template/plots/controls.yaml
+package wrench: WT/aircraft/_template/plots/wrench.yaml
+package ground_track: WT/aircraft/_template/plots/ground_track.yaml
+package cruise: WT/aircraft/notional_transport/plots/cruise.yaml
+package ground_track function file: WT/aircraft/_template/plots/ground_track.py
+done: 126 files
+
+real	0m11.154s
+user	0m16.950s
+sys	0m0.814s
+== cand end (2026-10-04T18:49:49-07:00, load 2.90 6.24 5.12), exit 0
+(29 command lines read `exit 0`)
+
+## Comparison (compare.py; the expected differences were stated in the plan before the run)
+base1: 126 files, manifest sha256 59849067b991e5d06f49986a47e017042252b6dedba3d7a7d31fc599411337a9
+base2: 126 files, manifest sha256 59849067b991e5d06f49986a47e017042252b6dedba3d7a7d31fc599411337a9
+cand: 126 files, manifest sha256 ed309a320dffa1c9080e8dcdc67947691128fdcc3eb1be7a986426247cc26dfb
+control: base1 == base2
+base vs cand: 108 identical, 18 differing
+expected to differ (stated in the plan): every --html page except ground_track.html, 18 pages
+  control page plot-cruise_300s-ground_track/ground_track.html: identical
+  control page plot-cruise_60s-ground_track/ground_track.html: identical
+  control page plot-elevator_step-ground_track/ground_track.html: identical
+unexpected differences: none
+expected but identical: none
+  plot-cruise_300s-attitude/attitude.html: 48,681,240 -> 28,483,980 bytes; semantic PASS traces: 6 x0/dx, 0 explicit x
+  plot-cruise_300s-controls/controls.html: 33,088,834 -> 19,623,994 bytes; semantic PASS traces: 4 x0/dx, 0 explicit x
+  plot-cruise_300s-cruise/cruise.html: 105,389,966 -> 58,263,026 bytes; semantic PASS traces: 14 x0/dx, 0 explicit x
+  plot-cruise_300s-flight/flight.html: 54,280,225 -> 30,716,755 bytes; semantic PASS traces: 7 x0/dx, 0 explicit x
+  plot-cruise_300s-health/health.html: 37,655,486 -> 20,824,436 bytes; semantic PASS traces: 5 x0/dx, 0 explicit x
+  plot-cruise_300s-wrench/wrench.html: 45,489,011 -> 25,291,751 bytes; semantic PASS traces: 6 x0/dx, 0 explicit x
+  plot-cruise_60s-attitude/attitude.html: 13,736,205 -> 9,663,885 bytes; semantic PASS traces: 6 x0/dx, 0 explicit x
+  plot-cruise_60s-controls/controls.html: 10,498,874 -> 7,783,994 bytes; semantic PASS traces: 4 x0/dx, 0 explicit x
+  plot-cruise_60s-cruise/cruise.html: 25,120,081 -> 15,618,001 bytes; semantic PASS traces: 14 x0/dx, 0 explicit x
+  plot-cruise_60s-flight/flight.html: 14,757,020 -> 10,005,980 bytes; semantic PASS traces: 7 x0/dx, 0 explicit x
+  plot-cruise_60s-health/health.html: 11,418,036 -> 8,024,436 bytes; semantic PASS traces: 5 x0/dx, 0 explicit x
+  plot-cruise_60s-wrench/wrench.html: 12,986,621 -> 8,914,301 bytes; semantic PASS traces: 6 x0/dx, 0 explicit x
+  plot-elevator_step-attitude/attitude.html: 5,070,480 -> 4,948,140 bytes; semantic PASS traces: 6 x0/dx, 0 explicit x
+  plot-elevator_step-controls/controls.html: 4,978,719 -> 4,897,159 bytes; semantic PASS traces: 4 x0/dx, 0 explicit x
+  plot-elevator_step-cruise/cruise.html: 5,384,551 -> 5,099,091 bytes; semantic PASS traces: 14 x0/dx, 0 explicit x
+  plot-elevator_step-flight/flight.html: 5,107,535 -> 4,964,805 bytes; semantic PASS traces: 7 x0/dx, 0 explicit x
+  plot-elevator_step-health/health.html: 5,006,386 -> 4,904,436 bytes; semantic PASS traces: 5 x0/dx, 0 explicit x
+  plot-elevator_step-wrench/wrench.html: 5,054,086 -> 4,931,746 bytes; semantic PASS traces: 6 x0/dx, 0 explicit x
+result: PASS
+The control's manifest digest is compare.py's own (sha256 of `<sha256>  <path>` lines in sorted order).
+Semantic check per changed page: each Plotly.newPlot call's layout and config equal; each trace's x
+(the base's array, the candidate's x0 + i * dx) and y bitwise equal; every other trace key equal; the data
+argument's text byte-identical once every x array and x0/dx is removed; the page text outside the data
+arguments byte-identical. Its teeth, checked on plot-elevator_step-health/health.html: a dx nudged by
+1e-7 relative gives 'x differs', a renamed trace gives 'other keys differ' and 'data text differs', and one
+added space outside the data gives 'page text outside the data arguments differs'.
+Series that fell back to an explicit x (amendment 3), on the elevator_step, 60 s and 300 s logs: none of
+the shipped YAML series (every one wrote x0/dx, above). The template's function package ground_track
+(trace v0, x = east) keeps its array, as D1 says, and its pages are byte-identical. T2's real rate groups:
+divisor 10 rebuilds t bitwise (x0/dx), and divisor 50 does not (explicit x).
+
+## Sizes after the change (remeasure.py; the candidate's real pages)
+== load check: before sizes
+2026-10-04T18:50:18-07:00
+loadavg: 2.38 5.79 5.00 1/2186 883922  nproc 32
+  hit 839861 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: just check
+  hit 850255 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: .venv/bin/python -m pytest -q tests/python
+build/test hits from other checkouts: 2
+clangd:
+  (none)
+astra: WT/python/astra/__init__.py
+== cruise_60s
+  flight: --html: 10,005,980 (60,000 pts, 0 explicit x); --html-columns 2000: 5,550,980 (5,205 pts, 7 explicit x)
+  attitude: --html: 9,663,885 (60,000 pts, 0 explicit x); --html-columns 2000: 5,146,874 (2,228 pts, 6 explicit x)
+  health: --html: 8,024,436 (60,000 pts, 0 explicit x); --html-columns 2000: 5,045,774 (2,002 pts, 5 explicit x)
+  cruise: --html: 15,618,001 (60,000 pts, 0 explicit x); --html-columns 2000: 5,759,519 (5,205 pts, 14 explicit x); --html-columns 1000: 5,309,845 (2,706 pts, 14 explicit x); --html-columns 4000: 6,625,713 (9,740 pts, 14 explicit x)
+  controls: --html: 7,783,994 (60,000 pts, 0 explicit x); --html-columns 2000: 5,014,380 (2,001 pts, 4 explicit x)
+  wrench: --html: 8,914,301 (60,000 pts, 0 explicit x); --html-columns 2000: 5,525,995 (5,190 pts, 6 explicit x)
+  ground_track: --html: 6,236,282 (60,000 pts, 1 explicit x); --html-columns 2000: 4,870,974 (2,012 pts, 1 explicit x)
+== cruise_300s
+  flight: --html: 30,716,755 (300,000 pts, 0 explicit x); --html-columns 2000: 5,605,877 (5,668 pts, 7 explicit x)
+  attitude: --html: 28,483,980 (300,000 pts, 0 explicit x); --html-columns 2000: 5,170,764 (2,556 pts, 6 explicit x)
+  health: --html: 20,824,436 (300,000 pts, 0 explicit x); --html-columns 2000: 5,044,129 (2,002 pts, 5 explicit x)
+  cruise: --html: 58,263,026 (300,000 pts, 0 explicit x); --html-columns 2000: 5,812,547 (5,668 pts, 14 explicit x); --html-columns 1000: 5,342,204 (2,874 pts, 14 explicit x); --html-columns 4000: 6,731,691 (10,986 pts, 14 explicit x)
+  controls: --html: 19,623,994 (300,000 pts, 0 explicit x); --html-columns 2000: 5,013,080 (2,001 pts, 4 explicit x)
+  wrench: --html: 25,291,751 (300,000 pts, 0 explicit x); --html-columns 2000: 5,585,310 (5,670 pts, 6 explicit x)
+  ground_track: --html: 11,686,072 (300,000 pts, 1 explicit x); --html-columns 2000: 4,869,619 (2,012 pts, 1 explicit x)
+exit 0
+== load check: after sizes
+2026-10-04T18:50:26-07:00
+loadavg: 2.17 5.63 4.96 2/2185 885962  nproc 32
+  hit 839861 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: just check
+  hit 850255 cwd=/home/joe/repos/Algorithmic-Trader/.claude/worktrees/ap-pr-10d1: .venv/bin/python -m pytest -q tests/python
+build/test hits from other checkouts: 2
+clangd:
+  (none)
+
+## The base per-figure and per-trace listing (planning measurement, 2026-10-04, main checkout at d851b8f;
+## x and y are the bytes of each base64 array as written in the page)
+### 60 s
+BASE: figure div bytes; per trace: points, x bytes, y bytes in the page
+  flight: page 14,757,020
+    air_data: 6,941,347
+      v0 altitude: 60,000 pts, x 678,710, y 681,670
+      v0 TAS: 60,000 pts, x 678,710, y 676,005
+      v0 CAS: 60,000 pts, x 678,710, y 673,825
+      v0 Mach: 60,000 pts, x 678,710, y 811,275
+      v0 vertical speed: 60,000 pts, x 678,710, y 696,350
+    aero_angles: 2,999,722
+      v0 alpha: 60,000 pts, x 678,710, y 822,165
+      v0 beta: 60,000 pts, x 678,710, y 812,540
+  attitude: page 13,736,205
+    euler: 4,477,967
+      v0 phi: 60,000 pts, x 678,710, y 806,290
+      v0 theta: 60,000 pts, x 678,710, y 810,425
+      v0 psi: 60,000 pts, x 678,710, y 817,010
+    rates: 4,442,300
+      v0 p: 60,000 pts, x 678,710, y 778,075
+      v0 q: 60,000 pts, x 678,710, y 811,325
+      v0 r: 60,000 pts, x 678,710, y 809,050
+  health: page 11,418,036
+    health: 6,602,060
+      health.nan: 60,000 pts, x 678,710, y 640,000
+      health.quaternion: 60,000 pts, x 678,710, y 640,000
+      health.domain: 60,000 pts, x 678,710, y 640,000
+      health.input: 60,000 pts, x 678,710, y 640,000
+      health.max_q_drift: 60,000 pts, x 678,710, y 640,000
+  cruise: page 25,120,081
+    longitudinal: 10,241,517
+      v0 altitude: 60,000 pts, x 678,710, y 681,670
+      v0 TAS: 60,000 pts, x 678,710, y 676,005
+      v0 alpha: 60,000 pts, x 678,710, y 822,165
+      v0 theta: 60,000 pts, x 678,710, y 810,425
+      v0 elevator: 60,000 pts, x 678,710, y 840,000
+      v0 q: 60,000 pts, x 678,710, y 811,325
+      v0 throttle: 60,000 pts, x 678,710, y 840,000
+    lateral: 10,062,593
+      v0 beta: 60,000 pts, x 678,710, y 812,540
+      v0 phi: 60,000 pts, x 678,710, y 806,290
+      v0 aileron: 60,000 pts, x 678,710, y 640,000
+      v0 rudder: 60,000 pts, x 678,710, y 640,000
+      v0 psi: 60,000 pts, x 678,710, y 817,010
+      v0 p: 60,000 pts, x 678,710, y 778,075
+      v0 r: 60,000 pts, x 678,710, y 809,050
+  controls: page 10,498,874
+    controls: 5,682,884
+      v0 elevator: 60,000 pts, x 678,710, y 840,000
+      v0 aileron: 60,000 pts, x 678,710, y 640,000
+      v0 rudder: 60,000 pts, x 678,710, y 640,000
+      v0 throttle: 60,000 pts, x 678,710, y 840,000
+  wrench: page 12,986,621
+    wrench: 8,170,645
+      v0 X: 60,000 pts, x 678,710, y 675,025
+      v0 Y: 60,000 pts, x 678,710, y 681,880
+      v0 Z: 60,000 pts, x 678,710, y 675,420
+      v0 L: 60,000 pts, x 678,710, y 690,015
+      v0 M: 60,000 pts, x 678,710, y 674,330
+      v0 N: 60,000 pts, x 678,710, y 693,425
+  ground_track: page 6,236,282
+    ground_track: 1,420,264
+      v0: 60,000 pts, x 733,360, y 679,420
+### 300 s
+BASE: figure div bytes; per trace: points, x bytes, y bytes in the page
+  flight: page 54,280,225
+    air_data: 34,528,147
+      v0 altitude: 300,000 pts, x 3,366,200, y 3,406,615
+      v0 TAS: 300,000 pts, x 3,366,200, y 3,374,565
+      v0 CAS: 300,000 pts, x 3,366,200, y 3,372,415
+      v0 Mach: 300,000 pts, x 3,366,200, y 4,056,530
+      v0 vertical speed: 300,000 pts, x 3,366,200, y 3,478,350
+    aero_angles: 14,936,127
+      v0 alpha: 300,000 pts, x 3,366,200, y 4,122,110
+      v0 beta: 300,000 pts, x 3,366,200, y 4,074,020
+  attitude: page 48,681,240
+    euler: 21,868,822
+      v0 phi: 300,000 pts, x 3,366,200, y 4,000,960
+      v0 theta: 300,000 pts, x 3,366,200, y 3,959,935
+      v0 psi: 300,000 pts, x 3,366,200, y 3,801,215
+    rates: 21,996,480
+      v0 p: 300,000 pts, x 3,366,200, y 3,827,955
+      v0 q: 300,000 pts, x 3,366,200, y 4,054,360
+      v0 r: 300,000 pts, x 3,366,200, y 4,007,845
+  health: page 37,655,486
+    health: 32,839,510
+      health.nan: 300,000 pts, x 3,366,200, y 3,200,000
+      health.quaternion: 300,000 pts, x 3,366,200, y 3,200,000
+      health.domain: 300,000 pts, x 3,366,200, y 3,200,000
+      health.input: 300,000 pts, x 3,366,200, y 3,200,000
+      health.max_q_drift: 300,000 pts, x 3,366,200, y 3,200,000
+  cruise: page 105,389,966
+    longitudinal: 50,889,942
+      v0 altitude: 300,000 pts, x 3,366,200, y 3,406,615
+      v0 TAS: 300,000 pts, x 3,366,200, y 3,374,565
+      v0 alpha: 300,000 pts, x 3,366,200, y 4,122,110
+      v0 theta: 300,000 pts, x 3,366,200, y 3,959,935
+      v0 elevator: 300,000 pts, x 3,366,200, y 4,200,000
+      v0 q: 300,000 pts, x 3,366,200, y 4,054,360
+      v0 throttle: 300,000 pts, x 3,366,200, y 4,200,000
+    lateral: 49,684,053
+      v0 beta: 300,000 pts, x 3,366,200, y 4,074,020
+      v0 phi: 300,000 pts, x 3,366,200, y 4,000,960
+      v0 aileron: 300,000 pts, x 3,366,200, y 3,200,000
+      v0 rudder: 300,000 pts, x 3,366,200, y 3,200,000
+      v0 psi: 300,000 pts, x 3,366,200, y 3,801,215
+      v0 p: 300,000 pts, x 3,366,200, y 3,827,955
+      v0 r: 300,000 pts, x 3,366,200, y 4,007,845
+  controls: page 33,088,834
+    controls: 28,272,844
+      v0 elevator: 300,000 pts, x 3,366,200, y 4,200,000
+      v0 aileron: 300,000 pts, x 3,366,200, y 3,200,000
+      v0 rudder: 300,000 pts, x 3,366,200, y 3,200,000
+      v0 throttle: 300,000 pts, x 3,366,200, y 4,200,000
+  wrench: page 45,489,011
+    wrench: 40,673,035
+      v0 X: 300,000 pts, x 3,366,200, y 3,376,470
+      v0 Y: 300,000 pts, x 3,366,200, y 3,409,370
+      v0 Z: 300,000 pts, x 3,366,200, y 3,375,815
+      v0 L: 300,000 pts, x 3,366,200, y 3,462,535
+      v0 M: 300,000 pts, x 3,366,200, y 3,372,980
+      v0 N: 300,000 pts, x 3,366,200, y 3,470,375
+  ground_track: page 11,686,072
+    ground_track: 6,870,054
+      v0: 300,000 pts, x 3,453,315, y 3,409,255

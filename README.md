@@ -170,7 +170,8 @@ astra plot build/cruise.h5 aircraft/notional_transport/plots/cruise.yaml --out b
 A plot package is a YAML file of figures, panels and series. `{v}` in a signal name stands for each vehicle's
 index, and `unit:` picks a display unit (ft, kt, ft/s, deg, deg/s), converted by `core/util/units`. Each figure
 becomes `<package>-<figure>.svg` (`--format png` for PNG); `--html` adds one interactive page that works offline.
-No file is overwritten. An aircraft keeps its own packages in `aircraft/<name>/plots/`; the template's starter
+That page holds every sample. On a long run, `--html-columns N` keeps it small: each trace keeps each of N
+columns' ends and extremes, and the figure's title says so. No file is overwritten. An aircraft keeps its own packages in `aircraft/<name>/plots/`; the template's starter
 set includes a plot drawn by a Python function. The format is in [plot.py](python/astra/plot.py).
 
 ### Write a scenario
