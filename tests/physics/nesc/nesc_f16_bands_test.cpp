@@ -28,6 +28,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <numbers>
 #include <span>
 #include <string_view>
@@ -79,22 +80,28 @@ static_assert(nesc::case13p4::Band::kFirstGatedSample == kFirstGatedSample);
 static_assert(nesc::case15::Band::kFirstGatedSample == kFirstGatedSample);
 static_assert(nesc::case16::Band::kFirstGatedSample == kFirstGatedSample);
 
-enum class Kind { kAngle, kLength, kVelocity, kRate, kForce, kDensity, kPressure, kTemperature };
+enum class Kind : std::uint8_t {
+  kAngle,
+  kLength,
+  kVelocity,
+  kRate,
+  kForce,
+  kDensity,
+  kPressure,
+  kTemperature
+};
 
 // ADR-0014's per-kind floors; ADR-0015 converts the atmosphere kinds' 1e-12 relative floor into an
 // absolute one at ISA-76's sea-level values (1.225 kg/m^3, 101325 Pa, 288.15 K).
 double floor_of(Kind kind) {
   switch (kind) {
-    case Kind::kAngle:
-      return 1e-12;  // rad
-    case Kind::kLength:
-      return 1e-9;  // m
-    case Kind::kVelocity:
-      return 1e-9;  // m/s
-    case Kind::kRate:
-      return 1e-12;  // rad/s
-    case Kind::kForce:
-      return 1e-12;  // N or N*m
+    case Kind::kAngle:  // rad
+    case Kind::kRate:   // rad/s
+    case Kind::kForce:  // N or N*m
+      return 1e-12;
+    case Kind::kLength:    // m
+    case Kind::kVelocity:  // m/s
+      return 1e-9;
     case Kind::kDensity:
       return 1e-12 * 1.225;  // kg/m^3
     case Kind::kPressure:
