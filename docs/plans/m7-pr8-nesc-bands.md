@@ -139,29 +139,46 @@ trimmed, so it is not checked. Velocity is the table's "local-relative" [north, 
 [roll, pitch, yaw] (case 15's [0, 563.643, 0] with yaw 90 and case 16's [563.643, 0, 0] with yaw 0 fix the
 order). Yaw and longitude compare on the wrapped difference.
 
-**Tolerance rule, fixed before Joe's run:** half a unit in the last digit Vol II prints, in the value's
-published unit, converted to SI with the same function. A printed integer, including 0, gets 0.5 of its unit.
+**What it can and cannot catch (Joe, 2026-10-07).** It catches a wrong unit, column, sign or file in a
+generated header. It cannot tell case 11 from 13.1 to 13.4, which share their initial conditions, and it says
+nothing about the band's width or any sample after t = 0.
 
-| Value as printed (tables) | Tolerance (published unit) |
-|---|---|
-| 36.01916667, −75.67444444 (35 to 40) | 5e-9 deg |
-| 89.95 (42), −179.95 (43) | 5e-3 deg |
-| −45 (42), 0 (43, latitude) | 0.5 deg |
-| 10013, 30013, 10000 ft | 0.5 ft |
-| 400, 0 ft/s | 0.5 ft/s |
-| 1414.213562 ft/s (36) | 5e-7 ft/s |
-| 563.643 ft/s (42, 43) | 5e-4 ft/s |
-| roll 0, yaw 45, 90, 0 deg | 0.5 deg |
+**The rule (Joe's decision, 2026-10-07, for every value in every case):** tol = max(half a unit in the last
+digit Vol II prints, 1e-6 × |printed value|), in the value's published unit, converted to SI with the same
+function. A printed integer, including 0, has a half unit of 0.5. It replaced the first rule (half a unit
+alone) because that rule tested the precision of NASA's printed table rather than the check's purpose. It is
+not a case 12 exception.
 
-The rule makes the integer and zero checks weak (0.5 deg of roll, 0.5 ft/s of v_down) and the decimal ones
-tight (5e-9 deg of latitude is about 0.6 mm). A miss is a finding for Joe; no tolerance is loosened to clear it.
+**Finding under the first rule (before the run, from the members' t = 0 rows, read-only).** Case 12's
+v_north and v_east failed it: the members' mean is 1414.2135610 ft/s against the printed 1414.213562, a miss
+of 1.18e-6 with a tolerance of 5e-7 (SIM 4 1414.21356237, SIM 5 1414.2135593). Joe changed the rule for every
+value, for the reason above.
 
-**Predicted from the members' t = 0 rows (read-only, before the run):** every value passes except one pair.
-- **Case 12's v_north and v_east miss.** The members' mean is 1414.2135610 ft/s, 1.18e-6 below the
-  printed 1414.213562, against a tolerance of 5e-7. SIM 4 starts at 1414.21356237 (2000/√2) and SIM 5 at
-  1414.2135593. This is a finding for Joe before the gate; the test asserts the rule as stated.
-- The closest passes: case 11 to 13.4's longitude (4.4e-9 of 5e-9 deg), latitude (3.15e-9 of 5e-9 deg), and
-  cases 15 and 16's 563.643 ft/s (3.5e-4 of 5e-4). SIM 4's 400.0103 ft/s in cases 11 to 13.4 is inside 0.5.
+**Data, not a failure.** SIM 4 starts cases 11 and 13.1 to 13.4 at 400.010306 ft/s in v_north and v_east,
+against the printed 400; SIM 5 starts at 400 (399.99999999).
+
+Both rules, with the predicted margin (|members' mean − printed| / tolerance) from the CSVs' t = 0 rows. The PR
+body reports each value's margin from the generated headers.
+
+| Value as printed (tables) | First rule | Its margin | New rule | Its margin |
+|---|---|---|---|---|
+| latitude 36.01916667 deg (35 to 40) | 5e-9 | 0.63 | 3.602e-5 | 8.75e-5 |
+| longitude −75.67444444 deg (35 to 40) | 5e-9 | 0.88 | 7.567e-5 | 5.81e-5 |
+| altitude 10013, 30013 ft (35 to 40) | 0.5 | ≤ 4.7e-9 | 0.5 | ≤ 4.7e-9 |
+| v_north, v_east 400 ft/s (35, 37 to 40) | 0.5 | 0.0103 | 0.5 | 0.0103 |
+| v_north, v_east 1414.213562 ft/s (36) | 5e-7 | **2.35 (miss)** | 1.414e-3 | 8.31e-4 |
+| v_down 0 ft/s (all) | 0.5 | ≤ 7.2e-9 | 0.5 | ≤ 7.2e-9 |
+| roll 0 deg; yaw 45 deg (35 to 40) | 0.5 | ≤ 3.3e-13 | 0.5 | ≤ 3.3e-13 |
+| latitude 89.95 deg (42) | 5e-3 | 1.39e-10 | 5e-3 | 1.39e-10 |
+| longitude −45 deg (42); latitude 0 deg (43) | 0.5 | 0 | 0.5 | 0 |
+| longitude −179.95 deg (43) | 5e-3 | 0 | 5e-3 | 0 |
+| altitude 10000 ft (42, 43) | 0.5 | ≤ 5.8e-11 | 0.5 | ≤ 5.8e-11 |
+| v_east 563.643 ft/s (42); v_north 563.643 ft/s (43) | 5e-4 | 0.703 | 5.636e-4 | 0.624 |
+| v_north 0 (42); v_east 0 (43) ft/s | 0.5 | ≤ 6.6e-12 | 0.5 | ≤ 6.6e-12 |
+| roll 0 deg; yaw 90, 0 deg (42, 43) | 0.5 | ≤ 1.8e-11 | 0.5 | ≤ 1.8e-11 |
+
+Under the new rule every value passes; the closest is cases 15 and 16's 563.643 ft/s at 0.624. A miss is a
+finding for Joe; no tolerance is loosened to clear it.
 
 Acceptance: `ctest --preset release -R Nesc --no-tests=error` (M2's ten cases unchanged plus these), and the
 full gate. The guard-free test means no tolerance or golden is touched by it.
@@ -269,6 +286,8 @@ never run by an agent or the gate, ADR-0013), no change to M2's exclusions, floo
 - D2 accepted: `zero_accepting` printed for cases 1 to 10 as well (headers unchanged).
 - D3 accepted, widened by A4: the comparison above.
 - A1 to A5 folded in above.
-- Open for Joe: the predicted case 12 v_north/v_east miss (A2). The test asserts the stated rule; the gate
-  fails on it until Joe decides.
+- A2's tolerance rule replaced (Joe, 2026-10-07), for every value in every case, by max(half a unit in the
+  last printed digit, 1e-6 × |printed value|), after case 12's v_north and v_east missed the first rule (see
+  A2). Both rules and their margins are kept above; the PR body records the finding and each value's margin.
+- `touch-goldens` armed by Joe, 2026-10-07.
 Rollback: revert the PR; the M2 headers are unchanged by construction.

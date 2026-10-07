@@ -5,16 +5,27 @@
 // conditions from Vol II Tables 35 to 40, 42 and 43 in their published units, converted here with
 // core/util/units.
 //
-// The initial-condition tolerance is half a unit in the last digit Vol II prints (a printed
-// integer, including 0, gets 0.5 of its unit), in the published unit, converted with the same
-// function (Joe's amendment 2 to the PR 8 plan, fixed before the generator ran). A miss is a
-// finding for Joe; no tolerance here is loosened to clear one. Pitch is trimmed, so it is not
-// checked.
+// The initial-condition check (Joe's amendment 2 to the PR 8 plan) compares each case's sample-0
+// reference of latitude, longitude, altitude, v_north, v_east, v_down, roll and yaw with Vol II's
+// printed initial condition. Pitch is trimmed, so it is not checked. Its purpose is to catch a
+// wrong file, column, unit or sign in the generated header: a wrong file (another case's data,
+// except as below), a swapped column, a missing degree or foot conversion, or a flipped sign each
+// moves some value far outside its tolerance. It cannot tell case 11 from 13.1 to 13.4, which share
+// their initial conditions (Tables 35, 37 to 40), and it checks only t = 0, so it says nothing
+// about the band's width or any later sample.
+//
+// The tolerance is max(half a unit in the last digit Vol II prints, 1e-6 x |printed value|), in the
+// published unit, converted with the same function (Joe's decision, 2026-10-07, for every value in
+// every case). A printed integer, including 0, has a half unit of 0.5. The first rule, half a digit
+// alone, tested the precision of NASA's printed table rather than this purpose: case 12's v_north
+// and v_east missed it (the members' mean is 1414.2135610 ft/s against the printed 1414.213562). A
+// miss is a finding for Joe; no tolerance here is loosened to clear one.
 //
 // Each sweep counts what it visited and asserts 8 cases and 21 channels per case, so a sweep that
 // visits nothing cannot pass (docs/lessons.md, 2026-09-29).
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <numbers>
@@ -248,8 +259,14 @@ TEST(NescF16Band, ReferencesFinite) {
 // unit.
 struct Printed {
   double value;
-  double tolerance;
+  double half_digit;
 };
+
+// Joe's rule (2026-10-07): max(half a unit in the last printed digit, 1e-6 x |printed value|).
+constexpr double kRelativeAllowance = 1e-6;
+double tolerance_of(Printed p) {
+  return std::max(p.half_digit, kRelativeAllowance * std::abs(p.value));
+}
 
 struct VolIIInitialCondition {
   std::string_view name;
@@ -343,11 +360,11 @@ TEST(NescF16Band, InitialConditionsMatchVolII) {
     ASSERT_EQ(c.name, ic.name);
     int visited_channels = 0;
     const auto angle = [&](std::string_view channel, Printed p) {
-      expect_initial(c, channel, degrees_to_radians(p.value), degrees_to_radians(p.tolerance));
+      expect_initial(c, channel, degrees_to_radians(p.value), degrees_to_radians(tolerance_of(p)));
       ++visited_channels;
     };
     const auto length = [&](std::string_view channel, Printed p) {
-      expect_initial(c, channel, feet_to_meters(p.value), feet_to_meters(p.tolerance));
+      expect_initial(c, channel, feet_to_meters(p.value), feet_to_meters(tolerance_of(p)));
       ++visited_channels;
     };
     angle("latitude", ic.latitude_deg);
