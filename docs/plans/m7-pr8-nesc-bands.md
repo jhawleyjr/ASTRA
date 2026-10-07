@@ -6,7 +6,7 @@ Spec: [M7 plan](m7-f16-nesc-oracle.md) (approved by Joe, 2026-10-04, at `3381693
 Risk: Tier 3 (the oracle: `tests/golden/nesc/**`). Depends on PR 1a only; needs neither P1 nor P2.
 Status: **approved by Joe, 2026-10-07, in plan mode,** with D1 to D3 accepted (D3 widened by his amendment
 4) and his amendments 1 to 5, folded in below (marked A1 to A5). The amendments were folded in before any
-guarded edit.
+guarded edit. Implemented in #106; Joe ran the generator at `76f7ee9`. The results are in the PR body.
 Base: `origin/main` `37e8f4e` (#105), re-checked after `git fetch`. Worktree `m7-pr8`, branch
 `worktree-m7-pr8`. Joe arms `.claude/touch-goldens`; Claude never arms it, and never runs the generator.
 
