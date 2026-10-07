@@ -1,0 +1,41 @@
+date: 2026-10-07T21:57:00Z
+command: ./scripts/check-full.sh
+base: 37e8f4ea3d8ca467b2b137f51dbf6f2eca10a0d7
+head: 018f5dea5944f3c3441af200fad6a8ae666fd64c
+exit: 1
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 195 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7-pr8/build/debug
+100% tests passed, 0 tests failed out of 673
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7-pr8/build/release
+100% tests passed, 0 tests failed out of 674
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7-pr8/build/static-plugins
+100% tests passed, 0 tests failed out of 675
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7-pr8/build/asan
+100% tests passed, 0 tests failed out of 676
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+error: Recipe `tidy` failed on line 72 with exit code 1
+
+Failing step (just tidy), its errors in full:
+clang-tidy-18 -p=build/asan -quiet /home/joe/repos/ASTRA/.claude/worktrees/m7-pr8/tests/physics/nesc/nesc_f16_bands_test.cpp
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr8/tests/physics/nesc/nesc_f16_bands_test.cpp:82:12: error: enum 'Kind' uses a larger base type ('int', size: 4 bytes) than necessary for its value set, consider using 'std::uint8_t' (1 byte) as the base type to reduce its size [performance-enum-size,-warnings-as-errors]
+   82 | enum class Kind { kAngle, kLength, kVelocity, kRate, kForce, kDensity, kPressure, kTemperature };
+      |            ^
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr8/tests/physics/nesc/nesc_f16_bands_test.cpp:90:5: error: switch has 2 consecutive identical branches [bugprone-branch-clone,-warnings-as-errors]
+   90 |     case Kind::kLength:
+      |     ^
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr8/tests/physics/nesc/nesc_f16_bands_test.cpp:93:18: note: last of these clones ends here
+   93 |       return 1e-9;  // m/s
+      |                  ^
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr8/tests/physics/nesc/nesc_f16_bands_test.cpp:94:5: error: switch has 2 consecutive identical branches [bugprone-branch-clone,-warnings-as-errors]
+   94 |     case Kind::kRate:
+      |     ^
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr8/tests/physics/nesc/nesc_f16_bands_test.cpp:97:19: note: last of these clones ends here
+   97 |       return 1e-12;  // N or N*m
+      |                   ^
