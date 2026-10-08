@@ -1,9 +1,8 @@
 # M7 inventory addendum: the NESC F-16 files (P1 and P2)
 
-Status: **written in M7 PR 6a; every proposal and D1 to D8 await Joe's decision.** Nothing here changes a
-requirement or decision of [the M7 plan](m7-f16-nesc-oracle.md). Joe's decisions are recorded, dated, under
-"Joe's decisions" when he makes them. Only then does this PR add dated amendments to the M7 plan, for what he
-changed.
+Status: **written in M7 PR 6a; Joe decided every proposal and D1 to D8 on 2026-10-08 (§10).** §1 to §9
+are the inventory as written before his decisions. §10 is authoritative where they differ. The M7 plan carries
+dated amendments for what he changed, each pointing to §10.
 Owner: Joe
 Risk: Tier 0 (documents only).
 Parent: [the M7 plan's Inventory section](m7-f16-nesc-oracle.md#inventory-of-the-sources-read-only-the-main-checkouts-docsrefs-2026-10-04),
@@ -353,7 +352,7 @@ The laws' own units:
   plan has it.
 - **P3** (Garza & Morelli, TP-1538) is not needed for R2 or R3.
 
-## 8. Proposals (for Joe to decide; undecided)
+## 8. Proposals (decided 2026-10-08; see §10)
 
 - **Q5's condition** (critique C-07, amendment 6). The condition holds on the files.
   - The aero binds no own or peer state: it is a pure function of 9 inputs (§2).
@@ -404,7 +403,7 @@ The laws' own units:
   - KEAS is converted with the exact knot, 1852/3600 m/s, which the files do not state. The GNC's 6076.12
     ft/nm is not that exact value; it stays a DML constant inside the navigator only.
 
-## 9. The differences brought to Joe (D1 to D8; undecided)
+## 9. The differences brought to Joe (D1 to D8; decided 2026-10-08; see §10)
 
 Each records both sides. None is chosen here.
 
@@ -641,5 +640,46 @@ The README's examples are NASA's own illustrations. Vol II's tables define the c
 
 ## 10. Joe's decisions
 
-None yet. Each decision is recorded here, dated, when Joe makes it. Then this PR adds dated amendments to the
-M7 plan for what he changed: Assumption 3, R1, R18 or Q15, as applicable.
+All decided by Joe on 2026-10-08.
+
+1. **Q14 and Q15:** confirmed as proposed in §8. This is PR 6a's acceptance item.
+2. **Q5, Q12 and Q26.**
+   - Q5's condition holds, with §8's sub-condition: the rate the aero model uses comes from the sample's
+     state, its environment or the model's own constants, never from a peer binding. PR 5b is not scheduled.
+   - Q12: exchange divisor 10.
+   - Q26: as proposed in §8. That includes the DML's own constants inside the law and the navigator
+     (π = 3.14159265, 6076.12 ft/nm, 60 nm/deg) and the exact knot for KEAS.
+3. **D3, the aero's rate frame: (B1).**
+   - The core supplies the body rate relative to the Earth, ω_b − ω_ie in body axes. It is computed per RK4
+     stage from the configured Earth model, the way the EOM already forms `omega_ie_b`. A flat or
+     non-rotating Earth gives ω_ie = 0. The F-16 aero reads it.
+   - The template's aero migrates too. Its configs use `earth/flat`, so its values must come out identical,
+     and a test shows that.
+   - The notional transport and `nesc_aero` keep the inertial ω_b.
+   - The notional transport's migration (B2) becomes a PLAN.md open item, measured before Joe decides it.
+   - The M7 PR table gains two entries:
+     - a new record, ADR-0032 (the next free number; ADR-0029 is reserved for PR 1b), written in PR 1b beside
+       ADR-0029;
+     - a Tier 3 core PR before PR 6b that implements it, with its `kCoreApiVersion` bump. Claude labeled it
+       PR 3b. PR 6b depends on it.
+4. **D3, the laws' rate frame: deferred to PR 1b.** An obligation is carried to PR 1b and PR 11a: try to
+   decide it from data, as D3's aero check did.
+   - Back out el, ail and rdr from the members' aero channels at samples of 13.3 (and 15 if needed).
+   - Evaluate the DML law with inertial rates and with Earth-relative rates, and compare.
+   - If that cannot discriminate, bring it to Joe, with ICD v1's inertial rates (what a gyro measures) as the
+     default.
+5. **D1:** the DML's 637.1595 slug, since Vol II calls the `.dml` files normative. R1 is amended: the mass
+   equals `F16_inertia.dml`'s, and Table 7's 637.26 is reported beside it.
+6. **D6:** the F-16 aero declares Mach ≤ 1.0, read from P1's "Subsonic" under ADR-0031's data-domain rule.
+   R18's case 12 clause stands: its Mach counter is nonzero under `warn`, and its other envelope counters stay
+   zero.
+7. **D2, D4, D5, D7 and D8:** accepted as recorded. D4's MRC-to-CM transfer is a requirement on PR 6b and a
+   term of Q7's residual. D5's aero rate terms use D3's Earth-relative rate.
+8. **The M7 plan's amendments.** Each is dated 2026-10-08 and points here. Nothing else in the plan changes.
+   - Assumption 3: the aero's rates are Earth-relative; the laws' frame stays open until PR 1b.
+   - Q7's aero rate-terms text.
+   - R1.
+   - Q15's final text.
+   - The PR table and its dependencies, for item 3: PR 1b gains ADR-0032; PR 3b is added; PR 6b depends on
+     PR 3b; PR 3b is Tier 3, and ADR-0032 is accepted before it starts.
+   - Q5's sub-condition, and PR 5b not scheduled.
