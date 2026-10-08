@@ -705,6 +705,7 @@ is enough. Blocks: the first PR that cannot start without it.
   - No record for Q5 or Q9: Joe chose (c) and (b), neither of which needs one.
   No ADR for trim, rotation consistency (it mirrors an existing check), the table generator or the key
   reference; plan and architecture text only.
+  *Added 2026-10-08 (Joe; [addendum §10](m7-f16-inventory.md#10-joes-decisions), D3):* PR 1b also writes ADR-0032, per the PR table.
 - **Q21. The config-key reference (plan; blocks PR 14).** Recommend:
   - a structured key block in each plugin's header comment;
   - `scripts/config_keys.py` generating `docs/reference/config-keys.md`;
@@ -813,6 +814,8 @@ Joe's follow-ups at approval (2026-10-04). Each PR's own plan starts from them.
 | 6a | The addendum records the files actually used from `Atmospheric_models.zip`, with the archive's URL and SHA-256. It also corrects `docs/refs/README.md`: `Atmospheric_checkcases/` and `Initial_Conditions.xlsx` come from the same NESC Academy 2015 page (`https://nescacademy.nasa.gov/flightsim/2015`), not NTRS |
 | 6a, 13 | (Joe, at M7 PR 1a.) The F-16's Mach limit. ADR-0031 has an aero model declare the domain of its own data: its table breakpoints, or a stated validity limit along an axis its data does not span. If the F-16 aero has no Mach dependence, its declared Mach limit is a validity limit stated by P1. If P1 states none, case 12's expected nonzero Mach counter (R18, N-07) has no basis, and the expectation returns to Joe before PR 13 fixes it |
 | 11a | (Joe, at M7 PR 1a.) R12 compares the peer's EAS against TAS·√(ρ/ρ0) from "the sim's own atmosphere signals", but no atmosphere signal is logged. PR 11a's plan states where ρ comes from |
+| 1b, 11a | (Joe, 2026-10-08; [addendum §10](m7-f16-inventory.md#10-joes-decisions), item 4.) The laws' rate frame. Decide it from data: back out el, ail and rdr from the members' aero channels at samples of 13.3 (and 15 if needed), evaluate the DML law with inertial and with Earth-relative rates, and compare. If that cannot discriminate, it returns to Joe, with ICD v1's inertial rates as the default |
+| 6b | (Joe, 2026-10-08; [addendum §10](m7-f16-inventory.md#10-joes-decisions), items 5 and 7.) The aero's MRC-to-CM transfer (D4: 1.132 ft, CM at 25 % MAC) and the DML's mass, 637.1595 slug (R1) |
 
 ## PR decomposition
 
