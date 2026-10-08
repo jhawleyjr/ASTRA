@@ -21,13 +21,17 @@ One line per document: what it is, where it came from, what in the tree cites it
   (brick damping, doc p.13), and the check-case 7/case 3 numeric cross-checks in that file's own
   header. Also cited by `tests/golden/nesc/generate_nesc_band.py` (Table 73, geodetic constants and
   unit conversions, doc p.93; Tables 77-78, the participants' largest differences and the exclusions
-  the generator honors, doc p.591-592), the `tests/physics/nesc/case*.yaml` configs (per-case
-  initial conditions, C.1.1-C.1.10/Tables 25-34, doc p.56-61) and `plugins/physical/wind/table`.
+  the generator honors, doc p.591-592; for cases 11 to 16, Tables 35-40, 42 and 43's durations, doc
+  p.62-67, and Tables 79-80's footnotes, doc p.593-594, per ADR-0028), the `tests/physics/nesc/case*.yaml`
+  configs (per-case initial conditions, C.1.1-C.1.10/Tables 25-34, doc p.56-61),
+  `tests/physics/nesc/nesc_f16_bands_test.cpp` (cases 11 to 16's initial conditions, Tables 35-40, 42
+  and 43) and `plugins/physical/wind/table`.
 - **NESC atmospheric check-case trajectories** (`Atmospheric_checkcases/`) — NTRS, the report's
   companion data: 17 scenarios, 4-6 CSV trajectories each, one per participating simulation tool,
   ~82 MB. Read only by `tests/golden/nesc/generate_nesc_band.py`, by hand, never by `just check`
   (ADR-0013); its `--refs` defaults to the main checkout's copy. Cases 11 to 16 (the F-16) are M7's
-  oracle (PLAN.md); case 17 is out of scope.
+  oracle (PLAN.md, ADR-0028), reduced to `tests/golden/nesc/case1*_band.hpp` in M7 PR 8; case 17 is
+  out of scope.
 - **NESC initial conditions workbook** (`Initial_Conditions.xlsx`) — NTRS. A working spreadsheet;
   its constants are rounded back-conversions (Re = 20925646.99508 ft, omega = 7.292113023868e-5
   rad/s) and disagree with Vol II Table 73 in the 8th digit. **Table 73 is the authority**; the

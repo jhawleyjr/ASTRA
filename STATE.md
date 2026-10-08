@@ -5,8 +5,6 @@
    Joe places P1 and P2, the NESC F-16 DAVE-ML files from
    `https://nescacademy.nasa.gov/src/flightsim/Models/Atmospheric_models.zip`, in `docs/refs`.
 2. Without them, on Joe's go:
-   - PR 8: the generator extension and band headers per ADR-0028 (Joe runs the generator under
-     `touch-goldens`; its report goes in the PR body).
    - PR 2: `Config` cycle safety.
    - PR 3: Earth/gravity rotation consistency, with its own plan review.
    - PR 4: `mass/constant`'s product-of-inertia convention.
@@ -20,6 +18,9 @@
     `Initial_Conditions.xlsx` come from the NESC Academy 2015 page, not NTRS);
   - PR 6a and 13: the F-16's Mach limit (case 12's Mach counter returns to Joe if P1 states none);
   - PR 11a: where R12's ρ comes from (no atmosphere signal is logged).
+- The F-16 band headers exist (M7 PR 8, #106): PR 9, 11a and 11b's harness asserts only samples from
+  `Band::kFirstGatedSample` on, logs the earlier ones, wraps longitude as well as yaw, and never cites a
+  zero-accepting channel (listed in #106's body) as evidence.
 - PLAN.md's (unscheduled) review-record item: Joe chose the PR body only (M6 PR 10's D3); a Tier 2 workflow
   PR to `review-dispatch.md` and the findings template, scheduled by Joe.
 - PLAN.md's (unscheduled) docs-check item: `git diff --check` reads only the uncommitted diff; until a gate PR
