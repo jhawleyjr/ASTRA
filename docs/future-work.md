@@ -102,7 +102,8 @@ loop-at-a-time margins for the gains that ship.
 ## Vehicles and external oracles
 
 - **A second vehicle: an F-16.** Sources: Stevens & Lewis (in `docs/refs/textbooks`), the NESC study's
-  F-16 in DAVE-ML (NASA publishes the model files; they are not in `docs/refs`), and JSBSim's F-16 for
+  F-16 in DAVE-ML (NASA publishes the model files; Joe placed them in `docs/refs/Atmospheric_models/`,
+  recorded by M7 PR 6a), and JSBSim's F-16 for
   comparison. It tests whether the model interfaces hold for a different aircraft.
 - **An external oracle for a whole aircraft.** NESC cases 11, 12, 13.1 to 13.4, 15 and 16 fly the F-16;
   `docs/refs/Atmospheric_checkcases` already holds three participating simulations' trajectories for each,
