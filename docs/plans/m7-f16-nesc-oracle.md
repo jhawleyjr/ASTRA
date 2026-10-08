@@ -154,6 +154,7 @@ Absent: every aero table, the propulsion model and the inertia file. Vol II says
 **Model files.** None of the F-16 `.dml` files is in `docs/refs`. Vol I ref. 7 (doc p.26) and Vol II p.16
 name the NESC flightsim repository (`nescacademy.nasa.gov/flightsim`) as their source; NTRS holds the
 reports, not the model files. The model's upstream sources, Vol II refs [3] and [4], are NTRS reports.
+*Added 2026-10-07 (M7 PR 6a):* Joe has placed P1 and P2; [the inventory addendum](m7-f16-inventory.md) records them.
 
 **Prerequisites for Joe to place in `docs/refs`.** Each blocks the PR named. Nothing is transcribed from
 memory, and the figures are a cross-check only (Q1).
