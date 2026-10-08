@@ -437,9 +437,15 @@ Each records both sides. None is chosen here.
   rate inputs" (`README.html:2108`).
 
 **What Vol II and the members' data say about the aero's rates.**
-- Vol II D.1.17, p.309, verbatim: "In SIM 4, the zero rotational rate relative to the Earth induced no
-  aerodynamic side force, rolling moment, or yawing moment."
-- The same paragraph, of SIM 2: "a zero inertial rate translated into an Earth-relative rate where much of the
+- Vol II D.1.17 (case 15), p.309, verbatim: "In SIM 4, the zero rotational rate relative to the Earth induced
+  no aerodynamic side force, rolling moment, or yawing moment." The passage is about case 15, where SIM 4 "appeared
+  to have modified its equilibrium solution to target an angular rate of zero in the Earth-relative frame"
+  (same page).
+- In case 11, SIM 4 held a pitch rate instead: Vol II D.1.11, p.228, says "SIM 4 solved for the pitch rate that
+  maintained the pitch angle as the vehicle flew over the curved surface of the Earth". The same passage gives
+  SIM 5's "equilibrium roll and yaw rate" as "3 × 10−5 and 8 × 10−4 deg/s", which are its Earth-relative
+  values below. Its inertial values are 2.5e-3 and −3.1e-3 deg/s.
+- D.1.17's same paragraph, of SIM 2: "a zero inertial rate translated into an Earth-relative rate where much of the
   Earth's rotation rate appeared in body-axis yaw rate rb … The Earth-relative rate induced an aerodynamic side
   force, rolling moment, and yawing moment".
 - Case 11's first rows (t = 0), with the rates being the CSVs' inertial `bodyAngularRateWrtEi` columns:
@@ -454,15 +460,18 @@ Each records both sides. None is chosen here.
     ω = 7.292115e-5 rad/s at the CSV's latitude, heading and pitch. Then evaluate the DML's damping tables at
     the CSV's α (= θ), V and q̄. With β, ail and rdr all zero at trim, the rate terms are the whole lateral aero.
     Finally apply the transfer to the CM (D4).
-  - SIM 4's Earth-relative p and r come out at 3e-13 and −1e-12 deg/s. Its inertial p and r are exactly the
-    Earth rate, so it held zero rate relative to the Earth.
+  - SIM 4's Earth-relative p and r come out at 3e-13 and −1e-12 deg/s: its inertial p and r are exactly the
+    Earth rate's components. Its Earth-relative q is **not** zero: −1.5576e-3 deg/s, from an inertial
+    −3.9471e-3 less the Earth rate's −2.3895e-3. That is the transport pitch rate D.1.11 describes, and it
+    enters CXq, CZq and Cmq.
+  - SIM 5's Earth-relative rates are (3.320e-5, −1.5498e-3, −7.943e-4) deg/s.
   - **Earth-relative rates predict SIM 5's Y, L and N** as −2.850424672e-2, −9.976370299e-2 and
     3.880276160e-1, **matching its CSV to 3e-8 relative**.
   - Inertial rates predict −0.1155, −1.6046 and 1.5877, which miss by factors of 4 to 16.
   - SIM 4's recorded values, about 1e-11 to 1e-15, also fit only Earth-relative rates. Inertial rates would
     give −0.087 lbf, −1.505 lbf·ft and +1.200 lbf·ft.
 - **The members fed the aero the body rate relative to the Earth**, which with no wind is the rate relative to
-  the air.
+  the air. In case 11 that rate is zero in roll and yaw for SIM 4, and nonzero in pitch for both members.
 - This contradicts the M7 plan's Assumption 3 (L95) for the aero: "The DML's `bodyAngularRate_*` inputs are
   the same rates" as the inertial ones.
 
@@ -531,16 +540,21 @@ stated:
   `F16_inertia.dml`, with Izx = 982 as a positive product of inertia.
 - **The disturbance is ω_ie^b** = (2.5001e-3, −2.3895e-3, −2.3443e-3) deg/s at 36.019° N, ψ = 45°. That
   equals SIM 4's inertial p and r.
+- **The moments are taken at the CM** (D4): N_cm = N_mrc − 1.132·Y, in the disturbance and in the side-force
+  derivatives alike.
 - **Left out:** the longitudinal coupling, the pitch-damping change from the q component, the slow change of
   ω_ie^b along the track, and the kinematic Earth-rate terms of the perturbation.
 - **Integration:** RK4 at 1 ms for 180 s.
 
 The result:
-- The extra moments are ΔL = −1.505 and ΔN = +1.101 lbf·ft, and ΔY = −0.087 lbf.
-- **The roll relative to the local level reaches −2.19e-4 rad at 8 s, −1.26e-3 rad at 60 s and −2.15e-3 rad
+- The extra loads are ΔY = −0.087 lbf, ΔL = −1.505 lbf·ft and ΔN = +1.200 lbf·ft at the CM (+1.101 at the
+  MRC).
+- **The roll relative to the local level reaches −2.37e-4 rad at 8 s, −1.44e-3 rad at 60 s and −2.66e-3 rad
   at 180 s.**
-- **Case 11's roll band is 2.686e-5 rad** (#106's report; `kRoll` in the case 11 header). The drift is 8 times
-  the band at the first gated sample and **about 80 times it at 180 s**.
+- **Case 11's roll band is 2.686e-5 rad** (#106's report; `kRoll` in the case 11 header). The drift is about 9
+  times the band at the first gated sample and **about 99 times it at 180 s**.
+- Codex's review (round 1) caught a first version of this estimate that left out the transfer to the CM: it
+  gave −2.15e-3 rad at 180 s, about 80 times the band.
 - A one-degree-of-freedom roll-subsidence bound gives 9.4e-3 rad at 180 s (τ = 0.33 s, a steady relative roll
   rate of −2.99e-3 deg/s). The full lateral model is the better estimate.
 
