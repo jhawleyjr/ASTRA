@@ -432,6 +432,14 @@ takes them as a prefix.
     supplies (ADR-0032 in PR 1b, implemented by the new core PR 3b before PR 6b); the laws' rate frame
     deferred to PR 1b; the DML's mass; the F-16 declares Mach ≤ 1.0. The M7 plan carries dated amendments.
     Plan: [addendum](docs/plans/m7-f16-inventory.md) (brief in the PR body). Packet: in the PR body.
+  - PR 5 (#108): trim at any heading, under any of the three shipped Earth models (flat altitude −p_n[2]),
+    with the two solved inputs checked against `Simulation.input_names`, closing the trim-names and §18 step 4
+    items. Q6's rate convention is an option on every consumer, `zero_inertial` the default and `n_frame` for
+    the F-16 (Joe's decision (b), 2026-10-08: the notional transport damps the inertial ω_b until B2, so its
+    `n_frame` trim leaves ṗ = −8.2e-5 rad/s²). The solver bounds the three solved residuals and reports the
+    lateral three; their kinematic and gravity parts match a closed form from Groves, Titterton, S&L and
+    TR8350.2 to roundoff, case 15's 89.95° N included. Every consumer's emitted config rebuilds the trim bit
+    for bit. Plan: [plan](docs/plans/m7-pr5-trim.md). Packet: in the PR body.
 - [ ] **M8 Actuators and controller tuning** — a first-order lag and a nonlinear second-order actuator model
       with rate and position limits; autopilot gains loaded at startup; the tuning tool (spec-driven on the
       linear model, time-domain on the nonlinear sim, robustness across draws, gain schedules) with
@@ -490,10 +498,6 @@ takes them as a prefix.
       surface limits live with the aircraft's own actuator model (M4+), not the ICD — `astra_sw_to_sim_v1`'s
       `elevator`/`aileron`/`rudder`/`throttle` fields carry a commanded angle the sim does not clamp in v1; the
       ICD does not carry limits. Not started.
-- [ ] (M7) `astra.trim`'s own hardcoded control-input names (origin: M3 PR 7 planning; D10, PR 6,
-      `docs/plans/pr6-trim.md`) are not retrofitted to `InputRegistry::names()` by PR 7's own binding of it: PR 7
-      reads control names through it for `astra.linearize` only, and `trim_straight_and_level` keeps its
-      literals. Not started.
 - [ ] (M8) `astra.linearize`'s 9-state `A` (PR 7, D11) omits altitude (origin: M3 PR 8 finding,
       `docs/plans/pr8-cruise-regression.md` finding 4; owner: Joe's call): position is held fixed, so `A` has no
       d/dh and no density/thrust-lapse coupling. Against a nonlinear open-loop run from the trimmed cruise,
@@ -566,7 +570,16 @@ takes them as a prefix.
       and the template will damp the body rate relative to the Earth that the core supplies (origin: M7 PR 6a's
       D3, option (B2); Joe 2026-10-08, [addendum §10](docs/plans/m7-f16-inventory.md#10-joes-decisions)).
       Migrating it moves every notional-transport value on `wgs84_rotating`: M3's frozen regression, the R1
-      golden, M4's lockstep and M6's batch. Measure the change first; Joe decides. Not started.
+      golden, M4's lockstep and M6's batch. Measure the change first; Joe decides. The same step migrates the
+      notional-transport trim callers to `astra.trim`'s `n_frame` rate convention (M7 PR 5, Joe's decision
+      (b), 2026-10-08): until the aero damps the Earth-relative rate, an `n_frame` trim of the notional
+      transport is not an equilibrium in roll (ṗ = −8.2e-5 rad/s² at cruise), so every caller keeps
+      `zero_inertial`; the migration is measured with the rest. Not started.
+- [ ] (unscheduled) `core/include/astra/util/geodesy.hpp`'s `kJ2 = 1.082629989e-3` has no stated source (origin:
+      M7 PR 5's plan, Observations; Joe 2026-10-08). It is the original WGS 84 value, √5 times the C̄2,0 that
+      NIMA TR8350.2 §3.3 implies, and 3e-6 relative from TR8350.2 Table 5.1's current EGM96 C̄2,0
+      (J2 = 1.082626684e-3, as S&L 3rd ed. eq. 1.6-25 gives). Either its source is stated or the value changes,
+      by Joe's decision. Not started.
 - [ ] (unscheduled) A review fix's final Codex verification has no place in `docs/reviews/*-review.md` (origin:
       #95's V-001 and #96's R-001; Joe 2026-10-03; moved from M6 at its closeout, M6 PR 10's D3).
       Review-dispatch's no-record-only-commit rule keeps the verification result out of a commit of its own, so
@@ -592,9 +605,6 @@ takes them as a prefix.
       "Held out"; Joe's call): both need designed sample sets rather than an existing batch, while
       `astra.mc_analysis` ranks the draws of a batch `astra.montecarlo` already ran (KS with
       Benjamini-Hochberg, Spearman, PRCC, a depth-3 tree). Not started.
-- [ ] (M7) §18 step 4 fails on a template copy: `aircraft/_template/configs/cruise.yaml` uses `earth/flat`, which
-      `astra.trim` refuses (altitude is geodetic only), so `astra trim` on a new aircraft exits 65 (origin: M6 PR 3;
-      Joe 2026-09-30). M7 builds the F-16 from the template. Not started.
 - [ ] (M10) Retire the M4 `ExchangeRecorder` once a lockstep test compares HDF5 logs instead (origin: M5 plan Q12,
       ADR-0022; Joe's call): kept through M5 because M4's byte-identity acceptance tests
       (`closed_loop_acceptance_test.cpp`) read it; M5's log already carries `v0.controls.*` and `transport.*`

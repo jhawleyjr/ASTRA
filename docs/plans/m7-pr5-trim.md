@@ -99,7 +99,7 @@ trim_straight_and_level(config, true_airspeed_mps, altitude_m, *, heading_rad=0.
 
 | Consumer | Change |
 |---|---|
-| `_runkit.trim_fragment` | `euler_nb = [ψ, θ, 0]`; `omega_b` from the returned state (never literal zeros); every control in `TrimResult.controls` under its own name |
+| `_runkit.trim_fragment` | `euler_nb = [ψ, θ, 0]`; `omega_b` from the returned state (never literal zeros); the two solved inputs under their own names (as built: every other input is already the config's, so the round trip holds and `astra trim`'s stdout stays byte-identical) |
 | `_runkit.apply_trim`, `trim_setpoint` (scenario, Monte Carlo) | The solver's bound replaces the six-residual check; the setpoint gains an optional `heading` (default 0.0); `TRIM_OWNED`'s reasons restated (`euler_nb` is `[heading, pitch, 0]`, `omega_b` the convention's rate) |
 | `astra trim` (`cli.py:600`) | The bound through the solver's raise (exit 1, the component named); `--heading` (rad), defaulting like `--airspeed` and `--altitude` to the config's initial state (D6): ψ of the initial `q_nb` (S&L eq. 1.3-11); the default altitude is the Earth model's (−p_n[2] when flat); the flat-Earth refusal and `_TRIM_FLAT_EARTH` go; an unknown Earth plugin or a missing solved input is a config error (65) |
 | `astra.linearize` (P-01, P-09) | `heading_rad` and `rate_convention` passed through; x0's ψ is the heading; u0 is built from `TrimResult.controls` (D11's four-name check unchanged), so held aileron and rudder are the ones trim used. Under `"n_frame"` the three Euler-rate rows use ω_b − ω_in^b(x), with ω_in^b(x) from the core's kinematics at each evaluated state (the solver's J-solve), so the transport rate's dependence on the perturbed velocity and attitude is differentiated, not frozen. Under `"zero_inertial"` the rows are today's, bit for bit (a documented flat, non-rotating approximation, as now) |
@@ -246,7 +246,7 @@ and case 11's region (36.019° N, ψ = 45°).
   term magnitude entering the component (|g| included for v̇_y), about 1e-11 m/s².
 - **ω_b at the solution equals the independent n-frame rate** C_bn(ψ, θ, 0)(ω_ie^n + ω_en^n) from items
   1, 3 and 4, to 1e-12 times |ω_ie^n + ω_en^n|. Also checked: `earth/round` (R_N = R_E = its radius; ω_ie
-  zero unless `rotating: true`) and `earth/flat` (ω_b = 0 exactly; v̇_y = ṗ = ṙ = 0).
+  zero unless `rotating: true`) and `earth/flat` (ω_b = 0 exactly; v̇_y, ṗ and ṙ zero to the roundoff budget: v̇_y is 6.9e-18 m/s² at ψ = 135°, gravity rotated through the quaternion's DCM).
 - At each solution, ḣ = 0 and `q̇_nb` = 0 to roundoff (level flight, constant attitude).
 - On the notional transport itself (damping kept), on the same grid: the solved residuals and the ω_b check
   only; its lateral residuals are reported (its aero rate terms are not derived here).
@@ -297,9 +297,26 @@ conventions.
   Tier 3 an adversarial review whose focus names the derivation, the measurement and Joe's decision.
 - R4's other clauses: an arbitrary heading, flat Earth and names from `Simulation.input_names` each seen to
   work; `astra trim aircraft/_template/configs/cruise.yaml` no longer exits 65 for its Earth model (it still
-  exits 65 for the zero mass, and the test asserts the reason names `mass`, not `physical.earth`), and a
+  exits 65 for its first `TODO` zero, the aero's `wing_area_m2`, and the test asserts that reason, not `physical.earth`), and a
   filled-in flat-Earth copy of it trims.
 Results (commands, exit codes, counts, the Codex verdict and thread id) go in the PR body.
+
+## As built (deviations from the text above, each recorded here)
+
+- `_runkit.trim_fragment` writes the two solved inputs only, nested by their dotted names; the held inputs
+  are already the config's. `astra trim`'s stdout keeps its bytes; `TrimResult.controls` and
+  `solved_inputs` record all of them.
+- The template's first refusal is its `TODO` `wing_area_m2 = 0`, not the mass (the acceptance clause above
+  is corrected).
+- A flat Earth's lateral residuals are zero to roundoff, not exactly (the R4 clause above is corrected).
+- The port and the core build the same quaternion at ψ = 0 bit for bit (the cruise θ and 2,000 random
+  pitches in [−0.5, 0.5] rad), so the canonical state brings no last-ulp P0/P1 difference.
+- Decision 2's number (`cruise_still_air`, 230 m/s, 10,000 m, this build): under `zero_inertial` the trim
+  reproduces the committed literals exactly (elevator 0.026674474137989946 rad, throttle 0.4985979490507746,
+  α 0.023586859573503434 rad). Under `n_frame`: ω_b = (7.290097e-5, −3.624651e-5, 1.715317e-6) rad/s,
+  elevator 0.02670727443079087 rad, throttle 0.4984593119156813, α 0.02352507612124377 rad; residuals
+  v̇_x 1.3e-16, v̇_y −9.8e-19, v̇_z −4.3e-16 m/s², **ṗ −8.204e-5**, q̇ 5.2e-18, ṙ −1.561e-7 rad/s². The
+  estimate (ṗ ≈ −8e-5) is confirmed.
 
 ## Observations for Joe (no change in this PR)
 
