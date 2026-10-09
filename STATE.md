@@ -7,8 +7,7 @@
    - PR 1b: ADR-0029 (the sim-side peer) and ADR-0032 (the body rate relative to the Earth, from the core);
    - PR 2: `Config` cycle safety;
    - PR 3: Earth/gravity rotation consistency, with its own plan review;
-   - PR 4: `mass/constant`'s product-of-inertia convention;
-   - PR 5: trim, measuring every gated caller (PR 5b is not scheduled).
+   - PR 4: `mass/constant`'s product-of-inertia convention.
 3. Then PR 3b (ADR-0032 in the core, after Joe accepts it), and PR 6b (`aircraft/f16`, after PR 1a, 3b, 4).
    PR 13 implements ADR-0031; the F-16 declares Mach ≤ 1.0.
 
@@ -20,6 +19,11 @@
   - PR 6b: the aero's MRC-to-CM transfer (1.132 ft, CM at 25 % MAC) and the DML's mass, 637.1595 slug (R1);
   - PR 11a's R11 floor and saturation-boundary margin, and where R12's ρ comes from (no atmosphere signal).
 - PLAN.md's (unscheduled) notional-transport rate-frame item (M7 PR 6a's D3 (B2)): measure before Joe decides.
+  It now also carries the notional transport's trim callers' move to `astra.trim`'s `n_frame` (M7 PR 5).
+- Trim (M7 PR 5): `rate_convention` is an option on every consumer, `zero_inertial` the default (Joe's (b));
+  PR 9 to 12's F-16 configs and harness select `n_frame`, and each F-16 case's full lateral residual (the
+  aero rate terms) is derived from the DML and brought to Joe in PR 9, 11a and 11b.
+- PLAN.md's (unscheduled) `kJ2` item: its source stated or its value changed, by Joe's decision.
 - The F-16 band headers exist (M7 PR 8, #106): PR 9, 11a and 11b's harness asserts only samples from
   `Band::kFirstGatedSample` on, logs the earlier ones, wraps longitude as well as yaw, and never cites a
   zero-accepting channel (listed in #106's body) as evidence.
