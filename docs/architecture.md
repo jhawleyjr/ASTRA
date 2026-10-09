@@ -332,8 +332,8 @@ only: an aero model declares the domain of its own data (its table breakpoints, 
 limit along an axis its data does not span), and §15's envelope monitor checks each aero model's
 declaration separately, naming that plugin. `PropulsionModel` declares nothing.
 
-**The body rate relative to the Earth** (*ADR-0032*, *planned*, PLAN.md M7 PR 3b). The core supplies it; a plugin
-never forms its own Earth rate, which could disagree with the configured Earth model.
+**The body rate relative to the Earth** (*ADR-0032*, *planned*, PLAN.md M7 PR 3b). The core supplies it; a wrench
+source never forms its own Earth rate, which could disagree with the configured Earth model.
 - `EnvironmentSample` gains `omega_ie_b`: the Earth's rotation rate relative to inertial, in body axes, rad/s. It is
   computed per RK4 stage as `c_nb * earth.omega_ie_n(vs_stage)`, the EOM's own expression. It is set before every
   `wrench_b()` and `integrate_state()` of that stage, on the step path and on `Simulation.derivative`'s probe path
@@ -427,7 +427,7 @@ Fixed-width types, 8-byte natural alignment, sizes asserted, version in every fr
 - **`LoopbackTransport`** (v1, tests). Calls a C++ functor in-process. Lets the physics tests run a scripted controller with no second process.
 - **`nesc_control`** (*planned*, PLAN.md M7 PR 11a and 11b, *ADR-0029*). The NESC F-16 control laws as an aircraft-local, in-process peer under `aircraft/f16/sim/transport/`, which §4's taxonomy rule allows.
   - It runs the law in SI on the packed ICD v1 frame at divisor 10, with its command schedule in `transport.peer` keys keyed to frames.
-  - It reads the body rate relative to the Earth, which it forms from the frame's `lat` and Euler angles with Vol II's Ω (`geodesy::kOmegaIe`), because ICD v1 carries no Earth rate.
+  - It reads the body rate relative to the Earth, which it forms from the frame's `lat` and Euler angles with Vol II's Ω (`geodesy::kOmegaIe`), because ICD v1 carries no Earth rate; it cannot see the configured Earth model, so under a non-rotating Earth it still subtracts Ω.
   - It refuses any frame whose status bits mark an input it reads, `LATLON_NOT_MODELED` included, by returning non-finite commands, so the exchange halts `kTransport`.
   - It is a verification instrument: the tools' `transport` refusal stays, and its log is not replayable.
 - **`UdpTransport` / `FpgaTransport`** (later). Same frames over the physical link to the FPGA. The link type is the deferred open question.
@@ -632,7 +632,7 @@ M5 note (rev 9): the M5 row is checked by `docs/plans/m5-tooling.md` R1 to R21, 
 
 M6 note (rev 10): the M6 row is built, by PLAN.md M6 PRs 1 to 9, 7b, 8b and 11 to 14. `docs/plans/m6-analysis-tooling.md` R1 to R21 (with R3b, R7b, R16b, R18b and R19b) check it, PR by PR. PR 9's frame-time benchmark is a test executable under `tests/benchmark/`, run by hand as `just benchmark`; the gate runs only its smoke (`docs/plans/m6-pr9-benchmark.md`). The M6 finalization rows rest on *ADR-0027*, accepted by Joe 2026-09-29. Tracking the benchmark over time is M11.
 
-M7 note (rev 11): the M7 row is planned, by PLAN.md M7 PRs 1a to 16, and `docs/plans/m7-f16-nesc-oracle.md` R1 to R23 check it, PR by PR. Its oracle rests on *ADR-0028*: SIM 4 and SIM 5 only, a gated window of t ≥ 8 s, ADR-0013's scalar band with k = 3, and the aero channels compared with an aero-only, frame-start-stage wrench, never `wrench_total`. Its envelope rows rest on *ADR-0031*, and its identifier wording on *ADR-0030*. All three were accepted by Joe 2026-10-05. Its flight-software rows rest on *ADR-0029* (the sim-side peer, the laws' Earth-relative rate frame and the port's bitwise equivalence), and the F-16 aero's body rate on *ADR-0032* (the body rate relative to the Earth, supplied by the core), both written in PR 1b.
+M7 note (rev 11, amended rev 12): the M7 row is planned, by PLAN.md M7 PRs 1a to 16, and `docs/plans/m7-f16-nesc-oracle.md` R1 to R23 check it, PR by PR. Its oracle rests on *ADR-0028*: SIM 4 and SIM 5 only, a gated window of t ≥ 8 s, ADR-0013's scalar band with k = 3, and the aero channels compared with an aero-only, frame-start-stage wrench, never `wrench_total`. Its envelope rows rest on *ADR-0031*, and its identifier wording on *ADR-0030*. All three were accepted by Joe 2026-10-05. Its flight-software rows rest on *ADR-0029* (the sim-side peer, the laws' Earth-relative rate frame and the port's bitwise equivalence), and the F-16 aero's body rate on *ADR-0032* (the body rate relative to the Earth, supplied by the core), both proposed in PR 1b.
 
 ## 17. ADRs to write in M0
 
