@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import math
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import pytest
@@ -187,18 +188,39 @@ def test_trim_of_a_logged_config_creates_no_log_file(tmp_path: Path) -> None:
     assert log_path.exists()
 
 
-def test_refuses_a_flat_earth_config(tmp_path: Path) -> None:
-    # p_n[-1] = altitude_m (trim.py) assumes a geodetic (round/wgs84_rotating) position
-    # representation; under earth/flat, p_n[2] is NED down, so the same assignment would place
-    # the aircraft at -altitude_m instead (ADR-0003). The map spelling ({plugin: ...}) exercises
-    # _earth_plugin_path's dict branch, not just the plain-scalar one every other test uses.
+@pytest.mark.parametrize("rate_convention", trim.RATE_CONVENTIONS)
+def test_trims_a_flat_earth_config_at_its_ned_altitude(
+    tmp_path: Path, rate_convention: str
+) -> None:
+    # M7 PR 5 (Q18; Joe approved this change to M3's refusal, 2026-10-08): under earth/flat p_n[2]
+    # is NED down (ADR-0003), so the altitude is -p_n[2]. A flat Earth neither rotates nor curves,
+    # so both conventions give omega_b = 0 and the same trim. The map spelling ({plugin: ...})
+    # exercises _earth_plugin_path's dict branch, not just the plain-scalar one.
     data = yaml.safe_load(Path(CRUISE_CONFIG).read_text(encoding="utf-8"))
     data["physical"]["earth"] = {"plugin": "plugins/physical/earth/flat"}
+    data["physical"]["gravity"] = "plugins/physical/gravity/constant"
+    data["initial"]["state"]["p_n"] = [0.0, 0.0, -ALTITUDE_M]  # NED: 10 km up is p_n[2] = -1e4
     flat_config = tmp_path / "cruise_flat_earth.yaml"
     flat_config.write_text(yaml.safe_dump(data), encoding="utf-8")
 
-    with pytest.raises(ValueError, match=r"physical\.earth"):
-        trim.trim_straight_and_level(flat_config, TRUE_AIRSPEED_MPS, ALTITUDE_M)
+    result = trim.trim_straight_and_level(
+        flat_config,
+        TRUE_AIRSPEED_MPS,
+        ALTITUDE_M,
+        rate_convention=cast(trim.RateConvention, rate_convention),
+    )
+    assert result.state[_core.POSITION + 2] == -ALTITUDE_M
+    assert np.all(result.state[_core.ANGULAR_RATE : _core.ANGULAR_RATE + 3] == 0.0)
+    assert np.max(np.abs(result.residual)) < 1e-6
+
+
+def test_refuses_an_earth_model_whose_representation_it_does_not_know(tmp_path: Path) -> None:
+    data = yaml.safe_load(Path(CRUISE_CONFIG).read_text(encoding="utf-8"))
+    data["physical"]["earth"] = "plugins/physical/earth/no_such_earth"
+    unknown = tmp_path / "unknown_earth.yaml"
+    unknown.write_text(yaml.safe_dump(data), encoding="utf-8")
+    with pytest.raises(ValueError, match=r"^trim_straight_and_level: 'physical\.earth' is "):
+        trim.trim_straight_and_level(unknown, TRUE_AIRSPEED_MPS, ALTITUDE_M)
 
 
 def test_write_input_raises_on_a_stale_or_wrong_control_name() -> None:

@@ -36,7 +36,6 @@ from fractions import Fraction
 from pathlib import Path
 from typing import Any, cast
 
-import numpy as np
 import yaml
 
 import astra.trim
@@ -47,17 +46,18 @@ from astra import _core, log
 TRIM_OWNED = (
     ("initial.state.p_n.2", "trim sets the altitude from trim.altitude"),
     ("initial.state.v_b", "trim sets v_b from trim.true_airspeed and its alpha"),
-    ("initial.state.euler_nb", "trim sets euler_nb to [0, alpha, 0]"),
+    ("initial.state.euler_nb", "trim sets euler_nb to [trim.heading, alpha, 0]"),
     ("initial.state.q_nb", "trim replaces q_nb with euler_nb"),
-    ("initial.state.omega_b", "trim sets omega_b to zero"),
+    ("initial.state.omega_b", "trim sets omega_b by trim.rate_convention"),
     ("vehicle.initial_controls.controls.elevator", "trim sets the elevator it solves for"),
     ("vehicle.initial_controls.controls.throttle", "trim sets the throttle it solves for"),
     ("vehicle.initial_controls.controls.aileron", "trim assumes aileron = 0 and never writes it"),
     ("vehicle.initial_controls.controls.rudder", "trim assumes rudder = 0 and never writes it"),
 )
 
-# D8's trim residual bound (docs/plans/pr6-trim.md), the bound cruise.yaml's trim was held to.
-TRIM_RESIDUAL_BOUND = 1e-6
+# D8's trim residual bound (docs/plans/pr6-trim.md), the bound cruise.yaml's trim was held to; since
+# M7 PR 5 the solver holds the three solved residuals to it itself (astra.trim; M7 plan Q7, N-03).
+TRIM_RESIDUAL_BOUND = astra.trim.SOLVED_RESIDUAL_BOUND
 
 # health_monitor.cpp registers these as counters; health.max_q_drift is a drift, not a count.
 WARN_COUNTERS = ("health.nan", "health.quaternion", "health.domain", "health.input")
@@ -80,6 +80,8 @@ class LeafError(Exception):
 class TrimSetpoint:
     true_airspeed: float
     altitude: float
+    heading: float = 0.0
+    rate_convention: astra.trim.RateConvention = astra.trim.DEFAULT_RATE_CONVENTION
 
 
 # --- schema validators --------------------------------------------------------------------------
@@ -141,14 +143,34 @@ def frames_of(path: Path, value: Any, where: str, dt: float, *, error: ErrorType
 
 
 def trim_setpoint(path: Path, value: Any, *, error: ErrorType) -> TrimSetpoint | None:
-    """``{true_airspeed, altitude}`` for ``astra.trim.trim_straight_and_level``, or ``None``."""
+    """``{true_airspeed, altitude[, heading][, rate_convention]}`` for
+    ``astra.trim.trim_straight_and_level``, or ``None``. ``heading`` (rad) defaults to 0 and
+    ``rate_convention`` to ``astra.trim.DEFAULT_RATE_CONVENTION``."""
     if value is None:
         return None
-    keys = {"true_airspeed", "altitude"}
-    spec = closed_map(path, value, "trim", required=keys, optional=keys, error=error)
+    required = {"true_airspeed", "altitude"}
+    spec = closed_map(
+        path,
+        value,
+        "trim",
+        required=required,
+        optional=required | {"heading", "rate_convention"},
+        error=error,
+    )
+    convention = spec.get("rate_convention", astra.trim.DEFAULT_RATE_CONVENTION)
+    if convention not in astra.trim.RATE_CONVENTIONS:
+        raise error(
+            f"{path}: trim.rate_convention: must be one of "
+            f"{', '.join(astra.trim.RATE_CONVENTIONS)}, got {convention!r}"
+        )
+    heading = 0.0
+    if "heading" in spec:
+        heading = number(path, spec["heading"], "trim.heading", error=error)
     return TrimSetpoint(
         number(path, spec["true_airspeed"], "trim.true_airspeed", error=error),
         number(path, spec["altitude"], "trim.altitude", error=error),
+        heading,
+        convention,
     )
 
 
@@ -219,20 +241,20 @@ def apply_trim(
     data: dict[str, Any], setpoint: TrimSetpoint, *, origin: Path, config_name: str
 ) -> None:
     """Trims a copy of ``data`` (which has no ``log`` block yet) and writes the result into
-    ``data``'s initial state and controls. Raises ``RuntimeError`` when the residual misses D8's
-    bound."""
+    ``data``'s initial state and controls. The solver raises ``RuntimeError`` when it does not
+    converge or a solved residual misses D8's bound (``TRIM_RESIDUAL_BOUND``); the lateral
+    residuals are never bounded (M7 plan Q7, N-03)."""
     if "log" in data:
         raise RuntimeError(f"{origin}: the trim copy must not carry the run's log block")
     with tempfile.TemporaryDirectory(prefix=TRIM_DIR_PREFIX) as directory:
         still = Path(directory) / config_name
         still.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
         result = astra.trim.trim_straight_and_level(
-            still, setpoint.true_airspeed, setpoint.altitude
-        )
-    worst = float(np.max(np.abs(result.residual)))
-    if worst > TRIM_RESIDUAL_BOUND:
-        raise RuntimeError(
-            f"{origin}: trim residual {worst:.3e} exceeds D8's {TRIM_RESIDUAL_BOUND:g}"
+            still,
+            setpoint.true_airspeed,
+            setpoint.altitude,
+            heading_rad=setpoint.heading,
+            rate_convention=setpoint.rate_convention,
         )
     state_values, control_values = trim_fragment(result)
     initial = cast(dict[str, Any], data.setdefault("initial", {}))
@@ -240,29 +262,45 @@ def apply_trim(
     values.pop("q_nb", None)  # the trim fixes the attitude; euler_nb states it
     values.update(state_values)
     vehicle = cast(dict[str, Any], data.setdefault("vehicle", {}))
-    controls = cast(
-        dict[str, Any],
-        cast(dict[str, Any], vehicle.setdefault("initial_controls", {})).setdefault("controls", {}),
-    )
-    controls.update(control_values)
+    merge_controls(cast(dict[str, Any], vehicle.setdefault("initial_controls", {})), control_values)
 
 
 def trim_fragment(
     result: astra.trim.TrimResult,
-) -> tuple[dict[str, list[float]], dict[str, float]]:
-    """The ``initial.state`` entries and the ``vehicle.initial_controls.controls`` entries a trim
-    sets, in the order ``apply_trim`` writes them: ``p_n``, ``v_b``, ``euler_nb`` (``[0, alpha,
-    0]``, so the config's ``q_nb`` must go), ``omega_b``; then ``elevator``, ``throttle``."""
+) -> tuple[dict[str, list[float]], dict[str, Any]]:
+    """The ``initial.state`` entries and the ``vehicle.initial_controls`` entries a trim sets, in
+    the order ``apply_trim`` writes them: ``p_n``, ``v_b``, ``euler_nb`` (``[heading, alpha, 0]``,
+    so the config's ``q_nb`` must go), ``omega_b`` (the rate convention's, from the solved state);
+    then the two solved inputs, nested by their dotted names (``controls.elevator`` is
+    ``{"controls": {"elevator": ...}}``), as ``Simulation::from_config`` reads them. Every other
+    input keeps the config's own value, which is what the trim held it at."""
     state = [float(v) for v in result.state]
     values = {
         "p_n": state[_core.POSITION : _core.POSITION + _core.POSITION_SIZE],
         "v_b": state[_core.VELOCITY : _core.VELOCITY + _core.VELOCITY_SIZE],
-        "euler_nb": [0.0, result.alpha_rad, 0.0],  # [psi, theta, phi]; theta = alpha
-        "omega_b": [0.0, 0.0, 0.0],
+        "euler_nb": [result.heading_rad, result.alpha_rad, 0.0],  # [psi, theta, phi]; theta = alpha
+        "omega_b": state[_core.ANGULAR_RATE : _core.ANGULAR_RATE + _core.ANGULAR_RATE_SIZE],
     }
-    # astra.trim's own control names (its D10).
-    controls = {"elevator": result.elevator_rad, "throttle": result.throttle}
+    controls: dict[str, Any] = {}
+    merge_controls(controls, {name: result.controls[name] for name in result.solved_inputs})
     return values, controls
+
+
+def merge_controls(initial_controls: dict[str, Any], values: dict[str, Any]) -> None:
+    """Writes ``values`` into a ``vehicle.initial_controls`` map: each key is either a dotted input
+    name or a map already nested (``trim_fragment``'s), merged level by level, existing keys kept in
+    place."""
+    for name, value in values.items():
+        node = initial_controls
+        *parents, leaf = name.split(".")
+        for part in parents:
+            node = cast(dict[str, Any], node.setdefault(part, {}))
+        if isinstance(value, dict):
+            merge_controls(
+                cast(dict[str, Any], node.setdefault(leaf, {})), cast(dict[str, Any], value)
+            )
+        else:
+            node[leaf] = value
 
 
 def discard_on_failure(sim: _core.Simulation, error: BaseException) -> None:

@@ -45,8 +45,8 @@ from typing import IO, Any, cast
 import numpy as np
 import yaml
 
-from astra import _core, _yaml_route
-from astra.trim import trim_straight_and_level
+from astra import _core, _runkit, _yaml_route
+from astra.trim import DEFAULT_RATE_CONVENTION, RateConvention, trim_straight_and_level
 
 SHM_PLUGIN = "plugins/sim/transport/shm"
 SHM_DIRECTORY = Path("/dev/shm")
@@ -137,11 +137,18 @@ class Setpoints:
 
 @dataclasses.dataclass(frozen=True)
 class AutopilotTrim:
-    """The autopilot's bias trims (M4 Q12): elevator (rad), throttle (0..1), theta (rad)."""
+    """The autopilot's bias trims (M4 Q12): elevator (rad), throttle (0..1), theta (rad); and the
+    same trim's ``initial.state`` and ``vehicle.initial_controls`` fragment
+    (``_runkit.trim_fragment``), so a driver writes the run's initial state from the one trim result
+    the biases came from (M7 PR 5)."""
 
     elevator_rad: float
     throttle: float
     theta_rad: float
+    initial_state: dict[str, list[float]] = dataclasses.field(
+        default_factory=dict[str, list[float]]
+    )
+    initial_controls: dict[str, Any] = dataclasses.field(default_factory=dict[str, Any])
 
 
 @dataclasses.dataclass(frozen=True)
@@ -164,26 +171,35 @@ class PeerSummary:
     status: int
 
 
-def trim_for(config_path: str | os.PathLike[str], setpoints: Setpoints) -> AutopilotTrim:
-    """The still-air straight-and-level trim at the setpoints' altitude and airspeed.
+def trim_for(
+    config_path: str | os.PathLike[str],
+    setpoints: Setpoints,
+    *,
+    rate_convention: RateConvention = DEFAULT_RATE_CONVENTION,
+) -> AutopilotTrim:
+    """The still-air level trim at the setpoints' altitude, airspeed and heading, under
+    ``rate_convention`` (``astra.trim``).
 
-    ``astra.trim`` drops ``physical.wind`` itself (lesson 2026-09-22) and pins psi = 0, so the
-    heading
-    setpoint must be 0. gamma = 0 makes theta = alpha, the autopilot's ``--theta-trim``. The trim
-    builds
-    a ``Simulation`` of its own, so it is given a temporary copy of the config without the
-    ``transport`` block (a trim must not create a segment or wait for a peer); every other key is
-    unchanged (``yaml.safe_dump`` writes floats with ``repr``, so they round-trip exactly).
+    ``astra.trim`` drops ``physical.wind`` itself (lesson 2026-09-22). gamma = 0 makes theta =
+    alpha, the autopilot's ``--theta-trim``. The trim builds a ``Simulation`` of its own, so it is
+    given a temporary copy of the config without the ``transport`` block (a trim must not create a
+    segment or wait for a peer); every other key is unchanged (``yaml.safe_dump`` writes floats
+    with ``repr``, so they round-trip exactly).
     """
-    if setpoints.heading_rad != 0.0:
-        raise ValueError("trim_for: astra.trim pins psi = 0, so the heading setpoint must be 0")
     config = _read(config_path)
     config.pop("transport", None)
     with tempfile.TemporaryDirectory(prefix="astra_trim_") as directory:
         still_air = Path(directory) / Path(config_path).name
         still_air.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
-        result = trim_straight_and_level(still_air, setpoints.airspeed_mps, setpoints.altitude_m)
-    return AutopilotTrim(result.elevator_rad, result.throttle, result.alpha_rad)
+        result = trim_straight_and_level(
+            still_air,
+            setpoints.airspeed_mps,
+            setpoints.altitude_m,
+            heading_rad=setpoints.heading_rad,
+            rate_convention=rate_convention,
+        )
+    state, controls = _runkit.trim_fragment(result)
+    return AutopilotTrim(result.elevator_rad, result.throttle, result.alpha_rad, state, controls)
 
 
 def new_segment_name() -> str:

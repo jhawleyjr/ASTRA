@@ -18,21 +18,24 @@ Schema (Q14). Every map is closed: an unknown key at any level is an error.
   ``duration: 1:30`` is 90 s, and an override written ``010`` reaches the config as 8.
 - ``overrides``: ``{dotted.path: number}``. Integer segments index lists
   (``initial.state.p_n.2``). Only an existing numeric leaf can be changed, never a new key.
-- ``trim``: ``{true_airspeed, altitude}``, for ``astra.trim.trim_straight_and_level``. It works
+- ``trim``: ``{true_airspeed, altitude[, heading][, rate_convention]}``, for
+  ``astra.trim.trim_straight_and_level``: ``heading`` in rad (default 0), ``rate_convention``
+  ``zero_inertial`` (the default, omega_b = 0) or ``n_frame`` (the n frame's own rate). It works
   on a copy of the config without the ``log`` block, so it never creates the run's file. Its state
   and its elevator and throttle replace the config's initial state and controls.
 
   With ``trim`` set, an override of a leaf that trim sets or assumes is refused, naming the key,
   because it would be discarded or would leave the run untrimmed (``TRIM_OWNED``). Trim sets:
   - ``initial.state.p_n.2``, the altitude, from ``trim.altitude``;
-  - every ``initial.state.v_b``, ``euler_nb`` (``[0, alpha, 0]``) and ``omega_b`` (zero) element;
+  - every ``initial.state.v_b``, ``euler_nb`` (``[heading, alpha, 0]``) and ``omega_b`` (the rate
+    convention's) element;
   - any ``initial.state.q_nb`` element, which it replaces with ``euler_nb``;
   - ``vehicle.initial_controls.controls.elevator`` and ``throttle``, which it solves for.
 
-  Trim assumes ``controls.aileron`` and ``controls.rudder`` are 0 (``astra.trim``'s
-  straight-and-level scenario): it never writes them, so a nonzero value would fly an untrimmed
-  run. Leaves trim reads but does not replace stay overridable, and the override reaches the trim:
-  latitude and longitude (``p_n.0``, ``p_n.1``), mass, and aero or propulsion coefficients.
+  Trim assumes ``controls.aileron`` and ``controls.rudder`` are 0 (``astra.trim``'s level
+  scenario): it never writes them, so a nonzero value would fly an untrimmed run. Leaves trim reads
+  but does not replace stay overridable, and the override reaches the trim: latitude and longitude
+  (``p_n.0``, ``p_n.1``), mass, and aero or propulsion coefficients.
 
   ``physical.wind`` also stays overridable. Trim is still-air by design; wind is a disturbance from
   trim. A run with wind starts off-trim at frame 0, because Dryden draws its first gust at frame 0

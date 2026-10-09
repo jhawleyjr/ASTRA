@@ -55,19 +55,24 @@ docs/plans/m6-pr8-report.md).
     ``.partial`` holding ``complete = 1``, which ``astra.log.load(path, allow_incomplete=True)``
     reads and ``mv -n`` publishes.
 
-``astra trim <config> [--airspeed V] [--altitude H]``
-    Straight-and-level trim (``astra.trim``) at true airspeed V (m/s) and altitude H (m). Each
-    defaults to the config's own initial state, |v_b| and the geodetic ``p_n[2]`` (D6). It prints
-    YAML to stdout: the setpoint, ``elevator``, ``throttle``, ``alpha``, the 6-vector
-    ``residual``, and the ``initial.state`` and ``vehicle.initial_controls.controls`` fragment
+``astra trim <config> [--airspeed V] [--altitude H] [--heading PSI] [--rate-convention C]``
+    Level trim (``astra.trim``) at true airspeed V (m/s), altitude H (m) and heading PSI (rad),
+    with omega_b set by C: ``zero_inertial`` (the default, omega_b = 0) or ``n_frame`` (the n
+    frame's own rate). Each setpoint defaults to the config's own initial state (D6): |v_b|, the
+    Earth model's altitude (``p_n[2]``, or ``-p_n[2]`` on a flat Earth) and psi of ``q_nb``. It
+    prints YAML to stdout: the setpoint, ``elevator``, ``throttle``, ``alpha``, the 6-vector
+    ``residual`` (the solved three bounded by the trim, the lateral three reported, never
+    bounded), and the ``initial.state`` and ``vehicle.initial_controls`` fragment
     ``_runkit.apply_trim`` writes (``euler_nb`` replaces any ``q_nb``). Floats are written by
     ``yaml.safe_dump``, whose text reads back exactly. Codes: 64 a usage error (a non-finite value,
-    or an airspeed not above zero); 65 a config error (including a document that is not a map, a
-    ``transport`` block, a flat Earth, a zero default airspeed, a file ``astra.trim``'s own
-    YAML 1.1 read refuses, and a config whose PyYAML reading ``astra._yaml_route`` refuses, such
-    as a null); 1 not trimmed (``astra.trim``'s non-convergence, or a residual above
-    ``_runkit.TRIM_RESIDUAL_BOUND``); 74 stdout could not be written; 70 an internal error,
-    including any other ``ValueError`` or ``RuntimeError`` from a trim; 0 trimmed.
+    an airspeed not above zero, or an unknown rate convention); 65 a config error (including a
+    document that is not a map, a ``transport`` block, an Earth model whose position
+    representation ``astra.trim`` does not know, a solved input the models do not register, a zero
+    default airspeed, a file ``astra.trim``'s own YAML 1.1 read refuses, and a config whose PyYAML
+    reading ``astra._yaml_route`` refuses, such as a null); 1 not trimmed (``astra.trim``'s
+    non-convergence, or a solved residual above ``_runkit.TRIM_RESIDUAL_BOUND``); 74 stdout could
+    not be written; 70 an internal error, including any other ``ValueError`` or ``RuntimeError``
+    from a trim; 0 trimmed.
 
 ``astra plot <log> <package> [--out DIR] [--format svg|png] [--html [--html-columns N]]``
     Renders a plot package (``astra.plot``) against a run log, read strictly with
@@ -174,10 +179,16 @@ _TRANSPORT_REFUSAL = (
 # complete = 1 (ADR-0027 item 3).
 _PUBLICATION = "': the publication failed: "
 _IDENTITY = "the .partial is no longer this run's file"
-# astra.trim's two expected failures (trim.py, trim_straight_and_level): its refusal of a flat Earth
-# and scipy's non-convergence. Every other ValueError or RuntimeError from a trim is a defect (70).
-_TRIM_FLAT_EARTH = "trim_straight_and_level: 'physical.earth' is "
+# astra.trim's expected failures (trim.py, trim_straight_and_level): a setup it refuses (an Earth
+# model whose representation it does not know, a solved input the models do not register; 65), and
+# scipy's non-convergence or a solved residual above its bound (1). Every other ValueError or
+# RuntimeError from a trim is a defect (70).
+_TRIM_REFUSED = "trim_straight_and_level: "
 _TRIM_NOT_CONVERGED = "trim_straight_and_level did not converge: "
+_TRIM_RESIDUAL = "trim_straight_and_level: solved residual "
+# astra.trim.RATE_CONVENTIONS, spelled here so the parser does not import astra.trim (scipy) at
+# startup; tests/python/test_trim_round_trip.py checks the two agree.
+_RATE_CONVENTIONS = ("zero_inertial", "n_frame")
 
 
 class _Parser(argparse.ArgumentParser):
@@ -241,7 +252,21 @@ def _parser() -> tuple[_Parser, dict[str, _Parser]]:
         "--altitude",
         type=_finite,
         metavar="H",
-        help="altitude, m (default: p_n[2] of the config's initial state)",
+        help="altitude, m (default: the config's initial altitude, p_n[2], or -p_n[2] on a flat "
+        "Earth)",
+    )
+    trim.add_argument(
+        "--heading",
+        type=_finite,
+        metavar="PSI",
+        help="heading, rad (default: psi of the config's initial attitude)",
+    )
+    trim.add_argument(
+        "--rate-convention",
+        choices=_RATE_CONVENTIONS,
+        default=None,
+        help="omega_b at trim: zero_inertial (omega_b = 0, the default) or n_frame (the n frame's "
+        "own rate, so the Euler angles hold relative to the local vertical)",
     )
     plot = commands.add_parser(
         "plot",
@@ -618,14 +643,17 @@ def _trim(args: argparse.Namespace, parser: _Parser) -> int:
         _say("trim", f"config error: {_TRANSPORT_REFUSAL.format(config_path)}")
         return EX_DATAERR
 
-    import numpy as np
     import yaml
 
     import astra.trim
 
+    heading: float | None = args.heading
+    convention = args.rate_convention or astra.trim.DEFAULT_RATE_CONVENTION
     try:
-        if airspeed is None or altitude is None:
-            airspeed, altitude = _initial_setpoint(config_path, airspeed, altitude)
+        if airspeed is None or altitude is None or heading is None:
+            airspeed, altitude, heading = _initial_setpoint(
+                config_path, airspeed, altitude, heading
+            )
         if not airspeed > 0.0:
             _say(
                 "trim",
@@ -633,7 +661,9 @@ def _trim(args: argparse.Namespace, parser: _Parser) -> int:
                 "--airspeed or set initial.state.v_b",
             )
             return EX_DATAERR
-        result = astra.trim.trim_straight_and_level(config_path, airspeed, altitude)
+        result = astra.trim.trim_straight_and_level(
+            config_path, airspeed, altitude, heading_rad=heading, rate_convention=convention
+        )
     except _core.ConfigError as error:
         _say("trim", f"config error: {error}")
         return EX_DATAERR
@@ -644,22 +674,14 @@ def _trim(args: argparse.Namespace, parser: _Parser) -> int:
         _say("trim", f"config error: {config_path}: {error}")
         return EX_DATAERR
     except ValueError as error:
-        if not str(error).startswith(_TRIM_FLAT_EARTH):
+        if not str(error).startswith(_TRIM_REFUSED):
             raise  # any other ValueError is a defect (70), not a config error
         _say("trim", f"config error: {error}")
         return EX_DATAERR
     except RuntimeError as error:
-        if not str(error).startswith(_TRIM_NOT_CONVERGED):
+        if not str(error).startswith((_TRIM_NOT_CONVERGED, _TRIM_RESIDUAL)):
             raise  # any other RuntimeError, a core Error included, is a defect (70)
         _say("trim", f"not trimmed: {error}")
-        return NOT_TRIMMED
-    worst = float(np.max(np.abs(result.residual)))
-    if worst > _runkit.TRIM_RESIDUAL_BOUND:
-        _say(
-            "trim",
-            f"not trimmed: max|residual| {worst!r} exceeds D8's bound "
-            f"{_runkit.TRIM_RESIDUAL_BOUND!r}",
-        )
         return NOT_TRIMMED
     state, controls = _runkit.trim_fragment(result)
     document = {
@@ -670,30 +692,40 @@ def _trim(args: argparse.Namespace, parser: _Parser) -> int:
         "alpha": result.alpha_rad,
         "residual": [float(v) for v in result.residual],
         "initial": {"state": state},
-        "vehicle": {"initial_controls": {"controls": controls}},
+        "vehicle": {"initial_controls": controls},
     }
     text = yaml.safe_dump(document, sort_keys=False, default_flow_style=None)
     return 0 if _write("trim", text) else EX_IOERR
 
 
 def _initial_setpoint(
-    config_path: Path, airspeed: float | None, altitude: float | None
-) -> tuple[float, float]:
-    """``airspeed`` and ``altitude``, each defaulting to the config's initial state (D6): |v_b| and
-    ``p_n[2]``, from the same still-air ``Simulation`` ``astra.trim`` builds."""
+    config_path: Path, airspeed: float | None, altitude: float | None, heading: float | None
+) -> tuple[float, float, float]:
+    """``airspeed``, ``altitude`` and ``heading``, each defaulting to the config's initial state
+    (D6): |v_b|; the Earth model's altitude, ``p_n[2]`` or, on a flat Earth, ``-p_n[2]``
+    (``astra.trim.altitude_sign``); and psi of ``q_nb``, atan2(c12, c11) of the direction cosine
+    matrix (S&L 3rd ed. eqs. 1.3-11 and 1.8-18). Read from the same still-air ``Simulation``
+    ``astra.trim`` builds."""
+    import math
+
     import numpy as np
 
     import astra.trim
 
-    config = astra.trim._load_still_air_config(config_path)  # pyright: ignore[reportPrivateUsage]
+    data = astra.trim._read_yaml_dict(config_path)  # pyright: ignore[reportPrivateUsage]
+    sign = astra.trim.altitude_sign(data)
+    config = astra.trim._still_air_config(data, config_path)  # pyright: ignore[reportPrivateUsage]
     sim = _core.Simulation.from_config(config, _core.default_plugin_dir())
     state = np.array(sim.vehicles[0].state)
     velocity = state[_core.VELOCITY : _core.VELOCITY + _core.VELOCITY_SIZE]
     if airspeed is None:
         airspeed = float(np.linalg.norm(velocity))
     if altitude is None:
-        altitude = float(state[_core.POSITION + _core.POSITION_SIZE - 1])
-    return airspeed, altitude
+        altitude = sign * float(state[_core.POSITION + _core.POSITION_SIZE - 1])
+    if heading is None:
+        w, x, y, z = (float(v) for v in state[_core.QUATERNION : _core.QUATERNION + 4])
+        heading = math.atan2(2.0 * (x * y + w * z), w * w + x * x - y * y - z * z)
+    return airspeed, altitude, heading
 
 
 # --- astra plot -----------------------------------------------------------------------------------

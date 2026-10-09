@@ -511,6 +511,12 @@ is enough. Blocks: the first PR that cannot start without it.
     Joe decides.
   - The alternative to present then: the new convention as an explicit option (`rate_convention`), with
     today's as the default until each caller is migrated in its own reviewed step.
+  *Amended 2026-10-08 (Joe, at M7 PR 5's plan approval; [PR 5's plan](m7-pr5-trim.md#joes-decisions-2026-10-08)):*
+  decided as that alternative, (b). `rate_convention` is an option on every consumer, `zero_inertial` the
+  default; the F-16 configs (PR 9 to 12) select `n_frame`. Reason: under D3 (B1) the notional transport keeps
+  damping the inertial ω_b until B2 is measured and decided, so under `n_frame` its trim is not an
+  equilibrium in roll (PR 5 measured ṗ = −8.2e-5 rad/s² at cruise); the new convention everywhere would put
+  every notional-transport caller on a non-equilibrium trim. The callers' migration joins PLAN.md's B2 item.
 - **Q7. Trim unknowns and thresholds per case (plan; blocks PR 5).** Vol II C.1.11: the participants
   varied "pitch attitude, elevator position, and throttle setting" only. Recommend those three unknowns,
   at the case's heading with φ = β = 0 and aileron = rudder = 0:

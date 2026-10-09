@@ -16,9 +16,10 @@ file and the key).
   a number, and what text cannot carry (a null, a duplicate or merge key) is refused, naming the
   key. The spec itself is Python's own format, YAML 1.1 as ``yaml.safe_load`` reads it (D3):
   ``seed: 010`` is 8, ``runs: 1_000`` is 1000 and ``duration: 1:30`` is 90 s.
-- ``trim``: optional ``{true_airspeed, altitude}``, the same trim as ``astra.scenario``'s: each run
-  is trimmed after its draws are applied, on a copy of its config without the ``log`` block (and
-  without ``transport``, which is refused anyway), so trim never creates the run's file.
+- ``trim``: optional ``{true_airspeed, altitude[, heading][, rate_convention]}``, the same trim
+  as ``astra.scenario``'s: each run is trimmed after its draws are applied, on a copy of its config
+  without the ``log`` block (and without ``transport``, which is refused anyway), so trim never
+  creates the run's file.
 - ``duration``: seconds, greater than zero, an exact multiple of ``dt`` (``astra.scenario``'s
   rule). Each run asks for ``duration / dt`` frames.
 - ``runs``: an integer >= 1. ``seed``: the master seed, an integer in [0, 2^64).
