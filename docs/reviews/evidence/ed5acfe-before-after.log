@@ -1,0 +1,50 @@
+M7 PR 5 before/after (docs/plans/m7-pr5-trim.md, "Measurement first"; Joe's decisions 3, 4 and 6)
+Question: does the candidate, at its default rate_convention ("zero_inertial"), reproduce main bit for bit
+on every gated caller, apart from the four approved differences?
+date: 2026-10-08
+build: this worktree's one build (_core, build/python/plugins, embedded/autopilot/astra_autopilot,
+tests/lockstep/astra_echo_peer); the PR has no C++ change, so both passes use it.
+worktree: clean at ed5acfe for both passes (git_describe is read at run time: a first P1 run, made while
+the worktree held uncommitted docs edits, differed from P0 in every log only in the root attribute
+git_describe, 'ac7ecaf' against 'ac7ecaf-dirty'; it was discarded and both passes rerun back to back).
+
+== the two trees (each a whole-tree archive, run from its own root as cwd, with this build's _core*.so
+   copied into its python/astra and PYTHONPATH = <empty _editable_skbc_astra.py shim>:<root>/python)
+P0 (before): archive of 6e0f3de (origin/main, #107)
+P1 (candidate): archive of 301218f (the candidate's Python; ed5acfe adds docs only)
+
+== which tree each interpreter imported (asserted in every pass)
+P0 parent, spawn worker, subprocess, astra console script (PYTHONVERBOSE): <scratch>/p0/python/astra/__init__.py
+P1 parent, spawn worker, subprocess, astra console script (PYTHONVERBOSE): <scratch>/p1/python/astra/__init__.py
+both: astra._core = the root's copy of this build's _core; default_plugin_dir() = <worktree>/build/python/plugins
+config SHA-256 (both passes identical): cruise 35ce21a4..., cruise_still_air 38684eb4...,
+  cruise_light_turbulence ab457048..., cruise_moderate_turbulence 9f02f0f0...
+
+== captured values (floats as float.hex, arrays and files as SHA-256): 16 entries compared, 0 differing
+row 1   trim_straight_and_level(cruise, cruise_still_air; 230 m/s, 10,000 m): state, elevator, throttle,
+        alpha, residual identical (elevator 0x1.b508da83e1eddp-6 = 0.026674474137989946)
+row 2   astra trim stdout, explicit and default setpoints: exit 0, sha256 9f437501... in both passes
+row 4   linearize: A, B, x0, u0, f(x0) bytes and the five modes identical
+row 6   autopilot_design.build_plants: a_lon, b_lon, a_lat, b_lat bytes identical (row 5's reference too)
+row 7   trim_for on the light and moderate lockstep configs: biases and hold commands identical
+rows 8-10  every tests/scenarios log (aileron_step, atmosphere_ceiling_halt, cruise_hold, elevator_step,
+        throttle_step): bytes identical, failures [] in both
+row 14  cruise_64.yaml (trimmed, 4 spawn workers): 65 files (64 run_*.h5, summary.parquet) identical
+row 15  planted.yaml (R9's batch, 4 workers): 131 files identical
+rows 16-17  C++ readers and copied literals: no C++, config or fixture byte changes (unchanged by construction)
+
+== test outcomes (junit), P0 against P1
+P0: selector 494 passed; tests/scenarios 5 passed; -k 'log or fgbridge' 636 passed, 5 skipped
+P1: selector 543 passed; tests/scenarios 5 passed; -k 'log or fgbridge' 636 passed, 5 skipped
+skipped in both: test_log_cost's five opt-in cases (row 13, reported only)
+tests whose outcome changed: none
+only in P0 (approved replacements, decision 5):
+  test_cli::test_trim_config_errors_exit_65[flat-earth] (now [no-throttle], the missing-input refusal)
+  test_trim::test_refuses_a_flat_earth_config (now test_trims_a_flat_earth_config_at_its_ned_altitude)
+only in P1: 51 (the 47 tests of test_trim_kinematics.py and test_trim_round_trip.py; the flat-Earth trim
+  under both conventions; the unknown-Earth refusal; the no-throttle refusal)
+approved P0/P1 differences seen: flat Earth trims; trim_for accepts a nonzero heading; the residual-bound
+  stderr names the solved component. The last-ulp quaternion difference did not occur (the port and the
+  core agree bit for bit at heading 0).
+
+result: P0 = P1 on the unchanged set. Tier 2 (decision 6).
