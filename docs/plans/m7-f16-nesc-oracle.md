@@ -94,6 +94,9 @@ in M7 changes `icd/`.
 - `bodyAngularRateWrtEi` is the inertial body rate, as in M2 (`nesc_cases_test.cpp`'s header).
 - The DML's `bodyAngularRate_*` inputs are the same rates. PR 6a's inventory addendum reads the DML's
   variable definitions; if they are Earth-relative, the peer converts.
+  *Amended 2026-10-08 (Joe; [addendum §10](m7-f16-inventory.md#10-joes-decisions), D3):* for the aero this is refuted. The members fed
+  the aero the body rate relative to the Earth, ω_b − ω_ie in body axes, and the F-16 aero reads that rate
+  from the core (ADR-0032, PR 3b). The laws' rate frame stays open until PR 1b.
 
 ## Inventory of the sources (read-only, the main checkout's `docs/refs`, 2026-10-04)
 
@@ -154,6 +157,7 @@ Absent: every aero table, the propulsion model and the inertia file. Vol II says
 **Model files.** None of the F-16 `.dml` files is in `docs/refs`. Vol I ref. 7 (doc p.26) and Vol II p.16
 name the NESC flightsim repository (`nescacademy.nasa.gov/flightsim`) as their source; NTRS holds the
 reports, not the model files. The model's upstream sources, Vol II refs [3] and [4], are NTRS reports.
+*Added 2026-10-07 (M7 PR 6a):* Joe has placed P1 and P2; [the inventory addendum](m7-f16-inventory.md) records them.
 
 **Prerequisites for Joe to place in `docs/refs`.** Each blocks the PR named. Nothing is transcribed from
 memory, and the figures are a cross-check only (Q1).
@@ -391,7 +395,7 @@ A test runs its commands on a throwaway copy.
 
 | ID | Observable requirement | Executable check and independent expected result/source |
 |---|---|---|
-| R1 | F-16 mass properties | Unit test: the mass plugin's SI values equal Table 7 (and P1's inertia file, if it differs, reported) through exact conversions (Vol II Table 73's foot and slug constants); Izx's sign is pinned under the product-of-inertia convention |
+| R1 | F-16 mass properties | Unit test: the mass plugin's SI values equal Table 7 (and P1's inertia file, if it differs, reported) through exact conversions (Vol II Table 73's foot and slug constants); Izx's sign is pinned under the product-of-inertia convention. *Amended 2026-10-08 (Joe; [addendum §10](m7-f16-inventory.md#10-joes-decisions), D1):* the mass equals `F16_inertia.dml`'s 637.1595 slug (Vol II calls the `.dml` files normative), and Table 7's 637.26 slug is reported beside it |
 | R2 | Aero model equals its source | The compiled plugin, driven through `wrench_b`, reproduces the DML's `checkData` within the tolerance the DML states, or P3 if there is none (Q14). The `checkData` extraction shares no code path with the table emitter (lesson 2026-09-25). Points beyond every table's breakpoints follow that table's DAVE-ML extrapolation semantics. Driven through the write seam in ICD convention, a positive aileron gives a positive (right-wing-down) rolling moment, and positive elevator and rudder give the moments ADR-0001's signs require (critique C-05) |
 | R3 | Propulsion equals its source | As R2. Throttle 0..1 maps to PLA 0..100 % in one place, pinned by a test at 0, 0.5 (MIL) and 1 (MAX). Engine states, if any, follow ADR-0021 |
 | R4 | Trim | In PR 5, for synthetic and notional-transport conditions spanning latitude and heading (case 15's 89.95° N included), three checks: the three solved residuals, recomputed through `Simulation.derivative`, are at most 1e-6; the lateral residuals match Q7's closed-form kinematic and gravity derivation on a test wrench source with no rate dependence; and ω_b at the solution equals an independent n-frame-rate computation (Q6). For each F-16 case's initial condition, the solved residuals are at most 1e-6, and the lateral residuals equal that case's full expected residual. That residual comes from the DML, independently of ASTRA's plugin, and is brought to Joe in PR 9 (11, 12), PR 11a (13.x) and PR 11b (15, 16). Each consumer's before-and-after values are measured in PR 5 (Q6's blast radius). If PR 6a finds that a model owns continuous state (the engine's power lag), trim builds the full combined-state buffer, solves those states for equilibrium as the DML defines it, checks their derivatives against the same threshold, and carries them through every consumer's config round trip (PR 5b; verification N-05). An arbitrary heading, flat Earth (the template copy) and names from `Simulation.input_names` are each seen to work. The round trip holds: each consumer's emitted config (`astra trim`, `_runkit` for scenarios and Monte Carlo, `astra.linearize`, `astra.lockstep`) rebuilds the solved state, controls, altitude and residuals (critique C-03). `astra trim` on a fresh template copy no longer exits 65 for its Earth model |
@@ -461,6 +465,10 @@ is enough. Blocks: the first PR that cannot start without it.
     state (critique C-07). `wrench_b` is pure over those bindings too (ADR-0021), and a second instance
     does not acquire them. If the aero model does bind state, the evaluator must reproduce the complete
     frame-start snapshot, or the choice returns to Joe with (a).
+    *Amended 2026-10-08 (Joe; [addendum §10](m7-f16-inventory.md#10-joes-decisions)):* the condition holds. Neither the F-16 aero nor its
+    propulsion binds own or peer state, so PR 5b is not scheduled and the self-check needs no engine state.
+    Sub-condition: the rate the aero model uses comes from the sample's state, its environment or the
+    model's own constants, never from a peer binding.
   - A self-check on the F-16 itself guards it: with controls that change during the run, the evaluator's
     aero wrench plus an independently evaluated propulsion wrench equals `wrench_total` to 1e-12 at every
     sample.
@@ -518,6 +526,9 @@ is enough. Blocks: the first PR that cannot start without it.
     - any engine gyroscopic term.
     The last two need P1, and in case 15 they dominate ṗ and ṙ. SIM 5's t = 0 aero moments (L = -225.83,
     N = 857.28 lbf·ft) alone give about -0.022 and 0.013 rad/s² with Table 7's inertias (amendment 2).
+    *Amended 2026-10-08 (Joe; [addendum §10](m7-f16-inventory.md#10-joes-decisions), D3 and D5):* the aero's rate terms take the body
+    rate relative to the Earth, ω_b − ω_ie in body axes. Under Q6's convention that is the transport rate,
+    not the full rate Q6 imposes.
   - So the derivation is split by what each PR can know:
     - **PR 5** derives and checks only the kinematic and gravity parts. It derives them independently, in
       closed form, from the latitude, heading, airspeed and altitude, never reading ASTRA's own EOM. It
@@ -648,6 +659,15 @@ is enough. Blocks: the first PR that cannot start without it.
   extrapolation at the edges, since S&L's thrust tables stop at Mach 1. The final text of this question
   waits for PR 6a's addendum: whether the aero has any Mach dependence, and what the propulsion tables do
   beyond their last Mach breakpoint.
+  *Final text, 2026-10-08 (Joe confirmed; [addendum §8 and §10](m7-f16-inventory.md#10-joes-decisions)):*
+  - The F-16 aero has no Mach or altitude dependence.
+  - The propulsion tables stop at Mach 1.0 and 50,000 ft.
+  - Every F-16 table is `extrapolate="neither"`, which the package's Simulink realization implements as
+    clip.
+  - Case 12 (Mach 2.0105, 30,013 ft) is therefore flown with the subsonic aero tables and the Mach-1.0
+    thrust row, as the DML specifies for every participant.
+  - The plugins reproduce the clip at every edge.
+  - The F-16 aero declares Mach ≤ 1.0 (D6), so R18's case 12 clause stands.
 - **Q16. §15 envelope monitors (ADR-0031; plan).** Recommend inside M7, as a late PR of its own: Tier 3,
   a `kCoreApiVersion` bump, default `warn`. The F-16's table domain gives it real limits, and an F-16
   leaving its data is exactly the run a user should be warned about. R9 of M6 is unchanged under `warn`.
@@ -685,6 +705,7 @@ is enough. Blocks: the first PR that cannot start without it.
   - No record for Q5 or Q9: Joe chose (c) and (b), neither of which needs one.
   No ADR for trim, rotation consistency (it mirrors an existing check), the table generator or the key
   reference; plan and architecture text only.
+  *Added 2026-10-08 (Joe; [addendum §10](m7-f16-inventory.md#10-joes-decisions), D3):* PR 1b also writes ADR-0032, per the PR table.
 - **Q21. The config-key reference (plan; blocks PR 14).** Recommend:
   - a structured key block in each plugin's header comment;
   - `scripts/config_keys.py` generating `docs/reference/config-keys.md`;
@@ -793,6 +814,8 @@ Joe's follow-ups at approval (2026-10-04). Each PR's own plan starts from them.
 | 6a | The addendum records the files actually used from `Atmospheric_models.zip`, with the archive's URL and SHA-256. It also corrects `docs/refs/README.md`: `Atmospheric_checkcases/` and `Initial_Conditions.xlsx` come from the same NESC Academy 2015 page (`https://nescacademy.nasa.gov/flightsim/2015`), not NTRS |
 | 6a, 13 | (Joe, at M7 PR 1a.) The F-16's Mach limit. ADR-0031 has an aero model declare the domain of its own data: its table breakpoints, or a stated validity limit along an axis its data does not span. If the F-16 aero has no Mach dependence, its declared Mach limit is a validity limit stated by P1. If P1 states none, case 12's expected nonzero Mach counter (R18, N-07) has no basis, and the expectation returns to Joe before PR 13 fixes it |
 | 11a | (Joe, at M7 PR 1a.) R12 compares the peer's EAS against TAS·√(ρ/ρ0) from "the sim's own atmosphere signals", but no atmosphere signal is logged. PR 11a's plan states where ρ comes from |
+| 1b, 11a | (Joe, 2026-10-08; [addendum §10](m7-f16-inventory.md#10-joes-decisions), item 4.) The laws' rate frame. Decide it from data: back out el, ail and rdr from the members' aero channels at samples of 13.3 (and 15 if needed), evaluate the DML law with inertial and with Earth-relative rates, and compare. If that cannot discriminate, it returns to Joe, with ICD v1's inertial rates as the default |
+| 6b | (Joe, 2026-10-08; [addendum §10](m7-f16-inventory.md#10-joes-decisions), items 5 and 7.) The aero's MRC-to-CM transfer (D4: 1.132 ft, CM at 25 % MAC) and the DML's mass, 637.1595 slug (R1) |
 
 ## PR decomposition
 
@@ -804,14 +827,15 @@ runs `./scripts/check-full.sh` (exit 0 and `check: OK`) and commits a trimmed ga
 |---|---|---|---|---|---|
 | 0 | This planning PR: the spec and plan, the critique record, PLAN.md's Planning line, architecture §16's M7 row | 0 | 0013 to 0015 | none | `python3 scripts/docs_check.py`; `git diff --check origin/main..HEAD`; the Codex plan critique |
 | 1a | ADR-0028 (the oracle), ADR-0030 (ADR-0002's wording), ADR-0031 (the envelope declaration, Q16); architecture rev 11 (§7, §12, §15, §16, §18); PLAN.md M7 PR lines. Needs neither P1 nor P2 | 3 | 0002, 0013 to 0015, 0020 | Q2 to Q4, Q16, Q20 | `python3 scripts/docs_check.py`; adversarial Codex review of the ADRs; Joe accepts them |
-| 1b | ADR-0029 (sim-side flight software as an in-process peer: its schedule, rate, units, 13.4's logic, two implementations, one trim result, and the port's equivalence criterion); architecture §10 and §11 | 3 | 0002, 0006 to 0008, 0017, 0022, 0024 | PR 6a, Q8, Q10 to Q13, Q26, Q27 | `python3 scripts/docs_check.py`; adversarial Codex review of the ADR; Joe accepts it |
+| 1b | ADR-0029 (sim-side flight software as an in-process peer: its schedule, rate, units, 13.4's logic, two implementations, one trim result, and the port's equivalence criterion); architecture §10 and §11. *Added 2026-10-08 (Joe; [addendum §10](m7-f16-inventory.md#10-joes-decisions), D3):* ADR-0032, the body rate relative to the Earth that the core supplies to wrench sources (architecture §7) | 3 | 0002, 0006 to 0008, 0017, 0022, 0024 | PR 6a, Q8, Q10 to Q13, Q26, Q27 | `python3 scripts/docs_check.py`; adversarial Codex review of the ADR; Joe accepts it |
 | 2 | Config cycle safety: `unknown_keys` and `value_to_yaml` cycle-safe; the three reproducers; `_yaml_route`'s guard kept or removed | 2 | 0025 | Q19 | `ctest --preset asan -R Config --no-tests=error`; `.venv/bin/pytest tests/python -k 'pyyaml_route or cli'` (R16) |
 | 3 | Earth/gravity rotation consistency at init, both directions; the accessor pair on `EarthModel` and `GravityModel`, the `kCoreApiVersion` bump and a stale-plugin rejection test | 3 | 0003, 0009, 0021 | Q17; its own plan review | `ctest --preset asan -R 'Simulation\|Gravity\|Earth\|PluginLoader' --no-tests=error`; `ctest --preset release -R Nesc --no-tests=error` (R15) |
+| 3b | *Added 2026-10-08 (Joe; [addendum §10](m7-f16-inventory.md#10-joes-decisions), D3 (B1)).* ADR-0032: the core supplies the body rate relative to the Earth, ω_b − ω_ie in body axes, computed per RK4 stage from the configured Earth model as the EOM already forms `omega_ie_b` (zero for a flat or non-rotating Earth); the `kCoreApiVersion` bump and a stale-plugin rejection; the template's aero migrates, with a test showing its `earth/flat` values identical; the notional transport and `nesc_aero` keep the inertial ω_b | 3 | 0001, 0003, 0020, 0021, 0032 | PR 1b (ADR-0032 accepted by Joe) | `ctest --preset asan -R 'Simulation\|PluginLoader\|Aero' --no-tests=error`; `.venv/bin/pytest tests/python -k new_aircraft`; M3's frozen regression and M2's NESC cases unchanged |
 | 4 | `mass/constant`'s product-of-inertia convention, documented and pinned | 3 | 0001, 0002 | Q19 | `ctest --preset asan -R Mass --no-tests=error` (R17) |
 | 5 | Trim: heading, Q6's rate convention, Q7's unknowns and the lateral residuals' closed-form kinematic and gravity parts, flat Earth, names from `Simulation.input_names`; every consumer (`_runkit.trim_fragment`, `_runkit.apply_trim`'s and `astra trim`'s residual policy, `astra trim`'s default altitude, `astra.scenario`, `astra.linearize`, `astra.lockstep` and `trim_for`'s heading refusal, `astra.montecarlo`) with round-trip tests; Q7's kinematic and gravity parts only; every gated caller measured before and after (Q6's blast radius) | 2, or 3 if any acceptance value, scenario check or fixture expectation moves (Joe decides) | 0001, 0017, 0021 | Q6, Q7, Q18 | `.venv/bin/pytest tests/python -k 'trim or linearize or cli or scenario or montecarlo or lockstep or planted or pyyaml_route or cruise_phugoid or autopilot_design'`, which reaches every caller Q6's list names; `.venv/bin/pytest tests/scenarios` (R4, less its F-16 cases) |
-| 5b | (Only if PR 6a finds a model-owned state.) Trim with model-owned states: the full combined buffer, each state's equilibrium as an added unknown and residual, every consumer's round trip | 2 | 0021 | PR 5, PR 6a | `.venv/bin/pytest tests/python -k 'trim or scenario or montecarlo or lockstep'` with `tests/plugins/state_owner` (R4) |
+| 5b | *Not scheduled (2026-10-08, Joe; [addendum §10](m7-f16-inventory.md#10-joes-decisions)): no F-16 model owns continuous state.* (Only if PR 6a finds a model-owned state.) Trim with model-owned states: the full combined buffer, each state's equilibrium as an added unknown and residual, every consumer's round trip | 2 | 0021 | PR 5, PR 6a | `.venv/bin/pytest tests/python -k 'trim or scenario or montecarlo or lockstep'` with `tests/plugins/state_owner` (R4) |
 | 6a | Inventory addendum to this spec from P1 and P2: tables, breakpoints, extrapolation, `checkData`, engine dynamics, gyroscopic terms, Mach dependence, the models' input conventions and units (the aileron's sign), whether the aero and the propulsion bind own or peer state (the engine's power lag), the aero rate terms and the engine gyroscopic term for Q7, and the law's units, limit-and-scale block and execution rate; Q5's condition, Q12, Q14, Q15 and Q26 finalized | 0 | none | P1, P2 | `python3 scripts/docs_check.py`; Joe confirms Q14 and Q15 |
-| 6b | `aircraft/f16` from the template: mass, the table generator and generated aero tables, propulsion; unit tests on `checkData`; ICD-convention control inputs converted once to the DML's | 3 | 0001, 0002, 0016, 0017, 0020, 0021 | PR 1a, PR 4, PR 6a | `ctest --preset asan -R F16 --no-tests=error`; `.venv/bin/pytest tests/python -k new_aircraft` (R1 to R3) |
+| 6b | `aircraft/f16` from the template: mass, the table generator and generated aero tables, propulsion; unit tests on `checkData`; ICD-convention control inputs converted once to the DML's | 3 | 0001, 0002, 0016, 0017, 0020, 0021, 0032 | PR 1a, PR 3b, PR 4, PR 6a | `ctest --preset asan -R F16 --no-tests=error`; `.venv/bin/pytest tests/python -k new_aircraft` (R1 to R3) |
 | 7 | The aero-only channel route (Q5): under (c), the harness's independent aero evaluator, valid only if PR 6a finds no aero state binding; its self-check on the F-16 with changing controls (aero plus independently evaluated propulsion, with the engine's frame-start state, equals `wrench_total`) | 3 | 0013, 0016, 0020, 0021 | PR 6a, PR 6b, Q5 (and its record under (a)) | `ctest --preset release -R 'Nesc\|F16Evaluator' --no-tests=error` (M2's cases unchanged; the self-check) |
 | 8 | Generator extension and band headers for cases 11 to 16; `nesc_band_common.hpp` per-case sample counts; cases 1 to 10 byte-identical. Joe arms `touch-goldens` and runs the generator (ADR-0013) | 3 | 0013 to 0015, 0028 | PR 1a | `python3 tests/golden/nesc/generate_nesc_band.py` (by Joe; byte-identical `case01` to `case10`); `ctest --preset release -R Nesc --no-tests=error` (R8) |
 | 9 | Cases 11 and 12 open loop: configs, trim to Vol II's initial conditions, the DML-derived full expected trim residuals brought to Joe (Q7), aero channels via PR 7, negative controls for this family. Not dependent on PR 3: the F-16 configs pair `wgs84_rotating` with `wgs84_j2` consistently | 3 | 0013 to 0016, 0028 | PR 5 (and 5b if scheduled), 6b, 7, 8 | `ctest --preset release -R 'Nesc.*Case1[12]' --no-tests=error`; `ctest --preset asan -R NoAlloc --no-tests=error` (R4, R5, R9) |
@@ -835,6 +859,8 @@ Every M7-prefixed open item in PLAN.md is taken:
 PR 1a, 1b, 3, 4, 6b, 7, 8, 9, 11a, 11b, 12 and 13 are Tier 3, and PR 5 too if a value moves. Each gets an
 adversarial Codex review, and Joe reads the critical diff and tests. ADR-0028 (PR 1a) needs Joe's
 acceptance before PR 6b and PR 8 start, and ADR-0029 (PR 1b) before PR 11a starts.
+*Amended 2026-10-08 (Joe, D3):* PR 3b is Tier 3 too, and ADR-0032 (PR 1b) needs Joe's acceptance before
+PR 3b starts.
 
 ## Validation and risks
 

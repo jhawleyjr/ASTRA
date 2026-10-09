@@ -426,6 +426,12 @@ takes them as a prefix.
     (floor ratios, zero-accepting channels, SIM 2's ratio, matching offsets), in the PR body, is the record
     of the generated values (R8). `NescF16Band.*` checks their shape, floors and Vol II initial conditions;
     PR 9, 11a and 11b fly them. Plan: [plan](docs/plans/m7-pr8-nesc-bands.md). Packet: in the PR body.
+  - PR 6a (#107): the inventory addendum from P1 and P2 (the NESC F-16 DAVE-ML files, archive SHA-256s
+    recorded), docs only. Joe's decisions (2026-10-08): Q14 and Q15 confirmed; Q5's condition holds, so PR 5b
+    is not scheduled; Q12 divisor 10; the aero damps the body rate relative to the Earth, which the core
+    supplies (ADR-0032 in PR 1b, implemented by the new core PR 3b before PR 6b); the laws' rate frame
+    deferred to PR 1b; the DML's mass; the F-16 declares Mach ≤ 1.0. The M7 plan carries dated amendments.
+    Plan: [addendum](docs/plans/m7-f16-inventory.md) (brief in the PR body). Packet: in the PR body.
 - [ ] **M8 Actuators and controller tuning** — a first-order lag and a nonlinear second-order actuator model
       with rate and position limits; autopilot gains loaded at startup; the tuning tool (spec-driven on the
       linear model, time-domain on the nonlinear sim, robustness across draws, gain schedules) with
@@ -556,6 +562,11 @@ takes them as a prefix.
       (origin: M6 PR 12's plan, D2b; Joe 2026-10-04: deferred). A taller canvas for an equal panel would change
       the figure-size rule for one kind of panel. The same PR may lift PR 12's rule that an equal panel be its
       figure's only panel (with a shared x, matplotlib's `datalim` moves the y limits instead). Not started.
+- [ ] (unscheduled) The notional transport's aero (and `nesc_aero`) still damps the inertial ω_b, while the F-16
+      and the template will damp the body rate relative to the Earth that the core supplies (origin: M7 PR 6a's
+      D3, option (B2); Joe 2026-10-08, [addendum §10](docs/plans/m7-f16-inventory.md#10-joes-decisions)).
+      Migrating it moves every notional-transport value on `wgs84_rotating`: M3's frozen regression, the R1
+      golden, M4's lockstep and M6's batch. Measure the change first; Joe decides. Not started.
 - [ ] (unscheduled) A review fix's final Codex verification has no place in `docs/reviews/*-review.md` (origin:
       #95's V-001 and #96's R-001; Joe 2026-10-03; moved from M6 at its closeout, M6 PR 10's D3).
       Review-dispatch's no-record-only-commit rule keeps the verification result out of a commit of its own, so

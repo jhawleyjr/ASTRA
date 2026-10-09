@@ -26,16 +26,27 @@ One line per document: what it is, where it came from, what in the tree cites it
   configs (per-case initial conditions, C.1.1-C.1.10/Tables 25-34, doc p.56-61),
   `tests/physics/nesc/nesc_f16_bands_test.cpp` (cases 11 to 16's initial conditions, Tables 35-40, 42
   and 43) and `plugins/physical/wind/table`.
-- **NESC atmospheric check-case trajectories** (`Atmospheric_checkcases/`) — NTRS, the report's
+- **NESC atmospheric check-case trajectories** (`Atmospheric_checkcases/`) — the NESC Academy 2015
+  page (`https://nescacademy.nasa.gov/flightsim/2015`), not NTRS (corrected in M7 PR 6a); the report's
   companion data: 17 scenarios, 4-6 CSV trajectories each, one per participating simulation tool,
   ~82 MB. Read only by `tests/golden/nesc/generate_nesc_band.py`, by hand, never by `just check`
   (ADR-0013); its `--refs` defaults to the main checkout's copy. Cases 11 to 16 (the F-16) are M7's
   oracle (PLAN.md, ADR-0028), reduced to `tests/golden/nesc/case1*_band.hpp` in M7 PR 8; case 17 is
   out of scope.
-- **NESC initial conditions workbook** (`Initial_Conditions.xlsx`) — NTRS. A working spreadsheet;
+- **NESC initial conditions workbook** (`Initial_Conditions.xlsx`) — the same NESC Academy 2015 page,
+  not NTRS (corrected in M7 PR 6a). A working spreadsheet;
   its constants are rounded back-conversions (Re = 20925646.99508 ft, omega = 7.292113023868e-5
   rad/s) and disagree with Vol II Table 73 in the 8th digit. **Table 73 is the authority**; the
   workbook is cited nowhere in the tree.
+- **NESC atmospheric models archive** (`Atmospheric_models.zip`, unzipped beside it as
+  `Atmospheric_models/`) — `https://nescacademy.nasa.gov/src/flightsim/Models/Atmospheric_models.zip`,
+  SHA-256 `10e2dc267856ef37eaedbcdd16eb49a8c44b39301054de0fa78292c1c4aba3bc`. Its nested
+  `F16_package.zip` (SHA-256 `20c60f615ae8e87d81c9d98b54fff45a2832840201499cbcfe3f45a60ef3e5b2`) is
+  unzipped to `Atmospheric_models/F16_package/`: the F-16's DAVE-ML models (P1:
+  `F16_S119_source/F16_{aero,prop,inertia}.dml`; P2: `F16_control.dml`, `F16_gnc.dml`), their DAVE2SL
+  Simulink equivalents (`F16_equiv_SL_files/*.m`) and `README/README.html`. Cited by
+  `docs/plans/m7-f16-inventory.md` (M7 PR 6a), which records each file's version and SHA-256. Unused by
+  M7: `brick_*.dml`, `cannonball_*.dml` and `two-stage_package.zip` (case 17, out of scope).
 - **JSBSim 737** (`aircrafts/737.xml`) — JSBSim's example aircraft ($Revision: 1.43 $, Dave Culp /
   Aeromatic, GPL). The source of the notional transport's numbers: cited by
   `aircraft/notional_transport/` (aero, turbofan, mass and every config),
