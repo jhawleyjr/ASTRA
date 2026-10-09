@@ -143,6 +143,9 @@ brings the result to Joe, and only then writes the records.
   - 13: where a forgotten NaN shows. It fails PR 7's self-check or the unit test's own assertion, not
     `check_wrench`.
   - 14: every result names both members' verdicts.
+- **Amendment 15** (Joe, 2026-10-08, after approval and before the script was committed). It is F_p's u(x) for
+  non-float32 columns, raised because the CSVs strip trailing zeros. It uses half a unit in the column's P-th
+  significant digit, with P taken over the whole column, and u = 0 for a printed zero. It is folded into (c).
 
 ## Open: J8, decided by Joe at the stop after Deliverable 1, with the rate frame
 
@@ -256,11 +259,16 @@ zero.
     B.6.5 to B.6.7). So δ allows one 100 Hz hold plus one period of compute delay.
   - A steady segment gives a small F_t. A maneuvering one gives a large F_t, which the rule then excludes; that is
     how timing drops out.
-- **F_p, the data's precision (amendment 1).** For every CSV value x that the back-out or the law reads, the script
-  takes an uncertainty u(x):
+- **F_p, the data's precision (amendments 1 and 15).** For every CSV value x that the back-out or the law reads, the
+  script takes an uncertainty u(x):
   - for a column whose every value in that file round-trips through float32, half a float32 ulp of x;
-  - for any other column, half a unit in x's last printed digit.
-  - The script classifies each column per file, and `floor.log`'s header lists every column's class.
+  - for any other column, half a unit in x's P-th significant digit. P is the most significant digits any value in
+    that column prints, taken over the whole column of the file, not only the window. SIM 4 prints 12 significant
+    digits with trailing zeros stripped (its t = 0 yaw is `45.0`), and SIM 5 prints the shortest decimal that
+    round-trips, so the last printed digit understates the printed precision;
+  - a value printed as exactly zero has u = 0. SIM 4 rounds to 12 significant digits and SIM 5 prints full doubles,
+    so a printed zero is exact in both.
+  - The script classifies each column per file, and `floor.log`'s header lists every column's class and P.
   - F_p sums |s(x + u) − s(x − u)|/2 over the values read. The back-out and the law are summed separately and added,
     taking the law's larger sum over H.
 - **Actuators: 0.** Vol II p.16: "No actuator dynamics were modeled".
@@ -320,7 +328,7 @@ zero.
 
 **Outputs** (J2):
 - `floor.log`:
-  - a header with the inputs, their SHA-256s, the Python version, and each column's precision class;
+  - a header with the inputs, their SHA-256s, the Python version, and each column's precision class and P;
   - phase 1's results;
   - the phase 2 self-check's largest deviation;
   - per member and sample: t, the backed-out surfaces, each channel's residual, Δ, F_b, F_t, F_p and the ratio;
