@@ -39,6 +39,9 @@ amendments 5, 6, 12 and 13). Governs PLAN.md's M7 PR 3b.
 - **What the core already has.**
   - The EOM forms `omega_ie_b = c_nb * earth_.omega_ie_n(vs)` on every derivative call
     (`core/src/kernel/rigid_body_6dof_dynamics.cpp`).
+    - **C_nb**, the code's `c_nb`, is the n-to-b DCM: v_b = C_nb·v_n, and C_nb =
+      `frames::dcm_from_quaternion(q_nb)` (`core/include/astra/util/frames.hpp`). This record writes C_nb for it
+      throughout.
   - Each RK4 stage builds its own `EnvironmentSample`, refreshing the atmosphere, before every `wrench_b` and
     `integrate_state` of that stage (`Vehicle::evaluate_derivative_stage`). `Simulation.derivative`'s probe path
     runs the same function.
@@ -91,7 +94,7 @@ amendments 5, 6, 12 and 13). Governs PLAN.md's M7 PR 3b.
 
 ## Rejected alternatives
 
-- **(A) Each wrench source computes the rate itself,** as ω_b − C_bn·ω_ie^n(lat), with its own Earth rate.
+- **(A) Each wrench source computes the rate itself,** as ω_b − C_nb·ω_ie^n(lat), with its own Earth rate.
   - The latitude lives in the Earth model's own position representation (ADR-0003).
   - The wrench source cannot see whether the configured Earth model rotates (`earth/round` does not by default), so
     its Earth rate can disagree with the configured one. That is the kind of inconsistency PR 3's planned

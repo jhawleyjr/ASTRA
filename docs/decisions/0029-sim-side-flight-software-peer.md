@@ -6,7 +6,8 @@ Owner: Joe
 Related/supersedes: supersedes nothing; no accepted record is edited. It reads ADR-0022's "A transport plugin
 under `plugins/sim/transport/`" with architecture §4's taxonomy rule (Decision 1).
 
-This record elaborates nine others:
+This record elaborates ten others:
+- ADR-0001: frames, for Decision 5's aileron sign and Decision 7's DCM from `core/util/frames`;
 - ADR-0007: a second in-process peer, after `LoopbackTransport`;
 - ADR-0017 and ADR-0022: the write seam and the exchange stage the peer's commands pass through;
 - ADR-0008: the port's boundary;
@@ -136,12 +137,21 @@ Governs PLAN.md's M7 PR 11a, 11b and 12.
        - SIM 4's sample-to-law offset may exceed the floor's δ = 0.02 s while maneuvering: its residuals after the
          step are at the 1e-4° level, against 1e-6° before it.
      - The rule, the script and both logs stand as committed, and nothing was rerun.
+   - **What the evidence covers.** It is `F16_control`'s, from 13.3. Both members met the precondition there, so
+     case 15 was never evaluated.
+     - `F16_gnc`'s rate frame rests on the assumption the plan pre-registered with the rule (Deliverable 1, (d)):
+       each member is one tool across every F-16 case, and both laws read the same S-119 rate variables into an
+       LQR that is identical from `chiEst` on (addendum §5).
+     - PR 11b's plan proposes whether to run the committed script on case 15 as a reported confirmation.
    - **How the peer and the port form it, from the ICD v1 frame alone.**
-     - ω_eb = (p, q, r) − C_bn(φ, θ, ψ)·Ω·(cos lat, 0, −sin lat).
+     - ω_eb = (p, q, r) − C_nb(φ, θ, ψ)·Ω·(cos lat, 0, −sin lat).
+     - **C_nb** is the n-to-b DCM: v_b = C_nb·v_n, the EOM's `c_nb` (`frames::dcm_from_quaternion(q_nb)`,
+       `core/include/astra/util/frames.hpp`). Here it is formed from the frame's Euler angles. This record writes
+       C_nb for it throughout.
      - lat is the frame's geodetic latitude, and φ, θ, ψ are its 3-2-1 Euler angles.
      - Ω = 7.292115e-5 rad/s, Vol II Table 73's value for the atmospheric cases. The peer uses
        `geodesy::kOmegaIe`, and the port an equal named constant.
-     - The peer forms C_bn through `core/util/frames` (ADR-0001: "no model writes its own"), and the port forms
+     - The peer forms C_nb through `core/util/frames` (ADR-0001: "no model writes its own"), and the port forms
        it with its own code.
      - A frame flagged `LATLON_NOT_MODELED` is refused (Decision 2).
    - **Why the peer computes the rate itself, which ADR-0032 rejects for the aero.** ADR-0032 has the core supply
