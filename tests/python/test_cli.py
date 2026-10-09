@@ -39,7 +39,9 @@ WARN = ROOT / "tests/python/scenario_fixtures/nan_wrench_warn_config.yaml"
 HALT_AFTER_WARN = ROOT / "tests/python/cli_fixtures/halt_after_warn.yaml"
 TORQUE_FREE = ROOT / "tests/configs/physics_torque_free.yaml"
 TRANSPORT = ROOT / "tests/configs/no_alloc_transport.yaml"
-FLAT_EARTH = ROOT / "tests/configs/no_alloc_aero_propulsion.yaml"
+# earth/flat with stub models that register controls.elevator only: since M7 PR 5 a flat Earth
+# trims, and this fixture is the missing-input refusal (Joe approved the change, 2026-10-08).
+NO_THROTTLE = ROOT / "tests/configs/no_alloc_aero_propulsion.yaml"
 CRUISE = ROOT / "aircraft/notional_transport/configs/cruise.yaml"
 
 FATE = (
@@ -719,8 +721,8 @@ def expected_trim(airspeed: float, altitude: float) -> list[float]:
         *state["v_b"],
         *state["euler_nb"],
         *state["omega_b"],
-        controls["elevator"],
-        controls["throttle"],
+        controls["controls"]["elevator"],  # trim_fragment nests each input by its dotted name
+        controls["controls"]["throttle"],
     ]
 
 
@@ -779,8 +781,8 @@ def test_trim_usage_errors_exit_64(capsys: pytest.CaptureFixture[str], argv: lis
 
 @pytest.mark.parametrize(
     ("config", "names"),
-    [(FLAT_EARTH, "physical.earth"), (TRANSPORT, "'transport'")],
-    ids=["flat-earth", "transport"],
+    [(NO_THROTTLE, "input 'controls.throttle' is not registered"), (TRANSPORT, "'transport'")],
+    ids=["no-throttle", "transport"],
 )
 def test_trim_config_errors_exit_65(
     capsys: pytest.CaptureFixture[str], config: Path, names: str
@@ -813,14 +815,16 @@ def test_trim_of_a_document_that_is_not_a_map_exits_65(
 def test_trim_above_the_residual_bound_exits_1(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    # A real solve stopped early: xtol = 0.1 leaves max|residual| near 3e-5, above D8's 1e-6.
+    # A real solve stopped early: xtol = 0.1 leaves a solved residual near 3e-5, above D8's 1e-6.
+    # Since M7 PR 5 the solver raises on it, naming the component (Joe approved the text change,
+    # 2026-10-08).
     loose = functools.partial(astra.trim.trim_straight_and_level, xtol=0.1)
     monkeypatch.setattr(astra.trim, "trim_straight_and_level", loose)
     code, stdout, stderr = run_main(capsys, "trim", CRUISE)
     assert code == 1
     assert stdout == ""
-    assert stderr.startswith("astra trim: not trimmed: max|residual| ")
-    assert "exceeds D8's bound 1e-06" in stderr
+    assert stderr.startswith("astra trim: not trimmed: trim_straight_and_level: solved residual ")
+    assert "exceeds 1e-06" in stderr
 
 
 @pytest.mark.parametrize(

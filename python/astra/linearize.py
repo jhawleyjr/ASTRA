@@ -43,7 +43,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 
@@ -110,28 +110,9 @@ def control_step(name: str) -> float:
     raise ValueError(f"linearize.control_step: unrecognized control name {name!r}")
 
 
-def _quaternion_from_euler(psi_rad: float, theta_rad: float, phi_rad: float) -> np.ndarray:
-    """S&L Example 1.8-1 Eq. (1), p. 52, ported line for line from `core/include/astra/util/
-    frames.hpp::quaternion_from_euler` (half angles a = phi/2, b = theta/2, c = psi/2) -- the
-    single core-side reference this port must match, checked directly by
-    tests/python/test_linearize.py::test_quaternion_from_euler_matches_the_real_construction against
-    Simulation.from_config's own initial.state.euler_nb construction, the same convention
-    astra.trim._state_from_alpha's own docstring already establishes for its collapsed special
-    case."""
-    ca = np.cos(phi_rad / 2.0)
-    sa = np.sin(phi_rad / 2.0)
-    cb = np.cos(theta_rad / 2.0)
-    sb = np.sin(theta_rad / 2.0)
-    cc = np.cos(psi_rad / 2.0)
-    sc = np.sin(psi_rad / 2.0)
-    return np.array(
-        [
-            ca * cb * cc + sa * sb * sc,
-            sa * cb * cc - ca * sb * sc,
-            ca * sb * cc + sa * cb * sc,
-            ca * cb * sc - sa * sb * cc,
-        ]
-    )
+# The port of frames.hpp::quaternion_from_euler lives in astra.trim (M7 PR 5), which builds its
+# trial states with it; this module keeps its name.
+_quaternion_from_euler = trim._quaternion_from_euler  # pyright: ignore[reportPrivateUsage]
 
 
 def _euler_rate(omega_b: np.ndarray, phi_rad: float, theta_rad: float) -> np.ndarray:
@@ -163,19 +144,32 @@ def _state_from_x(base_state: np.ndarray, x: np.ndarray) -> np.ndarray:
 
 
 def _evaluate(
-    sim: _core.Simulation, base_state: np.ndarray, x: np.ndarray, u: np.ndarray
+    sim: _core.Simulation,
+    base_state: np.ndarray,
+    x: np.ndarray,
+    u: np.ndarray,
+    rate_convention: trim.RateConvention = trim.DEFAULT_RATE_CONVENTION,
 ) -> np.ndarray:
     """f(x, u) (9,): writes u's four components through Simulation.write_input (names read from
     sim.input_names(), not hardcoded), builds the full state from x, evaluates v_dot/omega_dot via
     Simulation.derivative's own named slices, and the Euler-rate rows via the closed-form eq. 1.4-4
-    kinematic identity -- never from derivative()'s own q_dot_nb slice."""
+    kinematic identity -- never from derivative()'s own q_dot_nb slice.
+
+    The Euler angles are those of q_nb, relative to the n frame. Under ``"zero_inertial"`` the rows
+    apply eq. 1.4-4 to omega_b itself, M3 PR 7's flat, non-rotating reading. Under ``"n_frame"``
+    (M7 PR 5) they apply it to the rate relative to n, omega_b - omega_in^b, with omega_in^b the
+    core's own at this x (``astra.trim._n_frame_rate``), so the transport rate's dependence on the
+    perturbed velocity and attitude is differentiated (critique P-01)."""
     for name, value in zip(sim.input_names(), u, strict=True):
         sim.write_input(name, value)
     state = _state_from_x(base_state, x)
     dq = sim.derivative(state)
     v_dot = dq[_core.VELOCITY : _core.VELOCITY + _core.VELOCITY_SIZE]
     omega_dot = dq[_core.ANGULAR_RATE : _core.ANGULAR_RATE + _core.ANGULAR_RATE_SIZE]
-    euler_dot = _euler_rate(x[_P : _R + 1], phi_rad=x[_PHI], theta_rad=x[_THETA])
+    omega = x[_P : _R + 1]
+    if rate_convention == "n_frame":
+        omega = omega - trim._n_frame_rate(sim, state)  # pyright: ignore[reportPrivateUsage]
+    euler_dot = _euler_rate(omega, phi_rad=x[_PHI], theta_rad=x[_THETA])
     return np.concatenate([v_dot, omega_dot, euler_dot])
 
 
@@ -187,6 +181,7 @@ def _column(
     index: int,
     step: float,
     kind: Literal["x", "u"],
+    rate_convention: trim.RateConvention = trim.DEFAULT_RATE_CONVENTION,
 ) -> np.ndarray:
     """One central-difference column (D12/D15): perturbs x0 or u0 at `index` by +-step, evaluates
     f at both points, and -- regardless of kind, unconditionally -- restores u0's own four
@@ -198,14 +193,14 @@ def _column(
         x_plus, x_minus = x0.copy(), x0.copy()
         x_plus[index] += step
         x_minus[index] -= step
-        f_plus = _evaluate(sim, base_state, x_plus, u0)
-        f_minus = _evaluate(sim, base_state, x_minus, u0)
+        f_plus = _evaluate(sim, base_state, x_plus, u0, rate_convention)
+        f_minus = _evaluate(sim, base_state, x_minus, u0, rate_convention)
     else:
         u_plus, u_minus = u0.copy(), u0.copy()
         u_plus[index] += step
         u_minus[index] -= step
-        f_plus = _evaluate(sim, base_state, x0, u_plus)
-        f_minus = _evaluate(sim, base_state, x0, u_minus)
+        f_plus = _evaluate(sim, base_state, x0, u_plus, rate_convention)
+        f_minus = _evaluate(sim, base_state, x0, u_minus, rate_convention)
 
     for name, value in zip(sim.input_names(), u0, strict=True):
         sim.write_input(name, value)
@@ -232,21 +227,29 @@ def linearize(
     true_airspeed_mps: float,
     altitude_m: float,
     *,
+    heading_rad: float = 0.0,
+    rate_convention: trim.RateConvention = trim.DEFAULT_RATE_CONVENTION,
     v_step: float = _V_STEP_MPS,
     omega_step: float = _OMEGA_STEP_RAD_S,
     angle_step: float = _ANGLE_STEP_RAD,
     throttle_step: float = _THROTTLE_STEP,
-    **trim_kwargs: float,
+    **trim_kwargs: Any,
 ) -> LinearizeResult:
     """Central-differences A/B (D12) about `astra.trim.trim_straight_and_level`'s own solution at
-    `config_path`/`true_airspeed_mps`/`altitude_m` (`trim_kwargs` forwarded to it unchanged, e.g. a
-    tighter `xtol`). Builds its own still-air `Simulation` for the differencing (`TrimResult` itself
-    carries none) -- never re-solves trim, never steps the `Simulation`. The `v_step`/`omega_step`/
-    `angle_step`/`throttle_step` keyword overrides exist for R1's own halved-step comparison, not
-    for routine callers -- D12 pins the defaults.
+    `config_path`/`true_airspeed_mps`/`altitude_m`/`heading_rad` under `rate_convention`
+    (`trim_kwargs` forwarded to it unchanged, e.g. a tighter `xtol`); the Euler-rate rows follow
+    the same convention (`_evaluate`). Builds its own still-air `Simulation` for the differencing
+    (`TrimResult` itself carries none) -- never re-solves trim, never steps the `Simulation`. The
+    `v_step`/`omega_step`/`angle_step`/`throttle_step` keyword overrides exist for R1's own
+    halved-step comparison, not for routine callers -- D12 pins the defaults.
     """
     trim_result = trim.trim_straight_and_level(
-        config_path, true_airspeed_mps, altitude_m, **trim_kwargs
+        config_path,
+        true_airspeed_mps,
+        altitude_m,
+        heading_rad=heading_rad,
+        rate_convention=rate_convention,
+        **trim_kwargs,
     )
     # Same-package private reuse (docs/plans/pr7-linearize.md, D14) -- not a duplicated second copy
     # of the wind-dropping logic.
@@ -256,8 +259,9 @@ def linearize(
     base_state = np.array(trim_result.state, dtype=float)
     v_b = base_state[_core.VELOCITY : _core.VELOCITY + _core.VELOCITY_SIZE]
     omega_b = base_state[_core.ANGULAR_RATE : _core.ANGULAR_RATE + _core.ANGULAR_RATE_SIZE]
-    # trim_straight_and_level's own scenario (docs/plans/pr6-trim.md): phi_e = psi_e = 0, theta_e =
-    # alpha_rad -- not re-derived from base_state's own q_nb by inverse quaternion.
+    # trim_straight_and_level's own scenario (docs/plans/pr6-trim.md, docs/plans/m7-pr5-trim.md):
+    # phi_e = 0, theta_e = alpha_rad, psi_e = the heading -- not re-derived from base_state's own
+    # q_nb by inverse quaternion.
     x0 = np.array(
         [
             v_b[0],
@@ -268,18 +272,14 @@ def linearize(
             omega_b[2],
             0.0,
             trim_result.alpha_rad,
-            0.0,
+            trim_result.heading_rad,
         ]
     )
-    # aileron/rudder pinned to 0 by the same straight-and-level scenario. Keyed by name, not
-    # position: Simulation.input_names()'s own registration order is whatever vehicle.models
-    # actually lists, not necessarily D11's [elevator, aileron, rudder, throttle] listing order.
-    control_trim_values = {
-        "controls.elevator": trim_result.elevator_rad,
-        "controls.aileron": 0.0,
-        "controls.rudder": 0.0,
-        "controls.throttle": trim_result.throttle,
-    }
+    # Every input as the trim's residual saw it (TrimResult.controls: the solved two, the rest at
+    # the config's values; critique P-09). Keyed by name, not position: Simulation.input_names()'s
+    # own registration order is whatever vehicle.models actually lists, not necessarily D11's
+    # [elevator, aileron, rudder, throttle] listing order.
+    control_trim_values = trim_result.controls
     control_steps = {
         "controls.elevator": angle_step,
         "controls.aileron": angle_step,
@@ -301,11 +301,11 @@ def linearize(
             **{k: omega_step for k in (_P, _Q, _R)},
             **{k: angle_step for k in (_PHI, _THETA, _PSI)},
         }[i]
-        a[:, i] = _column(sim, base_state, x0, u0, i, step, "x")
+        a[:, i] = _column(sim, base_state, x0, u0, i, step, "x", rate_convention)
 
     b = np.empty((_STATE_SIZE, _CONTROL_SIZE))
     for j, name in enumerate(input_names):
-        b[:, j] = _column(sim, base_state, x0, u0, j, control_steps[name], "u")
+        b[:, j] = _column(sim, base_state, x0, u0, j, control_steps[name], "u", rate_convention)
 
     return LinearizeResult(
         trim=trim_result,
