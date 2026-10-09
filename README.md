@@ -35,7 +35,8 @@ Everything below is on `main` today.
 - **The notional transport** ([aircraft/notional_transport/](aircraft/notional_transport/)). Linear-coefficient
   aero, constant mass, and a thrust-lapse turbofan, with parameters from JSBSim's example 737. Cruise configs
   for still air and for light and moderate Dryden turbulence.
-- **Trim and linearization.** `astra.trim` solves straight-and-level trim on `Simulation.derivative`.
+- **Trim and linearization.** `astra.trim` solves level trim on `Simulation.derivative` at any heading and
+  under any shipped Earth model, with ω_b zero (the default) or the n frame's own rate (`rate_convention`).
   `astra.linearize` builds central-difference A and B matrices and reports the short-period, phugoid,
   Dutch-roll, roll and spiral modes.
 - **Lockstep transport and the embedded autopilot.** The ICD is versioned C11 structs
