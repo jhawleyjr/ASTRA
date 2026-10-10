@@ -3,12 +3,11 @@
 ## Next step
 1. M7 (`docs/plans/m7-f16-nesc-oracle.md`), with P1 and P2 inventoried in `docs/plans/m7-f16-inventory.md`.
    ADR-0028 to ADR-0032 are accepted; Joe's later decisions are dated amendments in the M7 plan.
-2. On Joe's go, any of:
-   - PR 2: `Config` cycle safety;
-   - PR 3: Earth/gravity rotation consistency, with its own plan review (it bumps `kCoreApiVersion` past 10);
-   - PR 4: `mass/constant`'s product-of-inertia convention.
-3. PR 6b (`aircraft/f16`) becomes eligible once PR 3b and PR 4 are both merged. Its aero reads
-   `air_data::omega_eb_b` (ADR-0032). PR 13 implements ADR-0031; the F-16 declares Mach ≤ 1.0.
+2. PR 6b (`aircraft/f16`) is eligible, with PR 3b and PR 4 both merged. Its aero reads `air_data::omega_eb_b`
+   (ADR-0032), and every mass plugin now reads `ixz` as a product of inertia (M7 PR 4). PR 13 implements
+   ADR-0031; the F-16 declares Mach ≤ 1.0.
+3. On Joe's go, also: PR 2 (`Config` cycle safety) and PR 3 (Earth/gravity rotation consistency, with its
+   own plan review; it bumps `kCoreApiVersion` past 10).
 
 ## Open threads
 - Carried to PR plans (the M7 plan's "Obligations" table, and the addendum's §10):
@@ -20,7 +19,8 @@
   - PR 6b: the aero's MRC-to-CM transfer (1.132 ft, CM at 25 % MAC) and the DML's mass, 637.1595 slug (R1);
   - PR 7: the latched `Vehicle::environment()` keeps `omega_ie_b` NaN, so its evaluator sets the field from the
     sim's Earth model at the frame-start state; its plan decides whether to share `vehicle.cpp`'s file-local
-    `earth_rate_b` (with its +0.0 canonicalization).
+    `earth_rate_b` (with its +0.0 canonicalization);
+  - PR 14: `mass/constant`'s key block states the S&L product-of-inertia convention (R17's reference half).
 - PLAN.md's (unscheduled) notional-transport rate-frame item (M7 PR 6a's D3 (B2)): measure before Joe decides.
   It also carries the trim callers' move to `n_frame` and the notional aero's stale "identical" sentence.
 - Trim (M7 PR 5): `rate_convention` is an option on every consumer, `zero_inertial` the default (Joe's (b));

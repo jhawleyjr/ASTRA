@@ -457,6 +457,13 @@ takes them as a prefix.
     The template's aero damps the Earth-relative rate, with its `earth/flat` values bit-identical
     (`docs/reviews/evidence/m7-pr3b-template-identity/`). The notional transport and `nesc_aero` are unchanged.
     Plan: [plan](docs/plans/m7-pr3b-earth-relative-rate.md). Packet: in the PR body.
+  - PR 4 (#111): `mass/constant`'s `ixy`, `ixz` and `iyz` are S&L products of inertia (Ixz = ∫xz dm), negated
+    into the tensor, closing the product-of-inertia item. The negation is written `0.0 - p` (D1), so a config
+    with no product key keeps the pre-PR tensor bit for bit; the template's and the notional transport's mass
+    plugins keep `-p`. The `ConstantMass` tests pin the bitwise negation, the omitted key's +0.0, a
+    two-point-mass sign check built from the definition, and the refusals' paths and messages.
+    `kCoreApiVersion` stays at 10. R17's config-key-reference half goes to PR 14 (the M7 plan's obligations
+    table). Plan: [plan](docs/plans/m7-pr4-mass-convention.md). Packet: in the PR body.
 - [ ] **M8 Actuators and controller tuning** — a first-order lag and a nonlinear second-order actuator model
       with rate and position limits; autopilot gains loaded at startup; the tuning tool (spec-driven on the
       linear model, time-domain on the nonlinear sim, robustness across draws, gain schedules) with
@@ -500,13 +507,6 @@ takes them as a prefix.
       `assumed_position_representation()`/`position_representation()` check already in `Simulation::from_config`)
       — a real, if modest, interface change, not a `plugins/physical`-only fix; plan-review before code. Not
       started.
-- [ ] (M7) `plugins/physical/mass/constant`'s `ixy`/`ixz`/`iyz` config keys have no documented sign convention
-      (origin: M3 PR 1 review): the plugin places them directly, unnegated, into the inertia tensor's
-      off-diagonal entries, which only matches the standard aerospace convention (tensor entry =
-      `-integral(x*z*dm)`) if the config value is already meant as that negated tensor entry rather than the
-      product of inertia itself. `aircraft/_template`'s and `aircraft/notional_transport`'s own `physical/mass`
-      plugins (M3 PR 1) document and use the product-of-inertia convention explicitly instead; the shared
-      plugin's keys are unchanged and still undocumented. Not started.
 - [ ] (M8) Elevator/throttle deflection *range* has no declared home (origin: M3 PR 6 planning,
       `docs/plans/pr6-trim.md`, D10): the second control-surface property (after the positive-deflection sense,
       resolved by M3 PR 9) with no config key or ICD field to read it from. PR 6's own plausibility check
