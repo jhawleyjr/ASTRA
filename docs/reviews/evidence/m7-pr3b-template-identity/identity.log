@@ -1,0 +1,26 @@
+M7 PR 3b identity run; root /home/joe/repos/ASTRA/.claude/worktrees/m7-pr3b
+before: git status --porcelain is empty
+HEAD 173690b65e6f93b1108342eda080559695b08720; git describe --always --dirty: 173690b
+parent astra._core: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr3b/.venv/lib/python3.12/site-packages/astra/_core.cpython-312-x86_64-linux-gnu.so
+built 6 plugin targets in <scratch>/identity-work/identity/build
+after ic1 (psi 0.6): halt '', frames 1000, _core /home/joe/repos/ASTRA/.claude/worktrees/m7-pr3b/.venv/lib/python3.12/site-packages/astra/_core.cpython-312-x86_64-linux-gnu.so, libastra_core /home/joe/repos/ASTRA/.claude/worktrees/m7-pr3b/build/python/lib/libastra_core.so
+after ic2 (psi -2.5): halt '', frames 1000, _core /home/joe/repos/ASTRA/.claude/worktrees/m7-pr3b/.venv/lib/python3.12/site-packages/astra/_core.cpython-312-x86_64-linux-gnu.so, libastra_core /home/joe/repos/ASTRA/.claude/worktrees/m7-pr3b/build/python/lib/libastra_core.so
+before: rebuilt astra_aircraft_gliderx_physical_aero; plugin libraries whose SHA-256 changed: ['libastra_aircraft_gliderx_physical_aero.so']
+before ic1 (psi 0.6): halt '', frames 1000, _core /home/joe/repos/ASTRA/.claude/worktrees/m7-pr3b/.venv/lib/python3.12/site-packages/astra/_core.cpython-312-x86_64-linux-gnu.so, libastra_core /home/joe/repos/ASTRA/.claude/worktrees/m7-pr3b/build/python/lib/libastra_core.so
+before ic2 (psi -2.5): halt '', frames 1000, _core /home/joe/repos/ASTRA/.claude/worktrees/m7-pr3b/.venv/lib/python3.12/site-packages/astra/_core.cpython-312-x86_64-linux-gnu.so, libastra_core /home/joe/repos/ASTRA/.claude/worktrees/m7-pr3b/build/python/lib/libastra_core.so
+planted: rebuilt astra_aircraft_gliderx_physical_aero; plugin libraries whose SHA-256 changed: ['libastra_aircraft_gliderx_physical_aero.so']
+planted ic1 (psi 0.6): halt '', frames 1000, _core /home/joe/repos/ASTRA/.claude/worktrees/m7-pr3b/.venv/lib/python3.12/site-packages/astra/_core.cpython-312-x86_64-linux-gnu.so, libastra_core /home/joe/repos/ASTRA/.claude/worktrees/m7-pr3b/build/python/lib/libastra_core.so
+planted ic2 (psi -2.5): halt '', frames 1000, _core /home/joe/repos/ASTRA/.claude/worktrees/m7-pr3b/.venv/lib/python3.12/site-packages/astra/_core.cpython-312-x86_64-linux-gnu.so, libastra_core /home/joe/repos/ASTRA/.claude/worktrees/m7-pr3b/build/python/lib/libastra_core.so
+git_describe in every log: ['173690b']
+planted control: flipped the sign bit of /final_state/v0[0]
+planted control: 1 difference(s): ['/final_state/v0 bytes']
+before vs after, ic1 (psi 0.6): 1 difference(s): ['/plugins sha256[3]']
+  expected exactly ['/plugins sha256[3]']: holds
+before vs after, ic2 (psi -2.5): 1 difference(s): ['/plugins sha256[3]']
+  expected exactly ['/plugins sha256[3]']: holds
+after vs planted (reported, never a gate), ic1 (psi 0.6): 1 difference(s)
+  beyond the aero's sha256: 0: []
+after vs planted (reported, never a gate), ic2 (psi -2.5): 1 difference(s)
+  beyond the aero's sha256: 0: []
+after: git status --porcelain is empty
+result: every gated check holds
