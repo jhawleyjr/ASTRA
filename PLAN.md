@@ -440,6 +440,16 @@ takes them as a prefix.
     lateral three; their kinematic and gravity parts match a closed form from Groves, Titterton, S&L and
     TR8350.2 to roundoff, case 15's 89.95° N included. Every consumer's emitted config rebuilds the trim bit
     for bit. Plan: [plan](docs/plans/m7-pr5-trim.md). Packet: in the PR body.
+  - PR 1b (#109): two records and architecture rev 12, docs only, with the pre-registered rate-frame analysis
+    (`docs/reviews/evidence/m7-pr1b-rate-frame/`: the script, committed before its first run, then its two
+    logs). ADR-0029, sim-side flight software: `aircraft/f16/sim/transport/nesc_control` as an in-process peer,
+    its refusal list (`LATLON_NOT_MODELED` included), its schedule in `transport.peer` keys keyed to frames,
+    divisor 10, SI with the DML's own constants, 13.4's initial-plane line from the frame-0 base point (J8
+    (a)), the laws' Earth-relative rate frame (the rule's result was "inconsistent", and Joe decided on the
+    evidence, 2026-10-09), and the port's bitwise equivalence. ADR-0032: the core supplies a per-stage
+    `EnvironmentSample::omega_ie_b`, NaN by default, and `air_data::omega_eb_b`, read by the F-16's and the
+    template's aero; it supersedes one Consequences clause of ADR-0020, and PR 3b implements it. Plan:
+    [plan](docs/plans/m7-pr1b-adrs.md). Packet: in the PR body.
 - [ ] **M8 Actuators and controller tuning** — a first-order lag and a nonlinear second-order actuator model
       with rate and position limits; autopilot gains loaded at startup; the tuning tool (spec-driven on the
       linear model, time-domain on the nonlinear sim, robustness across draws, gain schedules) with
@@ -619,6 +629,16 @@ takes them as a prefix.
       only open-loop runs, and `astra run` refuses a `transport` block until M10 (exit 65). Not started.
 - [ ] (M10) Replaying a lockstep run (origin: M5 plan Q11; Joe's call): `astra.log.replay` refuses a log with a
       `transport` block, since replaying commands without the peer is a different feature. Not started.
+- [ ] (M9) ICD v2 carries an Earth rate or an Earth-relative body rate, which removes `nesc_control`'s
+      non-rotating-Earth limitation (origin: M7 PR 1b; Joe 2026-10-09;
+      [ADR-0029](docs/decisions/0029-sim-side-flight-software-peer.md), Decision 7). ICD v1 carries no Earth rate,
+      so the peer forms ω_ie from the frame's latitude with Vol II's Ω, and it still subtracts Ω under a
+      non-rotating Earth. Not started.
+- [ ] (unscheduled) `.claude/hooks/disarm-goldens.sh` is a `SessionStart` hook with no matcher, so it also fires on
+      compaction, and an armed oracle guard does not survive an auto-compact (origin: M7 PR 1b; Joe 2026-10-09;
+      `docs/lessons.md` 2026-10-09). Joe decides whether it matches only `startup`, `resume` and `clear`, or keeps
+      firing on compaction as a fail-closed default. It is a Tier 2 workflow PR of its own. Until then the
+      lesson's rule holds: arm right before the guarded writes, in a turn that finishes them. Not started.
 
 ## Future work
 
