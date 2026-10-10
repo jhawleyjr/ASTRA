@@ -584,15 +584,19 @@ Results, exit codes and counts go in the PR body, never in a record-only commit.
    - stage 3 is −(dt/2)²|ω|²/4;
    - stage 4 is O(dt⁴).
 
-   Measured on B1's fixture, before any assertion was written on them: −2.2e-16, +3.283e-9, −3.283e-9 and
-   −1.1e-16 at stages 1 to 4, against a predicted ±3.281e-9.
+   What happened, in order:
+   1. The stage-4 guard was written from the plan's 1.3e-8 figure (stage 4 above 1e-9), and it failed.
+   2. The norms were then measured on B1's fixture: −2.2e-16, +3.283e-9, −3.283e-9 and −1.1e-16 at stages 1
+      to 4. That matches the derivation above, a predicted ±3.281e-9.
+   3. The guard and the test's comment were corrected to those figures.
+
+   The outcome:
    - The homogeneous form is still required: stages 2 and 3 miss by about 3e-9·Ω under a unit-assuming
      form.
    - The test's comment states the corrected figures.
    - Its guard asserts the measured pattern: stage 2 above +1e-9, stage 3 below −1e-9, and stage 4 within
      1e-12 of unit length.
-   - The first version asserted stage 4 above 1e-9 and failed. The tolerance and the field assertions did
-     not change.
+   - The tolerance and the field assertions did not change.
 
 ## Plan critique
 
