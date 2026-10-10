@@ -450,6 +450,13 @@ takes them as a prefix.
     `EnvironmentSample::omega_ie_b`, NaN by default, and `air_data::omega_eb_b`, read by the F-16's and the
     template's aero; it supersedes one Consequences clause of ADR-0020, and PR 3b implements it. Plan:
     [plan](docs/plans/m7-pr1b-adrs.md). Packet: in the PR body.
+  - PR 3b (#110): ADR-0032 in the core. `Vehicle::prepare_stage_environment` sets
+    `EnvironmentSample::omega_ie_b` = C_nb·ω_ie^n first in every RK4 stage, on the step and probe paths. A zero
+    is canonicalized to +0.0. The field is NaN by default and in the latched sample. `air_data::omega_eb_b`
+    returns ω_b − ω_ie_b. `kCoreApiVersion` goes 9 to 10, and `tests/plugins/stale_api_version` is rejected.
+    The template's aero damps the Earth-relative rate, with its `earth/flat` values bit-identical
+    (`docs/reviews/evidence/m7-pr3b-template-identity/`). The notional transport and `nesc_aero` are unchanged.
+    Plan: [plan](docs/plans/m7-pr3b-earth-relative-rate.md). Packet: in the PR body.
 - [ ] **M8 Actuators and controller tuning** — a first-order lag and a nonlinear second-order actuator model
       with rate and position limits; autopilot gains loaded at startup; the tuning tool (spec-driven on the
       linear model, time-domain on the nonlinear sim, robustness across draws, gain schedules) with
@@ -576,15 +583,20 @@ takes them as a prefix.
       (origin: M6 PR 12's plan, D2b; Joe 2026-10-04: deferred). A taller canvas for an equal panel would change
       the figure-size rule for one kind of panel. The same PR may lift PR 12's rule that an equal panel be its
       figure's only panel (with a shared x, matplotlib's `datalim` moves the y limits instead). Not started.
-- [ ] (unscheduled) The notional transport's aero (and `nesc_aero`) still damps the inertial ω_b, while the F-16
-      and the template will damp the body rate relative to the Earth that the core supplies (origin: M7 PR 6a's
-      D3, option (B2); Joe 2026-10-08, [addendum §10](docs/plans/m7-f16-inventory.md#10-joes-decisions)).
+- [ ] (unscheduled) The notional transport's aero (and `nesc_aero`) still damps the inertial ω_b. The template
+      damps the body rate relative to the Earth that the core supplies (`air_data::omega_eb_b`, M7 PR 3b), and
+      the F-16 will (PR 6b) (origin: M7 PR 6a's D3, option (B2); Joe 2026-10-08,
+      [addendum §10](docs/plans/m7-f16-inventory.md#10-joes-decisions)).
       Migrating it moves every notional-transport value on `wgs84_rotating`: M3's frozen regression, the R1
       golden, M4's lockstep and M6's batch. Measure the change first; Joe decides. The same step migrates the
       notional-transport trim callers to `astra.trim`'s `n_frame` rate convention (M7 PR 5, Joe's decision
       (b), 2026-10-08): until the aero damps the Earth-relative rate, an `n_frame` trim of the notional
       transport is not an equilibrium in roll (ṗ = −8.2e-5 rad/s² at cruise), so every caller keeps
-      `zero_inertial`; the migration is measured with the rest. Not started.
+      `zero_inertial`; the migration is measured with the rest. Until then,
+      `aircraft/notional_transport/physical/aero/aero.cpp:4-6` is stale. It says that file is identical to
+      the template's except the class name, but since M7 PR 3b the two also differ in the rate they damp. M7
+      PR 3b left the notional transport untouched, per its brief, and the migration fixes the sentence. Not
+      started.
 - [ ] (unscheduled) `core/include/astra/util/geodesy.hpp`'s `kJ2 = 1.082629989e-3` has no stated source (origin:
       M7 PR 5's plan, Observations; Joe 2026-10-08). It is the original WGS 84 value, √5 times the C̄2,0 that
       NIMA TR8350.2 §3.3 implies, and 3e-6 relative from TR8350.2 Table 5.1's current EGM96 C̄2,0

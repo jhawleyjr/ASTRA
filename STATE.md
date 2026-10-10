@@ -4,11 +4,11 @@
 1. M7 (`docs/plans/m7-f16-nesc-oracle.md`), with P1 and P2 inventoried in `docs/plans/m7-f16-inventory.md`.
    ADR-0028 to ADR-0032 are accepted; Joe's later decisions are dated amendments in the M7 plan.
 2. On Joe's go, any of:
-   - PR 3b: ADR-0032 in the core (`EnvironmentSample::omega_ie_b`, `air_data::omega_eb_b`, the API bump);
    - PR 2: `Config` cycle safety;
-   - PR 3: Earth/gravity rotation consistency, with its own plan review;
+   - PR 3: Earth/gravity rotation consistency, with its own plan review (it bumps `kCoreApiVersion` past 10);
    - PR 4: `mass/constant`'s product-of-inertia convention.
-3. Then PR 6b (`aircraft/f16`, after PR 3b and 4). PR 13 implements ADR-0031; the F-16 declares Mach ≤ 1.0.
+3. PR 6b (`aircraft/f16`) becomes eligible once PR 3b and PR 4 are both merged. Its aero reads
+   `air_data::omega_eb_b` (ADR-0032). PR 13 implements ADR-0031; the F-16 declares Mach ≤ 1.0.
 
 ## Open threads
 - Carried to PR plans (the M7 plan's "Obligations" table, and the addendum's §10):
@@ -17,9 +17,12 @@
     R22's fixtures (the ω_ie_b subtraction, the `LATLON_NOT_MODELED` refusal), R11's floor and saturation
     margin, R12's ρ (no atmosphere signal), and whether the peer refuses a non-rotating Earth at init;
   - PR 11b: whether `rate_frame.py` runs on case 15 as a reported confirmation (ADR-0029 Decision 7);
-  - PR 6b: the aero's MRC-to-CM transfer (1.132 ft, CM at 25 % MAC) and the DML's mass, 637.1595 slug (R1).
+  - PR 6b: the aero's MRC-to-CM transfer (1.132 ft, CM at 25 % MAC) and the DML's mass, 637.1595 slug (R1);
+  - PR 7: the latched `Vehicle::environment()` keeps `omega_ie_b` NaN, so its evaluator sets the field from the
+    sim's Earth model at the frame-start state; its plan decides whether to share `vehicle.cpp`'s file-local
+    `earth_rate_b` (with its +0.0 canonicalization).
 - PLAN.md's (unscheduled) notional-transport rate-frame item (M7 PR 6a's D3 (B2)): measure before Joe decides.
-  It now also carries the notional transport's trim callers' move to `astra.trim`'s `n_frame` (M7 PR 5).
+  It also carries the trim callers' move to `n_frame` and the notional aero's stale "identical" sentence.
 - Trim (M7 PR 5): `rate_convention` is an option on every consumer, `zero_inertial` the default (Joe's (b));
   PR 9 to 12's F-16 configs and harness select `n_frame`, and each F-16 case's full lateral residual (the
   aero rate terms) is derived from the DML and brought to Joe in PR 9, 11a and 11b.
