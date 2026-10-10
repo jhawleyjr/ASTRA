@@ -48,7 +48,13 @@ namespace astra {
 // number (version 8 was already taken by M3 PR 4a above); the record's intent, one bump for the new
 // interface, holds. Joe's decision, 2026-09-25 (docs/plans/m4-pr3-core-seam.md, Q-A): 8 to 9, no
 // superseding ADR.
-inline constexpr std::uint32_t kCoreApiVersion = 9;
+// 10 (M7 PR 3b, ADR-0032): EnvironmentSample gained omega_ie_b, the Earth's rotation rate in body
+// axes, set by the core per RK4 stage. No vtable changed. EnvironmentSample is a plain struct
+// (like StepContext) that every WrenchSource::wrench_b() and Model::integrate_state() receives by
+// reference, so it crosses the loader boundary (ADR-0016's test for a bump). A plugin built against
+// version 9 must be rejected, not handed a struct whose layout it does not know
+// (tests/plugins/stale_api_version).
+inline constexpr std::uint32_t kCoreApiVersion = 10;
 
 // The toolchain and configuration this tree was configured with. A plugin built by a different configure
 // carries a different string and is rejected at load; it can only come from a stale build directory.
