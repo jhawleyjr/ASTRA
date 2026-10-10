@@ -332,20 +332,26 @@ only: an aero model declares the domain of its own data (its table breakpoints, 
 limit along an axis its data does not span), and §15's envelope monitor checks each aero model's
 declaration separately, naming that plugin. `PropulsionModel` declares nothing.
 
-**The body rate relative to the Earth** (*ADR-0032*, *planned*, PLAN.md M7 PR 3b). The core supplies it; a wrench
+**The body rate relative to the Earth** (*ADR-0032*, built in PLAN.md M7 PR 3b). The core supplies it; a wrench
 source never forms its own Earth rate, which could disagree with the configured Earth model.
-- `EnvironmentSample` gains `omega_ie_b`: the Earth's rotation rate relative to inertial, in body axes, rad/s. It is
-  computed per RK4 stage as `c_nb * earth.omega_ie_n(vs_stage)`, the EOM's own expression. It is set before every
-  `wrench_b()` and `integrate_state()` of that stage, on the step path and on `Simulation.derivative`'s probe path
-  alike. It is zero for a flat or non-rotating Earth.
-- Its default is NaN. Code that builds its own `EnvironmentSample` sets it from the sim's Earth model, and a
-  forgotten value gives the reader a NaN wrench.
+- `EnvironmentSample::omega_ie_b` is the Earth's rotation rate relative to inertial, in body axes, rad/s.
+  - `Vehicle::prepare_stage_environment` sets it first in each RK4 stage's environment, from the stage's own state.
+    That is before every `wrench_b()` and `integrate_state()` of that stage, on the step path and on
+    `Simulation.derivative`'s probe path alike, and before the environment checks can skip the stage's wrenches.
+  - It equals `c_nb * earth.omega_ie_n(vs_stage)`, the EOM's own expression, in value, and it is exactly +0.0
+    wherever that product is a zero. So on a flat or non-rotating Earth it is +0.0, and the relative rate is ω_b bit
+    for bit. That is why the template's `earth/flat` values are unchanged by construction: `c_nb * 0` alone would give
+    −0.0 where a row of `c_nb` is all negative, and ω_b − (−0.0) turns a −0.0 rate into +0.0.
+- Its default is NaN, and the frame-latched sample (`Vehicle::environment()`) keeps it: no reader of that sample
+  reads the field. Code that builds its own `EnvironmentSample` sets it from the sim's Earth model, and a forgotten
+  value gives the reader a NaN wrench.
 - `air_data::omega_eb_b(vs, env)` returns `vs.omega_b() - env.omega_ie_b`.
-- Readers: the F-16's aero and the template's aero, whose `earth/flat` values are unchanged. The notional transport's
-  aero and `tests/plugins/nesc_aero` keep the inertial ω_b, which §6 defines and which stays the state.
+- Readers: the template's aero (`aircraft/_template/physical/aero`), and the F-16's aero (*planned*, PLAN.md M7
+  PR 6b). The notional transport's aero and `tests/plugins/nesc_aero` keep the inertial ω_b, which §6 defines and
+  which stays the state.
 - Earth-relative is not air-relative: under a non-uniform wind, the air's own rotation is not supplied.
-- The rate is not published as a signal. `EnvironmentSample` crosses the plugin boundary, so `kCoreApiVersion` is
-  bumped.
+- The rate is not published as a signal. `EnvironmentSample` crosses the plugin boundary, so `kCoreApiVersion` was
+  bumped (`core_api.hpp.in` records the number), and a plugin built against the preceding version is rejected at load.
 
 **Vehicle** is a composition: one mass-properties model, a list of `AeroModel`s and `PropulsionModel`s whose wrenches are summed. Multiple aero models is deliberate — a user can split wing/tail/fuselage or add a store as a separate contributor without touching the framework. A `MassPropertiesModel` or a `WrenchSource` may additionally own continuous state (ADR-0021, `Model::state_count()` et al.) — a future engine-spool-lag `PropulsionModel`, for example, integrated at full sub-stage fidelity alongside the rigid-body block, with zero further core interface change.
 
