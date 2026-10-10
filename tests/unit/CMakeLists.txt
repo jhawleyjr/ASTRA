@@ -100,6 +100,17 @@ target_compile_definitions(astra_notional_transport_mass_test PRIVATE
 gtest_discover_tests(astra_notional_transport_mass_test TEST_PREFIX "notional_transport_mass."
                      DISCOVERY_MODE PRE_TEST PROPERTIES LABELS unit)
 
+# plugins/physical/mass/constant's product-of-inertia convention (M7 PR 4,
+# docs/plans/m7-pr4-mass-convention.md): its own executable, suite ConstantMass, so the plan's
+# `-R Mass` selects it; same shape as notional_transport_mass above.
+add_executable(astra_constant_mass_test mass/constant_mass_test.cpp)
+target_link_libraries(astra_constant_mass_test PRIVATE astra::core GTest::gtest_main)
+astra_add_plugin_test(astra_constant_mass_test)
+target_compile_definitions(astra_constant_mass_test PRIVATE
+  "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\"")
+gtest_discover_tests(astra_constant_mass_test TEST_PREFIX "constant_mass."
+                     DISCOVERY_MODE PRE_TEST PROPERTIES LABELS unit)
+
 # M3 PR 8 (docs/plans/pr8-cruise-regression.md, D20): the 300 s cruise regression run. Own
 # executable so ctest's names carry "notional_transport_cruise_regression" for `-R
 # notional_transport_cruise_regression`; labeled physics, not unit -- several 300 s runs are too slow

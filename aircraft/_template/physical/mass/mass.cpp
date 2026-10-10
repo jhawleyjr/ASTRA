@@ -14,9 +14,7 @@
 // from a source that documents itself in the product-of-inertia convention can be entered directly
 // without the reader flipping its sign by hand.
 //
-// NOTE: plugins/physical/mass/constant's ixy/ixz/iyz keys are NOT documented this way -- that
-// plugin places its config values directly into the tensor, unnegated. The two config schemas use
-// identical key names for different quantities; flagged, not fixed, as a PLAN.md follow-up item.
+// plugins/physical/mass/constant reads its ixy/ixz/iyz in this same convention (M7 PR 4).
 //
 // Everything below stays in an anonymous namespace: the ASTRA_STATIC_PLUGINS build (one of
 // `just check`'s four presets) links every plugin -- including every aircraft's own copy of this

@@ -5,6 +5,25 @@
 // so init validates only what can actually go wrong: a non-finite or non-positive value, and a
 // tensor that is finite and symmetric but not positive-definite (§15's pre-run check). Each failure
 // is a ConfigError naming the offending key, so a bad config never reaches the EOM.
+//
+// Config keys ixx/iyy/izz are the moments of inertia; ixy/ixz/iyz are PRODUCTS OF INERTIA in the
+// S&L convention (Ixy = integral(x*y*dm), Ixz = integral(x*z*dm), Iyz = integral(y*z*dm), body FRD
+// axes about the CG, kg*m^2 -- Stevens & Lewis, "Aircraft Control and Simulation"; M7 PR 4). A
+// published product of inertia is entered as printed; a source that tabulates the inertia tensor's
+// own off-diagonal entries needs its sign flipped. The TENSOR used in the equations of motion
+// (H = I*omega) carries their negations (tensor_xz = -integral(x*z*dm)), formed below.
+// aircraft/_template's and aircraft/notional_transport's mass plugins read the same keys in the
+// same convention.
+//
+// The negation is written 0.0 - p, not -p (M7 PR 4, D1). The two have the same bits for every
+// nonzero p, but an omitted key (0.0) must give the tensor the bits it had before M7 PR 4, +0.0 off
+// the diagonal, where -p would give -0.0. That is what keeps M2's NESC cases 1 to 10 and the R1
+// golden (a bitwise comparison of trajectory states) unchanged by construction: no tracked config
+// sets a product key except one this plugin refuses. ASTRA builds without -ffast-math, so the
+// compiler cannot fold 0.0 - p into -p. aircraft/_template's and aircraft/notional_transport's mass
+// plugins keep -p on purpose: their -0.0 bits are already frozen into M3's cruise regression, the
+// R1 end-to-end fixture's golden and M7 PR 3b's template-identity evidence, and M7 PR 4 left their
+// expressions alone.
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
 #include <cmath>
@@ -50,11 +69,17 @@ class ConstantMass final : public astra::MassPropertiesModel {
     const double ixz = checked_finite(config, "ixz", config.number("ixz", 0.0));
     const double iyz = checked_finite(config, "iyz", config.number("iyz", 0.0));
 
+    // Products of inertia (S&L convention) negated into the tensor as 0.0 - p, not -p: an omitted
+    // key keeps the pre-M7-PR-4 +0.0 (see the file header).
+    const double tensor_xy = 0.0 - ixy;
+    const double tensor_xz = 0.0 - ixz;
+    const double tensor_yz = 0.0 - iyz;
+
     Eigen::Matrix3d inertia_b;
     // clang-format off
-    inertia_b << ixx, ixy, ixz,
-                 ixy, iyy, iyz,
-                 ixz, iyz, izz;
+    inertia_b << ixx,       tensor_xy, tensor_xz,
+                 tensor_xy, iyy,       tensor_yz,
+                 tensor_xz, tensor_yz, izz;
     // clang-format on
 
     // Built symmetric above; only positive-definiteness can still fail (§15: "inertia tensor
