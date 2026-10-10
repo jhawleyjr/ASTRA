@@ -114,6 +114,17 @@ struct DictWalk {
 
 YAML::Node value_to_yaml(nb::handle value, const std::string& path, DictWalk& walk);
 
+std::string child_path(const std::string& path, std::string_view segment) {
+  std::string child = path;
+  if (!child.empty()) {
+    child += '.';
+  }
+  child += segment;
+  return child;
+}
+
+// Each node is built where it is declared: yaml-cpp's Node::operator= mutates the node a handle
+// already references rather than rebinding it (docs/lessons.md).
 YAML::Node container_to_yaml(nb::handle value, const std::string& path, DictWalk& walk) {
   for (const auto& [ancestor, ancestor_path] : walk.ancestors) {
     if (ancestor == value.ptr()) {
@@ -124,20 +135,19 @@ YAML::Node container_to_yaml(nb::handle value, const std::string& path, DictWalk
     }
   }
   walk.ancestors.emplace_back(value.ptr(), path);
-  YAML::Node node;
   if (nb::isinstance<nb::dict>(value)) {
-    node = YAML::Node(YAML::NodeType::Map);
+    YAML::Node node(YAML::NodeType::Map);
     for (auto item : nb::cast<nb::dict>(value)) {
       const auto key = nb::cast<std::string>(item.first);
-      node[key] = value_to_yaml(item.second, path.empty() ? key : path + "." + key, walk);
+      node[key] = value_to_yaml(item.second, child_path(path, key), walk);
     }
-  } else {
-    node = YAML::Node(YAML::NodeType::Sequence);
-    std::size_t index = 0;
-    for (auto item : nb::cast<nb::sequence>(value)) {
-      const std::string segment = std::to_string(index++);
-      node.push_back(value_to_yaml(item, path.empty() ? segment : path + "." + segment, walk));
-    }
+    walk.ancestors.pop_back();
+    return node;
+  }
+  YAML::Node node(YAML::NodeType::Sequence);
+  std::size_t index = 0;
+  for (auto item : nb::cast<nb::sequence>(value)) {
+    node.push_back(value_to_yaml(item, child_path(path, std::to_string(index++)), walk));
   }
   walk.ancestors.pop_back();
   return node;
