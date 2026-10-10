@@ -55,6 +55,25 @@ TEST(PluginLoader, RejectsABadCoreApiVersionWithATypedErrorNamingThePlugin) {
   }
 }
 
+// M7 PR 3b (ADR-0032): every kCoreApiVersion bump must reject a plugin built against the version
+// before it -- here, one built before EnvironmentSample gained omega_ie_b. The plugin's descriptor
+// carries core_api_version() - 1, so this stays "the preceding version" through any later bump.
+TEST(PluginLoader, RejectsAPluginBuiltAgainstThePrecedingCoreApiVersion) {
+  try {
+    const astra::LoadedPlugin loaded = make_loader().load("tests/plugins/stale_api_version");
+    FAIL() << "loaded " << loaded.descriptor->name << " despite its core_api_version";
+  } catch (const astra::PluginApiVersionError& error) {
+    EXPECT_EQ(error.plugin_path(), "tests/plugins/stale_api_version");
+    EXPECT_EQ(error.expected(), astra::core_api_version());
+    EXPECT_EQ(error.actual(), astra::core_api_version() - 1);
+    const std::string versions =
+        "core_api_version " + std::to_string(astra::core_api_version() - 1) +
+        " does not match this core's " + std::to_string(astra::core_api_version());
+    EXPECT_TRUE(mentions(error, "tests/plugins/stale_api_version")) << error.what();
+    EXPECT_TRUE(mentions(error, versions)) << error.what();
+  }
+}
+
 TEST(PluginLoader, RejectsABadToolchainStringWithATypedErrorNamingThePlugin) {
   try {
     const astra::LoadedPlugin loaded = make_loader().load("tests/plugins/bad_toolchain");

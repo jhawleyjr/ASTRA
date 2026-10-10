@@ -7,7 +7,11 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
+#include <bit>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
 
 #include "astra/kernel/environment_sample.hpp"
@@ -111,6 +115,61 @@ TEST(AirData, AllFiniteDetectsANonFiniteValueAnywhereInTheList) {
   EXPECT_TRUE(astra::air_data::all_finite({1.0, 2.0, 3.0}));
   EXPECT_FALSE(astra::air_data::all_finite({1.0, std::numeric_limits<double>::quiet_NaN(), 3.0}));
   EXPECT_FALSE(astra::air_data::all_finite({1.0, std::numeric_limits<double>::infinity()}));
+}
+
+// ADR-0032's accessor (M7 PR 3b, tests C1 to C3).
+std::uint64_t bits(double value) { return std::bit_cast<std::uint64_t>(value); }
+
+StateVector make_rate_state(const Eigen::Vector3d& omega_b, const astra::frames::Quaternion& q_nb) {
+  StateVector y = make_state(Eigen::Vector3d{100.0, 0.0, 0.0}, q_nb);
+  y.segment<astra::state::kAngularRateSize>(astra::state::kAngularRate) = omega_b;
+  return y;
+}
+
+// C1: omega_eb_b is the state's rate minus the Earth's, component by component, bit for bit. Both
+// are already in body axes, so nothing is rotated: a non-identity attitude gives the same bits.
+TEST(AirData, EarthRelativeBodyRateIsTheStateRateMinusTheEarthRateInBodyAxes) {
+  const Eigen::Vector3d omega_b{0.3, -0.2, 0.1};
+  EnvironmentSample env;
+  env.omega_ie_b = Eigen::Vector3d{1e-4, 2e-4, -3e-4};
+  const std::array<double, 3> expected{0.3 - 1e-4, -0.2 - 2e-4, 0.1 - -3e-4};
+
+  const astra::frames::Quaternion rotated = astra::frames::quaternion_from_euler({2.2, 0.3, -0.4});
+  for (const astra::frames::Quaternion& q_nb : {kIdentity, rotated}) {
+    const StateVector y = make_rate_state(omega_b, q_nb);
+    const Eigen::Vector3d omega_eb_b = astra::air_data::omega_eb_b(VehicleState{y}, env);
+    for (int i = 0; i < 3; ++i) {
+      EXPECT_EQ(bits(omega_eb_b(i)), bits(expected.at(static_cast<std::size_t>(i))))
+          << "component " << i;
+    }
+  }
+}
+
+// C2: the IEEE behavior ADR-0032's +0.0 canonicalization exists for (environment_sample.hpp). A
+// -0.0 rate minus a +0.0 Earth rate stays -0.0; minus a -0.0 Earth rate it becomes +0.0.
+TEST(AirData, EarthRelativeBodyRateKeepsANegativeZeroRateAgainstAPositiveZeroEarthRate) {
+  const StateVector y = make_rate_state(Eigen::Vector3d::Constant(-0.0), kIdentity);
+  const VehicleState vs{y};
+  constexpr std::uint64_t kNegativeZero = 0x8000000000000000ULL;
+  constexpr std::uint64_t kPositiveZero = 0x0000000000000000ULL;
+
+  EnvironmentSample positive_zero;
+  positive_zero.omega_ie_b = Eigen::Vector3d::Constant(0.0);
+  const Eigen::Vector3d kept = astra::air_data::omega_eb_b(vs, positive_zero);
+  EnvironmentSample negative_zero;
+  negative_zero.omega_ie_b = Eigen::Vector3d::Constant(-0.0);
+  const Eigen::Vector3d flipped = astra::air_data::omega_eb_b(vs, negative_zero);
+  for (int i = 0; i < 3; ++i) {
+    EXPECT_EQ(bits(kept(i)), kNegativeZero) << "component " << i;
+    EXPECT_EQ(bits(flipped(i)), kPositiveZero) << "component " << i;
+  }
+}
+
+// C3: a sample whose omega_ie_b was never set (its NaN default) gives a NaN rate, never omega_b.
+TEST(AirData, EarthRelativeBodyRateIsNaNWhenTheEarthRateWasNeverSet) {
+  const StateVector y = make_rate_state(Eigen::Vector3d{0.3, -0.2, 0.1}, kIdentity);
+  const EnvironmentSample env;
+  EXPECT_TRUE(astra::air_data::omega_eb_b(VehicleState{y}, env).array().isNaN().all());
 }
 
 }  // namespace

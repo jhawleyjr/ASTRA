@@ -6,6 +6,7 @@
 
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -75,6 +76,34 @@ TEST(NoAlloc, ZeroHeapAllocationsOverOneThousandFramesWithTheDomainCheckActive) 
                                            "while halting early";
   EXPECT_EQ(after, before) << "zero allocations over 1000 frames with the domain check active "
                               "(docs/architecture.md §14/§15, ADR-0012)";
+}
+
+// ADR-0032 (M7 PR 3b, test F): every RK4 stage sets EnvironmentSample::omega_ie_b from a rotating
+// Earth, and a reader (tests/plugins/earth_rate_recorder) calls air_data::omega_eb_b in wrench_b()
+// and integrate_state() -- none of it may allocate (tests/configs/no_alloc_earth_rate.yaml).
+TEST(NoAlloc, ZeroHeapAllocationsOverOneThousandFramesWithAnEarthRateReaderOnARotatingEarth) {
+  const astra::Config config =
+      astra::Config::from_file(std::string{ASTRA_TEST_CONFIG_DIR} + "/no_alloc_earth_rate.yaml");
+  astra::Simulation sim = astra::Simulation::from_config(config, ASTRA_TEST_PLUGIN_DIR);
+  ASSERT_EQ(sim.frames(), 1000U);
+  const double* wrench_calls = sim.registry().find("v0.earth_rate_recorder.wrench_calls");
+  const double* omega_ie_b_0 = sim.registry().find("v0.earth_rate_recorder.wrench.3.omega_ie_b_0");
+  ASSERT_NE(wrench_calls, nullptr);
+  ASSERT_NE(omega_ie_b_0, nullptr);
+
+  const std::size_t before = astra_test::allocation_count();
+  const astra::HaltReason halt = sim.run();
+  const std::size_t after = astra_test::allocation_count();
+
+  EXPECT_FALSE(halt) << "halted on check " << static_cast<int>(halt.check) << " at frame "
+                     << halt.frame;
+  EXPECT_EQ(sim.clock().frame(), 1000U) << "the run must complete, not merely allocate nothing "
+                                           "while halting early";
+  EXPECT_EQ(*wrench_calls, 4.0) << "the reader ran at every stage of the last frame";
+  EXPECT_TRUE(std::isfinite(*omega_ie_b_0)) << "the last stage carried a set Earth rate";
+  EXPECT_NE(*omega_ie_b_0, 0.0) << "a rotating Earth's rate, not a flat one's";
+  EXPECT_EQ(after, before) << "zero allocations over 1000 frames with the per-stage Earth rate and "
+                              "a reader of it (ADR-0032)";
 }
 
 // PLAN.md M2 PR 3c (docs/plans/pr3c-substage-wrench.md), R5: the new per-stage code path -- a fresh

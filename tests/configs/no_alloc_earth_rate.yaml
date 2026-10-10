@@ -1,0 +1,21 @@
+# tests/physics/no_alloc_test.cpp (ADR-0032, M7 PR 3b): the per-stage Earth rate on a rotating
+# Earth, with a reader of it. Every RK4 stage sets EnvironmentSample::omega_ie_b from
+# earth/wgs84_rotating (a DCM and a virtual omega_ie_n call). tests/plugins/earth_rate_recorder
+# then calls air_data::omega_eb_b in wrench_b() and integrate_state() and records both. The
+# mid-latitude, 1000 m, 50 m/s state of no_alloc_domain.yaml, now turning, stays in domain for all
+# 1000 frames.
+sim:
+  dt: 0.001
+  frames: 1000
+vehicle:
+  models:
+    - plugin: tests/plugins/earth_rate_recorder
+physical:
+  earth: plugins/physical/earth/wgs84_rotating
+  gravity: plugins/physical/gravity/wgs84_j2
+  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 2.0, izz: 3.0 }
+initial:
+  state:
+    p_n: [0.785398163, 0.0, 1000.0]
+    v_b: [50.0, 0.0, 0.0]
+    omega_b: [0.01, -0.02, 0.03]

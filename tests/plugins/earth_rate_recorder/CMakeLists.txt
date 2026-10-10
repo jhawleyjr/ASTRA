@@ -1,0 +1,1 @@
+astra_add_plugin(SOURCES earth_rate_recorder.cpp)
