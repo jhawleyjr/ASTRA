@@ -1,6 +1,6 @@
 # ADR-0029: Sim-side flight software as an in-process peer, and the port's equivalence
 
-Status: **proposed**, 2026-10-09
+Status: **accepted**, 2026-10-09
 Date: 2026-10-09
 Owner: Joe
 Related/supersedes: supersedes nothing; no accepted record is edited. It reads ADR-0022's "A transport plugin
@@ -236,4 +236,4 @@ Governs PLAN.md's M7 PR 11a, 11b and 12.
 
 ## Approval
 
-Pending Joe's decision.
+Accepted by Joe, 2026-10-09.

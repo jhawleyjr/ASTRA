@@ -1,6 +1,6 @@
 # ADR-0032: The body rate relative to the Earth, supplied by the core to wrench sources
 
-Status: **proposed**, 2026-10-09
+Status: **accepted**, 2026-10-09
 Date: 2026-10-09
 Owner: Joe
 Related/supersedes: supersedes **one clause** of ADR-0020's Consequences, "with zero further core interface
@@ -143,4 +143,4 @@ amendments 5, 6, 12 and 13). Governs PLAN.md's M7 PR 3b.
 
 ## Approval
 
-Pending Joe's decision.
+Accepted by Joe, 2026-10-09.
