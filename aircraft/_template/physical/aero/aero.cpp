@@ -5,7 +5,8 @@
 // TODO-marked vehicle.models[physical/aero] block. Left un-edited, this plugin's own "wing_area_m2
 // must be positive" check below throws a ConfigError naming the config key that still reads 0.0, so
 // an un-edited template can never silently fly. Identical to aircraft/notional_transport/physical/
-// aero/aero.cpp except this comment and the class name (PR 1's physical/mass.cpp precedent).
+// aero/aero.cpp except this comment, the class name (PR 1's physical/mass.cpp precedent), and the
+// body rate it damps (ADR-0032, below).
 //
 // Overrides WrenchSource::wrench_b() directly (ADR-0020: no compute() step, no core Inputs struct).
 // aero_math.hpp's own header comment has the full force/moment-assembly citation and the V->0
@@ -93,7 +94,18 @@ class TemplateAero final : public astra::AeroModel {
     in.true_airspeed_mps = air_data::true_airspeed(v_rel_b);
     in.alpha_rad = air_data::angle_of_attack(v_rel_b);
     in.beta_rad = air_data::sideslip(v_rel_b);
-    in.omega_b = vs.omega_b();
+    // ADR-0032: the rate terms damp the body rate relative to the Earth, omega_b - omega_ie_b, not
+    // the state's own vs.omega_b(), which is relative to inertial.
+    // - The core supplies omega_ie_b from the configured Earth model, in every RK4 stage, so this
+    //   aero never carries an Earth rate of its own.
+    // - On earth/flat (this template's config) and on a non-rotating earth/round, the core's
+    //   omega_ie_b is exactly +0.0, and the two rates are equal bit for bit.
+    // - Under a rotating Earth they differ by the Earth's rate in body axes.
+    // - A hand-built EnvironmentSample (a test, an independent evaluator) must set omega_ie_b; its
+    //   NaN default makes this wrench non-finite.
+    // aircraft/notional_transport's aero and tests/plugins/nesc_aero still damp the inertial
+    // rate, until PLAN.md's B2 item.
+    in.omega_b = air_data::omega_eb_b(vs, env);
     in.dynamic_pressure_pa =
         air_data::dynamic_pressure(env.atmosphere.density_kg_m3, in.true_airspeed_mps);
     in.density_kg_m3 = env.atmosphere.density_kg_m3;
