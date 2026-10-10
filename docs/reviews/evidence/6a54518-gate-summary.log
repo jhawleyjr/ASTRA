@@ -1,0 +1,26 @@
+date: 2026-10-10T01:41:56Z (start 2026-10-10T01:24:35Z, end 2026-10-10T01:41:56Z)
+command: ./scripts/check-full.sh
+base: 2f0a1eb55800029c6b7c69c291b84e9bf252bd67
+head: 6a54518dab45d504e66625a27fb1be763e31ea0b
+exit: 0
+working tree: clean
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 195 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7-pr1b/build/debug
+100% tests passed, 0 tests failed out of 673
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7-pr1b/build/release
+100% tests passed, 0 tests failed out of 674
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7-pr1b/build/static-plugins
+100% tests passed, 0 tests failed out of 675
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7-pr1b/build/asan
+100% tests passed, 0 tests failed out of 676
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+0 errors, 0 warnings, 0 informations
+1912 passed, 5 skipped in 125.43s (0:02:05)
+check: OK
