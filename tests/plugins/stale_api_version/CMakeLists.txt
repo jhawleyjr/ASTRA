@@ -1,0 +1,1 @@
+astra_add_plugin(SOURCES stale_api_version.cpp NO_LOAD_ALL)

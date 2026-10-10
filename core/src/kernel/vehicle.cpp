@@ -7,8 +7,32 @@
 
 #include "astra/errors.hpp"
 #include "astra/interfaces/mass_properties_model.hpp"
+#include "astra/kernel/vehicle_state.hpp"
+#include "astra/util/frames.hpp"
 
 namespace astra {
+
+namespace {
+
+// ADR-0032: the Earth's rotation rate relative to inertial, in this stage's body axes. It is the
+// EOM's own c_nb * omega_ie_n (rigid_body_6dof_dynamics.cpp), on the stage's own state.
+//
+// Adding +0.0 turns a -0.0 component into +0.0 and leaves every other value, NaN included, as it
+// is (IEEE 754 round-to-nearest; nothing in the tree changes the rounding mode, and without
+// -ffast-math the compiler cannot drop the addition).
+// - On a flat or non-rotating Earth every component is therefore +0.0, where c_nb * 0 alone gives
+//   -0.0 for a c_nb row that is all negative.
+// - So air_data::omega_eb_b's omega_b - omega_ie_b is omega_b bit for bit there: x - (+0.0) is x
+//   for every x, -0.0 included, and x - (-0.0) is not.
+// Per-frame path: fixed-size Eigen values only, no allocation, no exceptions.
+Eigen::Vector3d earth_rate_b(const EarthModel& earth, const VehicleState& vs) noexcept {
+  const Eigen::Matrix3d c_nb = frames::dcm_from_quaternion(vs.q_nb());
+  Eigen::Vector3d omega_ie_b = c_nb * earth.omega_ie_n(vs);
+  omega_ie_b.array() += 0.0;
+  return omega_ie_b;
+}
+
+}  // namespace
 
 Vehicle::Vehicle(std::uint32_t index, std::string name) : index_(index), name_(std::move(name)) {}
 
@@ -305,8 +329,14 @@ HaltReason Vehicle::check_domain(const double* y, const StepContext& ctx,
 // later stage's own real fault was silently dropped once an earlier stage had already set
 // wrench_fault, the same !wrench_fault guard that must gate the REPORTED reason, not the skip
 // decision, incorrectly gated both). wrench_fault itself is updated under the correct, narrower
-// !wrench_fault guard (first-fault-wins). stage_env.atmosphere is sampled fresh here when in range,
-// left untouched (never read) otherwise. Per-frame path: no allocation, no exceptions.
+// !wrench_fault guard (first-fault-wins).
+//
+// What this function writes into stage_env:
+// - omega_ie_b (ADR-0032): set first, on every stage, before either early return.
+// - atmosphere: sampled fresh here when in range. Otherwise it keeps the latched value, which no
+//   wrench_b() reads (the stage is skipped) and integrate_state() still receives.
+//
+// Per-frame path: no allocation, no exceptions.
 //
 // domain:off/nan:off interaction, and up-to-4x-per-frame counting under a non-halting action: see
 // HealthMonitor::report_non_finite_environment's own doc comment (health_monitor.hpp), which is the
@@ -321,6 +351,10 @@ bool Vehicle::prepare_stage_environment(const VehicleState& vs_stage, Environmen
   if (!rigid_body_.has_value()) {
     return false;
   }
+  // ADR-0032: first, before either early return below. A stage those checks skip calls no
+  // wrench_b(), but evaluate_derivative_stage still hands this same stage_env to every
+  // integrate_state().
+  stage_env.omega_ie_b = earth_rate_b(rigid_body_->earth(), vs_stage);
   bool skip_wrench_stage = false;
   if (atmosphere_ != nullptr) {
     const double altitude_m = rigid_body_->earth().altitude(vs_stage);

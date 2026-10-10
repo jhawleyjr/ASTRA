@@ -55,8 +55,9 @@ class WrenchSource : public Model {
   // samples it once per frame (before the wrench stage, docs/architecture.md §5) and every RK4
   // sub-stage's env carries the identical value -- a WrenchSource never samples wind itself and
   // cannot observe it changing within a frame. env's atmosphere, by contrast, IS a fresh sample of
-  // the stage's own state as of PR 3c: EnvironmentSample's own header has the full account of which
-  // field is which and why. Per-frame path (§14): no allocation, no exceptions, every call.
+  // the stage's own state as of PR 3c, and env's omega_ie_b (ADR-0032) is set from the stage's own
+  // state too: EnvironmentSample's own header has the full account of which field is which and
+  // why. Per-frame path (§14): no allocation, no exceptions, every call.
   //
   // ADR-0021 amendment: a read-only binding into Vehicle's own stage buffer (own state slice via
   // Model::bind_state(), or a peer's via Model::resolve_peers()) is part of this pure function's
