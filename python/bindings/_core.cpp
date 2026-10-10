@@ -23,6 +23,7 @@
 #include <string>
 #include <string_view>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include "astra/config/config.hpp"
@@ -102,8 +103,47 @@ const char* default_plugin_dir() { return ASTRA_PLUGIN_DIR; }
 // settled option (a)): recursively converts a Python dict/list/scalar into a YAML::Node, checking
 // bool BEFORE int (bool is an int subclass in Python; the reverse order would silently turn True
 // into the integer 1). Raises TypeError, nanobind-side, for anything else -- never reaches
-// Config::from_string with a half-built document.
-YAML::Node value_to_yaml(nb::handle value) {
+// Config::from_string with a half-built document. M7 PR 2: a dict, list or tuple that contains
+// itself is a ConfigError naming the key where the cycle closes. ancestors holds (by identity,
+// Python's id) only the containers on the current path, so a value shared by two keys is legal
+// and carried twice, and only a container reached again below itself is refused.
+struct DictWalk {
+  std::string_view origin;
+  std::vector<std::pair<PyObject*, std::string>> ancestors;
+};
+
+YAML::Node value_to_yaml(nb::handle value, const std::string& path, DictWalk& walk);
+
+YAML::Node container_to_yaml(nb::handle value, const std::string& path, DictWalk& walk) {
+  for (const auto& [ancestor, ancestor_path] : walk.ancestors) {
+    if (ancestor == value.ptr()) {
+      const std::string where = ancestor_path.empty() ? "the top level" : "'" + ancestor_path + "'";
+      throw astra::ConfigError(
+          walk.origin, path,
+          "a recursive value: a dict or list that contains itself, reached again from " + where);
+    }
+  }
+  walk.ancestors.emplace_back(value.ptr(), path);
+  YAML::Node node;
+  if (nb::isinstance<nb::dict>(value)) {
+    node = YAML::Node(YAML::NodeType::Map);
+    for (auto item : nb::cast<nb::dict>(value)) {
+      const auto key = nb::cast<std::string>(item.first);
+      node[key] = value_to_yaml(item.second, path.empty() ? key : path + "." + key, walk);
+    }
+  } else {
+    node = YAML::Node(YAML::NodeType::Sequence);
+    std::size_t index = 0;
+    for (auto item : nb::cast<nb::sequence>(value)) {
+      const std::string segment = std::to_string(index++);
+      node.push_back(value_to_yaml(item, path.empty() ? segment : path + "." + segment, walk));
+    }
+  }
+  walk.ancestors.pop_back();
+  return node;
+}
+
+YAML::Node value_to_yaml(nb::handle value, const std::string& path, DictWalk& walk) {
   if (nb::isinstance<nb::bool_>(value)) {
     return YAML::Node(nb::cast<bool>(value));
   }
@@ -116,19 +156,9 @@ YAML::Node value_to_yaml(nb::handle value) {
   if (nb::isinstance<nb::str>(value)) {
     return YAML::Node(nb::cast<std::string>(value));
   }
-  if (nb::isinstance<nb::dict>(value)) {
-    YAML::Node node(YAML::NodeType::Map);
-    for (auto item : nb::cast<nb::dict>(value)) {
-      node[nb::cast<std::string>(item.first)] = value_to_yaml(item.second);
-    }
-    return node;
-  }
-  if (nb::isinstance<nb::list>(value) || nb::isinstance<nb::tuple>(value)) {
-    YAML::Node node(YAML::NodeType::Sequence);
-    for (auto item : nb::cast<nb::sequence>(value)) {
-      node.push_back(value_to_yaml(item));
-    }
-    return node;
+  if (nb::isinstance<nb::dict>(value) || nb::isinstance<nb::list>(value) ||
+      nb::isinstance<nb::tuple>(value)) {
+    return container_to_yaml(value, path, walk);
   }
   throw nb::type_error(
       "Config.from_dict: unsupported value type (expected dict, list, str, bool, int, or float)");
@@ -136,7 +166,8 @@ YAML::Node value_to_yaml(nb::handle value) {
 
 astra::Config config_from_dict(const nb::dict& d, std::string_view origin) {
   YAML::Emitter emitter;
-  emitter << value_to_yaml(d);
+  DictWalk walk{.origin = origin, .ancestors = {}};
+  emitter << value_to_yaml(d, "", walk);
   return astra::Config::from_string(std::string_view{emitter.c_str()}, origin);
 }
 

@@ -15,6 +15,7 @@ from __future__ import annotations
 import math
 import re
 import struct
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -44,6 +45,12 @@ class Row:
     outcome: str  # "unchanged", "repaired" or "refused"
     refusal: str = ""  # a regex the refusal must match
 
+
+# The core's refusal of a recursive alias (M7 PR 2), as _yaml_route.load passes it on.
+CORE_CYCLE = (
+    r"p\.yaml: PyYAML reads it, but the core does not: config 'p\.yaml' at '{key}': a recursive "
+    r"alias: an anchor used inside itself"
+)
 
 PROBE_TABLE: dict[str, Row] = {
     "on": Row("k: on\n", "repaired"),
@@ -122,14 +129,18 @@ PROBE_TABLE: dict[str, Row] = {
         r"p\.yaml: s\.nan: PyYAML cannot construct this value \(KeyError: 'warn'\); the core "
         r"reads 'warn'",
     ),
-    # Review V-001: a recursive alias is refused before the core sees it (its unknown-key scan
-    # crashes on one), and it cannot hide a constructor failure behind it.
-    "recursive alias": Row(
-        "cycle: &c [*c]\nk: 1\n", "refused", r"p\.yaml: cycle\.0: a recursive alias"
+    # Review V-001, M7 PR 2: the core refuses a recursive alias at load, naming the key, and a
+    # recursive alias cannot hide a constructor failure behind it.
+    "recursive alias": Row("cycle: &c [*c]\nk: 1\n", "refused", CORE_CYCLE.format(key=r"cycle\.0")),
+    "recursive map alias": Row("m: &m {self: *m}\n", "refused", CORE_CYCLE.format(key=r"m\.self")),
+    "self-merge": Row("m: &m {<<: *m}\nk: 1\n", "refused", CORE_CYCLE.format(key=r"m\.<<")),
+    "cycle overwritten by a duplicate key": Row(
+        "extra: &c [*c]\nextra: 1\nk: 1\n", "refused", CORE_CYCLE.format(key=r"extra\.0")
     ),
-    "recursive map alias": Row(
-        "m: &m {self: *m}\n", "refused", r"p\.yaml: m\.self: a recursive alias"
+    "cycle in the last duplicate key": Row(
+        "extra: 1\nextra: &c [*c]\nk: 1\n", "refused", CORE_CYCLE.format(key=r"extra\.0")
     ),
+    "shared alias": Row("a: &x [1]\nb: *x\n", "unchanged"),
     "recursive alias before !!int abc": Row(
         "cycle: &c [*c]\nk: !!int abc\n",
         "refused",
@@ -200,6 +211,70 @@ def test_pyyaml_route_tracked_configs_need_no_repair() -> None:
     assert checked >= 30
 
 
+def test_pyyaml_route_core_refuses_a_cyclic_dict_before_the_walk(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Joe's amendment 1: PyYAML keeps the last duplicate key, so its dict is cyclic while the
+    core's lookup reads a scalar; the core's from_string, iterating entries, refuses it before
+    ``_walk`` (which would follow the cycle without end) is entered."""
+    text = "extra: 1\nextra: &c [*c]\nk: 1\n"
+    data = yaml.safe_load(text)
+    assert data["extra"][0] is data["extra"]
+    entered: list[str] = []
+
+    def walk(*args: object) -> None:
+        entered.append("walk")
+
+    monkeypatch.setattr(_yaml_route, "_walk", walk)
+    with pytest.raises(ValueError, match=CORE_CYCLE.format(key=r"extra\.0")):
+        _yaml_route.load(text, "p.yaml", error=ValueError)
+    assert entered == []
+
+
+def _cyclic_list() -> dict[str, Any]:
+    items: list[Any] = []
+    items.append(items)
+    return {"a": items}
+
+
+def _cyclic_dict() -> dict[str, Any]:
+    inner: dict[str, Any] = {}
+    inner["self"] = inner
+    return {"m": inner}
+
+
+def _cyclic_tuple() -> dict[str, Any]:
+    items: list[Any] = []
+    data: dict[str, Any] = {"t": (1, items)}
+    items.append(data["t"])
+    return data
+
+
+@pytest.mark.parametrize(
+    ("build", "key", "ancestor"),
+    [(_cyclic_list, "a.0", "a"), (_cyclic_dict, "m.self", "m"), (_cyclic_tuple, "t.1.0", "t")],
+    ids=["list", "dict", "tuple"],
+)
+def test_pyyaml_route_from_dict_refuses_a_recursive_value(
+    build: Callable[[], dict[str, Any]], key: str, ancestor: str
+) -> None:
+    with pytest.raises(
+        _core.ConfigError,
+        match=re.escape(
+            f"config 'p.py' at '{key}': a recursive value: a dict or list that contains itself, "
+            f"reached again from '{ancestor}'"
+        ),
+    ):
+        _core.Config.from_dict(build(), origin="p.py")
+
+
+def test_pyyaml_route_from_dict_carries_a_shared_value_twice() -> None:
+    shared = [1.5]
+    config = _core.Config.from_dict({"a": shared, "b": {"c": shared}}, origin="p.py")
+    assert sorted(config.unknown_keys()) == ["a.0", "b.c.0"]
+    assert config.number("b.c.0") == 1.5
+
+
 # --- the variants ---------------------------------------------------------------------------------
 
 
@@ -233,6 +308,23 @@ DESCENT_REFUSED_AT_BUILD = {
     form: (DESCENT_MASS, f"mass: {form}, ixx")
     for form in ("1_000", "1:30", "0x10", "0b101", "2026-10-03")
 }
+# M7 PR 2: the recursive aliases PyYAML's dict does not show as cycles (the first two) or that
+# only its dict keeps (the last, Joe's amendment 1), each prepended to a tool's base config. The
+# core refuses each at load, naming the key.
+RESIDUAL_CYCLES = {
+    "self-merge": ("m: &m {<<: *m}\nk: 1\n", r"m\.<<"),
+    "cycle overwritten by a duplicate key": ("extra: &c [*c]\nextra: 1\nk: 1\n", r"extra\.0"),
+    "cycle in the last duplicate key": ("extra: 1\nextra: &c [*c]\nk: 1\n", r"extra\.0"),
+}
+# astra trim's own Config.from_file reads the config before astra.trim does.
+CLI_CYCLE = (
+    r"^astra trim: config error: config '[^']*' at '{key}': a recursive alias: an anchor used "
+    r"inside itself"
+)
+TOOL_CYCLE = (
+    r"PyYAML reads it, but the core does not: config '[^']*' at '{key}': a recursive alias: an "
+    r"anchor used inside itself"
+)
 DESCENT_REFUSED_AT_READ = {
     "null": ((DESCENT_MASS, "mass: ~, ixx"), r"physical\.mass\.mass: a null"),
     "duplicate key": (
@@ -262,8 +354,12 @@ DESCENT_REFUSED_AT_READ = {
     ),
     "recursive alias": (
         (DESCENT_SIM, "extra: &c [*c]\n" + DESCENT_SIM),
-        r"extra\.0: a recursive alias",
+        TOOL_CYCLE.format(key=r"extra\.0"),
     ),
+    **{
+        form: ((DESCENT_SIM, lines + DESCENT_SIM), TOOL_CYCLE.format(key=key))
+        for form, (lines, key) in RESIDUAL_CYCLES.items()
+    },
 }
 # The core's own refusal of each form at physical.mass.mass, as Config.from_string gives it.
 BUILD_REFUSAL = r"at 'physical\.mass\.mass': expected a number value"
@@ -468,6 +564,13 @@ def _trim(directory: Path, replacement: tuple[str, str]) -> trim.TrimResult:
     return trim.trim_straight_and_level(_variant(CRUISE, *replacement, directory), 230.0, 10000.0)
 
 
+@pytest.mark.parametrize("form", list(RESIDUAL_CYCLES))
+def test_pyyaml_route_trim_refuses_a_recursive_alias(form: str, tmp_path: Path) -> None:
+    lines, key = RESIDUAL_CYCLES[form]
+    with pytest.raises(_core.ConfigError, match=TOOL_CYCLE.format(key=key)):
+        _trim(tmp_path, (CRUISE_SIM, lines + CRUISE_SIM))
+
+
 @pytest.mark.parametrize("form", list(TRIM_SAME_AS_QUOTED))
 def test_pyyaml_route_trim_same_as_quoted(form: str, tmp_path: Path) -> None:
     plain, quoted = TRIM_SAME_AS_QUOTED[form]
@@ -505,14 +608,27 @@ def test_pyyaml_route_trim_refusals(tmp_path: Path) -> None:
             "station: 0000-01-01",
             r"PyYAML cannot construct this value \(ValueError",
         ),
-        (CRUISE_SIM, "extra: &c [*c]\n" + CRUISE_SIM, r"extra\.0: a recursive alias"),
+        (CRUISE_SIM, "extra: &c [*c]\n" + CRUISE_SIM, CLI_CYCLE.format(key=r"extra\.0")),
+        *(
+            (CRUISE_SIM, lines + CRUISE_SIM, CLI_CYCLE.format(key=key))
+            for lines, key in RESIDUAL_CYCLES.values()
+        ),
+        # M7 PR 2: the CLI's own Config.from_file now refuses the cycle before astra.trim's
+        # _yaml_route sees the text.
         (
             CRUISE_SIM,
             "extra: &c [*c]\nbad: !!int abc\n" + CRUISE_SIM,
-            r"bad: PyYAML cannot construct this value \(ValueError",
+            CLI_CYCLE.format(key=r"extra\.0"),
         ),
     ],
-    ids=["null", "bool warn", "date year 0", "recursive alias", "recursive alias, then !!int"],
+    ids=[
+        "null",
+        "bool warn",
+        "date year 0",
+        "recursive alias",
+        *RESIDUAL_CYCLES,
+        "recursive alias, then !!int",
+    ],
 )
 def test_pyyaml_route_trim_cli_refusal_exits_65(
     old: str, new: str, message: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
@@ -561,3 +677,13 @@ def test_pyyaml_route_lockstep_refusals(tmp_path: Path) -> None:
     match = r"transport\.timeout_ms must be given as an integer"
     with pytest.raises(ls.LockstepError, match=match):
         ls.load_config(underscore, segment=ls.new_segment_name())
+
+
+@pytest.mark.parametrize("form", list(RESIDUAL_CYCLES))
+def test_pyyaml_route_lockstep_refuses_a_recursive_alias(form: str, tmp_path: Path) -> None:
+    lines, key = RESIDUAL_CYCLES[form]
+    config = _variant(LIGHT, LIGHT_SIM, lines + LIGHT_SIM, tmp_path)
+    with pytest.raises(ls.LockstepError, match=TOOL_CYCLE.format(key=key)):
+        ls.load_config(config, segment=ls.new_segment_name())
+    with pytest.raises(ls.LockstepError, match=TOOL_CYCLE.format(key=key)):
+        ls.trim_for(config, SETPOINTS)

@@ -427,6 +427,37 @@ def test_config_errors_exit_65(
     assert names in stderr
 
 
+# M7 PR 2: each recursive alias of PLAN.md's (M7) Config cycle item, plus the duplicate key reversed
+# (Joe's amendment 1), on descent.yaml. Each segfaulted (exit -11) in unknown_keys(); a subprocess,
+# so a regression shows as -11 here instead of ending pytest.
+CYCLES = {
+    "recursive alias": ("extra: &c [*c]\n", "extra.0"),
+    "self-merge": ("m: &m {<<: *m}\nk: 1\n", "m.<<"),
+    "cycle overwritten by a duplicate key": ("extra: &c [*c]\nextra: 1\nk: 1\n", "extra.0"),
+    "cycle in the last duplicate key": ("extra: 1\nextra: &c [*c]\nk: 1\n", "extra.0"),
+}
+
+
+@pytest.mark.parametrize("form", list(CYCLES))
+def test_recursive_alias_exits_65_naming_the_key_and_writes_nothing(
+    tmp_path: Path, form: str
+) -> None:
+    lines, key = CYCLES[form]
+    descent = ROOT / "tests/python/mc_analysis_fixtures/descent.yaml"
+    config = tmp_path / "config.yaml"
+    config.write_text(lines + descent.read_text(encoding="utf-8"), encoding="utf-8")
+    run = tmp_path / "run"
+    run.mkdir()
+    result = astra_script("run", config, "--log", "run.h5", cwd=run)
+    assert result.returncode == 65, result.stderr
+    assert result.stdout == ""
+    assert result.stderr == (
+        f"astra run: config error: config '{config}' at '{key}': a recursive alias: an anchor "
+        f"used inside itself, reached again from '{key.split('.')[0]}'\n"
+    )
+    assert files(run) == set()
+
+
 @pytest.mark.parametrize("existing", ["run.h5", "run.h5.partial"])
 def test_existing_log_path_or_partial_exits_65_and_is_untouched(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], existing: str
