@@ -575,6 +575,25 @@ Results, exit codes and counts go in the PR body, never in a record-only commit.
   `test_package.py`. E's `kCoreApiVersion - 1` needs no edit.
 - **Rollback:** a revert of the squash commit. The change is additive, apart from the version number.
 
+## As built (deviations from the text above, each recorded here)
+
+1. **B1's stage quaternions (amendment 4's figures).** The plan says |q|²−1 is "about 3e-9 at stages 2 and 3
+   and about 1.3e-8 at stage 4". That assumed each stage's slope is perpendicular to q0. In RK4, stage 3's
+   slope is taken at stage 2's state, and stage 4's at stage 3's. With A = ½Ω(ω) skew-symmetric:
+   - stage 2 is +(dt/2)²|ω|²/4;
+   - stage 3 is −(dt/2)²|ω|²/4;
+   - stage 4 is O(dt⁴).
+
+   Measured on B1's fixture, before any assertion was written on them: −2.2e-16, +3.283e-9, −3.283e-9 and
+   −1.1e-16 at stages 1 to 4, against a predicted ±3.281e-9.
+   - The homogeneous form is still required: stages 2 and 3 miss by about 3e-9·Ω under a unit-assuming
+     form.
+   - The test's comment states the corrected figures.
+   - Its guard asserts the measured pattern: stage 2 above +1e-9, stage 3 below −1e-9, and stage 4 within
+     1e-12 of unit length.
+   - The first version asserted stage 4 above 1e-9 and failed. The tolerance and the field assertions did
+     not change.
+
 ## Plan critique
 
 None. ADR-0032 and Joe's brief and amendments settle the design, and item 10's order has no critique step.
