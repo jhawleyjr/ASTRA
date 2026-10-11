@@ -6,8 +6,7 @@
 2. PR 6b (`aircraft/f16`) is eligible, with PR 3b and PR 4 both merged. Its aero reads `air_data::omega_eb_b`
    (ADR-0032), and every mass plugin now reads `ixz` as a product of inertia (M7 PR 4). PR 13 implements
    ADR-0031; the F-16 declares Mach ≤ 1.0.
-3. On Joe's go, also: PR 2 (`Config` cycle safety) and PR 3 (Earth/gravity rotation consistency, with its
-   own plan review; it bumps `kCoreApiVersion` past 10).
+3. On Joe's go: PR 3 (Earth/gravity rotation consistency; own plan review; bumps `kCoreApiVersion` past 10).
 
 ## Open threads
 - Carried to PR plans (the M7 plan's "Obligations" table, and the addendum's §10):
@@ -33,7 +32,8 @@
   finishes them (`docs/lessons.md` 2026-10-09). PLAN.md's (unscheduled) `disarm-goldens.sh` item is Joe's.
 - PLAN.md's (unscheduled) items, each Joe's call: `kJ2`'s source; the review record (the PR body only, M6 PR
   10's D3); the docs-check range (until a gate PR fixes it, run `git diff --check <base>..HEAD` before
-  review); the equal-aspect canvas and the plotly.js floor.
+  review); the equal-aspect canvas and the plotly.js floor; the non-scalar map key (exit 70, not 65).
+- After a failed gate, copy the full log to its per-head name before any rerun (`docs/lessons.md` 2026-10-10).
 - PLAN.md's (M9) ICD v2 Earth-rate item (ADR-0029 Decision 7), and its (M11) frame-time benchmark maximum.
 
 ## Honesty rules
