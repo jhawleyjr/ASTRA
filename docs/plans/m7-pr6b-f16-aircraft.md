@@ -365,6 +365,25 @@ PR 9 waits on PR 7; PR 13 depends on PR 6b and PR 9; PR 7's thread names `altitu
 `omega_ie_b`. PR 2 merged first (#112, `856fff0`) and was merged into this branch before commit 1
 (`233b506`); `origin/main` is merged again before `/wrap`, and STATE.md is written for both PRs merged.
 
+## Deviations (from the text above, each recorded here)
+
+1. **The pre-registered scripts were amended once after their first run, in comments only.** Commit 2
+   (`b5dbd42`) pre-registered the generator and the checkData reader, and commit 3 (`826f706`) holds their
+   first run's outputs. clang-tidy's `modernize-use-std-numbers` then flagged table values near 1/π (0.318,
+   0.319) in the generated headers. `5318dbc` widens the `NOLINTBEGIN`/`NOLINTEND` pair both scripts emit
+   to cover that check as well as `readability-magic-numbers`. In the three outputs (`aero_tables.hpp`,
+   `engine_tables.hpp`, `f16_checkdata.hpp`), only those NOLINT lines and their comment text change; no
+   value, parse or check changes. Evidence: `git diff 5318dbc^ 5318dbc` on the three headers. Joe read
+   that diff and accepted the amendment (2026-10-10).
+2. **`OnlyTheLookupsClip`'s "more than 1e-2" claim was wrong for the rudder's effect on roll.** The text
+   above says a plugin that clips el, β or rudder before the build-up "fails each by more than 1e-2". For
+   the rudder at 45°, a clip at 30° (drdr 1.0 instead of 1.5) misses cy, cl and cn by `0.086·0.5 = 0.043`,
+   `dcldr·0.5 = 0.007` and `dcndr·0.5 = 0.0225`, so the cl miss is below 1e-2. The test still catches a
+   pre-build-up clip, because its tolerance is 1e-12. The test's comment (`aero_test.cpp`, at the end of
+   `OnlyTheLookupsClip`) holds the real numbers. The test and its tolerance did not change. This is
+   recorded here, not only in the test comment, per lesson 2026-10-09 (a corrected premise is a plan
+   deviation).
+
 ## Plan critique (one fresh, read-only Codex pass, 2026-10-10)
 
 Run: companion 1.0.6, `task --fresh --effort high --cwd <main checkout>` (read-only, no `--write`), job
