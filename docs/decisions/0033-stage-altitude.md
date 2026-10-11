@@ -1,6 +1,6 @@
 # ADR-0033: The stage altitude, supplied by the core to wrench sources
 
-Status: proposed
+Status: **accepted**, 2026-10-11
 Date: 2026-10-10
 Owner: Joe
 Related/supersedes: supersedes **one clause** of ADR-0020's Consequences, "with zero further core interface
@@ -86,4 +86,4 @@ Governs PLAN.md's M7 PR 3c.
 
 ## Approval
 
-Pending: proposed in M7 PR 3c, for Joe's acceptance before PR 6c's mass commit.
+Accepted by Joe, 2026-10-11.
