@@ -362,8 +362,8 @@ control conversions, the transfer and the mass test.
 
 PLAN.md gains PR 6b's line. STATE.md, as main reads it after the merge: PR 7 and PR 14 become eligible;
 PR 9 waits on PR 7; PR 13 depends on PR 6b and PR 9; PR 7's thread names `altitude_m` beside
-`omega_ie_b`. PR 2 may merge first: `origin/main` is merged into the branch before `/wrap`, and STATE.md
-is written for both.
+`omega_ie_b`. PR 2 merged first (#112, `856fff0`) and was merged into this branch before commit 1
+(`233b506`); `origin/main` is merged again before `/wrap`, and STATE.md is written for both PRs merged.
 
 ## Plan critique (one fresh, read-only Codex pass, 2026-10-10)
 
