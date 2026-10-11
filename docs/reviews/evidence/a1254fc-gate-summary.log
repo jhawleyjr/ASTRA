@@ -1,0 +1,24 @@
+date: 2026-10-10 (run start and end times not recorded)
+command: ./scripts/check-full.sh
+base: e4c9c63614e69508b4e3ceffaf3e8fb8a7609452
+head: a1254fc (M7 PR 2: from_dict refuses a recursive value; _yaml_route's cycle guard goes to the core)
+exit: 1
+working tree: clean
+note: the full log was overwritten by the rerun on 5bdb079 (same output path), so this summary holds only
+      the lines read from it before that: the steps that passed before the failure, and the failure in full
+      as clang-tidy printed it. Fixed in 5bdb079; that run's summary is 5bdb079-gate-summary.log.
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (56 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+
+The failing step (just tidy, the binding TU):
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr2/python/bindings/_core.cpp:132:78: error: string concatenation results in allocation of unnecessary temporary strings; consider using 'operator+=' or 'string::append()' instead [performance-inefficient-string-concatenation,-warnings-as-errors]
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr2/python/bindings/_core.cpp:139:78: error: string concatenation results in allocation of unnecessary temporary strings; consider using 'operator+=' or 'string::append()' instead [performance-inefficient-string-concatenation,-warnings-as-errors]
+  139 |       node.push_back(value_to_yaml(item, path.empty() ? segment : path + "." + segment, walk));
+      |                                                                              ^
+74111 warnings generated.
+error: Recipe `tidy` failed on line 73 with exit code 1

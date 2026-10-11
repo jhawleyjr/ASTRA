@@ -464,6 +464,14 @@ takes them as a prefix.
     two-point-mass sign check built from the definition, and the refusals' paths and messages.
     `kCoreApiVersion` stays at 10. R17's config-key-reference half goes to PR 14 (the M7 plan's obligations
     table). Plan: [plan](docs/plans/m7-pr4-mass-convention.md). Packet: in the PR body.
+  - PR 2 (#112): `Config::from_file` and `from_string` refuse a recursive alias at load with a `ConfigError`
+    naming the key, so `astra run` exits 65 where it segfaulted, closing the Config cycle item. The walk tracks
+    the maps and sequences on the current path by `YAML::Node::is()`, iterating entries (both duplicate keys)
+    and key nodes, so a shared alias still loads; no depth cap. `from_dict`'s emitter refuses a dict, list or
+    tuple that contains itself, by identity on the current path. `_yaml_route`'s cycle guard is removed: the
+    core refuses the reversed duplicate key (PyYAML's dict cyclic, yaml-cpp's lookup a scalar) before `_walk`
+    runs. `kCoreApiVersion` stays at 10. Plan: [plan](docs/plans/m7-pr2-config-cycles.md). Packet: in the PR
+    body.
 - [ ] **M8 Actuators and controller tuning** — a first-order lag and a nonlinear second-order actuator model
       with rate and position limits; autopilot gains loaded at startup; the tuning tool (spec-driven on the
       linear model, time-domain on the nonlinear sim, robustness across draws, gain schedules) with
@@ -480,20 +488,6 @@ takes them as a prefix.
 
 ## Open items
 
-- [ ] (M7) `Config::unknown_keys()` and `Config.from_dict`'s emitter (`value_to_yaml`) are not cycle-safe: a recursive
-      YAML alias makes them recurse without end, and the process segfaults (exit -11). No run starts and no file is
-      written (origin: M6 PR 11 review V-001, 2026-10-04; Joe's decision: fix the core, accept the Python-side
-      residual meanwhile). It is a core change, at its own tier. Reproducers, each probed on M6 PR 11's build:
-      - `astra run` on `tests/python/mc_analysis_fixtures/descent.yaml` plus a line `extra: &c [*c]` exits -11 (the
-        core's own path, `unknown_keys()` after the build).
-      - The two residual forms, which `astra._yaml_route.load` cannot see because PyYAML's construction erases
-        the cycle. Each segfaults `load` (exit -11) in all four tools, as it does in `astra run`:
-        - a self-merge, `m: &m {<<: *m}\nk: 1\n` (PyYAML reads `{'m': {}, 'k': 1}`);
-        - a cyclic value overwritten by a duplicate key, `extra: &c [*c]\nextra: 1\nk: 1\n` (PyYAML reads
-          `{'extra': 1, 'k': 1}`).
-      - `_yaml_route` refuses the recursive aliases PyYAML does keep (`cycle: &c [*c]`, `m: &m {self: *m}`)
-        before the core reads the text; that guard can go once the core is safe. Before M6 PR 11, `from_dict`
-        crashed on those too. Not started.
 - [ ] (M7) Earth/gravity rotation-consistency check at init (origin: M2 case05 fix; deferred by Joe, 2026-09-19) —
       `docs/plans/nesc-case05-gravity-centripetal.md`'s D2(b), deferred (D2(a), disclosed only, for that task).
       Two independently-configured plugins can each pass their own init-time validation while disagreeing about
@@ -651,6 +645,11 @@ takes them as a prefix.
       `docs/lessons.md` 2026-10-09). Joe decides whether it matches only `startup`, `resume` and `clear`, or keeps
       firing on compaction as a fail-closed default. It is a Tier 2 workflow PR of its own. Until then the
       lesson's rule holds: arm right before the guarded writes, in a turn that finishes them. Not started.
+- [ ] (unscheduled) A non-scalar map key reaches `Config::unknown_keys()` as a raw yaml-cpp exception, not a
+      `ConfigError` (origin: M7 PR 2; Joe 2026-10-10, out of PR 2's scope; Joe's call when). `collect_leaf_paths`
+      reads each key with `as<std::string>()`, which throws on a sequence or map key. Probed on M7 PR 2's build:
+      `astra run` on `tests/python/mc_analysis_fixtures/descent.yaml` plus `? [a, b]` then `: 1` exits 70
+      ("internal error (a defect)", `RuntimeError: yaml-cpp: ... bad conversion`), not 65. Not started.
 
 ## Future work
 

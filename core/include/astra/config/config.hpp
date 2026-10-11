@@ -21,10 +21,12 @@ namespace astra {
 class Config {
  public:
   // Parses path as YAML; throws ConfigError (errors.hpp) naming path on a missing file or a
-  // malformed document.
+  // malformed document, and naming the key on a recursive alias (an anchor used inside itself;
+  // an alias used at two places, neither inside the other, is legal).
   [[nodiscard]] static Config from_file(const std::filesystem::path& path);
   // Parses yaml_text as YAML; origin names the source in every error this Config's getters throw
   // (a test fixture that is not a real file, or the file path when the caller already has one).
+  // Refuses a recursive alias as from_file does.
   [[nodiscard]] static Config from_string(std::string_view yaml_text, std::string_view origin);
 
   [[nodiscard]] bool has(std::string_view key) const;
