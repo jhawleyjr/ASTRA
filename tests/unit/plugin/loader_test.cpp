@@ -56,8 +56,9 @@ TEST(PluginLoader, RejectsABadCoreApiVersionWithATypedErrorNamingThePlugin) {
 }
 
 // M7 PR 3b (ADR-0032): every kCoreApiVersion bump must reject a plugin built against the version
-// before it -- here, one built before EnvironmentSample gained omega_ie_b. The plugin's descriptor
-// carries core_api_version() - 1, so this stays "the preceding version" through any later bump.
+// before it -- as of M7 PR 3c (ADR-0033), one built before EnvironmentSample gained altitude_m.
+// The plugin's descriptor carries core_api_version() - 1, so this stays "the preceding version"
+// through any later bump.
 TEST(PluginLoader, RejectsAPluginBuiltAgainstThePrecedingCoreApiVersion) {
   try {
     const astra::LoadedPlugin loaded = make_loader().load("tests/plugins/stale_api_version");

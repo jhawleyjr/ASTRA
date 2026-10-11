@@ -30,8 +30,9 @@ def test_core_api_version_and_toolchain_string_come_from_libastra_core() -> None
     # Model's own vtable layout; M4 PR 3, ADR-0022: 8 -> 9, the new Transport interface settling
     # its vtable shape for the first time, Joe's Q-A decision in docs/plans/m4-pr3-core-seam.md;
     # M7 PR 3b, ADR-0032: 9 -> 10, EnvironmentSample gained omega_ie_b and crosses the loader
-    # boundary by reference).
-    assert _core.core_api_version() == 10
+    # boundary by reference; M7 PR 3c, ADR-0033: 10 -> 11, EnvironmentSample gained altitude_m,
+    # the same reasoning).
+    assert _core.core_api_version() == 11
     assert "Clang" in _core.built_with()
     assert "sanitizers=none" in _core.built_with()
     assert "static-plugins=off" in _core.built_with()

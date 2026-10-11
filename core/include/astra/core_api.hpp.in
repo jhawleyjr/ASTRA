@@ -54,7 +54,11 @@ namespace astra {
 // reference, so it crosses the loader boundary (ADR-0016's test for a bump). A plugin built against
 // version 9 must be rejected, not handed a struct whose layout it does not know
 // (tests/plugins/stale_api_version).
-inline constexpr std::uint32_t kCoreApiVersion = 10;
+// 11 (M7 PR 3c, ADR-0033): EnvironmentSample gained altitude_m, EarthModel::altitude at each RK4
+// stage's own state, set by the core. No vtable changed. The same reasoning as version 10: the
+// struct crosses the loader boundary by reference, so a plugin built against version 10 must be
+// rejected, not handed a struct whose layout it does not know (tests/plugins/stale_api_version).
+inline constexpr std::uint32_t kCoreApiVersion = 11;
 
 // The toolchain and configuration this tree was configured with. A plugin built by a different configure
 // carries a different string and is rejected at load; it can only come from a stale build directory.
