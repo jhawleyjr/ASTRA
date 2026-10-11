@@ -1,6 +1,6 @@
 # M7 PR 6b: `aircraft/f16` from the template (Tier 3)
 
-Status: **draft, awaiting Joe's approval.** The "approved" line is Joe's edit, made manually. Joe's seven
+Status: **approved by Joe, 2026-10-10, in plan mode**, with his seven amendments folded in (below). Joe's seven
 amendments of 2026-10-10 (the M7 plan amendment moved to PR 3c, descriptor names and signals, the ctest
 split, the speed-floor premise, decision 4, the regeneration test's subprocess hygiene, and the rest
 standing) are folded in.
