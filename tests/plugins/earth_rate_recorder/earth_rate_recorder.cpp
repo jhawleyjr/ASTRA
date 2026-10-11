@@ -1,13 +1,25 @@
-// A test-only WrenchSource that records the Earth rate each RK4 stage hands it (ADR-0032, M7 PR
-// 3b), for tests/unit/kernel/simulation_earth_rate_test.cpp and tests/physics/no_alloc_test.cpp.
+// A test-only WrenchSource that records the Earth rate (ADR-0032, M7 PR 3b) and the altitude
+// (ADR-0033, M7 PR 3c) each RK4 stage hands it. Its users:
+// - tests/unit/kernel/simulation_earth_rate_test.cpp;
+// - tests/unit/kernel/vehicle_environment_test.cpp;
+// - tests/physics/no_alloc_test.cpp.
 //
-// What it is: it requires no environment, returns a zero wrench, and owns one state with a zero
-// derivative, so every stage calls it from both wrench_b() and integrate_state().
+// What it is: it requires no environment and owns one state with a zero derivative, so every
+// stage calls it from both wrench_b() and integrate_state().
+//
+// It is also env.altitude_m's reader: wrench_b() returns force_b.x() = altitude_m - altitude_m,
+// and zero in every other component.
+// - For every finite altitude that is +0.0 (x - x under IEEE round-to-nearest), so inside a
+//   simulation, where the core always sets the field, the wrench is zero bit for bit, exactly as
+//   it was before M7 PR 3c.
+// - For an unset altitude (EnvironmentSample's NaN default) it is NaN: a sample built outside the
+//   stage path that forgets the field gives a NaN wrench, never a number.
 //
 // What it records: slot k of each kind is the k-th call since the last step() (or since init, for
 // a probe). There are four slots, and a later call only counts. Each slot records:
 // - env.omega_ie_b;
 // - air_data::omega_eb_b(vs, env);
+// - env.altitude_m;
 // - the stage's q_nb and p_n.
 // step() resets every slot to NaN and both counts to zero, so a stage that never called is
 // visible.
@@ -15,6 +27,7 @@
 // Published signals, under the vehicle prefix:
 // - "earth_rate_recorder.<kind>.<k>.<field>_<i>", with kind wrench or state, and field omega_ie_b
 //   (i 0 to 2), omega_eb_b (0 to 2), q_nb (0 to 3) or p_n (0 to 2);
+// - "earth_rate_recorder.<kind>.<k>.altitude_m";
 // - "earth_rate_recorder.<kind>_calls".
 //
 // The mutable members are test instrumentation only, the same exception
@@ -28,6 +41,7 @@
 #include <string_view>
 
 #include "astra/core_api.hpp"
+#include "astra/interfaces/wrench.hpp"
 #include "astra/interfaces/wrench_source.hpp"
 #include "astra/kernel/environment_sample.hpp"
 #include "astra/kernel/vehicle_state.hpp"
@@ -45,6 +59,7 @@ struct Record {
   std::array<double, 3> omega_eb_b{kNan, kNan, kNan};
   std::array<double, 4> q_nb{kNan, kNan, kNan, kNan};
   std::array<double, 3> p_n{kNan, kNan, kNan};
+  double altitude_m = kNan;
 };
 
 struct Recording {
@@ -74,6 +89,7 @@ struct Recording {
     for (Eigen::Index i = 0; i < 4; ++i) {
       slot.q_nb.at(static_cast<std::size_t>(i)) = q_nb(i);
     }
+    slot.altitude_m = env.altitude_m;
   }
 
   void publish(astra::SignalRegistry& registry, const std::string& prefix) {
@@ -89,6 +105,7 @@ struct Recording {
       for (std::size_t i = 0; i < 4; ++i) {
         registry.add(base + "q_nb_" + std::to_string(i), &slot.q_nb.at(i), "");
       }
+      registry.add(base + "altitude_m", &slot.altitude_m, "m");
     }
   }
 };
@@ -112,7 +129,9 @@ class EarthRateRecorder final : public astra::WrenchSource {
   [[nodiscard]] astra::Wrench wrench_b(
       const astra::VehicleState& vs, const astra::EnvironmentSample& env) const noexcept override {
     wrench_.record(vs, env);
-    return {};
+    astra::Wrench wrench;
+    wrench.force_b.x() = env.altitude_m - env.altitude_m;  // +0.0 when set, NaN when not
+    return wrench;
   }
 
   [[nodiscard]] int state_count() const noexcept override { return 1; }

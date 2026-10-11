@@ -55,8 +55,8 @@ class Model {
 
   // f(t, vs, env) -> dq, written into the caller-provided buffer: this model's own continuous-state
   // derivative for one RK4 sub-stage, given that stage's rigid-body VehicleState and that stage's
-  // EnvironmentSample (per-stage atmosphere and omega_ie_b, environment_sample.hpp) -- the
-  // identical (vs, env) shape WrenchSource::wrench_b() already has, so a
+  // EnvironmentSample (per-stage atmosphere, omega_ie_b and altitude_m, environment_sample.hpp) --
+  // the identical (vs, env) shape WrenchSource::wrench_b() already has, so a
   // model-owned state's derivative reads the rigid-body block the same way any wrench computation
   // already does. Must write all state_count() doubles of dq, every call: dq aliases Integrator's
   // own k1..k4 scratch, sized once and never re-zeroed between calls (R2), so an element this

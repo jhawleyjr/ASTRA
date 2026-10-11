@@ -3,10 +3,11 @@
 R21's "the bound functions equal the C++ ones". The C++ contract (units.hpp's pin) is one correctly
 rounded multiply (to SI) or divide (from SI) by one named constant. This test computes that
 independently, in exact rational arithmetic rounded once, with each constant derived here from its
-definition: a 50-digit decimal pi over 180, 3048/10000, and 1852/3600. It then asserts each derived
-constant equals the hex literal units_test.cpp pins on the C++ side. The oracle is never numpy
-(np.rad2deg multiplies by 180/pi and rounds differently for about 12% of inputs), never math.pi,
-and never the binding.
+definition: a 50-digit decimal pi over 180, 3048/10000, 1852/3600, and (M7 PR 3c,
+docs/plans/m7-pr3c-altitude-and-units.md) the decimal 4.4482216152605 N/lbf. It then asserts each
+derived constant equals the hex literal units_test.cpp pins on the C++ side. The oracle is never
+numpy (np.rad2deg multiplies by 180/pi and rounds differently for about 12% of inputs), never
+math.pi, and never the binding.
 """
 
 from __future__ import annotations
@@ -31,6 +32,14 @@ PI = Fraction(Decimal("3.14159265358979323846264338327950288419716939937510"))
 RADIANS_PER_DEGREE = float(PI / 180)
 METERS_PER_FOOT = float(Fraction(3048, 10000))
 METERS_PER_SECOND_PER_KNOT = float(Fraction(1852, 3600))
+# M7 PR 3c: the pound-force, the slug (4.4482216152605/0.3048, Joe's amendment 1: the correctly
+# rounded quotient of the decimal definitions) and the slug square foot (4.4482216152605 * 0.3048).
+_NEWTONS_PER_POUND_FORCE_EXACT = Fraction(Decimal("4.4482216152605"))
+NEWTONS_PER_POUND_FORCE = float(_NEWTONS_PER_POUND_FORCE_EXACT)
+KILOGRAMS_PER_SLUG = float(_NEWTONS_PER_POUND_FORCE_EXACT / Fraction(Decimal("0.3048")))
+KILOGRAM_SQUARE_METERS_PER_SLUG_SQUARE_FOOT = float(
+    _NEWTONS_PER_POUND_FORCE_EXACT * Fraction(3048, 10000)
+)
 
 # (name, constant, True when the function multiplies (to SI), False when it divides (from SI)).
 CONVERSIONS: tuple[tuple[str, float, bool], ...] = (
@@ -40,6 +49,15 @@ CONVERSIONS: tuple[tuple[str, float, bool], ...] = (
     ("meters_per_second_to_knots", METERS_PER_SECOND_PER_KNOT, False),
     ("degrees_to_radians", RADIANS_PER_DEGREE, True),
     ("radians_to_degrees", RADIANS_PER_DEGREE, False),
+    ("pound_force_to_newtons", NEWTONS_PER_POUND_FORCE, True),
+    ("newtons_to_pound_force", NEWTONS_PER_POUND_FORCE, False),
+    ("slugs_to_kilograms", KILOGRAMS_PER_SLUG, True),
+    ("kilograms_to_slugs", KILOGRAMS_PER_SLUG, False),
+    (
+        "slug_square_feet_to_kilogram_square_meters",
+        KILOGRAM_SQUARE_METERS_PER_SLUG_SQUARE_FOOT,
+        True,
+    ),
 )
 NAMES = [name for name, _, _ in CONVERSIONS]
 
@@ -101,6 +119,11 @@ def test_the_constants_derived_here_are_the_ones_units_test_cpp_pins() -> None:
     assert METERS_PER_FOOT == 0.3048
     assert METERS_PER_SECOND_PER_KNOT == 1852.0 / 3600.0
     assert float(PI) == math.pi  # the correctly rounded pi, as std::numbers::pi is
+    assert NEWTONS_PER_POUND_FORCE == 4.4482216152605
+    assert float.fromhex("0x1.d30140bb8996fp+3") == KILOGRAMS_PER_SLUG
+    assert float.fromhex("0x1.5b16e29369c65p+0") == KILOGRAM_SQUARE_METERS_PER_SLUG_SQUARE_FOOT
+    # The disclosure, from this side: the plain quotient of the two doubles lands one ulp below.
+    assert math.nextafter(KILOGRAMS_PER_SLUG, 0.0) == 4.4482216152605 / 0.3048
 
 
 @pytest.mark.parametrize(("name", "constant", "multiply"), CONVERSIONS)
@@ -138,6 +161,15 @@ def test_known_values_match_the_cpp_suite() -> None:
     assert _core.feet_to_meters(10000.0) == 3048.0
     assert _core.meters_to_feet(0.3048) == 1.0
     assert _core.meters_per_second_to_knots(3.0) == float.fromhex("0x1.7537d830a8161p+2")
+    assert _core.pound_force_to_newtons(1.0) == 4.4482216152605
+    assert _core.newtons_to_pound_force(NEWTONS_PER_POUND_FORCE) == 1.0
+    assert _core.newtons_to_pound_force(39.375) == float.fromhex("0x1.1b425f685d97cp+3")
+    assert _core.slugs_to_kilograms(1.0) == float.fromhex("0x1.d30140bb8996fp+3")
+    assert _core.kilograms_to_slugs(1.0) == 0.3048 / 4.4482216152605  # the generator's KG_TO_SLUG
+    assert _core.kilograms_to_slugs(9.0) == float.fromhex("0x1.3bbf90658b2abp-1")
+    assert _core.slug_square_feet_to_kilogram_square_meters(1.0) == float.fromhex(
+        "0x1.5b16e29369c65p+0"
+    )
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -279,6 +311,13 @@ def test_a_size_one_packed_field_is_accepted_because_its_stride_is_never_used(na
 
 
 def test_the_constants_are_not_bound() -> None:
-    constants = {RADIANS_PER_DEGREE, METERS_PER_FOOT, METERS_PER_SECOND_PER_KNOT}
+    constants = {
+        RADIANS_PER_DEGREE,
+        METERS_PER_FOOT,
+        METERS_PER_SECOND_PER_KNOT,
+        NEWTONS_PER_POUND_FORCE,
+        KILOGRAMS_PER_SLUG,
+        KILOGRAM_SQUARE_METERS_PER_SLUG_SQUARE_FOOT,
+    }
     bound = [name for name in dir(_core) if isinstance(getattr(_core, name), float)]
     assert not [name for name in bound if getattr(_core, name) in constants]

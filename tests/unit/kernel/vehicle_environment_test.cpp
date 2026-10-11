@@ -7,10 +7,21 @@
 // speed-of-sound case, or a configured non-finite wind at this level.
 #include <gtest/gtest.h>
 
+#include <bit>
+#include <cmath>
+#include <cstdint>
 #include <string>
 
 #include "astra/config/config.hpp"
+#include "astra/interfaces/wrench.hpp"
+#include "astra/interfaces/wrench_source.hpp"
+#include "astra/kernel/environment_sample.hpp"
+#include "astra/kernel/health_monitor.hpp"
 #include "astra/kernel/simulation.hpp"
+#include "astra/kernel/state.hpp"
+#include "astra/kernel/vehicle_state.hpp"
+#include "astra/plugin/loader.hpp"
+#include "astra/signals/signal_registry.hpp"
 
 namespace {
 
@@ -106,6 +117,44 @@ TEST(VehicleEnvironment, NonFiniteWindHaltsNamingTheWindPluginBeforeAnyWrenchSou
   ASSERT_NE(calls, nullptr);
   EXPECT_EQ(*calls, 0.0);
   EXPECT_TRUE(sim.vehicles().front().state().allFinite());
+}
+
+// ADR-0033 (M7 PR 3c, test C): EnvironmentSample::altitude_m defaults to NaN, so a WrenchSource
+// handed a sample built outside the stage path with the field unset computes a NaN wrench, never a
+// sea-level number, and HealthMonitor::check_wrench halts on it naming that plugin. The reader is
+// tests/plugins/earth_rate_recorder, whose force_b.x() is altitude_m - altitude_m. Inside a
+// simulation the core always sets the field (simulation_earth_rate_test.cpp's
+// SimulationStageAltitude), so this case exists only outside the stage path.
+TEST(VehicleEnvironment, AnUnsetAltitudeGivesItsReaderANaNWrench) {
+  astra::PluginLoader loader{ASTRA_TEST_PLUGIN_DIR};
+  astra::LoadedPlugin loaded = loader.load("tests/plugins/earth_rate_recorder");
+  auto* const reader = dynamic_cast<astra::WrenchSource*>(loaded.model.get());
+  ASSERT_NE(reader, nullptr);
+  astra::SignalRegistry registry;
+  reader->init(Config::from_string("{}\n", "unset-altitude-reader"), registry);
+
+  astra::StateVector y = astra::StateVector::Zero();
+  y(astra::state::kQuaternion) = 1.0;
+  const astra::VehicleState vs{y.data()};
+
+  const astra::EnvironmentSample unset;
+  const astra::Wrench nan_wrench = reader->wrench_b(vs, unset);
+  EXPECT_TRUE(std::isnan(nan_wrench.force_b.x())) << "an unset altitude read as a number";
+
+  astra::EnvironmentSample set;
+  set.altitude_m = 1000.0;
+  const astra::Wrench zero_wrench = reader->wrench_b(vs, set);
+  EXPECT_EQ(std::bit_cast<std::uint64_t>(zero_wrench.force_b.x()), 0U) << "not +0.0";
+
+  astra::SignalRegistry health_registry;
+  astra::HealthMonitor monitor;
+  monitor.init(Config::from_string("sim: {}\n", "unset-altitude-health"), health_registry);
+  const astra::HaltReason halt =
+      monitor.check_wrench(nan_wrench, "tests/plugins/earth_rate_recorder",
+                           astra::StepContext{.t = 0.0, .dt = 0.001, .frame = 0}, 0);
+  ASSERT_TRUE(halt);
+  EXPECT_EQ(halt.check, HealthCheck::kNonFiniteWrench);
+  EXPECT_EQ(halt.source, "tests/plugins/earth_rate_recorder");
 }
 
 }  // namespace

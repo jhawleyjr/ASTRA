@@ -147,12 +147,13 @@ class Vehicle {
 
   // This frame's environment sample (docs/architecture.md §5), latched by Simulation::step before
   // step()/integrate() run (environment_sample.hpp). Defaults to still air / all-NaN atmosphere,
-  // matching a Simulation with no physical.wind/physical.atmosphere configured. omega_ie_b stays
-  // all-NaN here: each RK4 stage's copy sets it (ADR-0032, prepare_stage_environment). Also marks
-  // environment_latched_ true, unconditionally, every call (M3 PR 5, docs/plans/
-  // pr5-nanobind-bindings.md, Design decision 2) -- cleared by nothing, including reset(): once a
-  // real frame has latched a real sample, derivative() may trust environment_'s wind_n permanently
-  // for this Vehicle's lifetime, regardless of how many further frames run or don't.
+  // matching a Simulation with no physical.wind/physical.atmosphere configured. omega_ie_b and
+  // altitude_m stay NaN here: each RK4 stage's copy sets them (ADR-0032, ADR-0033,
+  // prepare_stage_environment). Also marks environment_latched_ true, unconditionally, every call
+  // (M3 PR 5, docs/plans/pr5-nanobind-bindings.md, Design decision 2) -- cleared by nothing,
+  // including reset(): once a real frame has latched a real sample, derivative() may trust
+  // environment_'s wind_n permanently for this Vehicle's lifetime, regardless of how many further
+  // frames run or don't.
   void set_environment(const EnvironmentSample& sample) noexcept {
     environment_ = sample;
     environment_latched_ = true;
@@ -390,9 +391,10 @@ class Vehicle {
   // ADR-0020: factored out of integrate()'s own derivative functor for the identical
   // cognitive-complexity reason check_domain above is its own function -- see its own definition
   // comment (vehicle.cpp) for the full contract. Returns whether the caller's wrench_sources_ loop
-  // should be skipped this stage. It sets stage_env.omega_ie_b first, on every stage (ADR-0032).
-  // It updates stage_env.atmosphere in place when sampled, and wrench_fault (first-fault-wins) when
-  // a halt fires. Per-frame path: no allocation, no exceptions.
+  // should be skipped this stage. It sets stage_env.omega_ie_b (ADR-0032) and stage_env.altitude_m
+  // (ADR-0033) first, on every stage. It updates stage_env.atmosphere in place when sampled, and
+  // wrench_fault (first-fault-wins) when a halt fires. Per-frame path: no allocation, no
+  // exceptions.
   [[nodiscard]] bool prepare_stage_environment(const VehicleState& vs_stage,
                                                EnvironmentSample& stage_env, const StepContext& ctx,
                                                HealthMonitor& health,

@@ -377,6 +377,20 @@ NB_MODULE(_core, m) {
       m, "degrees_to_radians", "degrees", "Degrees to radians (core/util/units, ADR-0002).");
   def_conversion<&astra::units::radians_to_degrees>(
       m, "radians_to_degrees", "radians", "Radians to degrees (core/util/units, ADR-0002).");
+  // M7 PR 3c: the pound-force and slug conversions, bound the same way (constants unbound).
+  def_conversion<&astra::units::pound_force_to_newtons>(
+      m, "pound_force_to_newtons", "pound_force",
+      "Pound-force to newtons (core/util/units, ADR-0002).");
+  def_conversion<&astra::units::newtons_to_pound_force>(
+      m, "newtons_to_pound_force", "newtons",
+      "Newtons to pound-force (core/util/units, ADR-0002).");
+  def_conversion<&astra::units::slugs_to_kilograms>(
+      m, "slugs_to_kilograms", "slugs", "Slugs to kilograms (core/util/units, ADR-0002).");
+  def_conversion<&astra::units::kilograms_to_slugs>(
+      m, "kilograms_to_slugs", "kilograms", "Kilograms to slugs (core/util/units, ADR-0002).");
+  def_conversion<&astra::units::slug_square_feet_to_kilogram_square_meters>(
+      m, "slug_square_feet_to_kilogram_square_meters", "slug_square_feet",
+      "Slug square feet to kilogram square meters (core/util/units, ADR-0002).");
 
   // Init-time errors (errors.hpp). Each object exists for its constructor's side effect, which
   // registers the Python type and its translator. nanobind runs translators

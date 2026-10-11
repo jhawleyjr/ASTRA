@@ -4,8 +4,9 @@
 // (Vehicle::evaluate_derivative_stage):
 // - wind_n stays frame-latched;
 // - atmosphere is refreshed at the stage's own altitude (ADR-0016);
-// - omega_ie_b is set from the stage's own state (ADR-0032).
-// The latched sample keeps omega_ie_b at its NaN default.
+// - omega_ie_b is set from the stage's own state (ADR-0032);
+// - altitude_m is set from the stage's own state (ADR-0033).
+// The latched sample keeps omega_ie_b and altitude_m at their NaN defaults.
 #pragma once
 
 #include <Eigen/Core>
@@ -88,6 +89,29 @@ struct EnvironmentSample {
   // - HealthMonitor does not check it: it is the core's own value, not an environment plugin's
   //   output.
   Eigen::Vector3d omega_ie_b = Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+
+  // ADR-0033: EarthModel::altitude at the stage's own state, in meters -- the height above the
+  // configured Earth model's reference surface: the ellipsoid under wgs84_rotating, the sphere
+  // under earth/round, and -p_n[2] under earth/flat. It is the value AtmosphereModel::at and
+  // WindModel::begin_frame already receive, and it claims nothing about a geoid (PR 9's question,
+  // docs/plans/m7-f16-inventory.md D8). A WrenchSource reads it here, never from p_n, whose
+  // meaning the Earth model owns (wind_model.hpp's representation trap).
+  //
+  // Vehicle::prepare_stage_environment sets it first in every RK4 stage's copy, with omega_ie_b,
+  // before the atmosphere's range check, on the step path and on Simulation::derivative's probe
+  // path alike. A stage whose wrenches the environment checks skip still carries it to
+  // integrate_state(), and the atmosphere is sampled at this same value.
+  //
+  // It is not canonicalized. At exactly zero altitude earth/flat gives -0.0 (-p_n[2] with p_n[2]
+  // = +0.0), and the field carries it; nothing subtracts it, so no reader's result changes.
+  //
+  // NaN by default (ADR-0017's convention, as omega_ie_b above):
+  // - The latched sample (Vehicle::environment()) keeps the default.
+  // - A sample built outside the stage path (an independent evaluator, a test) must set it from
+  //   the sim's Earth model at the evaluated state. A forgotten value gives its reader a NaN
+  //   wrench, never a sea-level number.
+  // - HealthMonitor does not check it: it is the core's own value.
+  double altitude_m = std::numeric_limits<double>::quiet_NaN();
 };
 
 // Which optional environment inputs a WrenchSource cannot run without (docs/architecture.md §15's

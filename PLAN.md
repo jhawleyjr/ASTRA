@@ -472,6 +472,23 @@ takes them as a prefix.
     core refuses the reversed duplicate key (PyYAML's dict cyclic, yaml-cpp's lookup a scalar) before `_walk`
     runs. `kCoreApiVersion` stays at 10. Plan: [plan](docs/plans/m7-pr2-config-cycles.md). Packet: in the PR
     body.
+  - PR 6b (#113): `aircraft/f16` from `just new-aircraft f16`, with the generator, the tables, the fixtures and
+    the aero. `generate_f16_tables.py` and `extract_f16_checkdata.py` (no shared code, each checking P1's
+    SHA-256s) emit `aero_tables.hpp`, `engine_tables.hpp` and `f16_checkdata.hpp`, and `test_f16_generated.py`
+    regenerates them byte for byte (skipped only without P1). `physical/aero` is the DML's build-up in SI,
+    clipped at every table edge, damping `air_data::omega_eb_b` (ADR-0032), with the moments moved 1.132 ft
+    from the MRC to the CM; `F16Aero` checks it on the 16 checkData shots. The copy's `configs/cruise.yaml` is
+    removed (PR 9 writes the F-16's configs). #113 merged after the plan's commit 4, so mass and propulsion
+    are PR 6c's. Plan: [plan](docs/plans/m7-pr6b-f16-aircraft.md). Packet: in the PR body.
+  - PR 3c (#114): `EnvironmentSample::altitude_m` (ADR-0033) and the slug and pound-force units.
+    `Vehicle::prepare_stage_environment` sets it to `EarthModel::altitude` at each RK4 stage's own state, first
+    with `omega_ie_b` and before the atmosphere's range check, on the step and probe paths; the atmosphere
+    reads the same value. NaN by default and in the latched sample, not canonicalized; `kCoreApiVersion` goes
+    10 to 11. `earth_rate_recorder` reads it (`x − x`), so an unset value halts on a NaN wrench; every
+    existing value is unchanged. `core/util/units` gains pound-force, slug and slug·ft² conversions,
+    `kKilogramsPerSlug` the correctly rounded quotient (one ulp above the plain one), each pinned in hex and
+    bound in `astra._core`. The M7 plan's 2026-10-10 amendment adds PR 6c. Plan:
+    [plan](docs/plans/m7-pr3c-altitude-and-units.md). Packet: in the PR body.
 - [ ] **M8 Actuators and controller tuning** — a first-order lag and a nonlinear second-order actuator model
       with rate and position limits; autopilot gains loaded at startup; the tuning tool (spec-driven on the
       linear model, time-domain on the nonlinear sim, robustness across draws, gain schedules) with

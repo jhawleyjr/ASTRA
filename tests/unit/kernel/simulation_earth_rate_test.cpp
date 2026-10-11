@@ -97,6 +97,7 @@ struct Slot {
   Eigen::Vector3d omega_eb_b;
   Eigen::Vector4d q_nb;
   Eigen::Vector3d p_n;
+  double altitude_m = 0.0;
 };
 
 double signal(const Simulation& sim, const std::string& name) {
@@ -116,6 +117,7 @@ Slot slot(const Simulation& sim, std::string_view kind, int k) {
   for (int i = 0; i < 4; ++i) {
     s.q_nb(i) = signal(sim, base + "q_nb_" + std::to_string(i));
   }
+  s.altitude_m = signal(sim, base + "altitude_m");
   return s;
 }
 
@@ -378,6 +380,142 @@ TEST(SimulationEarthRate, IntegrateStateSeesItOnStagesWhoseWrenchesAreSkipped) {
       expect_positive_zero(slot(sim, "state", k).omega_ie_b, "integrate_state's omega_ie_b");
     }
   }
+}
+
+// ---------------------------------------------------------------------------------------------
+// ADR-0033 (M7 PR 3c, docs/plans/m7-pr3c-altitude-and-units.md, tests B.1 to B.5): the core sets
+// EnvironmentSample::altitude_m = EarthModel::altitude(vs_stage) in every RK4 stage's environment,
+// first, with omega_ie_b, on the step and probe paths. The expected value is computed here from
+// each slot's own recorded stage p_n, not by the core: p_n(2) under wgs84_rotating (already the
+// height above the ellipsoid, ADR-0003) and -p_n(2) under earth/flat. Every comparison is bitwise.
+
+void expect_same_bits(double actual, double expected, const char* what) {
+  EXPECT_EQ(bits(actual), bits(expected))
+      << what << " is " << actual << ", expected " << expected << " (bits " << std::hex
+      << bits(actual) << " vs " << bits(expected) << ")";
+}
+
+// B.1: no atmosphere is configured, so before M7 PR 3c no stage computed an altitude at all.
+TEST(SimulationStageAltitude, EveryStepStageCarriesTheEarthModelsAltitudeOnWgs84Rotating) {
+  Simulation sim = load(rotating_yaml(), "stage-altitude-step-wgs84");
+  ASSERT_FALSE(sim.step());
+
+  ASSERT_EQ(calls(sim, "wrench"), 4.0);
+  ASSERT_EQ(calls(sim, "state"), 4.0);
+  for (int k = 0; k < kSlots; ++k) {
+    SCOPED_TRACE("stage " + std::to_string(k + 1));
+    const Slot wrench = slot(sim, "wrench", k);
+    const Slot state = slot(sim, "state", k);
+    expect_same_bits(wrench.altitude_m, wrench.p_n(2), "wrench_b's altitude_m");
+    expect_same_bits(state.altitude_m, wrench.altitude_m, "integrate_state's altitude_m");
+  }
+  // The stage's own altitude, not the frame's.
+  EXPECT_NE(bits(slot(sim, "wrench", 1).altitude_m), bits(slot(sim, "wrench", 0).altitude_m));
+}
+
+// B.2: the probe sets the field at the probed state (1500 m), not at the sim's own (1000 m).
+TEST(SimulationStageAltitude, TheDerivativeProbeCarriesTheProbedStatesAltitudeOnWgs84Rotating) {
+  Simulation sim = load(rotating_yaml(), "stage-altitude-probe-wgs84");
+  static_cast<void>(
+      sim.derivative(probe_state(probe_position(), Eigen::Vector3d{100.0, -4.0, 6.0}, kProbePsi,
+                                 kProbeTheta, kProbePhi, Eigen::Vector3d{0.05, 0.08, -0.1})));
+
+  ASSERT_EQ(calls(sim, "wrench"), 1.0);
+  ASSERT_EQ(calls(sim, "state"), 1.0);
+  expect_same_bits(slot(sim, "wrench", 0).altitude_m, 1500.0, "wrench_b's altitude_m");
+  expect_same_bits(slot(sim, "state", 0).altitude_m, 1500.0, "integrate_state's altitude_m");
+}
+
+std::string flat_with_atmosphere_yaml() {
+  return "sim: { dt: 0.001, frames: 1 }\n" + std::string{kRecorder} +
+         physical("plugins/physical/earth/flat", "plugins/physical/gravity/constant") +
+         "  atmosphere: plugins/physical/atmosphere/isa1976\n" +
+         negative_row_initial("[0.0, 0.0, -1000.0]");
+}
+
+// B.3: earth/flat, with an in-range atmosphere sampled at the same value.
+TEST(SimulationStageAltitude, IsMinusPnDownOnAFlatEarthOnBothPaths) {
+  Simulation stepped = load(flat_with_atmosphere_yaml(), "stage-altitude-step-flat");
+  ASSERT_FALSE(stepped.step());
+  ASSERT_EQ(calls(stepped, "wrench"), 4.0);
+  ASSERT_EQ(calls(stepped, "state"), 4.0);
+  for (int k = 0; k < kSlots; ++k) {
+    SCOPED_TRACE("step path, stage " + std::to_string(k + 1));
+    const Slot wrench = slot(stepped, "wrench", k);
+    expect_same_bits(wrench.altitude_m, -wrench.p_n(2), "wrench_b's altitude_m");
+    expect_same_bits(slot(stepped, "state", k).altitude_m, wrench.altitude_m,
+                     "integrate_state's altitude_m");
+  }
+  EXPECT_NE(bits(slot(stepped, "wrench", 1).altitude_m),
+            bits(slot(stepped, "wrench", 0).altitude_m));
+
+  Simulation probed = load(flat_with_atmosphere_yaml(), "stage-altitude-probe-flat");
+  static_cast<void>(probed.derivative(probe_state(
+      Eigen::Vector3d{0.0, 0.0, -1500.0}, Eigen::Vector3d{80.0, 1.0, 2.0}, kNegativeRowPsi,
+      kNegativeRowTheta, kNegativeRowPhi, Eigen::Vector3d{0.02, 0.01, -0.03})));
+  SCOPED_TRACE("probe path");
+  expect_same_bits(slot(probed, "wrench", 0).altitude_m, 1500.0, "wrench_b's altitude_m");
+  expect_same_bits(slot(probed, "state", 0).altitude_m, 1500.0, "integrate_state's altitude_m");
+}
+
+// B.4: B6's two fixtures. The field is set before both early returns of
+// prepare_stage_environment, so a stage whose wrenches are skipped still hands integrate_state()
+// its own altitude.
+TEST(SimulationStageAltitude, IntegrateStateSeesItOnStagesWhoseWrenchesAreSkipped) {
+  {
+    SCOPED_TRACE("(i) the non-finite return: tests/plugins/nan_atmosphere");
+    Simulation sim = load(skipped_stage_yaml("", "tests/plugins/nan_atmosphere",
+                                             "{ p_n: [0.0, 0.0, -1000.0], v_b: [60.0, 0.0, 0.0] }"),
+                          "stage-altitude-skip-non-finite");
+    const astra::HaltReason halt = sim.step();
+    ASSERT_TRUE(halt);
+    EXPECT_EQ(halt.check, HealthCheck::kNonFiniteEnvironment);
+    EXPECT_EQ(calls(sim, "wrench"), 0.0);
+    for (int k = 0; k < kSlots; ++k) {
+      EXPECT_TRUE(std::isnan(slot(sim, "wrench", k).altitude_m)) << "slot " << k;
+    }
+    ASSERT_EQ(calls(sim, "state"), 4.0);
+    for (int k = 0; k < kSlots; ++k) {
+      SCOPED_TRACE("stage " + std::to_string(k + 1));
+      const Slot state = slot(sim, "state", k);
+      expect_same_bits(state.altitude_m, -state.p_n(2), "integrate_state's altitude_m");
+    }
+  }
+  {
+    SCOPED_TRACE("(ii) the out-of-range return: isa1976's upper limit crossed inside one frame");
+    Simulation sim =
+        load(skipped_stage_yaml(", health: { domain: halt }", "plugins/physical/atmosphere/isa1976",
+                                "{ p_n: [0.0, 0.0, -85999.99], v_b: [0.0, 0.0, -100.0] }"),
+             "stage-altitude-skip-out-of-range");
+    const astra::HaltReason halt = sim.step();
+    ASSERT_TRUE(halt);
+    EXPECT_EQ(halt.check, HealthCheck::kOutOfDomain);
+
+    ASSERT_EQ(calls(sim, "wrench"), 1.0);
+    const Slot first = slot(sim, "wrench", 0);
+    expect_same_bits(first.altitude_m, -first.p_n(2), "stage 1 wrench_b's altitude_m");
+    EXPECT_LE(first.altitude_m, 86000.0);
+    ASSERT_EQ(calls(sim, "state"), 4.0);
+    for (int k = 0; k < kSlots; ++k) {
+      SCOPED_TRACE("stage " + std::to_string(k + 1));
+      const Slot state = slot(sim, "state", k);
+      expect_same_bits(state.altitude_m, -state.p_n(2), "integrate_state's altitude_m");
+      if (k > 0) {
+        EXPECT_GT(state.altitude_m, 86000.0);
+      }
+    }
+  }
+}
+
+// B.5: the latched sample keeps the NaN default, with and without an atmosphere configured.
+TEST(SimulationStageAltitude, TheLatchedSampleKeepsNaN) {
+  Simulation without = load(rotating_yaml(), "stage-altitude-latched-wgs84");
+  ASSERT_FALSE(without.step());
+  EXPECT_TRUE(std::isnan(without.vehicles().front().environment().altitude_m));
+
+  Simulation with = load(flat_with_atmosphere_yaml(), "stage-altitude-latched-flat");
+  ASSERT_FALSE(with.step());
+  EXPECT_TRUE(std::isnan(with.vehicles().front().environment().altitude_m));
 }
 
 }  // namespace

@@ -332,7 +332,8 @@ HaltReason Vehicle::check_domain(const double* y, const StepContext& ctx,
 // !wrench_fault guard (first-fault-wins).
 //
 // What this function writes into stage_env:
-// - omega_ie_b (ADR-0032): set first, on every stage, before either early return.
+// - omega_ie_b (ADR-0032) and altitude_m (ADR-0033): set first, on every stage, before either
+//   early return. The atmosphere's range check and at() read this same altitude_m.
 // - atmosphere: sampled fresh here when in range. Otherwise it keeps the latched value, which no
 //   wrench_b() reads (the stage is skipped) and integrate_state() still receives.
 //
@@ -351,13 +352,14 @@ bool Vehicle::prepare_stage_environment(const VehicleState& vs_stage, Environmen
   if (!rigid_body_.has_value()) {
     return false;
   }
-  // ADR-0032: first, before either early return below. A stage those checks skip calls no
-  // wrench_b(), but evaluate_derivative_stage still hands this same stage_env to every
+  // ADR-0032 and ADR-0033: first, before either early return below. A stage those checks skip
+  // calls no wrench_b(), but evaluate_derivative_stage still hands this same stage_env to every
   // integrate_state().
   stage_env.omega_ie_b = earth_rate_b(rigid_body_->earth(), vs_stage);
+  stage_env.altitude_m = rigid_body_->earth().altitude(vs_stage);
   bool skip_wrench_stage = false;
   if (atmosphere_ != nullptr) {
-    const double altitude_m = rigid_body_->earth().altitude(vs_stage);
+    const double altitude_m = stage_env.altitude_m;
     if (health.domain_enabled()) {
       const AltitudeRange range = atmosphere_->valid_range();
       // NaN-safe form, matching Simulation::from_config's own init-time check (simulation.cpp) --
