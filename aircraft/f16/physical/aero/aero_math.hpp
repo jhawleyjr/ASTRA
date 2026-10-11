@@ -1,158 +1,277 @@
-// Plugin-side "unit-tested with no simulator" pattern (docs/plans/pr4-notional-aero-turbofan.md,
-// ADR-0020): Inputs/Coefficients are plain data, compute_wrench() is pure (no Config, no
-// VehicleState, no EnvironmentSample, no I/O), so a test can call it directly with hand-built
-// values -- the same shape plugins/physical/wind/dryden/dryden_filter.hpp already demonstrates for
-// a plugin-adjacent header included by both the plugin's own .cpp and an independent unit test.
-// Identical between aircraft/notional_transport and aircraft/_template; only each aircraft's own
-// config supplies the Coefficients values (aero.cpp reads them).
+// The F-16 aero build-up, hand-ported from F16_aero.dml (NASA's DAVE-ML "F-16 Subsonic Aerodynamics
+// Model (a la Garza)", Mod P; docs/plans/m7-f16-inventory.md section 2) as an SI realization
+// (docs/plans/m7-pr6b-f16-aircraft.md; the M7 plan's Q26 pattern; ADR-0002).
 //
-// Force/moment assembly: S&L 3rd ed. Table 2.3-1 (p.78), Eq. (2.3-2)/(2.3-3a)/(2.3-4a,b) --
-// docs/plans/pr4-notional-aero-turbofan.md's own "Force/moment assembly" section has the full
-// citation and derivation, including why this plugin's own wind-axis vector (-D, Y, -L) replaces
-// S&L's literal (-D, -C, -L): JSBSim's SIDE-axis coefficient (Y = cy_beta_per_rad * beta * qbar *
-// S) is already the signed +right force component directly, not S&L's own oppositely-signed
-// crosswind quantity C. Moments are computed about AERORP (r_aero_b's own origin, the source's own
-// force/ moment reference point) then transferred to CG: moment_b_cg = moment_native_b + r_aero_b x
-// force_b (the standard rigid-body moment-transfer theorem).
+// Every quantity here is SI: angles in rad, rates in rad/s, speeds in m/s, lengths in m. The DML
+// states its inputs in deg and ft/s; each of its constants that carries a unit is written below as
+// the DML's value times a named core/util/units conversion, never as a pre-multiplied number, and
+// the breakpoints are derived from the generated header's verbatim degree values at compile time.
+// The table values are coefficients and need no conversion.
 //
-// Rate-damping terms (croll_p/r, cm_q, cn_r) use the division-free, V-linear reduction of
-// qbar*S*L*(L/(2*V))*rate (the plan's own "Nondimensional-rate V->0 obligation" section): naively
-// computing L/(2*V) is +Inf at V=0, and Inf*0 (qbar=0 at V=0) is NaN. The reduced form
-// 0.25*rho*V*S*L^2*Coeff*rate has no division anywhere and is exactly 0 at V=0 by construction.
+// Two of the DML's choices are kept as the DML makes them:
+// - rtd = 180/3.14159265 (:355-366), its own truncated pi, used only in cz1's (beta/rtd)^2. It
+//   divides beta in degrees there, as in the file, so the truncation's effect is the DML's.
+// - Only the table lookups clip (f16_interp.hpp). del, dail and drdr, and beta in cy0 and cz1,
+//   enter their linear terms unclipped: the file says of del "note range is beyond breakpoint
+//   range" (:392).
+//
+// The model returns coefficients at the moment reference center (MRC, 35 % MAC; :167-176). This
+// header also dimensionalizes them and transfers the moments to the center of mass (D4), which the
+// file leaves to its user.
+//
+// Pure functions of their arguments: no Config, no VehicleState, no allocation, no exceptions. The
+// tests call build_up() directly and compare every field with the shots' internalValues.
 #pragma once
 
 #include <Eigen/Core>
+#include <array>
 #include <cmath>
+#include <cstddef>
 #include <limits>
 
+#include "../../common/f16_interp.hpp"
+#include "aero_tables.hpp"
 #include "astra/interfaces/wrench.hpp"
 #include "astra/util/air_data.hpp"
+#include "astra/util/units.hpp"
 
 namespace astra::aircraft_f16_aero_math {
 
-// Assembled by wrench_b() from (VehicleState, EnvironmentSample) via air_data:: plus this plugin's
-// own bound control inputs. density_kg_m3 is the one raw atmosphere field this model's own math
-// reads (through dynamic_pressure_pa and, separately, the rate-damping terms' own explicit rho
-// factor) -- carried here, not only inside dynamic_pressure_pa, so finite() below can validate it
-// directly (see the file's own R-001 citation on finite()).
+namespace tables = astra::aircraft_f16_aero_tables;
+namespace interp = astra::aircraft_f16_interp;
+namespace units = astra::units;
+
+// NOLINTBEGIN(readability-magic-numbers): each literal below is a constant of F16_aero.dml (or of
+// F16_inertia.dml and the README for the CM position), cited on its line.
+
+// Reference geometry (:368-384).
+inline constexpr double kCbar = units::feet_to_meters(11.32);
+inline constexpr double kBspan = units::feet_to_meters(30.0);
+// 300 ft^2: one foot-to-meter conversion per length dimension.
+inline constexpr double kSref = units::feet_to_meters(units::feet_to_meters(300.0));
+
+// The DML's own pi and radians-to-degrees factor (:355-366), not the SI kRadiansPerDegree.
+// NOLINTNEXTLINE(modernize-use-std-numbers): the DML's truncated pi, kept on purpose (addendum 8).
+inline constexpr double kDmlPi = 3.14159265;
+inline constexpr double kRtd = 180.0 / kDmlPi;
+
+// vt's minValue="0.1" ft/s (:292; Mod L, :140-147, "to avoid divide-by-zero"), which the Simulink
+// realizes as a Saturate (F16_aero_create.m:92). It feeds only tvt.
+inline constexpr double kVtMin = units::feet_to_meters(0.1);
+
+// The control normalizations (:390-429): del = el/25 deg, dail = ail/20 deg, drdr = rdr/30 deg.
+inline constexpr double kElevatorScale = units::degrees_to_radians(25.0);
+inline constexpr double kAileronScale = units::degrees_to_radians(20.0);
+inline constexpr double kRudderScale = units::degrees_to_radians(30.0);
+
+// cy0 = -0.02 * beta(deg) + 0.021 * dail + 0.086 * drdr (:441-469); the beta slope per rad.
+inline constexpr double kCy0Beta = -0.02 / units::degrees_to_radians(1.0);
+inline constexpr double kCy0Dail = 0.021;
+inline constexpr double kCy0Drdr = 0.086;
+
+// cz1 = czt * (1 - (beta/rtd)^2) - 0.19 * del (:479-532).
+inline constexpr double kCz1Del = -0.19;
+
+// tvt = 2 * vt (:536-580), the denominator of b2v and cq2v.
+inline constexpr double kTvtPerVt = 2.0;
+
+// D4: the CM lies DXCG = 0.01 * CBAR * (35 - CG_PCT_MAC) = 1.132 ft forward of the MRC
+// (F16_inertia.dml:141-162, +FWD), with CG_PCT_MAC = 25 % (README.html:1234; Vol II Table 7).
+inline constexpr double kMrcPercentMac = 35.0;
+inline constexpr double kCmPercentMac = 25.0;
+inline constexpr double kCmForwardOfMrc =
+    units::feet_to_meters(0.01 * 11.32 * (kMrcPercentMac - kCmPercentMac));
+
+// D6 (docs/plans/m7-f16-inventory.md section 10, item 6): the aero's Mach limit, read from P1's
+// "Subsonic" under ADR-0031's data-domain rule. M7 PR 13 declares it through the envelope hook;
+// nothing in this PR declares or reads it.
+inline constexpr double kMachLimit = 1.0;
+
+// NOLINTEND(readability-magic-numbers)
+
+namespace detail {
+
+template <std::size_t N>
+constexpr std::array<double, N> to_radians(const std::array<double, N>& degrees) {
+  std::array<double, N> radians{};
+  for (std::size_t i = 0; i < N; ++i) {
+    radians[i] = units::degrees_to_radians(degrees[i]);
+  }
+  return radians;
+}
+
+}  // namespace detail
+
+// The breakpoints in rad, from the generated header's degree values (:952-970).
+inline constexpr std::array<double, 12> kAlpha1 = detail::to_radians(tables::kAlpha1);
+inline constexpr std::array<double, 7> kBeta1 = detail::to_radians(tables::kBeta1);
+inline constexpr std::array<double, 7> kBeta2 = detail::to_radians(tables::kBeta2);
+inline constexpr std::array<double, 5> kDe1 = detail::to_radians(tables::kDe1);
+
+// The DML's nine inputs (:292-349), in SI. ail is already in the DML's +LWD sense: the plugin
+// boundary (aero.cpp) flips ICD v1's +RWD aileron once, there.
 struct Inputs {
-  double true_airspeed_mps = 0.0;
-  double alpha_rad = 0.0;
-  double beta_rad = 0.0;
-  Eigen::Vector3d omega_b = Eigen::Vector3d::Zero();  // p, q, r
-  double dynamic_pressure_pa = 0.0;
-  double density_kg_m3 = 0.0;
-  double elevator_rad = 0.0;
-  double aileron_rad = 0.0;
-  double rudder_rad = 0.0;
+  double vt = 0.0;     // true airspeed, m/s (before the floor)
+  double alpha = 0.0;  // rad
+  double beta = 0.0;   // rad, +nose left of the velocity ("wind in right ear")
+  double p = 0.0;      // rad/s, the body rate relative to the Earth (ADR-0032)
+  double q = 0.0;
+  double r = 0.0;
+  double el = 0.0;   // rad, +TED
+  double ail = 0.0;  // rad, +LWD
+  double rdr = 0.0;  // rad, +TEL
 };
 
-// Config-resolved constants (docs/plans/pr4-notional-aero-turbofan.md's own "Config keys" section).
-struct Coefficients {
-  double wing_area_m2 = 0.0;
-  double wingspan_m = 0.0;
-  double mean_chord_m = 0.0;
-  Eigen::Vector3d r_aero_b = Eigen::Vector3d::Zero();  // AERORP relative to CG, body axes, m
-  double cl_0 = 0.0;
-  double cl_alpha_per_rad = 0.0;
-  double cl_elevator_per_rad = 0.0;
-  double cd_0 = 0.0;
-  double cd_k = 0.0;
-  double cy_beta_per_rad = 0.0;
-  double croll_beta_per_rad = 0.0;
-  double croll_p_per_rad = 0.0;
-  double croll_r_per_rad = 0.0;
-  double croll_aileron_per_rad = 0.0;
-  double croll_rudder_per_rad = 0.0;
-  double cm_alpha_per_rad = 0.0;
-  double cm_q_per_rad = 0.0;
-  double cm_elevator_per_rad = 0.0;
-  double cn_beta_per_rad = 0.0;
-  double cn_r_per_rad = 0.0;
-  double cn_rudder_per_rad = 0.0;
+// One field per internalValues varID of the file's checkData, SI where dimensional. abs_cl0 and
+// abs_cn0 are absCl0 and absCn0.
+struct BuildUp {
+  double vt = 0.0;
+  double alpha = 0.0;
+  double beta = 0.0;
+  double p = 0.0;
+  double q = 0.0;
+  double r = 0.0;
+  double el = 0.0;
+  double ail = 0.0;
+  double rdr = 0.0;
+  double rtd = 0.0;
+  double cbar = 0.0;
+  double bspan = 0.0;
+  double sref = 0.0;
+  double del = 0.0;
+  double dail = 0.0;
+  double drdr = 0.0;
+  double cxt = 0.0;
+  double cy0 = 0.0;
+  double czt = 0.0;
+  double cz1 = 0.0;
+  double tvt = 0.0;
+  double b2v = 0.0;
+  double cq2v = 0.0;
+  double absbeta = 0.0;
+  double abs_cl0 = 0.0;
+  double abs_cn0 = 0.0;
+  double clt = 0.0;
+  double cmt = 0.0;
+  double cnt = 0.0;
+  double cxq = 0.0;
+  double cyr = 0.0;
+  double cyp = 0.0;
+  double czq = 0.0;
+  double clr = 0.0;
+  double clp = 0.0;
+  double cmq = 0.0;
+  double cnr = 0.0;
+  double cnp = 0.0;
+  double dclda = 0.0;
+  double dcldr = 0.0;
+  double dcnda = 0.0;
+  double dcndr = 0.0;
+  double cl1 = 0.0;
+  double cn1 = 0.0;
+  double cx = 0.0;
+  double cy = 0.0;
+  double cz = 0.0;
+  double cl = 0.0;
+  double cm = 0.0;
+  double cn = 0.0;
 };
 
-// R-001 (docs/reviews/pr3-aero-propulsion-review.md) is cited here for the GENERAL lesson, not a
-// literal replay of its exact mechanism: checking only a struct's DERIVED fields can let a broken
-// RAW field pass silently if some derived quantity happens to mask it algebraically (there, an
-// infinite speed_of_sound_m_s divided a finite airspeed down to a finite mach == 0.0). This plugin
-// never computes Mach at all (its coefficients are constants, not Mach-scheduled -- docs/plans/
-// pr4-notional-aero-turbofan.md's Open item 6, a deliberate deviation from the original instruction
-// to use air_data::mach here), so that specific masking shape cannot recur -- but the underlying
-// habit (validate the raw field your own math actually consumes, not only what you derived from it)
-// still applies to density_kg_m3, the one raw atmosphere field this model reads. Core-side
-// HealthMonitor::check_environment (ADR-0020) already halts on a non-finite density_kg_m3 before
-// wrench_b() runs; this check is this plugin's own second, redundant guarantee.
 [[nodiscard]] inline bool finite(const Inputs& in) noexcept {
-  return astra::air_data::all_finite({in.true_airspeed_mps, in.alpha_rad, in.beta_rad,
-                                      in.dynamic_pressure_pa, in.density_kg_m3, in.elevator_rad,
-                                      in.aileron_rad, in.rudder_rad}) &&
-         in.omega_b.allFinite();
+  return astra::air_data::all_finite(
+      {in.vt, in.alpha, in.beta, in.p, in.q, in.r, in.el, in.ail, in.rdr});
 }
 
-// ADR-0018's own explicit "this contribution is invalid" sentinel, deliberately never Wrench{}'s
-// own zero default (which would read as "this model applies no force," a silent wrong answer).
+// Addendum section 2's build-up, term for term.
+[[nodiscard]] inline BuildUp build_up(const Inputs& in) noexcept {
+  BuildUp b;
+  // The floor (minValue, :292); a NaN stays NaN rather than becoming the floor.
+  b.vt = std::isnan(in.vt) || in.vt > kVtMin ? in.vt : kVtMin;
+  b.alpha = in.alpha;
+  b.beta = in.beta;
+  b.p = in.p;
+  b.q = in.q;
+  b.r = in.r;
+  b.el = in.el;
+  b.ail = in.ail;
+  b.rdr = in.rdr;
+  b.rtd = kRtd;
+  b.cbar = kCbar;
+  b.bspan = kBspan;
+  b.sref = kSref;
+
+  b.del = in.el / kElevatorScale;
+  b.dail = in.ail / kAileronScale;
+  b.drdr = in.rdr / kRudderScale;
+
+  b.cxt = interp::lookup(kDe1, kAlpha1, tables::kCxt, in.el, in.alpha);
+  b.cy0 = kCy0Beta * in.beta + kCy0Dail * b.dail + kCy0Drdr * b.drdr;
+  b.czt = interp::lookup(kAlpha1, tables::kCzt, in.alpha);
+  const double beta_over_rtd = units::radians_to_degrees(in.beta) / kRtd;
+  b.cz1 = b.czt * (1.0 - beta_over_rtd * beta_over_rtd) + kCz1Del * b.del;
+
+  b.tvt = kTvtPerVt * b.vt;
+  b.b2v = b.bspan / b.tvt;
+  b.cq2v = b.cbar * in.q / b.tvt;
+
+  b.absbeta = std::abs(in.beta);
+  b.abs_cl0 = interp::lookup(kBeta1, kAlpha1, tables::kAbsCl0, b.absbeta, in.alpha);
+  b.abs_cn0 = interp::lookup(kBeta1, kAlpha1, tables::kAbsCn0, b.absbeta, in.alpha);
+  // piecewise: -absCl0 when beta < 0, otherwise absCl0 (:607-663); -0.0 takes "otherwise".
+  b.clt = in.beta < 0.0 ? -b.abs_cl0 : b.abs_cl0;
+  b.cmt = interp::lookup(kDe1, kAlpha1, tables::kCmt, in.el, in.alpha);
+  b.cnt = in.beta < 0.0 ? -b.abs_cn0 : b.abs_cn0;
+
+  b.cxq = interp::lookup(kAlpha1, tables::kCxq, in.alpha);
+  b.cyr = interp::lookup(kAlpha1, tables::kCyr, in.alpha);
+  b.cyp = interp::lookup(kAlpha1, tables::kCyp, in.alpha);
+  b.czq = interp::lookup(kAlpha1, tables::kCzq, in.alpha);
+  b.clr = interp::lookup(kAlpha1, tables::kClr, in.alpha);
+  b.clp = interp::lookup(kAlpha1, tables::kClp, in.alpha);
+  b.cmq = interp::lookup(kAlpha1, tables::kCmq, in.alpha);
+  b.cnr = interp::lookup(kAlpha1, tables::kCnr, in.alpha);
+  b.cnp = interp::lookup(kAlpha1, tables::kCnp, in.alpha);
+
+  b.dclda = interp::lookup(kBeta2, kAlpha1, tables::kDclda, in.beta, in.alpha);
+  b.dcldr = interp::lookup(kBeta2, kAlpha1, tables::kDcldr, in.beta, in.alpha);
+  b.dcnda = interp::lookup(kBeta2, kAlpha1, tables::kDcnda, in.beta, in.alpha);
+  b.dcndr = interp::lookup(kBeta2, kAlpha1, tables::kDcndr, in.beta, in.alpha);
+
+  b.cl1 = b.clt + b.dclda * b.dail + b.dcldr * b.drdr;
+  b.cn1 = b.cnt + b.dcnda * b.dail + b.dcndr * b.drdr;
+
+  // The outputs (:784-946): the nine damping derivatives on cq2v and b2v.
+  b.cx = b.cxt + b.cq2v * b.cxq;
+  b.cy = b.cy0 + b.b2v * (b.cyp * in.p + b.cyr * in.r);
+  b.cz = b.cz1 + b.cq2v * b.czq;
+  b.cl = b.cl1 + b.b2v * (b.clp * in.p + b.clr * in.r);
+  b.cm = b.cmt + b.cq2v * b.cmq;
+  b.cn = b.cn1 + b.b2v * (b.cnp * in.p + b.cnr * in.r);
+  return b;
+}
+
+// The force at the MRC and the moment about the CM, body axes (+fwd, +right, +down), from the
+// coefficients and the dynamic pressure. The MRC lies kCmForwardOfMrc aft of the CM, at
+// r = (-d, 0, 0), so M_cm = M_mrc + r x F: pitch gains d * Fz, yaw loses d * Fy, roll is
+// unchanged (DYCG = DZCG = 0).
+[[nodiscard]] inline astra::Wrench wrench(const BuildUp& b, double dynamic_pressure) noexcept {
+  const double qs = dynamic_pressure * kSref;
+  astra::Wrench out;
+  out.force_b = Eigen::Vector3d(qs * b.cx, qs * b.cy, qs * b.cz);
+  const double roll_mrc = qs * kBspan * b.cl;
+  const double pitch_mrc = qs * kCbar * b.cm;
+  const double yaw_mrc = qs * kBspan * b.cn;
+  out.moment_b = Eigen::Vector3d(roll_mrc, pitch_mrc + kCmForwardOfMrc * out.force_b.z(),
+                                 yaw_mrc - kCmForwardOfMrc * out.force_b.y());
+  return out;
+}
+
+// ADR-0018's "this contribution is invalid" sentinel, never Wrench{}'s zero.
 [[nodiscard]] inline astra::Wrench non_finite_wrench() noexcept {
-  astra::Wrench wrench;
-  wrench.force_b.setConstant(std::numeric_limits<double>::quiet_NaN());
-  wrench.moment_b.setConstant(std::numeric_limits<double>::quiet_NaN());
-  return wrench;
-}
-
-[[nodiscard]] inline astra::Wrench compute_wrench(const Inputs& in,
-                                                  const Coefficients& c) noexcept {
-  const double cl =
-      c.cl_0 + c.cl_alpha_per_rad * in.alpha_rad + c.cl_elevator_per_rad * in.elevator_rad;
-  const double cd = c.cd_0 + c.cd_k * cl * cl;
-  const double drag_n = in.dynamic_pressure_pa * c.wing_area_m2 * cd;
-  const double lift_n = in.dynamic_pressure_pa * c.wing_area_m2 * cl;
-  // JSBSim-native SIDE convention (+right), NOT S&L's literal -C -- see this file's own header.
-  const double side_n = in.dynamic_pressure_pa * c.wing_area_m2 * c.cy_beta_per_rad * in.beta_rad;
-
-  const double ca = std::cos(in.alpha_rad);
-  const double sa = std::sin(in.alpha_rad);
-  const double cb = std::cos(in.beta_rad);
-  const double sb = std::sin(in.beta_rad);
-  // S&L Eq. (2.3-2): C_{w/bf}(alpha, beta). force_b = C_{w/bf}^T * force_w.
-  Eigen::Matrix3d c_w_bf;
-  // clang-format off
-  c_w_bf << ca * cb,  sb, sa * cb,
-           -ca * sb,  cb, -sa * sb,
-           -sa,      0.0, ca;
-  // clang-format on
-  const Eigen::Vector3d force_w(-drag_n, side_n, -lift_n);
-  const Eigen::Vector3d force_b = c_w_bf.transpose() * force_w;
-
-  const double p = in.omega_b(0);
-  const double q = in.omega_b(1);
-  const double r = in.omega_b(2);
-  const double b = c.wingspan_m;
-  const double cbar = c.mean_chord_m;
-  // Division-free V-linear rate-damping form (this file's own header comment).
-  const double rate_common_n_per_m2 =
-      0.25 * in.density_kg_m3 * in.true_airspeed_mps * c.wing_area_m2;
-
-  const double roll_n_m =
-      in.dynamic_pressure_pa * c.wing_area_m2 * b *
-          (c.croll_beta_per_rad * in.beta_rad + c.croll_aileron_per_rad * in.aileron_rad +
-           c.croll_rudder_per_rad * in.rudder_rad) +
-      rate_common_n_per_m2 * b * b * (c.croll_p_per_rad * p + c.croll_r_per_rad * r);
-  const double pitch_n_m =
-      in.dynamic_pressure_pa * c.wing_area_m2 * cbar *
-          (c.cm_alpha_per_rad * in.alpha_rad + c.cm_elevator_per_rad * in.elevator_rad) +
-      rate_common_n_per_m2 * cbar * cbar * c.cm_q_per_rad * q;
-  const double yaw_n_m =
-      in.dynamic_pressure_pa * c.wing_area_m2 * b *
-          (c.cn_beta_per_rad * in.beta_rad + c.cn_rudder_per_rad * in.rudder_rad) +
-      rate_common_n_per_m2 * b * b * c.cn_r_per_rad * r;
-
-  const Eigen::Vector3d moment_native_b(roll_n_m, pitch_n_m, yaw_n_m);
-  const Eigen::Vector3d moment_b = moment_native_b + c.r_aero_b.cross(force_b);
-
-  astra::Wrench wrench;
-  wrench.force_b = force_b;
-  wrench.moment_b = moment_b;
-  return wrench;
+  astra::Wrench out;
+  out.force_b.setConstant(std::numeric_limits<double>::quiet_NaN());
+  out.moment_b.setConstant(std::numeric_limits<double>::quiet_NaN());
+  return out;
 }
 
 }  // namespace astra::aircraft_f16_aero_math

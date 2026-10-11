@@ -1,7 +1,8 @@
-# This aircraft's own tests (docs/architecture.md §18): one executable, its ctest names, and the plugin
-# build order all come from this directory's path, so a copy made by `just new-aircraft` builds and runs
-# them with no edit here or anywhere in the framework. astra_add_plugin_test() (cmake/AstraPlugin.cmake)
-# is what makes a clean or targeted shared build produce the plugins before the tests dlopen them.
+# This aircraft's own tests (docs/architecture.md §18): the executables, their ctest names, and the plugin
+# build order all come from this directory's path, as in aircraft/_template/tests. astra_add_plugin_test()
+# (cmake/AstraPlugin.cmake) is what makes a clean or targeted shared build produce the plugins before the
+# tests dlopen them. The F-16's suites are named F16* so `ctest -R F16` selects them (M7 PR 6b,
+# docs/plans/m7-pr6b-f16-aircraft.md).
 if(NOT ASTRA_BUILD_TESTS)
   return()
 endif()
@@ -18,3 +19,17 @@ target_compile_definitions(astra_${tests_id} PRIVATE
 gtest_discover_tests(astra_${tests_id} TEST_PREFIX "${tests_id}." DISCOVERY_MODE PRE_TEST
                      PROPERTIES LABELS unit)
 astra_add_plugin_test(astra_${tests_id})
+
+# F16NoAlloc (docs/architecture.md §15): its own executable, because tests/support/alloc_counter.cpp
+# replaces the global operator new/delete for the whole executable it links into (the tests/embedded and
+# tests/physics precedent). `ctest -R NoAlloc` selects it.
+add_executable(astra_${tests_id}_no_alloc no_alloc_test.cpp
+  "${ASTRA_SOURCE_DIR}/tests/support/alloc_counter.cpp")
+target_link_libraries(astra_${tests_id}_no_alloc PRIVATE astra::core GTest::gtest_main)
+target_include_directories(astra_${tests_id}_no_alloc PRIVATE "${ASTRA_SOURCE_DIR}")
+target_compile_definitions(astra_${tests_id}_no_alloc PRIVATE
+  "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""
+  "ASTRA_THIS_AIRCRAFT=\"${aircraft_dir}\"")
+gtest_discover_tests(astra_${tests_id}_no_alloc TEST_PREFIX "${tests_id}." DISCOVERY_MODE PRE_TEST
+                     PROPERTIES LABELS unit)
+astra_add_plugin_test(astra_${tests_id}_no_alloc)
