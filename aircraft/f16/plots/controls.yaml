@@ -1,0 +1,25 @@
+# Starter plot package (astra.plot, docs/plans/m6-pr5-plots.md): `just new-aircraft` copies this directory, so
+# every new aircraft starts with these. Edit them, or add a package: one YAML file of figures, panels and series
+# (python/astra/plot.py's docstring has the format). `{v}` stands for each vehicle's index, so a package never
+# hardcodes v0. Name no path here: the copy rewrites only configs/. For a plot YAML cannot express, see
+# ground_track.yaml and ground_track.py. Run: `astra plot <log> aircraft/<name>/plots/controls.yaml`.
+title: Controls
+figures:
+  - name: controls
+    title: Control inputs
+    panels:
+      - ylabel: deflection
+        series:
+          - signal: v{v}.controls.elevator
+            unit: deg
+            label: elevator
+          - signal: v{v}.controls.aileron
+            unit: deg
+            label: aileron
+          - signal: v{v}.controls.rudder
+            unit: deg
+            label: rudder
+      - ylabel: throttle
+        series:
+          - signal: v{v}.controls.throttle
+            label: throttle

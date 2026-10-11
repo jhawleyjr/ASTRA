@@ -1,0 +1,23 @@
+# Starter plot package (astra.plot): the total body-axis force and moment on every vehicle, summed over its models
+# (FRD body axes, ADR-0001). See controls.yaml for how to edit or add a package.
+title: Wrench
+figures:
+  - name: wrench
+    title: Total wrench (body axes)
+    panels:
+      - ylabel: force
+        series:
+          - signal: v{v}.wrench_total.force_b_x
+            label: X
+          - signal: v{v}.wrench_total.force_b_y
+            label: Y
+          - signal: v{v}.wrench_total.force_b_z
+            label: Z
+      - ylabel: moment
+        series:
+          - signal: v{v}.wrench_total.moment_b_l
+            label: L
+          - signal: v{v}.wrench_total.moment_b_m
+            label: M
+          - signal: v{v}.wrench_total.moment_b_n
+            label: N

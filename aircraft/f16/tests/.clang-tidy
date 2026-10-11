@@ -1,0 +1,7 @@
+---
+# Tests inherit the repo configuration minus two checks that fight GoogleTest macros and literal expected
+# values (the number 200 is the ICD test, not a magic number).
+InheritParentConfig: true
+Checks: >
+  -readability-magic-numbers,
+  -readability-function-cognitive-complexity
