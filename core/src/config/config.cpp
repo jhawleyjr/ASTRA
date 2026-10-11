@@ -141,6 +141,50 @@ void collect_leaf_paths(const YAML::Node& node, const std::string& prefix,
   }
 }
 
+// A recursive alias (an anchor used inside itself, M7 PR 2) makes the document a cycle, and every
+// recursive walk of it (collect_leaf_paths, the emitter) would never end. An alias is the same node
+// as its anchor, so YAML::Node::is() identifies it; ancestors holds only the maps and sequences on
+// the current path, so a node shared by two sibling paths ("a: &x [1]" with "b: *x") is legal and
+// only a node reached again below itself is refused. Entries are iterated, not looked up, so both
+// entries of a duplicate key are walked, and key nodes are walked too (in_key: a cycle inside a
+// key, or under a non-scalar key, is named at that map's path, since a dotted path cannot address
+// a key). No depth cap: the check is exact, and an acyclic document's depth is what
+// collect_leaf_paths already recurses through.
+void refuse_cycles(const YAML::Node& node, const std::string& path, bool in_key,
+                   std::vector<std::pair<YAML::Node, std::string>>& ancestors,
+                   std::string_view origin) {
+  if (!node.IsMap() && !node.IsSequence()) {
+    return;
+  }
+  for (const auto& [ancestor, ancestor_path] : ancestors) {
+    if (ancestor.is(node)) {
+      const std::string where = ancestor_path.empty() ? "the top level" : "'" + ancestor_path + "'";
+      throw ConfigError(
+          origin, path,
+          "a recursive alias: an anchor used inside itself, reached again from " + where);
+    }
+  }
+  ancestors.emplace_back(node, path);
+  if (node.IsMap()) {
+    for (const auto& entry : node) {
+      refuse_cycles(entry.first, path, true, ancestors, origin);
+      const bool frozen = in_key || !entry.first.IsScalar();
+      refuse_cycles(entry.second, frozen ? path : join(path, entry.first.Scalar()), frozen,
+                    ancestors, origin);
+    }
+  } else {
+    for (std::size_t i = 0; i < node.size(); ++i) {
+      refuse_cycles(node[i], in_key ? path : join_index(path, i), in_key, ancestors, origin);
+    }
+  }
+  ancestors.pop_back();
+}
+
+void refuse_cycles(const YAML::Node& root, std::string_view origin) {
+  std::vector<std::pair<YAML::Node, std::string>> ancestors;
+  refuse_cycles(root, "", false, ancestors, origin);
+}
+
 [[noreturn]] void throw_missing(std::string_view origin, const std::string& path) {
   throw ConfigError(origin, path, "missing config key");
 }
@@ -200,6 +244,7 @@ Config Config::from_file(const std::filesystem::path& path) {
   } catch (const YAML::Exception& error) {
     throw ConfigError(path.string(), "", std::string{"malformed YAML: "} + error.what());
   }
+  refuse_cycles(root, path.string());
   auto document =
       std::make_shared<Document>(std::move(root), path.string(), std::set<std::string>{});
   return {std::move(document), ""};
@@ -212,6 +257,7 @@ Config Config::from_string(std::string_view yaml_text, std::string_view origin) 
   } catch (const YAML::Exception& error) {
     throw ConfigError(origin, "", std::string{"malformed YAML: "} + error.what());
   }
+  refuse_cycles(root, origin);
   auto document =
       std::make_shared<Document>(std::move(root), std::string{origin}, std::set<std::string>{});
   return {std::move(document), ""};

@@ -1,10 +1,12 @@
 // Config (core/config/config.hpp, docs/architecture.md §13, §15): typed getters and defaults,
 // nested maps and sequences, a missing key and a wrong type each naming the full dotted path, a
-// malformed document, and unknown_keys() (§15: unknown keys are errors, not warnings).
+// malformed document, unknown_keys() (§15: unknown keys are errors, not warnings), and a
+// recursive alias refused at load (M7 PR 2).
 #include "astra/config/config.hpp"
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -202,6 +204,61 @@ TEST(Config, EmitWithoutDropsOnlyThatRootKeyAndRoundTrips) {
   EXPECT_EQ(reloaded.emit_without("log"), text) << "emitting is a fixed point";
   EXPECT_EQ(config.unknown_keys().size(), 12U) << "emitting read nothing";
   EXPECT_EQ(Config::from_string("a: 1\n", "t").emit_without("log"), "a: 1\n");
+}
+
+// M7 PR 2: a recursive alias is refused at load, naming the key where the cycle closes, before
+// unknown_keys() or emit_without() (each a recursive walk that would never end) can see it.
+void expect_recursive_alias(std::string_view text, std::string_view key, std::string_view from) {
+  try {
+    static_cast<void>(Config::from_string(text, "cyclic.yaml"));
+    ADD_FAILURE() << "loaded: " << text;
+  } catch (const ConfigError& error) {
+    EXPECT_EQ(error.config_path(), key) << error.what();
+    EXPECT_TRUE(mentions(error,
+                         "a recursive alias: an anchor used inside itself, reached again "
+                         "from " +
+                             std::string{from}))
+        << error.what();
+    EXPECT_TRUE(mentions(error, "cyclic.yaml")) << error.what();
+  }
+}
+
+TEST(Config, RefusesARecursiveSequenceAliasNamingTheKey) {
+  expect_recursive_alias("extra: &c [*c]\nk: 1\n", "extra.0", "'extra'");
+}
+
+// yaml-cpp 0.8 does not merge "<<" (docs/lessons.md 2026-10-04): it is a key whose value is m.
+TEST(Config, RefusesASelfMergeNamingTheMergeKey) {
+  expect_recursive_alias("m: &m {<<: *m}\nk: 1\n", "m.<<", "'m'");
+}
+
+// yaml-cpp's lookup keeps the first of two duplicate keys, PyYAML the last; the walk sees both.
+TEST(Config, RefusesACycleInTheFirstDuplicateEntry) {
+  expect_recursive_alias("extra: &c [*c]\nextra: 1\nk: 1\n", "extra.0", "'extra'");
+}
+
+// The one text whose PyYAML dict is cyclic while the core's lookup sees a scalar (amendment 1).
+TEST(Config, RefusesACycleInTheSecondDuplicateEntry) {
+  expect_recursive_alias("extra: 1\nextra: &c [*c]\nk: 1\n", "extra.0", "'extra'");
+}
+
+TEST(Config, RefusesARootCycle) { expect_recursive_alias("&r {a: *r}\n", "a", "the top level"); }
+
+// A dotted path cannot address a key, so a cycle inside one is named at its map's path.
+TEST(Config, RefusesACycleThroughAKeyAtItsMapsPath) {
+  expect_recursive_alias("? &k [*k]\n: 1\n", "", "the top level");
+}
+
+TEST(Config, ASharedAliasThatIsNotACycleStillLoads) {
+  const Config config = Config::from_string("a: &x [1]\nb: *x\nm: &y {v: 2}\nn: *y\n", "test");
+  std::vector<std::string> unknown = config.unknown_keys();
+  std::ranges::sort(unknown);
+  EXPECT_EQ(unknown, (std::vector<std::string>{"a.0", "b.0", "m.v", "n.v"}));
+  EXPECT_EQ(config.integer("b.0"), 1);
+  EXPECT_EQ(config.integer("n.v"), 2);
+  const Config reloaded = Config::from_string(config.emit_without("log"), "reloaded");
+  EXPECT_EQ(reloaded.integer("a.0"), 1);
+  EXPECT_EQ(reloaded.integer("m.v"), 2);
 }
 
 }  // namespace

@@ -24,17 +24,16 @@ every leaf of the core's reading with the core's reading of the dict (D2):
   a digit string in a map), a set or a pair list, a duplicate key (the core reads the first,
   PyYAML the last), a merge key (yaml-cpp 0.8 does not merge ``<<``), a document PyYAML
   reads but the core does not, a scalar PyYAML's constructors cannot build (``0000-01-01``,
-  ``!!bool warn``: they raise plain ``ValueError``/``KeyError``), and a recursive alias (an
-  anchor used inside itself) that PyYAML's dict keeps, refused before the core sees the text
-  because the core's unknown-key scan does not end on one.
+  ``!!bool warn``: they raise plain ``ValueError``/``KeyError``).
+- A recursive alias (an anchor used inside itself) is refused by the core's ``from_string``,
+  naming the key, before anything walks PyYAML's dict (M7 PR 2). yaml-cpp's walk iterates every
+  entry, so it also sees a cycle PyYAML's construction erases (a self-merge ``m: &m {<<: *m}``, a
+  cyclic value a later duplicate key overwrites) and one only PyYAML's dict keeps (a duplicate
+  key whose last value is cyclic).
 
 Two residuals stay as they were (D2): an integer-typed key written ``1000.0`` reaches the core as
 ``1000``, which ``integer`` accepts and ``astra run`` refuses; and a key read with ``text`` keeps
 the dict's spelling of a numeric-looking value (``0.10`` reaches it as ``0.10000000000000001``).
-A third is Joe's accepted residual of review V-001: a recursive alias PyYAML's construction erases
-(a self-merge ``m: &m {<<: *m}``, or a cyclic value a duplicate key overwrites) is not seen here,
-and the core's scan of the text crashes the process, as it does in ``astra run``. No run starts
-and no file is written; PLAN.md's (M7) item makes the core cycle-safe.
 A config with no differing leaf comes back exactly as ``yaml.safe_load`` read it.
 """
 
@@ -77,14 +76,7 @@ def load(text: str, origin: str, *, error: ErrorType) -> Any:
     if not isinstance(raw, dict):
         return raw
     data = cast(dict[str, Any], raw)
-    cycle = _cycle_path(data, "", set())
-    if cycle is not None:
-        # Before the core: its unknown-key scan does not end on a recursive alias (it crashes).
-        raise error(
-            f"{origin}: {cycle}: a recursive alias (an anchor used inside itself), which "
-            "neither reader can carry"
-        )
-    try:
+    try:  # first: the core refuses a recursive alias, which _walk would follow without end
         core = _core.Config.from_string(text, origin)
     except _core.ConfigError as failure:
         raise error(f"{origin}: PyYAML reads it, but the core does not: {failure}") from None
@@ -134,28 +126,6 @@ def _construction_refusal(text: str, origin: str, failure: Exception) -> str:
         f"{origin}: {where}: PyYAML cannot construct this value "
         f"({type(failure).__name__}: {failure}){reading}"
     )
-
-
-def _cycle_path(value: object, path: str, active: set[int]) -> str | None:
-    """The dotted path where a container first contains itself (a recursive alias), or ``None``.
-    ``active`` holds the containers on the current path, so a shared but acyclic alias passes."""
-    if not isinstance(value, dict | list):
-        return None
-    identity = id(cast(object, value))
-    if identity in active:
-        return path or "the top level"
-    active.add(identity)
-    items = (
-        cast(dict[Any, Any], value).items()
-        if isinstance(value, dict)
-        else enumerate(cast(list[Any], value))
-    )
-    for key, item in items:
-        found = _cycle_path(item, _join(path, str(key)), active)
-        if found is not None:
-            return found
-    active.discard(identity)
-    return None
 
 
 def _failing_path(
