@@ -1,0 +1,7 @@
+# Starter plot package (astra.plot): a plot drawn by a Python function instead of YAML figures. `file` is a .py
+# file beside this one (a bare name, so it travels with the aircraft's directory); `name` is the function, which
+# takes the run log and returns astra.plot figures. See ground_track.py.
+title: Ground track
+function:
+  file: ground_track.py
+  name: figures
