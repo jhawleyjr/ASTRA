@@ -17,8 +17,9 @@
 
 namespace astra::aircraft_f16_aero_tables {
 
-// NOLINTBEGIN(readability-magic-numbers): every literal is a value transcribed by the
-// generator from F16_aero.dml; the header comment above names it and its SHA-256.
+// NOLINTBEGIN(readability-magic-numbers,modernize-use-std-numbers): every literal is a
+// value transcribed by the generator from F16_aero.dml (the header comment above names it
+// and its SHA-256); a value near a std::numbers constant is still the source's value.
 // clang-format off
 // ALPHA1 (F16_aero.dml:952), deg.
 inline constexpr std::array<double, 12> kAlpha1{-10., -5., 0., 5., 10., 15., 20., 25., 30., 35., 40., 45.};
@@ -143,6 +144,6 @@ inline constexpr std::array<std::array<double, 12>, 7> kDcndr{{
     {-.062, -.034, -.027, -.028, -.027, -.027, -.023, -.023, -.019, -.009, -.025, -.010},
 }};
 // clang-format on
-// NOLINTEND(readability-magic-numbers)
+// NOLINTEND(readability-magic-numbers,modernize-use-std-numbers)
 
 }  // namespace astra::aircraft_f16_aero_tables

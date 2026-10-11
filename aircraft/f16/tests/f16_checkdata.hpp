@@ -51,8 +51,9 @@ struct Constant {
   int line;
 };
 
-// NOLINTBEGIN(readability-magic-numbers): every literal is a value read from P1 by the
-// extractor; the header comment above names the files and their SHA-256.
+// NOLINTBEGIN(readability-magic-numbers,modernize-use-std-numbers): every literal is a
+// value read from P1 by the extractor (the header comment above names the files and
+// their SHA-256); a value near a std::numbers constant is still the source's value.
 // clang-format off
 namespace detail {
 
@@ -1502,6 +1503,6 @@ inline constexpr std::array<Constant, 11> kInertiaConstants{{
     {"DZCG", "ft", 0., 128},
 }};
 // clang-format on
-// NOLINTEND(readability-magic-numbers)
+// NOLINTEND(readability-magic-numbers,modernize-use-std-numbers)
 
 }  // namespace astra::aircraft_f16_checkdata

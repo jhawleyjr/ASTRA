@@ -17,8 +17,9 @@
 
 namespace astra::aircraft_f16_engine_tables {
 
-// NOLINTBEGIN(readability-magic-numbers): every literal is a value transcribed by the
-// generator from F16_prop.dml; the header comment above names it and its SHA-256.
+// NOLINTBEGIN(readability-magic-numbers,modernize-use-std-numbers): every literal is a
+// value transcribed by the generator from F16_prop.dml (the header comment above names it
+// and its SHA-256); a value near a std::numbers constant is still the source's value.
 // clang-format off
 // MACH_PTS (F16_prop.dml:237), nd.
 inline constexpr std::array<double, 6> kMachPts{0.0, 0.2, 0.4, 0.6, 0.8, 1.0};
@@ -55,6 +56,6 @@ inline constexpr std::array<std::array<double, 6>, 6> kTMax{{
     {28885.0, 23319.0, 18300.0, 13484.0, 8642.0, 5057.0},
 }};
 // clang-format on
-// NOLINTEND(readability-magic-numbers)
+// NOLINTEND(readability-magic-numbers,modernize-use-std-numbers)
 
 }  // namespace astra::aircraft_f16_engine_tables

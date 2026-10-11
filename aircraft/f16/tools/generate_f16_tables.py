@@ -292,8 +292,9 @@ def emit(
         "",
         f"namespace astra::{namespace} {{",
         "",
-        "// NOLINTBEGIN(readability-magic-numbers): every literal is a value transcribed by the",
-        f"// generator from {source}; the header comment above names it and its SHA-256.",
+        "// NOLINTBEGIN(readability-magic-numbers,modernize-use-std-numbers): every literal is a",
+        f"// value transcribed by the generator from {source} (the header comment above names it",
+        "// and its SHA-256); a value near a std::numbers constant is still the source's value.",
         "// clang-format off",
     ]
     for bp_id in bp_order:
@@ -331,7 +332,7 @@ def emit(
         out.append("}};")
     out += [
         "// clang-format on",
-        "// NOLINTEND(readability-magic-numbers)",
+        "// NOLINTEND(readability-magic-numbers,modernize-use-std-numbers)",
         "",
         f"}}  // namespace astra::{namespace}",
         "",
