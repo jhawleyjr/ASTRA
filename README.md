@@ -319,16 +319,15 @@ Before the last two commands, fill in your aircraft. The template's numbers are 
 zeros are refused at init. Its models live in `aircraft/my_aircraft/physical/{aero,mass}` and
 `hardware/propulsion`, and their parameters are set in `configs/cruise.yaml`.
 
-The template's config uses a flat Earth, which `astra run` accepts and `astra trim` refuses, because trim reads
-altitude from a geodetic position ([PLAN.md](PLAN.md)'s open M7 item). For `astra trim`, make these edits to
-`configs/cruise.yaml`:
+The template's config uses a flat Earth, which `astra run` and `astra trim` both accept; trim reads its altitude
+as −p_n[2]. The config starts at rest at zero altitude. In `configs/cruise.yaml`, or with the matching option:
 
-1. `physical.earth: plugins/physical/earth/wgs84_rotating`, in place of `plugins/physical/earth/flat`.
-2. `initial.state.p_n: [0.0, 0.0, 10000.0]`. Under this Earth model it reads as latitude (rad), longitude
-   (rad) and altitude (m).
-3. A nonzero `initial.state.v_b`, such as `[230.0, 0.0, 0.0]`, or pass `--airspeed 230` to `astra trim`.
+1. Set a nonzero `initial.state.v_b`, such as `[230.0, 0.0, 0.0]`, or pass `--airspeed 230`. `astra trim`
+   refuses a zero airspeed.
+2. For a cruise altitude, set `initial.state.p_n: [0.0, 0.0, -10000.0]` (NED meters, so 10,000 m up), or pass
+   `--altitude 10000`.
 
-`gravity/constant` can stay. `astra trim` prints the trimmed `initial.state` and controls to paste back into the
+`astra trim` prints the trimmed `initial.state` and controls to paste back into the
 config.
 
 The copy carries the template's plot packages in `aircraft/my_aircraft/plots/`. After `astra run ... --log
