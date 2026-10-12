@@ -1,31 +1,24 @@
-// Constant mass properties starting point for a new aircraft (docs/architecture.md §7, §18;
-// PLAN.md M3 PR 1). `just new-aircraft <name>` (or `cp -r aircraft/_template aircraft/<name>`)
-// copies this file as-is: ADR-0009/cmake/AstraPlugin.cmake derive the plugin's identity from its
-// own directory, so nothing here needs editing except the numbers in the aircraft's own config --
-// see aircraft/_template/configs/cruise.yaml's TODO-marked mass block. Left un-edited, this
-// plugin's own "mass must be positive" check below throws a ConfigError naming the config key that
-// still reads 0.0, so an un-edited template can never silently run.
+// The F-16 mass properties (M7 PR 6c; docs/plans/m7-pr6c-f16-mass-propulsion.md, with the design in
+// docs/plans/m7-pr6b-f16-aircraft.md, "Mass"; R1): NASA's F16_inertia.dml, which Vol II calls
+// normative. The mass is the file's 637.1595 slug (D1, docs/plans/m7-f16-inventory.md section 10);
+// Vol II Table 7's 637.26 slug is reported beside it by the F16Mass tests, never used here.
 //
-// Config keys ixy/ixz/iyz are PRODUCTS OF INERTIA in the S&L / published-data-table convention
-// (Ixz = integral(x*z*dm), positive-definition -- Stevens & Lewis, "Aircraft Control and
-// Simulation," and most published aircraft mass-property sources use this convention). The inertia
-// TENSOR used in the equations of motion (H = I*omega) carries the off-diagonal terms negated
-// (tensor_xz = -integral(x*z*dm)); this plugin does that negation below, so a number transcribed
-// from a source that documents itself in the product-of-inertia convention can be entered directly
-// without the reader flipping its sign by hand.
+// Every number is the file's, converted once through a named core/util/units function (ADR-0002):
+// slugs_to_kilograms and slug_square_feet_to_kilogram_square_meters. The plugin reads no config
+// key: a config block is the plugin path alone.
 //
-// plugins/physical/mass/constant reads its ixy/ixz/iyz in this same convention (M7 PR 4).
+// The file lists products of inertia (XIZX is "bodyProductOfInertia_ZX", Ixz = integral(x*z*dm)),
+// the S&L convention M7 PR 4 made uniform. The inertia TENSOR the equations of motion use
+// (H = I*omega) carries their negations, so its xz entry is negative. Each negation is written
+// 0.0 - p, not -p, as plugins/physical/mass/constant writes it (M7 PR 4, D1): the zero products Ixy
+// and Iyz then put +0.0 off the diagonal, where -p would put -0.0. ASTRA builds without
+// -ffast-math, so the compiler cannot fold 0.0 - p into -p.
 //
-// Everything below stays in an anonymous namespace: the ASTRA_STATIC_PLUGINS build (one of
-// `just check`'s four presets) links every plugin -- including every aircraft's own copy of this
-// exact file -- into one binary, and cmake/AstraPlugin.cmake only renames the single exported
-// astra_plugin symbol per plugin. Any other external-linkage name here would collide with another
-// aircraft's copy at link time. Keep this discipline when editing a copy for a real aircraft.
+// Everything sits in an anonymous namespace, and the descriptor's name is "f16_mass" (the aero's
+// reasoning, physical/aero/aero.cpp).
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
-#include <cmath>
 #include <memory>
-#include <string>
 #include <string_view>
 
 #include "astra/config/config.hpp"
@@ -34,55 +27,43 @@
 #include "astra/interfaces/mass_properties_model.hpp"
 #include "astra/plugin/descriptor.hpp"
 #include "astra/signals/signal_registry.hpp"
+#include "astra/util/units.hpp"
 
 namespace {
 
-using astra::Config;
-using astra::ConfigError;
+namespace units = astra::units;
 
-std::string keyed_path(const Config& config, std::string_view key) {
-  return config.path().empty() ? std::string{key} : config.path() + "." + std::string{key};
-}
+// NOLINTBEGIN(readability-magic-numbers): each literal is an initialValue of F16_inertia.dml
+// (SHA-256 e11d4eba..., docs/plans/m7-f16-inventory.md section 1.1), cited on its line.
+constexpr double kMass = units::slugs_to_kilograms(637.1595);  // XMASS, slug (:111)
+constexpr double kIxx = units::slug_square_feet_to_kilogram_square_meters(9496.0);   // XIXX (:63)
+constexpr double kIyy = units::slug_square_feet_to_kilogram_square_meters(55814.0);  // XIYY (:71)
+constexpr double kIzz = units::slug_square_feet_to_kilogram_square_meters(63100.0);  // XIZZ (:79)
+// The products of inertia, in the file's (S&L) convention.
+constexpr double kIzx = units::slug_square_feet_to_kilogram_square_meters(982.0);  // XIZX (:87)
+constexpr double kIxy = units::slug_square_feet_to_kilogram_square_meters(0.0);    // XIXY (:95)
+constexpr double kIyz = units::slug_square_feet_to_kilogram_square_meters(0.0);    // XIYZ (:103)
+// NOLINTEND(readability-magic-numbers)
 
-double checked_finite(const Config& config, std::string_view key, double value) {
-  if (!std::isfinite(value)) {
-    throw ConfigError(config.origin(), keyed_path(config, key),
-                      std::string{key} + " must be finite");
-  }
-  return value;
-}
-
-class TemplateMass final : public astra::MassPropertiesModel {
+class F16Mass final : public astra::MassPropertiesModel {
  public:
-  void init(const Config& config, astra::SignalRegistry& registry) override {
-    const double mass = checked_finite(config, "mass", config.number("mass"));
-    if (mass <= 0.0) {
-      throw ConfigError(config.origin(), keyed_path(config, "mass"), "mass must be positive");
-    }
-    const double ixx = checked_finite(config, "ixx", config.number("ixx"));
-    const double iyy = checked_finite(config, "iyy", config.number("iyy"));
-    const double izz = checked_finite(config, "izz", config.number("izz"));
-    // Products of inertia (S&L convention -- see file header); default zero.
-    const double ixy = checked_finite(config, "ixy", config.number("ixy", 0.0));
-    const double ixz = checked_finite(config, "ixz", config.number("ixz", 0.0));
-    const double iyz = checked_finite(config, "iyz", config.number("iyz", 0.0));
-
+  void init(const astra::Config& config, astra::SignalRegistry& registry) override {
     Eigen::Matrix3d inertia_b;
     // clang-format off
-    inertia_b << ixx, -ixy, -ixz,
-                -ixy,  iyy, -iyz,
-                -ixz, -iyz,  izz;
+    inertia_b <<       kIxx, 0.0 - kIxy, 0.0 - kIzx,
+                 0.0 - kIxy,       kIyy, 0.0 - kIyz,
+                 0.0 - kIzx, 0.0 - kIyz,       kIzz;
     // clang-format on
 
-    // Symmetric by construction; only positive-definiteness can still fail (§15: "inertia tensor
-    // symmetric positive-definite").
+    // The template's check, kept (§15: "inertia tensor symmetric positive-definite"). P1's numbers
+    // pass it; it guards an edit of the constants above.
     const Eigen::LLT<Eigen::Matrix3d> llt(inertia_b);
     if (llt.info() != Eigen::Success) {
-      throw ConfigError(config.origin(), config.path(),
-                        "inertia tensor (ixx, iyy, izz, ixy, ixz, iyz) must be positive-definite");
+      throw astra::ConfigError(config.origin(), config.path(),
+                               "the F-16 inertia tensor must be positive-definite");
     }
 
-    props_.mass = mass;
+    props_.mass = kMass;
     props_.inertia_b = inertia_b;
     registry.add("mass.mass", &props_.mass, "kg");
   }
@@ -96,13 +77,9 @@ class TemplateMass final : public astra::MassPropertiesModel {
   astra::MassProps props_;
 };
 
-std::unique_ptr<astra::Model> create() { return std::make_unique<TemplateMass>(); }
+std::unique_ptr<astra::Model> create() { return std::make_unique<F16Mass>(); }
 
-// "mass", not "template_mass": new-aircraft.sh only rewrites config YAML paths on copy, never
-// .cpp string literals, so a per-aircraft-specific name here would stay wrong (still saying
-// "template") in every aircraft ever copied from this file. The plugin path itself already
-// disambiguates which aircraft's copy a run log's descriptor came from.
-constexpr astra::PluginDescriptor kDescriptor{"physical", "mass", astra::kCoreApiVersion,
+constexpr astra::PluginDescriptor kDescriptor{"physical", "f16_mass", astra::kCoreApiVersion,
                                               astra::kBuiltWith, &create};
 
 }  // namespace

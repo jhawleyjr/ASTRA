@@ -489,6 +489,15 @@ takes them as a prefix.
     `kKilogramsPerSlug` the correctly rounded quotient (one ulp above the plain one), each pinned in hex and
     bound in `astra._core`. The M7 plan's 2026-10-10 amendment adds PR 6c. Plan:
     [plan](docs/plans/m7-pr3c-altitude-and-units.md). Packet: in the PR body.
+  - PR 6c (#115): the F-16's mass and engine from P1, 6b's commits 5 and 6. `physical/mass` is
+    `F16_inertia.dml`'s 637.1595 slug and its inertias, through `slugs_to_kilograms` and
+    `slug_square_feet_to_kilogram_square_meters`, with the products negated as `0.0 − p` (the xz entry negative,
+    the zero products +0.0); Vol II Table 7's 637.26 slug is reported beside it (D1). `hardware/propulsion/engine`
+    replaces the template's turbofan: SI tables derived from `engine_tables.hpp`, clipped at every edge, and the
+    DML's PWR build-up, with PWR = 100·throttle unsaturated, the altitude from `altitude_m` (ADR-0033), Mach
+    from `air_data`, and thrust along +x with no moment. A NaN altitude or a NaN or zero speed of sound gives the
+    NaN sentinel. `F16Mass`, `F16Engine` (the 9 checkData shots) and `F16NoAlloc`'s 1000-frame run check them.
+    Plan: [plan](docs/plans/m7-pr6c-f16-mass-propulsion.md). Packet: in the PR body.
 - [ ] **M8 Actuators and controller tuning** — a first-order lag and a nonlinear second-order actuator model
       with rate and position limits; autopilot gains loaded at startup; the tuning tool (spec-driven on the
       linear model, time-domain on the nonlinear sim, robustness across draws, gain schedules) with
