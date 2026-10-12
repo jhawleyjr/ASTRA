@@ -90,6 +90,9 @@ class Survey:
     configs: list[str] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)  # loads, refusals, withheld builds
     consumed: defaultdict[str, set[str]] = field(default_factory=lambda: defaultdict(set))
+    # An empty map or sequence is a leaf too (Config::unknown_keys), so a plugin that reads one is
+    # charged its path here, apart from the scalar keys (Codex R-001): `peer.schedule: []`.
+    containers: defaultdict[str, set[str]] = field(default_factory=lambda: defaultdict(set))
     reached: set[str] = field(default_factory=set)
     skipped: list[str] = field(default_factory=list)
 
@@ -111,9 +114,14 @@ def _owner(leaf: str, blocks: list[str]) -> str | None:
 
 
 def _survey_config(
-    rel: str, plugin_dir: Path, withheld_dir: "WithheldDirs", survey: Survey
+    rel: str,
+    plugin_dir: Path,
+    withheld_dir: "WithheldDirs",
+    survey: Survey,
+    file: Path | None = None,
 ) -> None:
-    path = str(ROOT / rel)
+    """One config's full and withheld builds; `file` is `ROOT / rel` unless a test names another."""
+    path = str(file if file is not None else ROOT / rel)
     full = _core.Config.from_file(path)
     leaves = set(full.unknown_keys())  # nothing read yet: every leaf
     outcome = _build(full, plugin_dir)
@@ -135,11 +143,16 @@ def _survey_config(
     probe = _core.Config.from_file(path)  # reads here never touch `full`'s read-state
     blocks: dict[str, str] = {}
     named: set[str] = set()
+    containers: set[str] = set()
     for leaf in sorted(leaves):
+        node = probe.at(leaf)
+        if node.is_map() or node.is_sequence():
+            containers.add(leaf)  # empty, or it would not be a leaf
+            continue
         try:
             value = probe.text(leaf)
         except _core.ConfigError:
-            continue  # an empty map or sequence: not a scalar
+            continue  # a null: no text, and no plugin path
         if leaf.endswith(".plugin"):
             blocks[leaf.removesuffix(".plugin")] = value
         if (
@@ -169,7 +182,8 @@ def _survey_config(
         for leaf in only_full:
             block = _owner(leaf, list(blocks))
             if block in mine:
-                survey.consumed[plugin].add(config_keys.normalize(leaf[len(block) + 1 :]))
+                key = config_keys.normalize(leaf[len(block) + 1 :])
+                (survey.containers if leaf in containers else survey.consumed)[plugin].add(key)
 
 
 class WithheldDirs:
@@ -234,12 +248,27 @@ def test_config_keys_every_documented_plugin_is_reached_by_a_tracked_config(
     assert sorted(set(documented) - survey.reached) == []
 
 
+def _holds_a_documented_key(container: str, keys: set[str]) -> bool:
+    """An empty map at `peer.commands` holds `peer.commands.elevator`; an empty sequence at
+    `peer.schedule` holds `peer.schedule[].frame`. Prefixes count only at a segment boundary."""
+    return any(key.startswith((container + ".", container + "[]")) for key in keys)
+
+
+def _container_differences(survey: Survey, documented: dict[str, set[str]]) -> list[str]:
+    return [
+        f"{plugin}: the empty '{container}' it reads holds no documented key"
+        for plugin, containers in sorted(survey.containers.items())
+        for container in sorted(containers)
+        if not _holds_a_documented_key(container, documented.get(plugin, set()))
+    ]
+
+
 def test_config_keys_documented_keys_equal_the_keys_tracked_configs_consume(
     survey: Survey, documented: dict[str, set[str]]
 ) -> None:
     for line in survey.skipped:
         print(f"skipped (tests/plugins): {line}")
-    differences = []
+    differences = _container_differences(survey, documented)
     for plugin in sorted(set(documented) | set(survey.consumed)):
         if plugin not in documented:
             differences.append(f"{plugin}: consumed keys, but no key block")
@@ -261,6 +290,55 @@ def test_config_keys_the_shm_fixture_refuses_at_its_segment_and_creates_none() -
     assert _names_key(outcome, "transport.segment"), outcome
     assert "must match astra_" in str(outcome)
     assert not SHM_FIXTURE_SEGMENT.exists(), f"{SHM_FIXTURE_SEGMENT} appeared"
+
+
+LOOPBACK = "plugins/sim/transport/loopback"
+
+
+@pytest.mark.parametrize(
+    ("peer", "containers"),
+    [
+        pytest.param("  peer: {}\n", {"peer"}, id="empty peer"),
+        pytest.param(
+            "  peer:\n    commands: {}\n    schedule: []\n    faults: []\n",
+            {"peer.commands", "peer.schedule", "peer.faults"},
+            id="empty commands, schedule and faults",
+        ),
+    ],
+)
+def test_config_keys_an_empty_container_counts_as_the_keys_it_would_hold(
+    tmp_path: Path, documented: dict[str, set[str]], peer: str, containers: set[str]
+) -> None:
+    """Codex R-001: a valid config may write a block's map or sequence empty, and the core then
+    reports it as a leaf. It is charged as a container, never as a scalar key, and passes when a
+    documented key lies under it."""
+    fixture = (ROOT / "tests/python/config_keys_fixtures/loopback.yaml").read_text(encoding="utf-8")
+    config = tmp_path / "loopback.yaml"
+    config.write_text(fixture.split("\n  peer:\n")[0] + "\n" + peer, encoding="utf-8")
+    plugin_dir = Path(_core.default_plugin_dir())
+    result = Survey()
+    withheld = WithheldDirs(plugin_dir, tmp_path / "withheld")
+    (tmp_path / "withheld").mkdir()
+    _survey_config("loopback.yaml", plugin_dir, withheld, result, file=config)
+    assert result.problems == []
+    assert LOOPBACK in result.reached
+    assert result.consumed.get(LOOPBACK, set()) == set()
+    assert result.containers[LOOPBACK] == containers
+    assert _container_differences(result, documented) == []
+
+
+def test_config_keys_a_container_holds_only_keys_below_a_segment_boundary() -> None:
+    keys = {"peer.schedule[].frame", "peer.commands.elevator"}
+    assert _holds_a_documented_key("peer.schedule", keys)
+    assert _holds_a_documented_key("peer.commands", keys)
+    assert _holds_a_documented_key("peer", keys)
+    assert not _holds_a_documented_key("peer.sched", keys)
+    assert not _holds_a_documented_key("peer.commands.elevator", keys)
+    survey = Survey()
+    survey.containers[LOOPBACK].add("peer.bogus")
+    assert _container_differences(survey, {LOOPBACK: keys}) == [
+        f"{LOOPBACK}: the empty 'peer.bogus' it reads holds no documented key"
+    ]
 
 
 # --- the generator itself -------------------------------------------------------------------------
