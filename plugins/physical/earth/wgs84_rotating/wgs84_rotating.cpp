@@ -4,6 +4,9 @@
 // of curvature M(lat) and the prime-vertical radius of curvature N(lat) (core/util/geodesy.hpp) in
 // place of round's constant R, and a nonzero omega_ie_n from the Earth's own rotation. Reads no
 // config: every constant is a WGS-84 defining parameter, not a per-run choice.
+//
+// Config keys:
+//   none
 #include <cmath>
 #include <cstdint>
 #include <memory>

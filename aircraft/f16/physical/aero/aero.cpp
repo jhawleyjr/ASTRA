@@ -18,6 +18,9 @@
 // Everything sits in an anonymous namespace, and the descriptor's name is "f16_aero": the
 // ASTRA_STATIC_PLUGINS build links every plugin into one binary (cmake/AstraPlugin.cmake), keyed by
 // path. The unique name is a convention for /plugins (run_log.cpp), not an ODR need.
+//
+// Config keys:
+//   none
 #include <Eigen/Core>
 #include <cmath>
 #include <memory>

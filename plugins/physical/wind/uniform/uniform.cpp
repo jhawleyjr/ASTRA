@@ -2,6 +2,11 @@
 // (north, east, down) air velocity, independent of vehicle state and time. Publishes the values
 // actually used so they land in the log even when a config leaves them at the "still air" default,
 // the same reasoning gravity/constant's own header gives for doing the same.
+//
+// Config keys:
+//   north | number | m/s | 0 | The constant wind velocity's north component, wind-to, in NED.
+//   east  | number | m/s | 0 | Its east component.
+//   down  | number | m/s | 0 | Its down component.
 #include <cmath>
 #include <memory>
 #include <string>

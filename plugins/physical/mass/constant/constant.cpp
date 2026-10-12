@@ -24,6 +24,19 @@
 // plugins keep -p on purpose: their -0.0 bits are already frozen into M3's cruise regression, the
 // R1 end-to-end fixture's golden and M7 PR 3b's template-identity evidence, and M7 PR 4 left their
 // expressions alone.
+//
+// Config keys:
+//   mass | number | kg     | required | The vehicle's mass, finite and positive.
+//   ixx  | number | kg*m^2 | required | Moment of inertia about body x (FRD) through the CG. The
+//          tensor built from all six keys must be positive-definite.
+//   iyy  | number | kg*m^2 | required | Moment of inertia about body y (FRD) through the CG.
+//   izz  | number | kg*m^2 | required | Moment of inertia about body z (FRD) through the CG.
+//   ixy  | number | kg*m^2 | 0        | S&L product of inertia, Ixy = integral(x*y*dm), body FRD
+//          axes about the CG, entered as published; negated into the tensor's xy entry.
+//   ixz  | number | kg*m^2 | 0        | S&L product of inertia, Ixz = integral(x*z*dm), body FRD
+//          axes about the CG, entered as published; negated into the tensor's xz entry.
+//   iyz  | number | kg*m^2 | 0        | S&L product of inertia, Iyz = integral(y*z*dm), body FRD
+//          axes about the CG, entered as published; negated into the tensor's yz entry.
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
 #include <cmath>

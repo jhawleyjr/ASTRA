@@ -21,6 +21,15 @@
 // plugin's own assumed_position_representation() is kAny: it never reads vs.p_n(), only the
 // altitude_m parameter begin_frame is handed -- see wind_model.hpp's own header for why that is the
 // only representation-safe way for a WindModel to use altitude at all).
+//
+// Config keys:
+//   points[].altitude | number | m   | required | A table point's altitude, the Earth model's. At
+//          least two points, strictly increasing; the wind is linear between points and held at the
+//          end points' values outside them.
+//   points[].north    | number | m/s | 0        | The wind velocity's north component at that
+//          altitude, wind-to, in NED.
+//   points[].east     | number | m/s | 0        | Its east component.
+//   points[].down     | number | m/s | 0        | Its down component.
 #include <algorithm>
 #include <cmath>
 #include <cstddef>

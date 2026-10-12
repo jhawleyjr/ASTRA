@@ -9,6 +9,13 @@
 // equations (Stevens & Lewis / Titterton & Weston), with R everywhere in place of round Earth's
 // constant radius -- wgs84_rotating (plugins/physical/earth/wgs84_rotating) is the same shape with
 // the meridian and prime-vertical radii of curvature in place of R, and rotating unconditionally.
+//
+// Config keys:
+//   radius   | number  | m | 6371000.0 | The sphere's radius; altitude is the height above it.
+//          Finite and positive. gravity/inverse_square's radius has the same default; keep the two
+//          equal.
+//   rotating | boolean | - | false     | true: the Earth rotates at astra::geodesy::kOmegaIe
+//          (WGS-84's rate); false: it does not. Set gravity/inverse_square's rotating to match.
 #include <cmath>
 #include <cstdint>
 #include <memory>

@@ -1,7 +1,10 @@
-// The flat Earth model (docs/architecture.md §6, ADR-0003): p_n is NED metres from the origin, the
+// The flat Earth model (docs/architecture.md §6, ADR-0003): p_n is NED meters from the origin, the
 // Earth rotation rate and the transport rate of n are identically zero, and altitude is the negated
 // down component of p_n. Reads no config. Every later Earth model (round, WGS-84 rotating, M2)
 // gives these same three quantities their real values with no change to core/kernel/eom.cpp.
+//
+// Config keys:
+//   none
 #include <memory>
 #include <string_view>
 

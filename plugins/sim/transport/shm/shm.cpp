@@ -1,6 +1,11 @@
 // SharedMemoryTransport: lifecycle, handshake, publish, reply, close (shm_transport.hpp; the wait
 // and its clock read are in shm_wait.cpp). Per-frame methods allocate nothing and never throw; init
 // and open may allocate and throw (open's failures become a ConfigError at "transport" in core).
+//
+// Config keys:
+//   segment | text | - | required | The shared-memory segment name, astra_<pid>_<nonce> (1 to 10
+//          digits, 1 to 32 letters or digits). astra.lockstep supplies a fresh one for each run, so
+//          a config file leaves it out and runs through astra.lockstep.
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>

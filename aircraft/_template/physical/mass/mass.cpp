@@ -21,6 +21,19 @@
 // exact file -- into one binary, and cmake/AstraPlugin.cmake only renames the single exported
 // astra_plugin symbol per plugin. Any other external-linkage name here would collide with another
 // aircraft's copy at link time. Keep this discipline when editing a copy for a real aircraft.
+//
+// Config keys:
+//   mass | number | kg     | required | The vehicle's mass, finite and positive.
+//   ixx  | number | kg*m^2 | required | Moment of inertia about body x (FRD) through the CG. The
+//          tensor built from all six keys must be positive-definite.
+//   iyy  | number | kg*m^2 | required | Moment of inertia about body y (FRD) through the CG.
+//   izz  | number | kg*m^2 | required | Moment of inertia about body z (FRD) through the CG.
+//   ixy  | number | kg*m^2 | 0        | S&L product of inertia, Ixy = integral(x*y*dm), body FRD
+//          axes about the CG, entered as published; negated into the tensor's xy entry.
+//   ixz  | number | kg*m^2 | 0        | S&L product of inertia, Ixz = integral(x*z*dm), body FRD
+//          axes about the CG, entered as published; negated into the tensor's xz entry.
+//   iyz  | number | kg*m^2 | 0        | S&L product of inertia, Iyz = integral(y*z*dm), body FRD
+//          axes about the CG, entered as published; negated into the tensor's yz entry.
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
 #include <cmath>

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Reproducible check for the workflow constraints docs/process/validation.md prescribes for
 workflow edits (Markdown links/anchors, SKILL.md metadata, the root instruction line budget,
-doc/script command names, and STATE.md's shape) so they run from `just docs-check` / CI instead
-of being asked of an agent's memory. Stdlib only.
+doc/script command names, STATE.md's shape, and the config-key reference's currency) so they run
+from `just docs-check` / CI instead of being asked of an agent's memory. Stdlib only.
 
 Usage: python3 scripts/docs_check.py [--root DIR]
 Exit 0 with a summary line, or exit 1 printing every problem found.
@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -235,6 +236,22 @@ def check_command_names(md_files: list[Path], root: Path, problems: list[str]) -
                 problems.append(f"{f.relative_to(root)}: references missing 'scripts/{name}'")
 
 
+def check_config_keys(root: Path, problems: list[str]) -> None:
+    """docs/reference/config-keys.md is what scripts/config_keys.py renders from the plugins' key
+    blocks (M7 PR 14). The generator runs as its own process under -I -B, not as an import, so
+    nothing writes scripts/__pycache__/ (lessons 2026-10-01 and 2026-10-07)."""
+    generator = Path(__file__).resolve().with_name("config_keys.py")
+    result = subprocess.run(
+        [sys.executable, "-I", "-B", str(generator), "--check", "--root", str(root)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        lines = [line for line in result.stderr.splitlines() if line.strip()]
+        problems.extend(f"config-keys: {line}" for line in lines or [f"exit {result.returncode}"])
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", default=".", help="repository root (default: cwd)")
@@ -249,6 +266,7 @@ def main() -> int:
     check_root_instruction_budget(root, problems)
     check_command_names(md_files, root, problems)
     check_state(root, problems)
+    check_config_keys(root, problems)
 
     if problems:
         print(f"docs-check: {len(problems)} problem(s) found:", file=sys.stderr)

@@ -128,7 +128,8 @@ hooks-test:
 
 # The workflow constraints docs/process/validation.md prescribes for a workflow edit (Markdown
 # links/anchors, SKILL.md metadata, the AGENTS.md+CLAUDE.md line budget, doc/script command names,
-# shell syntax, working-tree whitespace), made reproducible instead of asked of an agent's memory.
+# the config-key reference's currency, shell syntax, working-tree whitespace), made reproducible
+# instead of asked of an agent's memory.
 docs-check:
     python3 scripts/docs_check.py
     bash -n scripts/check-fast.sh

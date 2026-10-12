@@ -8,6 +8,9 @@
 // a J2-only truncation and the full normal-gravity ellipsoid, not implementation error -- verified
 // numerically before writing this file). Reads no config: every constant is a WGS-84 defining
 // parameter.
+//
+// Config keys:
+//   none
 #include <cmath>
 #include <memory>
 #include <string>

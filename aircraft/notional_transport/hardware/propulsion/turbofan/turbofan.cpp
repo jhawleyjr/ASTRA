@@ -12,6 +12,19 @@
 // Overrides WrenchSource::wrench_b() directly (ADR-0020). turbofan_math.hpp's own header comment
 // has the thrust law and the (trivial, no-op) V->0 argument; this file only assembles that header's
 // Inputs from EnvironmentSample and this plugin's own bound throttle, then delegates.
+//
+// Config keys:
+//   station            | text   | -      | required | A label for this instance, not geometry: the
+//          model is named turbofan.<station> (left, right), so a halt names the engine.
+//   x_offset_from_cg_m | number | m      | required | The engine's position relative to the CG,
+//          body x (FRD). The thrust acts there, along +x.
+//   y_offset_from_cg_m | number | m      | required | The engine's position, body y (FRD); the
+//          station implies no sign.
+//   z_offset_from_cg_m | number | m      | required | The engine's position, body z (FRD).
+//   thrust_ref_n       | number | N      | required | Thrust at throttle 1 and density
+//          density_ref_kgm3: T = throttle*thrust_ref_n*(rho/density_ref_kgm3). Finite and positive.
+//   density_ref_kgm3   | number | kg/m^3 | required | The thrust lapse's reference air density;
+//          finite and positive.
 #include <Eigen/Core>
 #include <cmath>
 #include <memory>

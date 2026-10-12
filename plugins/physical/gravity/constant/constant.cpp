@@ -1,6 +1,10 @@
 // Constant, uniform gravity (docs/architecture.md §7, pulled forward from M2 per PLAN.md M1 PR 3):
 // g_n = (0, 0, g), g from config defaulting to standard gravity. Publishes the value actually used
 // so it lands in the log even when the config leaves it at the default.
+//
+// Config keys:
+//   g | number | m/s^2 | 9.80665 | Gravity's magnitude, along +down (NED); finite. Logged as
+//          gravity.g, the default included.
 #include <cmath>
 #include <memory>
 #include <string>

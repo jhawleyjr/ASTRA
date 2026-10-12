@@ -44,6 +44,9 @@
 // bolt-on here. PLAN.md's M2 PR 3 line records that PR 3's NESC drag cases are the first thing this
 // can actually move (this PR's own acceptance, ISA table points exact, never touches
 // wgs84_rotating).
+//
+// Config keys:
+//   none
 #include <array>
 #include <cmath>
 #include <cstddef>

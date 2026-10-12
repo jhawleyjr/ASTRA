@@ -59,6 +59,15 @@
 // W_20 is an intensity parameter, not a mean-wind command, and folding a steady component in here
 // would pre-empt the wind-composition design (a summing/layered WindModel) PLAN.md's M2 PR 3 line
 // is the right place to decide. A config needing both today uses wind/uniform for the steady part.
+//
+// Config keys:
+//   seed       | integer | 1   | required | The std::mt19937_64 seed, from 0 to 2^53; logged as
+//          wind.seed.
+//   w20_knots  | number  | kt  | required | MIL-F-8785C's W_20, the wind speed at 20 ft, in knots
+//          (the specification's unit, converted once at init); at least 0. It sets the low-altitude
+//          intensity.
+//   sigma_high | number  | m/s | required | The turbulence intensity sigma_u = sigma_v = sigma_w at
+//          and above 2000 ft, in m/s (MIL-F-8785C's Figure 7 reads it in ft/s); at least 0.
 #include <Eigen/Core>
 #include <array>
 #include <cmath>
