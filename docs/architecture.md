@@ -362,7 +362,7 @@ source never reads `p_n`, whose meaning the Earth model owns (§6).
   the atmosphere's range check, on the step and probe paths alike. The atmosphere is sampled at the same value.
 - Its default is NaN, and the frame-latched sample keeps it, as `omega_ie_b`'s does. It is not canonicalized:
   at exactly zero altitude, `earth/flat` gives −0.0.
-- Reader: the F-16's engine (*planned*, PLAN.md M7 PR 6c). It is not published as a signal, and
+- Reader: the F-16's engine (built in PLAN.md M7 PR 6c). It is not published as a signal, and
   `kCoreApiVersion` was bumped for it.
 
 **Vehicle** is a composition: one mass-properties model, a list of `AeroModel`s and `PropulsionModel`s whose wrenches are summed. Multiple aero models is deliberate — a user can split wing/tail/fuselage or add a store as a separate contributor without touching the framework. A `MassPropertiesModel` or a `WrenchSource` may additionally own continuous state (ADR-0021, `Model::state_count()` et al.) — a future engine-spool-lag `PropulsionModel`, for example, integrated at full sub-stage fidelity alongside the rigid-body block, with zero further core interface change.
