@@ -3,11 +3,9 @@
 ## Next step
 1. M7: `docs/plans/m7-f16-nesc-oracle.md` (Joe's later decisions are its dated amendments), P1 and P2 inventoried
    in `docs/plans/m7-f16-inventory.md`; ADR-0028 to ADR-0033 are accepted.
-2. PR 6c (the F-16's mass and propulsion from P1) is eligible, from a new worktree `m7-pr6c` off `origin/main`;
-   Joe removes `m7-pr6b`. Its short plan cites `docs/plans/m7-pr6b-f16-aircraft.md` (Mass, Propulsion, decisions
-   1, 2, 4), its Deviations record #113's merge after commit 4, and its engine reads `altitude_m` (ADR-0033).
-   It carries the Obligations table's DML mass, 637.1595 slug (R1).
-3. Waiting: PR 7 and PR 14 on PR 6c; PR 9 on PR 7; PR 13 (ADR-0031; the F-16 declares Mach ≤ 1.0) on 6c and 9.
+2. PR 7 (the aero-only channel route, Q5) and PR 14 (the generated config-key reference) are eligible, each from
+   a new worktree off `origin/main`; Joe removes `m7-pr6c`. `aircraft/f16` now has P1's mass, aero and engine.
+3. Waiting: PR 9 on PR 7; PR 13 (ADR-0031; the F-16 declares Mach ≤ 1.0) on PR 9.
 4. On Joe's go: PR 3 (Earth/gravity rotation consistency; own plan review; bumps `kCoreApiVersion` past 11).
 
 ## Open threads
@@ -19,7 +17,8 @@
   - PR 7: the latched `Vehicle::environment()` keeps `omega_ie_b` and `altitude_m` NaN, so its evaluator sets
     both from the sim's Earth model at the frame-start state; its plan decides whether to share `vehicle.cpp`'s
     file-local `earth_rate_b` (with its +0.0 canonicalization);
-  - PR 9: whether the engine's geoid altitude, read against the ellipsoid, holds (the addendum's D8, ADR-0033);
+  - PR 9: whether the engine's geoid altitude, read against the ellipsoid, holds (the addendum's D8, ADR-0033),
+    and whether its configs' throttle is checked, since the engine extrapolates outside 0..1 (6b's decision 4);
   - PR 14: `mass/constant`'s key block states the S&L product-of-inertia convention (R17's reference half).
 - PLAN.md's (unscheduled) notional-transport rate-frame item (M7 PR 6a's D3 (B2)): measure before Joe decides.
   It also carries the trim callers' move to `n_frame` and the notional aero's stale "identical" sentence.
