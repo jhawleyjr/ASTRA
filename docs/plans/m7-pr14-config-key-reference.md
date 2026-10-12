@@ -333,7 +333,7 @@ What this does not validate:
   for both PRs merged. Then rerun what the merge touched:
   - Markdown only: docs-check and `git diff --check`;
   - otherwise, the gate.
-  
+
   A plugin added by PR 7 needs a block, and the generator refuses a plugin without one.
 
 ## Files
