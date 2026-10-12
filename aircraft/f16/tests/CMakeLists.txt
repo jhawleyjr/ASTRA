@@ -11,7 +11,7 @@ file(RELATIVE_PATH tests_dir "${ASTRA_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}"
 get_filename_component(aircraft_dir "${tests_dir}" DIRECTORY)                       # aircraft/<name>
 string(REPLACE "/" "_" tests_id "${tests_dir}")                                     # aircraft_<name>_tests
 
-add_executable(astra_${tests_id} mass_test.cpp aero_test.cpp turbofan_test.cpp)
+add_executable(astra_${tests_id} mass_test.cpp aero_test.cpp engine_test.cpp)
 target_link_libraries(astra_${tests_id} PRIVATE astra::core GTest::gtest_main)
 target_compile_definitions(astra_${tests_id} PRIVATE
   "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""
