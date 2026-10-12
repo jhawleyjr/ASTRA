@@ -1,0 +1,41 @@
+# M7 PR 14's consumption test (tests/python/test_config_keys.py): an ordinary tracked config that sets
+# every transport.peer key plugins/sim/transport/loopback reads (loopback.cpp's init, read_fields and
+# read_fault): every command field, mode_flags, spurious_wakeups, handshake_fail, one schedule entry with
+# every field, and one fault of each kind, non_finite with its field and value. Faults have no ordering
+# rule at init and fire only at run time, so one config holds them all; this config is built, never run.
+# no_alloc_transport.yaml's base: one input, controls.elevator, from tests/plugins/input_consumer.
+sim:
+  dt: 0.001
+  frames: 1000
+vehicle:
+  models:
+    - { plugin: tests/plugins/input_consumer }
+  initial_controls:
+    controls:
+      elevator: 0.0
+physical:
+  earth: plugins/physical/earth/flat
+  gravity: plugins/physical/gravity/constant
+  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 }
+initial:
+  state: { p_n: [0.0, 0.0, -100.0], v_b: [60.0, 0.0, 0.0] }
+transport:
+  plugin: plugins/sim/transport/loopback
+  divisor: 10
+  commands: { elevator: controls.elevator }
+  limits: { elevator: [-1.0, 1.0], aileron: [-1.0, 1.0], rudder: [-1.0, 1.0], throttle: [0.0, 1.0] }
+  peer:
+    commands: { elevator: 0.01, aileron: 0.02, rudder: -0.01, throttle: [0.5, 0.5] }
+    mode_flags: 1
+    spurious_wakeups: 2
+    handshake_fail: false
+    schedule:
+      - { frame: 300, elevator: 0.02, aileron: -0.02, rudder: 0.01, throttle: [0.6, 0.6] }
+    faults:
+      - { frame: 900, kind: out_of_order_ack }
+      - { frame: 900, kind: stale_reply_frame }
+      - { frame: 900, kind: bad_magic }
+      - { frame: 900, kind: bad_version }
+      - { frame: 900, kind: timeout }
+      - { frame: 900, kind: peer_closed }
+      - { frame: 900, kind: non_finite, field: throttle_1, value: nan }

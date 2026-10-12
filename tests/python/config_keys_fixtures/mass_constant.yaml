@@ -1,0 +1,23 @@
+# M7 PR 14's consumption test (tests/python/test_config_keys.py): an ordinary tracked config that sets
+# plugins/physical/mass/constant's products of inertia, which no other tracked config sets. The values are
+# M7 PR 4's. The tensor [[10, -1.25, -2.5], [-1.25, 11, -0.75], [-2.5, -0.75, 12]] is strictly diagonally
+# dominant with a positive diagonal, so it is positive-definite and the plugin accepts it.
+sim:
+  dt: 0.001
+  frames: 10
+vehicle:
+  models: []
+physical:
+  earth: plugins/physical/earth/flat
+  gravity: plugins/physical/gravity/constant
+  mass:
+    plugin: plugins/physical/mass/constant
+    mass: 10.0
+    ixx: 10.0
+    iyy: 11.0
+    izz: 12.0
+    ixy: 1.25
+    ixz: 2.5
+    iyz: 0.75
+initial:
+  state: { p_n: [0.0, 0.0, -100.0], v_b: [10.0, 0.0, 0.0] }
