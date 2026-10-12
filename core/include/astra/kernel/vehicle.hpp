@@ -51,6 +51,20 @@
 
 namespace astra {
 
+// ADR-0032: the Earth's rotation rate relative to inertial, in this stage's body axes. It is the
+// EOM's own c_nb * omega_ie_n (rigid_body_6dof_dynamics.cpp), on the stage's own state.
+//
+// Adding +0.0 turns a -0.0 component into +0.0 and leaves every other value, NaN included, as it
+// is (IEEE 754 round-to-nearest; nothing in the tree changes the rounding mode, and without
+// -ffast-math the compiler cannot drop the addition).
+// - On a flat or non-rotating Earth every component is therefore +0.0, where c_nb * 0 alone gives
+//   -0.0 for a c_nb row that is all negative.
+// - So air_data::omega_eb_b's omega_b - omega_ie_b is omega_b bit for bit there: x - (+0.0) is x
+//   for every x, -0.0 included, and x - (-0.0) is not.
+// Per-frame path: fixed-size Eigen values only, no allocation, no exceptions.
+[[nodiscard]] Eigen::Vector3d earth_rate_b(const EarthModel& earth,
+                                           const VehicleState& vs) noexcept;
+
 class Vehicle {
  public:
   // One entry of vehicle.models (docs/architecture.md §13): the plugin to load, its own config
