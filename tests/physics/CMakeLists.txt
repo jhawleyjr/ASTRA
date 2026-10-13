@@ -14,6 +14,9 @@
 # instruction, not the tests/configs/ convention the rest of this target still uses.
 # nesc/nesc_f16_bands_test.cpp (M7 PR 8, ADR-0028) checks the eight F-16 band headers' shape, floors
 # and initial conditions before any harness flies them.
+# nesc/f16_evaluator_test.cpp (M7 PR 7, docs/plans/m7-pr7-aero-evaluator.md) is the self-check of Q5's
+# independent evaluator (nesc/independent_evaluator.hpp), the aero-only channel route PR 9's harness
+# reuses: on the F-16, its aero plus its engine equals wrench_total at every sample.
 #
 # dynamics/{rigid_body_r1_golden_test.cpp,cruise_end_to_end_r1_golden_test.cpp} (ADR-0021, PLAN.md
 # M3 PR 4a): R1/R1-Sim against tests/golden/dynamics/**'s frozen goldens (rigid_body_6dof_r1_golden.hpp
@@ -26,6 +29,7 @@ add_executable(astra_physics_tests
   dryden_psd_test.cpp
   dynamics/cruise_end_to_end_r1_golden_test.cpp
   dynamics/rigid_body_r1_golden_test.cpp
+  nesc/f16_evaluator_test.cpp
   nesc/nesc_cases_test.cpp
   nesc/nesc_f16_bands_test.cpp
   no_alloc_test.cpp

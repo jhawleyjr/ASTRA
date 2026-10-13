@@ -498,6 +498,17 @@ takes them as a prefix.
     from `air_data`, and thrust along +x with no moment. A NaN altitude or a NaN or zero speed of sound gives the
     NaN sentinel. `F16Mass`, `F16Engine` (the 9 checkData shots) and `F16NoAlloc`'s 1000-frame run check them.
     Plan: [plan](docs/plans/m7-pr6c-f16-mass-propulsion.md). Packet: in the PR body.
+  - PR 7 (#116): the aero-only channel route, Q5 under (c), for PR 9, 11a and 11b's aero channels.
+    `tests/physics/nesc/independent_evaluator.hpp`'s `FrameStartEnvironment` rebuilds the k1 stage's environment
+    from the latched sample, setting `omega_ie_b` through the core's `earth_rate_b` and `altitude_m` through a
+    second instance of the config's `physical.earth`. Its `IndependentWrenchSource` is a second instance of a
+    `vehicle.models` plugin with its own registries, fed the sim's latched `v0.<input>` after each sample's
+    `run(1)`. `earth_rate_b` moves out of `vehicle.cpp`'s anonymous namespace and is declared in `kernel/vehicle.hpp`
+    (no behavior change; B4 and B5 pin the +0.0; `kCoreApiVersion` stays 11). `F16Evaluator`: with all four
+    controls changing every frame, the aero plus the engine equals `wrench_total` to 1e-12 normwise relative, and
+    measured exactly 0 at all 5,000 samples on `earth/flat` and on `wgs84_rotating`. Its NaN, zero and
+    stale-control negative controls each fail. Plan: [plan](docs/plans/m7-pr7-aero-evaluator.md). Packet: in the
+    PR body.
 - [ ] **M8 Actuators and controller tuning** — a first-order lag and a nonlinear second-order actuator model
       with rate and position limits; autopilot gains loaded at startup; the tuning tool (spec-driven on the
       linear model, time-domain on the nonlinear sim, robustness across draws, gain schedules) with
