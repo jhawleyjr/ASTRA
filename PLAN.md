@@ -521,6 +521,17 @@ takes them as a prefix.
     `vehicle.models.0.wing_area_m2`; the two notional turbulence configs and the `shm` fixture at
     `transport.segment`). `mass/constant`'s block states the S&L product-of-inertia convention, closing R17's
     reference half. Plan: [plan](docs/plans/m7-pr14-config-key-reference.md). Packet: in the PR body.
+  - PR 9 (#118): cases 11 and 12 open loop (R4's F-16 half, R5, R9 for this family).
+    `aircraft/f16/configs/case11_trim_check_subsonic.yaml` and `case12_trim_check_supersonic.yaml` hold Vol II
+    Tables 35 and 36, trimmed by `astra trim --rate-convention n_frame`; each rebuilds its trim bit for bit. Q7's
+    full lateral residual is derived from the DML alone (`docs/reviews/evidence/m7-pr9-residual/`), and
+    `NescF16.Case1{1,2}TrimResiduals` checks ASTRA's against it within pre-registered absolute bounds, along with
+    the throttle in [0, 1]. `NescF16.Case1{1,2}OpenLoop` fly 180,001 frames through `tests/physics/nesc/f16_flight.hpp`
+    on PR 7's evaluator: all 21 channels asserted from `Band::kFirstGatedSample` on, none excluded. The ungated
+    span is logged. D8 holds: both members' `altitudeMsl_ft` is the WGS-84 ellipsoidal height. Negative controls:
+    the elevator's sign fails force_z, SIM 2's zero-inertial trim fails rate_q in 11 and 12, and Izx's sign
+    stays inside every case 11 band, reported, not gated. Plan: [plan](docs/plans/m7-pr9-open-loop.md). Packet:
+    in the PR body.
 - [ ] **M8 Actuators and controller tuning** — a first-order lag and a nonlinear second-order actuator model
       with rate and position limits; autopilot gains loaded at startup; the tuning tool (spec-driven on the
       linear model, time-domain on the nonlinear sim, robustness across draws, gain schedules) with

@@ -632,6 +632,9 @@ The README's examples are NASA's own illustrations. Vol II's tables define the c
   inertial columns, not the Earth-relative ones (which differ by ω_ie, about 4e-3 deg/s here).
 - **The propulsion's altitude.** It is "Geometric altitude above reference geoid" (`README.html:1161`). The
   plan's assumption, that NASA's `altitudeMsl_ft` is height above the ellipsoid, is left to PR 9.
+  *Answered 2026-10-13 (Joe; [M7 PR 9's plan](m7-pr9-open-loop.md), Q2):* the ellipsoidal reading holds
+  for cases 11 and 12; both members' `altitudeMsl_ft` is the WGS-84 ellipsoidal height, and no geoid model
+  is added.
 - **The sign attributes.** The aero gives `beta` as "wind in right ear", control as "+RT" and the README as
   "+ANL". These describe one convention (velocity to the right of the nose) and match ICD v1's β.
   `trueBaseCourseCommand` is "+CCFN" in the file and "+CWFN" in the README and Vol II Table 8.

@@ -10,7 +10,7 @@
 //    as bodyAngularRateWrtEi);
 // 2. run(1);
 // 3. copy_inputs() on both evaluator instances, now that the latched controls are this frame's
-//    (STATE.md's PR 9 thread);
+//    (the plan's harness design);
 // 4. the frame-start environment (PR 7's FrameStartEnvironment) and the aero instance's wrench give
 //    the aero channels, aero only and about the CG, which is the CM (the M7 plan's Q5; addendum
 //    D4); the latched environment gives the atmosphere channels;
