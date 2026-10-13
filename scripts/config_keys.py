@@ -13,7 +13,10 @@ The parsing rule:
 - The plugins are every directory under plugins/ or aircraft/ whose CMakeLists.txt calls
   astra_add_plugin(; the plugin path is that directory, relative to the root (ADR-0009).
 - A plugin's block sits in the leading comment of the first file its SOURCES names: the lines
-  from the top of the file that start with `//`. Exactly one block per plugin.
+  from the top of the file that start with `//`. Exactly one block per plugin, so the opener is
+  reserved: a second `// Config keys:` line anywhere in that file, in the leading comment or
+  below it, is refused as a second block. That is the intended rule, not a bug: a block written
+  below the leading comment is refused, never silently skipped.
 - The block opens at the exact line `// Config keys:` and ends at the first empty `//` line or at
   the end of the leading comment. Each line's text is what follows `//`, stripped:
   - `none`: the plugin reads no key. It must be the block's only line.

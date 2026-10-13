@@ -81,7 +81,9 @@ Decisions (Joe, 2026-09-29):
   `astra report`): one self-contained HTML file per log, scenario or batch.
 - **Frequency domain and handling qualities** on top of `astra.linearize`: Bode plots, margins, and
   criteria from MIL-HDBK-1797 (in `docs/refs/textbooks`).
-- **A generated reference** of every plugin's config keys.
+- **A generated reference** of every plugin's config keys. Built in M7 PR 14:
+  `docs/reference/config-keys.md`, which `scripts/config_keys.py` generates from a key block in each
+  plugin's header comment; `just docs-check` fails when it is stale.
 
 ## Controller tuning
 

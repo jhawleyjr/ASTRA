@@ -509,6 +509,18 @@ takes them as a prefix.
     measured exactly 0 at all 5,000 samples on `earth/flat` and on `wgs84_rotating`. Its NaN, zero and
     stale-control negative controls each fail. Plan: [plan](docs/plans/m7-pr7-aero-evaluator.md). Packet: in the
     PR body.
+  - PR 14 (#117): the generated config-key reference, Q21 as recommended, with no core change (`kCoreApiVersion`
+    stays 11). Each of the 22 plugins under `plugins/` and `aircraft/` ends its header comment with a key block
+    (`key | type | unit | default | meaning` rows, or `none`, as the F-16's three say), and
+    `scripts/config_keys.py` renders them into `docs/reference/config-keys.md`; `just docs-check` fails when it
+    is stale. `test_config_keys.py` takes each tracked config's consumed keys from `Config::unknown_keys`'s
+    complement, then builds it again once per plugin with that plugin's library withheld, so the core's own keys
+    inside a block are subtracted by construction, with no list of core keys. Each plugin's documented keys equal
+    the union consumed under its blocks. Six fixtures under `tests/python/config_keys_fixtures/` set the keys no
+    other config sets; four refusals are declared (the template's `cruise.yaml` at
+    `vehicle.models.0.wing_area_m2`; the two notional turbulence configs and the `shm` fixture at
+    `transport.segment`). `mass/constant`'s block states the S&L product-of-inertia convention, closing R17's
+    reference half. Plan: [plan](docs/plans/m7-pr14-config-key-reference.md). Packet: in the PR body.
 - [ ] **M8 Actuators and controller tuning** — a first-order lag and a nonlinear second-order actuator model
       with rate and position limits; autopilot gains loaded at startup; the tuning tool (spec-driven on the
       linear model, time-domain on the nonlinear sim, robustness across draws, gain schedules) with
@@ -687,6 +699,11 @@ takes them as a prefix.
       reads each key with `as<std::string>()`, which throws on a sequence or map key. Probed on M7 PR 2's build:
       `astra run` on `tests/python/mc_analysis_fixtures/descent.yaml` plus `? [a, b]` then `: 1` exits 70
       ("internal error (a defect)", `RuntimeError: yaml-cpp: ... bad conversion`), not 65. Not started.
+- [ ] (unscheduled) GitHub's `check` skips docs-check for a PR whose paths are only `plugins/`, `aircraft/` or
+      `scripts/config_keys.py`, so a stale `docs/reference/config-keys.md` passes CI and fails only the local
+      gate (origin: M7 PR 14; Joe 2026-10-12). The fix is the paths filter in `.github/workflows/check.yml` (its
+      scope step's docs pattern), with `plugins/`, `aircraft/`, `scripts/config_keys.py` and `docs/reference/`
+      added. It changes the gate, so it is a gate PR of its own. Not started.
 
 ## Future work
 
