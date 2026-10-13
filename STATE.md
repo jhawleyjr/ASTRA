@@ -22,8 +22,8 @@
   - PR 11b: whether `rate_frame.py` runs on case 15 as a reported confirmation (ADR-0029 Decision 7).
 - The F-16 engine's and `EnvironmentSample::altitude_m`'s comments still call D8 "PR 9's question"; answered
   (`docs/plans/m7-pr9-open-loop.md`, Q2: the ellipsoid holds). The next PR to edit either file updates it.
-- The first PR that edits `tests/physics/nesc/independent_evaluator.hpp` fixes its header comment's wrap
-  artifact, in the second bullet ("is / still / that frame's") (#116's follow-up, Joe 2026-10-11).
+- The first PR that edits `tests/physics/nesc/independent_evaluator.hpp` or `f16_flight.hpp` fixes that header's
+  wrap artifact: "is / still / that frame's" (#116's follow-up) and item 1's "from p_n / (the" (#118's).
 - PLAN.md's (unscheduled) notional-transport rate-frame item (M7 PR 6a's D3 (B2)): measure before Joe decides.
   It also carries the trim callers' move to `n_frame` and the notional aero's stale "identical" sentence.
 - Trim (M7 PR 5): `zero_inertial` the default, the F-16 configs `n_frame`; PR 11a (13.x) and PR 11b (15, 16)
