@@ -130,7 +130,8 @@ sim.close_log()  # publishes the log when the config has a log block; without it
 print(sim.clock.frame, halt.check.name if halt else "no halt")
 ```
 
-Config keys are in [architecture §13](docs/architecture.md#13-configuration). An unknown key is an error.
+The core's config keys are in [architecture §13](docs/architecture.md#13-configuration), and every plugin's are
+in [the config-key reference](docs/reference/config-keys.md). An unknown key is an error.
 
 ### Trim and linearize
 
@@ -308,9 +309,10 @@ architecture §10 and §11 ([architecture.md](docs/architecture.md)) and
 ### Add an aircraft
 
 ```sh
-just new-aircraft my_aircraft   # copies aircraft/_template, rewriting plugin paths and namespaces
-just build                      # discovers aircraft/my_aircraft and builds its plugins and tests
-just python                     # rebuilds build/python, whose plugins the astra command loads
+just new-aircraft my_aircraft          # copies aircraft/_template, rewriting plugin paths and namespaces
+python3 -I -B scripts/config_keys.py   # adds its plugins' key blocks to docs/reference/config-keys.md
+just build                             # discovers aircraft/my_aircraft and builds its plugins and tests
+just python                            # rebuilds build/python, whose plugins the astra command loads
 astra trim aircraft/my_aircraft/configs/cruise.yaml
 astra run aircraft/my_aircraft/configs/cruise.yaml
 ```
@@ -343,7 +345,11 @@ If one needs more than it says, that is a framework bug.
 2. Export one descriptor: `ASTRA_PLUGIN_EXPORT const astra::PluginDescriptor* astra_plugin()`.
 3. Put `astra_add_plugin(SOURCES my_model.cpp)` in the directory's `CMakeLists.txt`, under `plugins/<kind>/` or
    `aircraft/<name>/<kind>/`. The plugin's path is derived from its directory.
-4. `just build`, then `just python`, because Python and the `astra` command load plugins from `build/python`,
+4. End the first `SOURCES` file's header comment with a key block: a `// Config keys:` line, then one
+   `key | type | unit | default | meaning` row per key the plugin reads, or `none`. Run
+   `python3 -I -B scripts/config_keys.py` to add it to [the config-key reference](docs/reference/config-keys.md);
+   `just docs-check` fails until it is current. The format is that script's docstring.
+5. `just build`, then `just python`, because Python and the `astra` command load plugins from `build/python`,
    which `just build` does not rebuild. Then name the path in a config, for example
    `atmosphere: plugins/physical/atmosphere/isa1976`.
 
@@ -385,14 +391,14 @@ made before code existed and the open questions deliberately deferred.
 |---|---|
 | `core/` | `libastra_core`: kernel, interfaces, plugin loader, config, signals, logging, utilities |
 | `plugins/` | Shared models by kind: environment, mass, transports |
-| `aircraft/` | One folder per aircraft: `_template/` and `notional_transport/` |
+| `aircraft/` | One folder per aircraft: `_template/`, `notional_transport/` and `f16/` |
 | `icd/` | `astra_icd.h`, the C11 frames exchanged with flight software |
 | `embedded/` | A separate C++17 project: the HAL and the example autopilot |
 | `python/` | The `astra` package (`trim`, `linearize`, `log`, `scenario`, `montecarlo`, `mc_analysis`, `mc_sizing`, `plot`, `report`, `fgbridge`, `lockstep`, `cli`) and the nanobind bindings |
 | `tests/` | Unit, physics, lockstep and Python tests, scenarios, the frame-time benchmark, and human-owned goldens |
 | `scripts/` | Setup, check wrappers and docs and scan tools |
 | `cmake/` | The plugin helpers (`astra_add_plugin`, `astra_add_plugin_test`) |
-| `docs/` | Architecture, ADRs, process, plans and reviews ([index](docs/README.md)) |
+| `docs/` | Architecture, ADRs, the config-key reference, process, plans and reviews ([index](docs/README.md)) |
 | `.claude/`, `.github/` | Agent hooks and skills; CI and the `main` ruleset |
 | `justfile`, `CMakePresets.json`, `pyproject.toml` | Commands, build presets, the Python package |
 

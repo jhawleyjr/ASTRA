@@ -28,6 +28,14 @@
 // g0 and R both default to the same numbers earth/round defaults to, so the pair reproduce a
 // single self-consistent sphere unless a config overrides both; they are not linked automatically
 // (a radius concept on EarthModel would mean nothing for flat Earth).
+//
+// Config keys:
+//   g0       | number  | m/s^2 | 9.80665   | Gravity at the sphere's surface: g = g0*(R/(R+h))^2.
+//          Finite.
+//   radius   | number  | m     | 6371000.0 | The sphere's radius R; finite and positive. Keep it
+//          equal to earth/round's radius.
+//   rotating | boolean | -     | false     | true adds the Earth rotation's centripetal term
+//          (plumb-bob gravity); set it to match earth/round's rotating.
 #include <cmath>
 #include <cstdint>
 #include <memory>

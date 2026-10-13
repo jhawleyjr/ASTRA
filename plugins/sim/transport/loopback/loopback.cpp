@@ -25,6 +25,35 @@
 //
 // Per-frame methods allocate nothing: the schedule and faults are vectors built at init and
 // walked by index.
+//
+// Config keys:
+//   peer.commands.elevator     | number  | rad | 0        | The reply's elevator command before any
+//          schedule entry. All of peer is optional.
+//   peer.commands.aileron      | number  | rad | 0        | The same, the aileron.
+//   peer.commands.rudder       | number  | rad | 0        | The same, the rudder.
+//   peer.commands.throttle[]   | number  | 1   | 0        | The same, throttle[0] and throttle[1]:
+//          exactly two entries.
+//   peer.mode_flags            | integer | 1   | 0        | Echoed as
+//          astra_sw_to_sim_v1.mode_flags; fits uint32. fault_flags is always 0.
+//   peer.spurious_wakeups      | integer | 1   | 0        | Unchanged ack observations before every
+//          ack, never a failure; fits uint32.
+//   peer.handshake_fail        | boolean | -   | false    | true makes open() throw: a scripted
+//          handshake failure.
+//   peer.schedule[].frame      | integer | 1   | required | The frame from which this entry's
+//          fields apply; at least 0, strictly ascending.
+//   peer.schedule[].elevator   | number  | rad | -        | The elevator command from this entry's
+//          frame on; left out, it is unchanged.
+//   peer.schedule[].aileron    | number  | rad | -        | The same, the aileron.
+//   peer.schedule[].rudder     | number  | rad | -        | The same, the rudder.
+//   peer.schedule[].throttle[] | number  | 1   | -        | The same, throttle[0] and throttle[1]:
+//          exactly two entries.
+//   peer.faults[].frame        | integer | 1   | required | The frame at which this fault applies;
+//          at least 0. Several faults may share a frame.
+//   peer.faults[].kind         | text    | -   | required | out_of_order_ack, stale_reply_frame,
+//          bad_magic, bad_version, timeout, peer_closed or non_finite.
+//   peer.faults[].field        | text    | -   | required | For non_finite only: elevator, aileron,
+//          rudder, throttle_0 or throttle_1.
+//   peer.faults[].value        | text    | -   | required | For non_finite only: nan, inf or -inf.
 #include <array>
 #include <cstddef>
 #include <cstdint>

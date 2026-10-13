@@ -9,6 +9,43 @@
 // aero_math.hpp's own header comment has the full force/moment-assembly citation and the V->0
 // algebraic fix; this file only assembles that header's Inputs from (VehicleState,
 // EnvironmentSample) via air_data:: and this plugin's own bound controls, then delegates.
+//
+// Config keys:
+//   wing_area_m2          | number | m^2   | required | Reference wing area S, finite and positive.
+//   wingspan_m            | number | m     | required | Reference span b, for the rolling and
+//          yawing moments; finite and positive.
+//   mean_chord_m          | number | m     | required | Mean aerodynamic chord cbar, for the
+//          pitching moment; finite and positive.
+//   r_aero_b_x_m          | number | m     | required | The aero reference point, about which the
+//          coefficients' moments are taken before they move to the CG, relative to the CG: body x
+//          (FRD).
+//   r_aero_b_y_m          | number | m     | required | The same point, body y (FRD).
+//   r_aero_b_z_m          | number | m     | required | The same point, body z (FRD).
+//   cl_0                  | number | 1     | required | Lift coefficient at zero alpha and zero
+//          elevator: CL = cl_0 + cl_alpha_per_rad*alpha + cl_elevator_per_rad*elevator.
+//   cl_alpha_per_rad      | number | 1/rad | required | Lift-curve slope dCL/dalpha.
+//   cl_elevator_per_rad   | number | 1/rad | required | dCL/d(elevator).
+//   cd_0                  | number | 1     | required | Drag coefficient at zero lift: CD = cd_0 +
+//          cd_k*CL^2.
+//   cd_k                  | number | 1     | required | The induced-drag factor in CD = cd_0 +
+//          cd_k*CL^2.
+//   cy_beta_per_rad       | number | 1/rad | required | Side-force slope, signed +right (JSBSim's
+//          SIDE axis, not S&L's crosswind C): Y = qbar*S*cy_beta_per_rad*beta.
+//   croll_beta_per_rad    | number | 1/rad | required | Rolling-moment slope dCl/dbeta.
+//   croll_p_per_rad       | number | 1/rad | required | Roll damping: dCl per unit nondimensional
+//          roll rate p*b/(2V).
+//   croll_r_per_rad       | number | 1/rad | required | dCl per unit nondimensional yaw rate
+//          r*b/(2V).
+//   croll_aileron_per_rad | number | 1/rad | required | dCl/d(aileron).
+//   croll_rudder_per_rad  | number | 1/rad | required | dCl/d(rudder).
+//   cm_alpha_per_rad      | number | 1/rad | required | Pitching-moment slope dCm/dalpha.
+//   cm_q_per_rad          | number | 1/rad | required | Pitch damping: dCm per unit nondimensional
+//          pitch rate q*cbar/(2V).
+//   cm_elevator_per_rad   | number | 1/rad | required | dCm/d(elevator).
+//   cn_beta_per_rad       | number | 1/rad | required | Yawing-moment slope dCn/dbeta.
+//   cn_r_per_rad          | number | 1/rad | required | Yaw damping: dCn per unit nondimensional
+//          yaw rate r*b/(2V).
+//   cn_rudder_per_rad     | number | 1/rad | required | dCn/d(rudder).
 #include <Eigen/Core>
 #include <cmath>
 #include <memory>

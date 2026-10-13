@@ -3,10 +3,12 @@
 ## Next step
 1. M7: `docs/plans/m7-f16-nesc-oracle.md` (Joe's later decisions are its dated amendments), P1 and P2 inventoried
    in `docs/plans/m7-f16-inventory.md`; ADR-0028 to ADR-0033 are accepted.
-2. PR 9 (cases 11 and 12 open loop) is eligible, from a new worktree off `origin/main`; Joe removes `m7-pr7`.
-   Its aero channels come from PR 7's `tests/physics/nesc/independent_evaluator.hpp` (Q5's route).
-3. In progress: PR 14 (the generated config-key reference, #117) in worktree `m7-pr14`.
-4. Waiting: PR 13 (ADR-0031; the F-16 declares Mach ≤ 1.0) on PR 9.
+2. PR 9 (cases 11 and 12 open loop) is eligible, from a new worktree off `origin/main`; Joe removes `m7-pr7`
+   and `m7-pr14`. Its aero channels come from PR 7's `tests/physics/nesc/independent_evaluator.hpp` (Q5's route).
+3. Waiting: PR 13 (ADR-0031; the F-16 declares Mach ≤ 1.0) on PR 9; PR 15 (the tutorial) on PR 12.
+4. Every new plugin under `plugins/` or `aircraft/` (PR 11a's `nesc_control` peer included) needs a key block
+   before `just docs-check` passes, and a `just new-aircraft` copy needs `python3 -I -B scripts/config_keys.py`
+   run (architecture §18 step 1); a new tracked config builds, or `test_config_keys.py` declares its refusal.
 5. On Joe's go: PR 3 (Earth/gravity rotation consistency; own plan review; bumps `kCoreApiVersion` past 11).
 
 ## Open threads
@@ -17,8 +19,7 @@
   - PR 11b: whether `rate_frame.py` runs on case 15 as a reported confirmation (ADR-0029 Decision 7);
   - PR 9: whether the engine's geoid altitude, read against the ellipsoid, holds (the addendum's D8, ADR-0033),
     and whether its configs' throttle is checked, since the engine extrapolates outside 0..1 (6b's decision 4).
-    Its harness calls the evaluator's `copy_inputs()` after each sample's `run(1)`;
-  - PR 14: `mass/constant`'s key block states the S&L product-of-inertia convention (R17's reference half).
+    Its harness calls the evaluator's `copy_inputs()` after each sample's `run(1)`.
 - The first PR that edits `tests/physics/nesc/independent_evaluator.hpp` fixes its header comment's wrap
   artifact, in the second bullet ("is / still / that frame's") (#116's follow-up, Joe 2026-10-11).
 - PLAN.md's (unscheduled) notional-transport rate-frame item (M7 PR 6a's D3 (B2)): measure before Joe decides.
@@ -30,11 +31,10 @@
   `Band::kFirstGatedSample` on, logs the rest, wraps longitude and yaw, and never cites a zero-accepting channel.
 - Lessons: arm the oracle guard in the turn that finishes the guarded writes (2026-10-09); copy a failed gate's
   full log to its per-head name before any rerun (2026-10-10); a ctest `-R 'A\|B'` selects nothing (2026-10-11).
-  PLAN.md's (unscheduled) `disarm-goldens.sh` item is Joe's.
-- PLAN.md's items, each Joe's call: (unscheduled) `kJ2`'s source; the review record (the PR body only, M6 PR 10's
-  D3); the docs-check range (until a gate PR fixes it, run `git diff --check <base>..HEAD` before review); the
-  equal-aspect canvas and the plotly.js floor; the non-scalar map key (exit 70, not 65); (M9) the ICD v2
-  Earth-rate item (ADR-0029 Decision 7); (M11) the frame-time benchmark maximum.
+- PLAN.md's items, each Joe's call: (unscheduled) `kJ2`'s source; `disarm-goldens.sh`; the review record (the PR
+  body only, M6 PR 10's D3); the docs-check range (until a gate PR fixes it, run `git diff --check <base>..HEAD`
+  before review); CI's docs-check paths; the equal-aspect canvas and the plotly.js floor; the non-scalar map key
+  (exit 70, not 65); (M9) the ICD v2 Earth-rate item (ADR-0029 Decision 7); (M11) the frame-time benchmark maximum.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.

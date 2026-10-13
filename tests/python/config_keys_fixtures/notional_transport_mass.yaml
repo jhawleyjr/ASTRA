@@ -1,0 +1,23 @@
+# M7 PR 14's consumption test (tests/python/test_config_keys.py): an ordinary tracked config that sets
+# aircraft/notional_transport/physical/mass's ixy and iyz, which no other tracked config sets, beside
+# cruise.yaml's numbers. The tensor stays strictly diagonally dominant with a positive diagonal, so it is
+# positive-definite and the plugin accepts it.
+sim:
+  dt: 0.001
+  frames: 10
+vehicle:
+  models: []
+physical:
+  earth: plugins/physical/earth/flat
+  gravity: plugins/physical/gravity/constant
+  mass:
+    plugin: aircraft/notional_transport/physical/mass
+    mass: 37648.0
+    ixx: 761970.0
+    iyy: 1997120.0
+    izz: 2567919.0
+    ixy: 1000.0
+    ixz: -10846.5
+    iyz: 2000.0
+initial:
+  state: { p_n: [0.0, 0.0, -100.0], v_b: [10.0, 0.0, 0.0] }

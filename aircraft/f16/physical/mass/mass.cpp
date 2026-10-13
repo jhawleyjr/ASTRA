@@ -16,6 +16,9 @@
 //
 // Everything sits in an anonymous namespace, and the descriptor's name is "f16_mass" (the aero's
 // reasoning, physical/aero/aero.cpp).
+//
+// Config keys:
+//   none
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
 #include <memory>

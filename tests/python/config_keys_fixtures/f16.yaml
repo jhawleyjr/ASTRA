@@ -1,0 +1,20 @@
+# M7 PR 14's consumption test (tests/python/test_config_keys.py): an ordinary tracked config that loads
+# the F-16's three plugins in bare blocks, so the core shows they build with no key (their key blocks say
+# `none`) before PR 9 writes the F-16's own configs. It is F16NoAlloc's config
+# (aircraft/f16/tests/no_alloc_test.cpp), untrimmed: it is built, never flown.
+sim:
+  dt: 0.001
+  frames: 10
+vehicle:
+  models:
+    - { plugin: aircraft/f16/physical/aero }
+    - { plugin: aircraft/f16/hardware/propulsion/engine }
+  initial_controls:
+    controls: { elevator: 0.0, aileron: 0.0, rudder: 0.0, throttle: 0.6 }
+physical:
+  earth: plugins/physical/earth/flat
+  gravity: plugins/physical/gravity/constant
+  atmosphere: plugins/physical/atmosphere/isa1976
+  mass: { plugin: aircraft/f16/physical/mass }
+initial:
+  state: { p_n: [0.0, 0.0, -3000.0], v_b: [150.0, 0.0, 0.0] }

@@ -115,7 +115,8 @@ For workflow edits, run `just docs-check` (`scripts/docs_check.py`): Markdown li
 `.claude/skills/*/SKILL.md` frontmatter and name-matches-directory; the AGENTS.md+CLAUDE.md line
 budget; `just`/`./scripts/` command names referenced from those docs; STATE.md's shape (exactly
 `## Next step`, `## Open threads`, `## Honesty rules` in order, at most 40 lines, the honesty rules text as
-the script's `STATE_HONESTY_RULES`); `bash -n` on each wrapper
+the script's `STATE_HONESTY_RULES`); the config-key reference's currency (`docs/reference/config-keys.md`
+against the plugins' key blocks, through `scripts/config_keys.py --check`); `bash -n` on each wrapper
 separately (`bash -n a b` only parses `a`; `b` becomes an unused positional argument, not a second
 file checked); and `git diff --check`, which reads only the uncommitted diff, so before review also run
 `git diff --check <base>..HEAD` over the committed range (PLAN.md's docs-check item). `just check` runs it on every

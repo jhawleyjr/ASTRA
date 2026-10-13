@@ -1,0 +1,32 @@
+# M7 PR 14's consumption test (tests/python/test_config_keys.py): an ordinary tracked config that shows
+# plugins/sim/transport/shm reads its one key, transport.segment, which astra.lockstep supplies at run time
+# and so no other tracked config sets. The name is malformed on purpose. ShmTransport::init (shm.cpp) reads
+# it, then refuses it with a ConfigError at transport.segment by its valid_segment rule: a name must be
+# astra_<1-10 digits>_<1-32 letters or digits>. That refusal comes in init, before open(), so it is that
+# documented check and never an shm_open failure: no segment is created and no peer is awaited. The test
+# declares this refusal (EXPECTED_REFUSALS) and checks that /dev/shm/config_keys_fixture never appears.
+# no_alloc_transport.yaml's base, with cruise_light_turbulence.yaml's timeouts.
+sim:
+  dt: 0.001
+  frames: 1000
+vehicle:
+  models:
+    - { plugin: tests/plugins/input_consumer }
+  initial_controls:
+    controls:
+      elevator: 0.0
+physical:
+  earth: plugins/physical/earth/flat
+  gravity: plugins/physical/gravity/constant
+  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, izz: 1.0 }
+initial:
+  state: { p_n: [0.0, 0.0, -100.0], v_b: [60.0, 0.0, 0.0] }
+transport:
+  plugin: plugins/sim/transport/shm
+  divisor: 10
+  timeout_ms: 1000
+  handshake_timeout_ms: 5000
+  peer_timeout_ms: 2000
+  commands: { elevator: controls.elevator }
+  limits: { elevator: [-1.0, 1.0], aileron: [-1.0, 1.0], rudder: [-1.0, 1.0], throttle: [0.0, 1.0] }
+  segment: config_keys_fixture
