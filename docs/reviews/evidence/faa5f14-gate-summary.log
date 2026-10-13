@@ -1,0 +1,70 @@
+date: 2026-10-13T19:01:21Z
+command: ./scripts/check-full.sh
+base: bff4c4e2ca42aee1a720940a556dca57ef639340
+head: faa5f141b78e930aaf771a371b8e5d47c13c4cd4
+exit: 0
+working tree: 0 uncommitted paths
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 195 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7-pr9/build/debug
+100% tests passed, 0 tests failed out of 751
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7-pr9/build/release
+100% tests passed, 0 tests failed out of 752
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7-pr9/build/static-plugins
+100% tests passed, 0 tests failed out of 753
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7-pr9/build/asan
+100% tests passed, 0 tests failed out of 754
+wallclock-scan: OK (63 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (63 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (63 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (63 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+0 errors, 0 warnings, 0 informations
+2110 passed, 5 skipped in 128.64s (0:02:08)
+check: OK
+
+M7 PR 9 tests in this run (each preset in Test project order: debug, release, static-plugins, asan):
+Test #599: physics.NescF16Control.Case11MassRoutePositiveControl Passed    0.01 sec
+Test #604: physics.NescF16.Case11TrimResiduals Passed    0.01 sec
+Test #605: physics.NescF16.Case12TrimResiduals Passed    0.01 sec
+Test #602: physics.NescF16Control.Case11ZeroInertialTrimFailsRateQ Passed    2.36 sec
+Test #601: physics.NescF16Control.Case11ElevatorSignFailsForceZ Passed    3.00 sec
+Test #603: physics.NescF16Control.Case12ZeroInertialTrimFailsRateQ Passed    2.94 sec
+Test #607: physics.NescF16.Case12OpenLoop Passed   23.71 sec
+Test #606: physics.NescF16.Case11OpenLoop Passed   23.90 sec
+Test #600: physics.NescF16Control.Case11IzxSignReported Passed   25.30 sec
+Test #599: physics.NescF16Control.Case11MassRoutePositiveControl Passed    0.01 sec
+Test #605: physics.NescF16.Case12TrimResiduals Passed    0.01 sec
+Test #604: physics.NescF16.Case11TrimResiduals Passed    0.01 sec
+Test #601: physics.NescF16Control.Case11ElevatorSignFailsForceZ Passed    0.03 sec
+Test #602: physics.NescF16Control.Case11ZeroInertialTrimFailsRateQ Passed    0.03 sec
+Test #603: physics.NescF16Control.Case12ZeroInertialTrimFailsRateQ Passed    0.03 sec
+Test #607: physics.NescF16.Case12OpenLoop Passed    0.28 sec
+Test #600: physics.NescF16Control.Case11IzxSignReported Passed    0.29 sec
+Test #606: physics.NescF16.Case11OpenLoop Passed    0.29 sec
+Test #601: physics.NescF16Control.Case11MassRoutePositiveControl Passed    0.03 sec
+Test #606: physics.NescF16.Case11TrimResiduals Passed    0.03 sec
+Test #607: physics.NescF16.Case12TrimResiduals Passed    0.03 sec
+Test #603: physics.NescF16Control.Case11ElevatorSignFailsForceZ Passed    5.67 sec
+Test #604: physics.NescF16Control.Case11ZeroInertialTrimFailsRateQ Passed    5.85 sec
+Test #605: physics.NescF16Control.Case12ZeroInertialTrimFailsRateQ Passed    5.94 sec
+Test #609: physics.NescF16.Case12OpenLoop Passed   49.81 sec
+Test #602: physics.NescF16Control.Case11IzxSignReported Passed   54.47 sec
+Test #608: physics.NescF16.Case11OpenLoop Passed   54.79 sec
+Test #607: physics.NescF16.Case12TrimResiduals Passed    0.03 sec
+Test #601: physics.NescF16Control.Case11MassRoutePositiveControl Passed    0.03 sec
+Test #606: physics.NescF16.Case11TrimResiduals Passed    0.04 sec
+Test #603: physics.NescF16Control.Case11ElevatorSignFailsForceZ Passed    8.44 sec
+Test #605: physics.NescF16Control.Case12ZeroInertialTrimFailsRateQ Passed    8.68 sec
+Test #604: physics.NescF16Control.Case11ZeroInertialTrimFailsRateQ Passed    8.69 sec
+Test #602: physics.NescF16Control.Case11IzxSignReported Passed  117.37 sec
+Test #609: physics.NescF16.Case12OpenLoop Passed  118.85 sec
+Test #608: physics.NescF16.Case11OpenLoop Passed  119.77 sec
+
+The longest test per preset (wall time is bounded by it: ctest --parallel 32):
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr9/build/asan: notional_transport_cruise_regression.NotionalTransportCruiseRegression.TwoRunsFromTheSameConfigAreBitwiseIdentical 402.89 sec
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr9/build/debug: notional_transport_cruise_regression.NotionalTransportCruiseRegression.TwoRunsFromTheSameConfigAreBitwiseIdentical 94.71 sec
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr9/build/release: EchoPeerStress.MillionExchangesEchoPayloadAndReportCost 3.19 sec
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr9/build/static-plugins: notional_transport_cruise_regression.NotionalTransportCruiseRegression.TwoRunsFromTheSameConfigAreBitwiseIdentical 227.19 sec

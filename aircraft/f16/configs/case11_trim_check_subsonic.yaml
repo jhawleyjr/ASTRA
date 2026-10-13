@@ -1,0 +1,51 @@
+# NASA/TM-2015-218675 atmospheric check-case 11, "trim check, subsonic F-16" (Vol II Table 35): the
+# F-16 trimmed level at 10,013 ft and 565.7 ft/s, flown open loop for 180 s (M7 PR 9,
+# docs/plans/m7-pr9-open-loop.md). tests/physics/nesc/nesc_f16_open_loop_test.cpp flies it against
+# ADR-0028's band (tests/golden/nesc/case11_trim_check_subsonic_f16_band.hpp).
+#
+# Initial condition (Table 35), converted with core/util/units (astra._core):
+# - p_n = (degrees_to_radians(36.01916667), degrees_to_radians(-75.67444444), feet_to_meters(10013)).
+#   The altitude is the height above the WGS-84 ellipsoid, as both members' altitudeMsl_ft is; the
+#   engine reads it as its "altitude above sea level" (the M7 addendum's D8, decided in this PR's
+#   plan, Q2).
+# - Airspeed |(feet_to_meters(400), feet_to_meters(400))| = 172.42091752452774 m/s, still air.
+# - Heading degrees_to_radians(45); roll 0, sideslip 0, aileron and rudder 0.
+#
+# Trim: pitch, elevator and throttle (the M7 plan's Q7), with omega_b the n frame's own rate (Q6,
+# Joe's (b) in M7 PR 5), solved by
+#   astra trim <this config> --airspeed 172.42091752452774 --altitude 3051.9624000000003
+#     --heading 0.7853981633974483 --rate-convention n_frame
+# and its initial.state and vehicle.initial_controls fragment merged in, each value's text as
+# printed. The explicit setpoints are the ones above; the default, |v_b|, can differ from them in
+# the last ulp. The trim leaves v_dot_y 0.0172 m/s^2 and the roll and yaw accelerations about 1e-5
+# rad/s^2, which no level trim can zero (Q7); docs/reviews/evidence/m7-pr9-residual/ derives them
+# from the DML.
+#
+# astra run flies sim.frames = 180,000 frames, to the state at t = 180 s. The harness drives one frame
+# more, the 180,001st, for that last sample's frame-start wrench: Simulation::run(n) is not bounded by
+# sim.frames.
+sim:
+  dt: 0.001
+  frames: 180000
+vehicle:
+  models:
+    - plugin: aircraft/f16/physical/aero
+    - plugin: aircraft/f16/hardware/propulsion/engine
+  initial_controls:
+    controls:
+      elevator: -0.05642226572274011  # rad
+      aileron: 0.0
+      rudder: 0.0
+      throttle: 0.13873817846824657
+physical:
+  earth: plugins/physical/earth/wgs84_rotating
+  gravity: plugins/physical/gravity/wgs84_j2
+  atmosphere: plugins/physical/atmosphere/isa1976
+  mass:
+    plugin: aircraft/f16/physical/mass
+initial:
+  state:
+    p_n: [0.6286530522161018, -1.3207682150955165, 3051.9624000000003]  # lat, lon (rad), altitude (m)
+    v_b: [172.23806690598641, 0.0, 7.9385835316476205]  # m/s, body axes
+    euler_nb: [0.7853981633974483, 0.0460581645127969, 0.0]  # [psi, theta, phi] rad
+    omega_b: [4.421479346717576e-05, -6.875360966116474e-05, -5.4779192377020555e-05]  # rad/s

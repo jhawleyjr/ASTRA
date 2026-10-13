@@ -1,0 +1,25 @@
+sim:
+  dt: 0.001
+  frames: 180000
+vehicle:
+  models:
+    - plugin: aircraft/f16/physical/aero
+    - plugin: aircraft/f16/hardware/propulsion/engine
+  initial_controls:
+    controls:
+      elevator: 0.0
+      aileron: 0.0
+      rudder: 0.0
+      throttle: 0.5
+physical:
+  earth: plugins/physical/earth/wgs84_rotating
+  gravity: plugins/physical/gravity/wgs84_j2
+  atmosphere: plugins/physical/atmosphere/isa1976
+  mass:
+    plugin: aircraft/f16/physical/mass
+initial:
+  state:
+    p_n: [0.6286530522161018, -1.3207682150955165, 9147.9624]
+    v_b: [609.5999998391766, 0.0, 0.0]
+    euler_nb: [0.7853981633974483, 0.0, 0.0]
+    omega_b: [0.0, 0.0, 0.0]

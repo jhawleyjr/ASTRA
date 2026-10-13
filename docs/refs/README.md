@@ -25,7 +25,8 @@ One line per document: what it is, where it came from, what in the tree cites it
   p.62-67, and Tables 79-80's footnotes, doc p.593-594, per ADR-0028), the `tests/physics/nesc/case*.yaml`
   configs (per-case initial conditions, C.1.1-C.1.10/Tables 25-34, doc p.56-61),
   `tests/physics/nesc/nesc_f16_bands_test.cpp` (cases 11 to 16's initial conditions, Tables 35-40, 42
-  and 43) and `plugins/physical/wind/table`.
+  and 43), `aircraft/f16/configs/case11_trim_check_subsonic.yaml` and
+  `case12_trim_check_supersonic.yaml` (Tables 35 and 36, M7 PR 9) and `plugins/physical/wind/table`.
 - **NESC atmospheric check-case trajectories** (`Atmospheric_checkcases/`) — the NESC Academy 2015
   page (`https://nescacademy.nasa.gov/flightsim/2015`), not NTRS (corrected in M7 PR 6a); the report's
   companion data: 17 scenarios, 4-6 CSV trajectories each, one per participating simulation tool,
@@ -45,7 +46,9 @@ One line per document: what it is, where it came from, what in the tree cites it
   unzipped to `Atmospheric_models/F16_package/`: the F-16's DAVE-ML models (P1:
   `F16_S119_source/F16_{aero,prop,inertia}.dml`; P2: `F16_control.dml`, `F16_gnc.dml`), their DAVE2SL
   Simulink equivalents (`F16_equiv_SL_files/*.m`) and `README/README.html`. Cited by
-  `docs/plans/m7-f16-inventory.md` (M7 PR 6a), which records each file's version and SHA-256. Unused by
+  `docs/plans/m7-f16-inventory.md` (M7 PR 6a), which records each file's version and SHA-256. P1 is also
+  read, by hand and never by `just check`, by `docs/reviews/evidence/m7-pr9-residual/derive_residual.py`
+  (M7 PR 9: Q7's expected trim residual from the DML alone, from the main checkout's copy). Unused by
   M7: `brick_*.dml`, `cannonball_*.dml` and `two-stage_package.zip` (case 17, out of scope).
 - **JSBSim 737** (`aircrafts/737.xml`) — JSBSim's example aircraft ($Revision: 1.43 $, Dave Culp /
   Aeromatic, GPL). The source of the notional transport's numbers: cited by

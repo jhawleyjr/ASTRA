@@ -1,0 +1,49 @@
+aircraft/f16/configs/case11_trim_check_subsonic.yaml (n_frame):
+  state      bit for bit
+  controls   bit for bit
+  altitude   bit for bit
+  residual   bit for bit
+  idempotent bit for bit
+  theta      0.0460581645127969 rad
+  controls.elevator      -0.05642226572274011
+  controls.aileron       0.0
+  controls.rudder        0.0
+  controls.throttle      0.13873817846824657
+  residual   3.9150540448451565e-16, 0.01717106846736798, 1.3877787807814457e-16, -9.888828557767271e-06, 7.485012077350045e-17, 5.997666122686064e-06
+aircraft/f16/configs/case12_trim_check_supersonic.yaml (n_frame):
+  state      bit for bit
+  controls   bit for bit
+  altitude   bit for bit
+  residual   bit for bit
+  idempotent bit for bit
+  theta      -0.012942936084758461 rad
+  controls.elevator      -0.026666247065365856
+  controls.aileron       0.0
+  controls.rudder        0.0
+  controls.throttle      0.9106578485316982
+  residual   1.3140530330524314e-16, 0.08211410213776928, 8.465450562766819e-16, -2.239687932503702e-05, 7.973384327199293e-16, 3.7706082846373006e-05
+tests/physics/nesc/case11_f16_zero_inertial_trim.yaml (zero_inertial):
+  state      bit for bit
+  controls   bit for bit
+  altitude   bit for bit
+  residual   bit for bit
+  idempotent bit for bit
+  theta      0.046139747621461814 rad
+  controls.elevator      -0.056475624248467034
+  controls.aileron       0.0
+  controls.rudder        0.0
+  controls.throttle      0.13882564072706013
+  residual   2.9701718515240394e-16, 0.007440246664883401, 8.716985466783456e-16, 0.0001567722424872565, 1.4422378621763564e-16, -1.6568205226826545e-05
+tests/physics/nesc/case12_f16_zero_inertial_trim.yaml (zero_inertial):
+  state      bit for bit
+  controls   bit for bit
+  altitude   bit for bit
+  residual   bit for bit
+  idempotent bit for bit
+  theta      -0.012857505124877561 rad
+  controls.elevator      -0.02670629863428988
+  controls.aileron       0.0
+  controls.rudder        0.0
+  controls.throttle      0.910789323179612
+  residual   -1.5308934675495323e-16, 0.026265535411062975, -7.896461262646426e-15, 0.00024811636990211636, 2.4037297702939276e-16, -3.453194892535116e-05
+round trip: OK
