@@ -1,0 +1,34 @@
+# A negative control (M7 PR 9, docs/plans/m7-pr9-open-loop.md, Q4; the M7 plan's R9): case 12
+# (aircraft/f16/configs/case12_trim_check_supersonic.yaml) trimmed as SIM 2 trimmed it, at zero
+# inertial rate, which Vol II Tables 79 and 80's footnote (b) set aside for "large trim differences".
+# It is the same base config and setpoint, trimmed by
+#   astra trim <this config> --airspeed 609.5999998391766 --altitude 9147.9624
+#     --heading 0.7853981633974483 --rate-convention zero_inertial
+# with the fragment merged in, each value's text as printed. nesc_f16_negative_controls_test.cpp
+# expects it to fail case 12's rate_q band at a gated sample: an inertial pitch rate near zero against
+# the reference's -1.37e-4 rad/s. A test fixture, never a flight config.
+sim:
+  dt: 0.001
+  frames: 180000
+vehicle:
+  models:
+    - plugin: aircraft/f16/physical/aero
+    - plugin: aircraft/f16/hardware/propulsion/engine
+  initial_controls:
+    controls:
+      elevator: -0.02670629863428988  # rad
+      aileron: 0.0
+      rudder: 0.0
+      throttle: 0.910789323179612
+physical:
+  earth: plugins/physical/earth/wgs84_rotating
+  gravity: plugins/physical/gravity/wgs84_j2
+  atmosphere: plugins/physical/atmosphere/isa1976
+  mass:
+    plugin: aircraft/f16/physical/mass
+initial:
+  state:
+    p_n: [0.6286530522161018, -1.3207682150955165, 9147.9624]  # lat, lon (rad), altitude (m)
+    v_b: [609.5496123878341, 0.0, -7.837719168562936]  # m/s, body axes
+    euler_nb: [0.7853981633974483, -0.012857505124877561, 0.0]  # [psi, theta, phi] rad
+    omega_b: [0.0, 0.0, 0.0]  # rad/s
