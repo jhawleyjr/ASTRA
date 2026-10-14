@@ -1,0 +1,2587 @@
+UpdateCTestConfiguration  from :/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/DartConfiguration.tcl
+UpdateCTestConfiguration  from :/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/DartConfiguration.tcl
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release
+Constructing a list of tests
+Done constructing a list of tests
+Updating test list for fixtures
+Added 0 tests to meet fixture requirements
+Checking test dependency graph...
+Checking test dependency graph end
+test 620
+    Start 620: physics.NescF16.Case13p1ClosedLoop
+
+620: Test command: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics/astra_physics_tests "--gtest_filter=NescF16.Case13p1ClosedLoop" "--gtest_also_run_disabled_tests"
+620: Working Directory: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics
+620: Test timeout computed to be: 10000000
+620: Running main() from ./googletest/src/gtest_main.cc
+620: Note: Google Test filter = NescF16.Case13p1ClosedLoop
+620: [==========] Running 1 test from 1 test suite.
+620: [----------] Global test environment set-up.
+620: [----------] 1 test from NescF16
+620: [ RUN      ] NescF16.Case13p1ClosedLoop
+620: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+620: Value of: inside
+620:   Actual: false
+620: Expected: true
+620: case13p1 density sample 80 (t = 8.0 s): actual 0.9024448647181218, reference 0.90246042772648538, |d| 1.5563e-05 > tol_abs 1.46696e-05
+620:
+620: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+620: Value of: inside
+620:   Actual: false
+620: Expected: true
+620: case13p1 density sample 81 (t = 8.1 s): actual 0.90237379200197687, reference 0.90238932311543363, |d| 1.55311e-05 > tol_abs 1.46696e-05
+620:
+620: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+620: Value of: inside
+620:   Actual: false
+620: Expected: true
+620: case13p1 density sample 82 (t = 8.2 s): actual 0.90230501057075518, reference 0.90232050479528714, |d| 1.54942e-05 > tol_abs 1.46696e-05
+620:
+620: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+620: Value of: inside
+620:   Actual: false
+620: Expected: true
+620: case13p1 density sample 83 (t = 8.3 s): actual 0.90223860154259861, reference 0.90225405425417671, |d| 1.54527e-05 > tol_abs 1.46696e-05
+620:
+620: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+620: Value of: inside
+620:   Actual: false
+620: Expected: true
+620: case13p1 density sample 84 (t = 8.4 s): actual 0.90217463138302256, reference 0.90219003831108568, |d| 1.54069e-05 > tol_abs 1.46696e-05
+620:
+620: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+620: Value of: inside
+620:   Actual: false
+620: Expected: true
+620: case13p1 density sample 85 (t = 8.5 s): actual 0.90211315274843407, reference 0.90212850996076921, |d| 1.53572e-05 > tol_abs 1.46696e-05
+620:
+620: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+620: Value of: inside
+620:   Actual: false
+620: Expected: true
+620: case13p1 density sample 86 (t = 8.6 s): actual 0.90205420531691971, reference 0.90206950921733675, |d| 1.53039e-05 > tol_abs 1.46696e-05
+620:
+620: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+620: Value of: inside
+620:   Actual: false
+620: Expected: true
+620: case13p1 density sample 87 (t = 8.7 s): actual 0.90199781660439349, reference 0.90201306391836455, |d| 1.52473e-05 > tol_abs 1.46696e-05
+620:
+620: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+620: Value of: inside
+620:   Actual: false
+620: Expected: true
+620: case13p1 density sample 88 (t = 8.8 s): actual 0.90194400276435738, reference 0.90195919051964757, |d| 1.51878e-05 > tol_abs 1.46696e-05
+620:
+620: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+620: Value of: inside
+620:   Actual: false
+620: Expected: true
+620: case13p1 density sample 89 (t = 8.9 s): actual 0.90189276936968443, reference 0.9019078948985626, |d| 1.51255e-05 > tol_abs 1.46696e-05
+620:
+620: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+620: Value of: inside
+620:   Actual: false
+620: Expected: true
+620: case13p1 density sample 90 (t = 9.0 s): actual 0.90184411217499294, reference 0.90185917309071773, |d| 1.50609e-05 > tol_abs 1.46696e-05
+620:
+620: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+620: Value of: inside
+620:   Actual: false
+620: Expected: true
+620: case13p1 density sample 91 (t = 9.1 s): actual 0.90179801785835001, reference 0.90181301205805608, |d| 1.49942e-05 > tol_abs 1.46696e-05
+620:
+620: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+620: Value of: inside
+620:   Actual: false
+620: Expected: true
+620: case13p1 density sample 92 (t = 9.2 s): actual 0.90175446474116661, reference 0.90176939038099113, |d| 1.49256e-05 > tol_abs 1.46696e-05
+620:
+620: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+620: Value of: inside
+620:   Actual: false
+620: Expected: true
+620: case13p1 density sample 93 (t = 9.3 s): actual 0.90171342348529437, reference 0.90172827898384633, |d| 1.48555e-05 > tol_abs 1.46696e-05
+620:
+620: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+620: Value of: inside
+620:   Actual: false
+620: Expected: true
+620: case13p1 density sample 94 (t = 9.4 s): actual 0.90167485776650003, reference 0.90168964178043431, |d| 1.4784e-05 > tol_abs 1.46696e-05
+620:
+620: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+620: Value of: inside
+620:   Actual: false
+620: Expected: true
+620: case13p1 density sample 95 (t = 9.5 s): actual 0.90163872492362718, reference 0.90165343635236272, |d| 1.47114e-05 > tol_abs 1.46696e-05
+620:
+620: case13p1: 201 samples compared, 20001 frames, halted false, stopped at an exceedance false; Q5 guard largest relative miss force 0, moment 0
+620:   latitude     tol_abs 2.28977e-07  sample 0 0.0002401  ungated max 0.06704    at   79  gated max 0.1768     at  200  first gated exceedance    -1
+620:   longitude    tol_abs 2.81999e-07  sample 0 0.0002723  ungated max 0.067      at   79  gated max 0.1768     at  200  first gated exceedance    -1
+620:   altitude     tol_abs 0.231498     sample 0 1.226e-09  ungated max 0.6531     at   76  gated max 0.6501     at   80  first gated exceedance    -1
+620:   v_north      tol_abs 0.0734867    sample 0 0.02137    ungated max 0.3511     at   51  gated max 0.1837     at   86  first gated exceedance    -1
+620:   v_east       tol_abs 0.0735866    sample 0 0.02134    ungated max 0.351      at   51  gated max 0.1838     at   86  first gated exceedance    -1
+620:   v_down       tol_abs 0.0210048    sample 0 5.192e-08  ungated max 2.08       at   54  gated max 0.3838     at   99  first gated exceedance    -1
+620:   yaw          tol_abs 1.97204e-06  sample 0 6.756e-10  ungated max 3          at   52  gated max 0.1244     at   82  first gated exceedance    -1
+620:   pitch        tol_abs 0.000219325  sample 0 0.008966   ungated max 7.293      at   53  gated max 0.3478     at   81  first gated exceedance    -1
+620:   roll         tol_abs 4.65111e-06  sample 0 4.936e-10  ungated max 1.505      at   52  gated max 0.2261     at   85  first gated exceedance    -1
+620:   rate_p       tol_abs 1.10775e-05  sample 0 0.02616    ungated max 12.01      at   53  gated max 0.06833    at   83  first gated exceedance    -1
+620:   rate_q       tol_abs 0.00025038   sample 0 0.0002019  ungated max 87.58      at   53  gated max 0.1982     at   80  first gated exceedance    -1
+620:   rate_r       tol_abs 1.27468e-05  sample 0 0.5438     ungated max 3.174      at   54  gated max 0.05462    at   80  first gated exceedance    -1
+620:   force_x      tol_abs 481.659      sample 0 1.64       ungated max 19.49      at   53  gated max 0.1641     at   80  first gated exceedance    -1
+620:   force_y      tol_abs 1.75166      sample 0 0.2846     ungated max 3.658      at   52  gated max 0.09663    at   81  first gated exceedance    -1  zero-accepting: not evidence
+620:   force_z      tol_abs 2411.23      sample 0 1.666      ungated max 11.13      at   53  gated max 0.1524     at   80  first gated exceedance    -1
+620:   moment_l     tol_abs 26.4283      sample 0 0.01455    ungated max 7.5        at   52  gated max 0.1611     at   80  first gated exceedance    -1  zero-accepting: not evidence
+620:   moment_m     tol_abs 11727        sample 0 1.615      ungated max 5.748      at   52  gated max 0.1677     at   80  first gated exceedance    -1  zero-accepting: not evidence
+620:   moment_n     tol_abs 6.35562      sample 0 0.3877     ungated max 2.894      at   52  gated max 0.0883     at   81  first gated exceedance    -1  zero-accepting: not evidence
+620:   density      tol_abs 1.46696e-05  sample 0 0.1073     ungated max 1.066      at   75  gated max 1.061      at   80  first gated exceedance    80
+620:   pressure     tol_abs 3.96123      sample 0 0.09344    ungated max 0.4308     at   75  gated max 0.429      at   80  first gated exceedance    -1
+620:   temperature  tol_abs 0.00150328   sample 0 6.7e-08    ungated max 0.6531     at   76  gated max 0.6501     at   80  first gated exceedance    -1
+620: case13p1 guards: G2 EAS largest relative miss 2.11e-15 (1e-12); G3 cross-track largest |d| / bound 0; G4 latched-against-reply mismatches 0; G5 frame-0 EAS against the literal 1.15e-15 (1e-9)
+620: [  FAILED  ] NescF16.Case13p1ClosedLoop (38 ms)
+620: [----------] 1 test from NescF16 (38 ms total)
+620:
+620: [----------] Global test environment tear-down
+620: [==========] 1 test from 1 test suite ran. (38 ms total)
+620: [  PASSED  ] 0 tests.
+620: [  FAILED  ] 1 test, listed below:
+620: [  FAILED  ] NescF16.Case13p1ClosedLoop
+620:
+620:  1 FAILED TEST
+1/4 Test #620: physics.NescF16.Case13p1ClosedLoop ...***Failed    0.04 sec
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = NescF16.Case13p1ClosedLoop
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from NescF16
+[ RUN      ] NescF16.Case13p1ClosedLoop
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p1 density sample 80 (t = 8.0 s): actual 0.9024448647181218, reference 0.90246042772648538, |d| 1.5563e-05 > tol_abs 1.46696e-05
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p1 density sample 81 (t = 8.1 s): actual 0.90237379200197687, reference 0.90238932311543363, |d| 1.55311e-05 > tol_abs 1.46696e-05
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p1 density sample 82 (t = 8.2 s): actual 0.90230501057075518, reference 0.90232050479528714, |d| 1.54942e-05 > tol_abs 1.46696e-05
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p1 density sample 83 (t = 8.3 s): actual 0.90223860154259861, reference 0.90225405425417671, |d| 1.54527e-05 > tol_abs 1.46696e-05
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p1 density sample 84 (t = 8.4 s): actual 0.90217463138302256, reference 0.90219003831108568, |d| 1.54069e-05 > tol_abs 1.46696e-05
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p1 density sample 85 (t = 8.5 s): actual 0.90211315274843407, reference 0.90212850996076921, |d| 1.53572e-05 > tol_abs 1.46696e-05
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p1 density sample 86 (t = 8.6 s): actual 0.90205420531691971, reference 0.90206950921733675, |d| 1.53039e-05 > tol_abs 1.46696e-05
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p1 density sample 87 (t = 8.7 s): actual 0.90199781660439349, reference 0.90201306391836455, |d| 1.52473e-05 > tol_abs 1.46696e-05
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p1 density sample 88 (t = 8.8 s): actual 0.90194400276435738, reference 0.90195919051964757, |d| 1.51878e-05 > tol_abs 1.46696e-05
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p1 density sample 89 (t = 8.9 s): actual 0.90189276936968443, reference 0.9019078948985626, |d| 1.51255e-05 > tol_abs 1.46696e-05
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p1 density sample 90 (t = 9.0 s): actual 0.90184411217499294, reference 0.90185917309071773, |d| 1.50609e-05 > tol_abs 1.46696e-05
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p1 density sample 91 (t = 9.1 s): actual 0.90179801785835001, reference 0.90181301205805608, |d| 1.49942e-05 > tol_abs 1.46696e-05
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p1 density sample 92 (t = 9.2 s): actual 0.90175446474116661, reference 0.90176939038099113, |d| 1.49256e-05 > tol_abs 1.46696e-05
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p1 density sample 93 (t = 9.3 s): actual 0.90171342348529437, reference 0.90172827898384633, |d| 1.48555e-05 > tol_abs 1.46696e-05
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p1 density sample 94 (t = 9.4 s): actual 0.90167485776650003, reference 0.90168964178043431, |d| 1.4784e-05 > tol_abs 1.46696e-05
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p1 density sample 95 (t = 9.5 s): actual 0.90163872492362718, reference 0.90165343635236272, |d| 1.47114e-05 > tol_abs 1.46696e-05
+
+case13p1: 201 samples compared, 20001 frames, halted false, stopped at an exceedance false; Q5 guard largest relative miss force 0, moment 0
+  latitude     tol_abs 2.28977e-07  sample 0 0.0002401  ungated max 0.06704    at   79  gated max 0.1768     at  200  first gated exceedance    -1
+  longitude    tol_abs 2.81999e-07  sample 0 0.0002723  ungated max 0.067      at   79  gated max 0.1768     at  200  first gated exceedance    -1
+  altitude     tol_abs 0.231498     sample 0 1.226e-09  ungated max 0.6531     at   76  gated max 0.6501     at   80  first gated exceedance    -1
+  v_north      tol_abs 0.0734867    sample 0 0.02137    ungated max 0.3511     at   51  gated max 0.1837     at   86  first gated exceedance    -1
+  v_east       tol_abs 0.0735866    sample 0 0.02134    ungated max 0.351      at   51  gated max 0.1838     at   86  first gated exceedance    -1
+  v_down       tol_abs 0.0210048    sample 0 5.192e-08  ungated max 2.08       at   54  gated max 0.3838     at   99  first gated exceedance    -1
+  yaw          tol_abs 1.97204e-06  sample 0 6.756e-10  ungated max 3          at   52  gated max 0.1244     at   82  first gated exceedance    -1
+  pitch        tol_abs 0.000219325  sample 0 0.008966   ungated max 7.293      at   53  gated max 0.3478     at   81  first gated exceedance    -1
+  roll         tol_abs 4.65111e-06  sample 0 4.936e-10  ungated max 1.505      at   52  gated max 0.2261     at   85  first gated exceedance    -1
+  rate_p       tol_abs 1.10775e-05  sample 0 0.02616    ungated max 12.01      at   53  gated max 0.06833    at   83  first gated exceedance    -1
+  rate_q       tol_abs 0.00025038   sample 0 0.0002019  ungated max 87.58      at   53  gated max 0.1982     at   80  first gated exceedance    -1
+  rate_r       tol_abs 1.27468e-05  sample 0 0.5438     ungated max 3.174      at   54  gated max 0.05462    at   80  first gated exceedance    -1
+  force_x      tol_abs 481.659      sample 0 1.64       ungated max 19.49      at   53  gated max 0.1641     at   80  first gated exceedance    -1
+  force_y      tol_abs 1.75166      sample 0 0.2846     ungated max 3.658      at   52  gated max 0.09663    at   81  first gated exceedance    -1  zero-accepting: not evidence
+  force_z      tol_abs 2411.23      sample 0 1.666      ungated max 11.13      at   53  gated max 0.1524     at   80  first gated exceedance    -1
+  moment_l     tol_abs 26.4283      sample 0 0.01455    ungated max 7.5        at   52  gated max 0.1611     at   80  first gated exceedance    -1  zero-accepting: not evidence
+  moment_m     tol_abs 11727        sample 0 1.615      ungated max 5.748      at   52  gated max 0.1677     at   80  first gated exceedance    -1  zero-accepting: not evidence
+  moment_n     tol_abs 6.35562      sample 0 0.3877     ungated max 2.894      at   52  gated max 0.0883     at   81  first gated exceedance    -1  zero-accepting: not evidence
+  density      tol_abs 1.46696e-05  sample 0 0.1073     ungated max 1.066      at   75  gated max 1.061      at   80  first gated exceedance    80
+  pressure     tol_abs 3.96123      sample 0 0.09344    ungated max 0.4308     at   75  gated max 0.429      at   80  first gated exceedance    -1
+  temperature  tol_abs 0.00150328   sample 0 6.7e-08    ungated max 0.6531     at   76  gated max 0.6501     at   80  first gated exceedance    -1
+case13p1 guards: G2 EAS largest relative miss 2.11e-15 (1e-12); G3 cross-track largest |d| / bound 0; G4 latched-against-reply mismatches 0; G5 frame-0 EAS against the literal 1.15e-15 (1e-9)
+[  FAILED  ] NescF16.Case13p1ClosedLoop (38 ms)
+[----------] 1 test from NescF16 (38 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (38 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] NescF16.Case13p1ClosedLoop
+
+ 1 FAILED TEST
+
+test 621
+    Start 621: physics.NescF16.Case13p2ClosedLoop
+
+621: Test command: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics/astra_physics_tests "--gtest_filter=NescF16.Case13p2ClosedLoop" "--gtest_also_run_disabled_tests"
+621: Working Directory: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics
+621: Test timeout computed to be: 10000000
+621: Running main() from ./googletest/src/gtest_main.cc
+621: Note: Google Test filter = NescF16.Case13p2ClosedLoop
+621: [==========] Running 1 test from 1 test suite.
+621: [----------] Global test environment set-up.
+621: [----------] 1 test from NescF16
+621: [ RUN      ] NescF16.Case13p2ClosedLoop
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 80 (t = 8.0 s): actual 0.00067906763466303783, reference 0.00067341035151091688, |d| 5.65728e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 80 (t = 8.0 s): actual 0.9044190142789722, reference 0.90443242955660197, |d| 1.34153e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 81 (t = 8.1 s): actual 0.00069127635907406269, reference 0.00068528556269266633, |d| 5.9908e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 81 (t = 8.1 s): actual 0.90442161317944403, reference 0.9044350013589586, |d| 1.33882e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 82 (t = 8.2 s): actual 0.00069991429283853971, reference 0.00069363364008430504, |d| 6.28065e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 82 (t = 8.2 s): actual 0.90442423121045568, reference 0.90443759153781444, |d| 1.33603e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 83 (t = 8.3 s): actual 0.0007052129722040925, reference 0.00069868555106052544, |d| 6.52742e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 83 (t = 8.3 s): actual 0.90442685774448384, reference 0.90444018962043349, |d| 1.33319e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 84 (t = 8.4 s): actual 0.00070739778399961199, reference 0.00070066486508309081, |d| 6.73292e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 84 (t = 8.4 s): actual 0.90442948290013025, reference 0.90444278587151183, |d| 1.3303e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 85 (t = 8.5 s): actual 0.00070668846133331998, reference 0.00069978922468422688, |d| 6.89924e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 85 (t = 8.5 s): actual 0.90443209752246356, reference 0.90444537127056646, |d| 1.32737e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 86 (t = 8.6 s): actual 0.00070329887135442794, reference 0.00069627038837354288, |d| 7.02848e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 86 (t = 8.6 s): actual 0.90443469316225922, reference 0.90444793750223273, |d| 1.32443e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 87 (t = 8.7 s): actual 0.00069743671439903348, reference 0.00069031388177010562, |d| 7.12283e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 87 (t = 8.7 s): actual 0.90443726205425623, reference 0.9044504769162629, |d| 1.32149e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 88 (t = 8.8 s): actual 0.00068930324436696768, reference 0.00068211878349037328, |d| 7.18446e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 88 (t = 8.8 s): actual 0.90443979709459799, reference 0.90445298252176309, |d| 1.31854e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 89 (t = 8.9 s): actual 0.00067909302786007012, reference 0.00067187766566050933, |d| 7.21536e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 89 (t = 8.9 s): actual 0.90444229181758284, reference 0.90445544795802491, |d| 1.31561e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 90 (t = 9.0 s): actual 0.00066699374429290731, reference 0.0006597760193343136, |d| 7.21772e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 90 (t = 9.0 s): actual 0.90444474037186651, reference 0.90445786746649537, |d| 1.31271e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 91 (t = 9.1 s): actual 0.00065318602539899111, reference 0.00064599254263111579, |d| 7.19348e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 91 (t = 9.1 s): actual 0.90444713749622674, reference 0.90446023587704505, |d| 1.30984e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 92 (t = 9.2 s): actual 0.00063784333331047484, reference 0.00063069872821765866, |d| 7.14461e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 92 (t = 9.2 s): actual 0.90444947849502588, reference 0.90446254857187525, |d| 1.30701e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 93 (t = 9.3 s): actual 0.00062113187249287713, reference 0.00061405884856314641, |d| 7.07302e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 93 (t = 9.3 s): actual 0.90445175921346044, reference 0.90446480147364716, |d| 1.30423e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 94 (t = 9.4 s): actual 0.00060321053514469762, reference 0.00059622987666882747, |d| 6.98066e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 94 (t = 9.4 s): actual 0.90445397601272082, reference 0.90446699100723682, |d| 1.3015e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 95 (t = 9.5 s): actual 0.00058423087603517857, reference 0.00057736162702287609, |d| 6.86925e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 95 (t = 9.5 s): actual 0.90445612574513801, reference 0.90446911408228692, |d| 1.29883e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 96 (t = 9.6 s): actual 0.00056433711428752599, reference 0.0005575964843307059, |d| 6.74063e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 96 (t = 9.6 s): actual 0.90445820572941327, reference 0.9044711680759574, |d| 1.29623e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 97 (t = 9.7 s): actual 0.00054366616050552602, reference 0.00053706975700296763, |d| 6.5964e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 97 (t = 9.7 s): actual 0.90446021372601293, reference 0.90447315079465296, |d| 1.29371e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 98 (t = 9.8 s): actual 0.0005223476675475957, reference 0.00051590937390669158, |d| 6.43829e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 98 (t = 9.8 s): actual 0.90446214791280766, reference 0.90447506045449866, |d| 1.29125e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 99 (t = 9.9 s): actual 0.00050050410283213227, reference 0.00049423629450594242, |d| 6.26781e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 99 (t = 9.9 s): actual 0.9044640068610067, reference 0.90447689566413092, |d| 1.28888e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 100 (t = 10.0 s): actual 0.00047825084025827729, reference 0.0004721644120455785, |d| 6.08643e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 100 (t = 10.0 s): actual 0.90446578951147316, reference 0.90447865539509165, |d| 1.28659e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 101 (t = 10.1 s): actual 0.00045569627101217706, reference 0.00044980064120597458, |d| 5.89563e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 101 (t = 10.1 s): actual 0.90446749515145686, reference 0.90448033895715052, |d| 1.28438e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 102 (t = 10.2 s): actual 0.00043294193127283305, reference 0.00042724520208163206, |d| 5.69673e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 102 (t = 10.2 s): actual 0.90446912339181618, reference 0.90448194598739928, |d| 1.28226e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 103 (t = 10.3 s): actual 0.00041008264491968789, reference 0.00040459151406029925, |d| 5.49113e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 103 (t = 10.3 s): actual 0.90447067414474547, reference 0.90448347640513027, |d| 1.28023e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 104 (t = 10.4 s): actual 0.00038720667935085895, reference 0.00038192673753434576, |d| 5.27994e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 104 (t = 10.4 s): actual 0.90447214760208405, reference 0.90448493042276068, |d| 1.27828e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 105 (t = 10.5 s): actual 0.00036439591386628435, reference 0.00035933149409454068, |d| 5.06442e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 105 (t = 10.5 s): actual 0.90447354421421078, reference 0.90448630849033729, |d| 1.27643e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 106 (t = 10.6 s): actual 0.00034172601754452284, reference 0.00033688039290597453, |d| 4.84562e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 106 (t = 10.6 s): actual 0.90447486466957039, reference 0.90448761130443933, |d| 1.27466e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 107 (t = 10.7 s): actual 0.00031926663583547841, reference 0.00031464203827118701, |d| 4.6246e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 107 (t = 10.7 s): actual 0.90447610987486393, reference 0.90448883977204397, |d| 1.27299e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 108 (t = 10.8 s): actual 0.00029708158556150514, reference 0.00029267931998216816, |d| 4.40227e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 108 (t = 10.8 s): actual 0.90447728093590418, reference 0.90448999499112048, |d| 1.27141e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 109 (t = 10.9 s): actual 0.00027522905493110382, reference 0.00027104951533503082, |d| 4.17954e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 109 (t = 10.9 s): actual 0.90447837913917717, reference 0.90449107824635866, |d| 1.26991e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 110 (t = 11.0 s): actual 0.00025376180951799325, reference 0.00024980451232420678, |d| 3.9573e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 110 (t = 11.0 s): actual 0.90447940593410436, reference 0.90449209097753913, |d| 1.2685e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 111 (t = 11.1 s): actual 0.00023272740222517619, reference 0.00022899108779768717, |d| 3.73631e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 111 (t = 11.1 s): actual 0.90448036291603717, reference 0.90449303476808507, |d| 1.26719e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 112 (t = 11.2 s): actual 0.00021216838578946308, reference 0.00020865106953856937, |d| 3.51732e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 112 (t = 11.2 s): actual 0.90448125180996664, reference 0.90449391132711188, |d| 1.26595e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 113 (t = 11.3 s): actual 0.00019212252859403503, reference 0.00018882161035916391, |d| 3.30092e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 113 (t = 11.3 s): actual 0.90448207445497208, reference 0.90449472247904894, |d| 1.2648e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 114 (t = 11.4 s): actual 0.00017262303081595518, reference 0.00016953525306981804, |d| 3.08778e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 114 (t = 11.4 s): actual 0.90448283278940722, reference 0.90449547014619103, |d| 1.26374e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 115 (t = 11.5 s): actual 0.00015369874071522954, reference 0.00015082038356289436, |d| 2.87836e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 115 (t = 11.5 s): actual 0.90448352883680883, reference 0.90449615632838243, |d| 1.26275e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 116 (t = 11.6 s): actual 0.00013537437144538254, reference 0.00013270114197417454, |d| 2.67323e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 116 (t = 11.6 s): actual 0.90448416469254167, reference 0.90449678310458625, |d| 1.26184e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 117 (t = 11.7 s): actual 0.00011767071553426608, reference 0.00011519786861616309, |d| 2.47285e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 117 (t = 11.7 s): actual 0.90448474251116373, reference 0.90449735260331876, |d| 1.26101e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 118 (t = 11.8 s): actual 0.000100604858431638, reference 9.8327250707053285e-05, |d| 2.27761e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 118 (t = 11.8 s): actual 0.90448526449450373, reference 0.90449786700449419, |d| 1.26025e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 119 (t = 11.9 s): actual 8.4190388563409603e-05, reference 8.210254316513301e-05, |d| 2.08785e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 119 (t = 11.9 s): actual 0.90448573288044309, reference 0.90449832851826639, |d| 1.25956e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 rate_q sample 120 (t = 12.0 s): actual 6.8437605096358445e-05, reference 6.6533825451239731e-05, |d| 1.90378e-06 > tol_abs 1.86369e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 120 (t = 12.0 s): actual 0.90448614993239507, reference 0.90449873938810166, |d| 1.25895e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 121 (t = 12.1 s): actual 0.90448651792945522, reference 0.90449910186182469, |d| 1.25839e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 122 (t = 12.2 s): actual 0.90448683915722117, reference 0.90449941820085, |d| 1.2579e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 123 (t = 12.3 s): actual 0.90448711589925745, reference 0.90449969066016078, |d| 1.25748e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 124 (t = 12.4 s): actual 0.90448735042919226, reference 0.90449992148681102, |d| 1.25711e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 125 (t = 12.5 s): actual 0.9044875450034251, reference 0.90450011291170473, |d| 1.25679e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 126 (t = 12.6 s): actual 0.9044877018544315, reference 0.90450026713767384, |d| 1.25653e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 127 (t = 12.7 s): actual 0.90448782318463516, reference 0.90450038633755825, |d| 1.25632e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 128 (t = 12.8 s): actual 0.90448791116083682, reference 0.90450047265324163, |d| 1.25615e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 129 (t = 12.9 s): actual 0.90448796790918073, reference 0.90450052818559123, |d| 1.25603e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 130 (t = 13.0 s): actual 0.90448799551062253, reference 0.90450055498474469, |d| 1.25595e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 131 (t = 13.1 s): actual 0.90448799599689478, reference 0.90450055505828764, |d| 1.25591e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 132 (t = 13.2 s): actual 0.90448797134693537, reference 0.90450053035906874, |d| 1.2559e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 133 (t = 13.3 s): actual 0.90448792348377138, reference 0.90450048278406281, |d| 1.25593e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 134 (t = 13.4 s): actual 0.90448785427181644, reference 0.90450041417238602, |d| 1.25599e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 135 (t = 13.5 s): actual 0.90448776551457988, reference 0.90450032630484722, |d| 1.25608e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 136 (t = 13.6 s): actual 0.90448765895275929, reference 0.90450022089751159, |d| 1.25619e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 137 (t = 13.7 s): actual 0.90448753626268463, reference 0.90450009960600652, |d| 1.25633e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 138 (t = 13.8 s): actual 0.90448739905511411, reference 0.90449996401517629, |d| 1.2565e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 139 (t = 13.9 s): actual 0.90448724887434362, reference 0.90449981565055015, |d| 1.25668e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 140 (t = 14.0 s): actual 0.90448708719761206, reference 0.90449965596893434, |d| 1.25688e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 141 (t = 14.1 s): actual 0.90448691543479498, reference 0.904499486357209, |d| 1.25709e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 142 (t = 14.2 s): actual 0.90448673492835174, reference 0.90449930814338919, |d| 1.25732e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 143 (t = 14.3 s): actual 0.90448654695351782, reference 0.9044991225833301, |d| 1.25756e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 144 (t = 14.4 s): actual 0.90448635271871247, reference 0.90449893086647659, |d| 1.25781e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 145 (t = 14.5 s): actual 0.90448615336616944, reference 0.90449873412097692, |d| 1.25808e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 146 (t = 14.6 s): actual 0.90448594997273124, reference 0.90449853340657271, |d| 1.25834e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 147 (t = 14.7 s): actual 0.90448574355083777, reference 0.9044983297204291, |d| 1.25862e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 148 (t = 14.8 s): actual 0.90448553504965656, reference 0.90449812399968355, |d| 1.2589e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 149 (t = 14.9 s): actual 0.9044853253563585, reference 0.90449791711499783, |d| 1.25918e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 150 (t = 15.0 s): actual 0.90448511529751763, reference 0.90449770988631073, |d| 1.25946e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 151 (t = 15.1 s): actual 0.90448490564061912, reference 0.90449750306583188, |d| 1.25974e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 152 (t = 15.2 s): actual 0.90448469709567902, reference 0.90449729735391138, |d| 1.26003e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 153 (t = 15.3 s): actual 0.90448449031692679, reference 0.90449709339247397, |d| 1.26031e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 154 (t = 15.4 s): actual 0.90448428590458074, reference 0.90449689177625225, |d| 1.26059e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 155 (t = 15.5 s): actual 0.90448408440667505, reference 0.90449669304313918, |d| 1.26086e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 156 (t = 15.6 s): actual 0.90448388632093568, reference 0.90449649768551477, |d| 1.26114e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 157 (t = 15.7 s): actual 0.90448369209670654, reference 0.90449630614104914, |d| 1.2614e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 158 (t = 15.8 s): actual 0.90448350213688966, reference 0.90449611880897018, |d| 1.26167e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 159 (t = 15.9 s): actual 0.90448331679992877, reference 0.90449593604331113, |d| 1.26192e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 160 (t = 16.0 s): actual 0.90448313640177858, reference 0.90449575815127359, |d| 1.26217e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 161 (t = 16.1 s): actual 0.9044829612179095, reference 0.90449558540724784, |d| 1.26242e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 162 (t = 16.2 s): actual 0.90448279148527788, reference 0.90449541804096034, |d| 1.26266e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 163 (t = 16.3 s): actual 0.9044826274043174, reference 0.90449525625345073, |d| 1.26288e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 164 (t = 16.4 s): actual 0.90448246914088992, reference 0.90449510020338231, |d| 1.26311e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 165 (t = 16.5 s): actual 0.90448231682823133, reference 0.90449495002526548, |d| 1.26332e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 166 (t = 16.6 s): actual 0.90448217056886282, reference 0.90449480581782948, |d| 1.26352e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 167 (t = 16.7 s): actual 0.90448203043647124, reference 0.90449466765298281, |d| 1.26372e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 168 (t = 16.8 s): actual 0.90448189647775901, reference 0.90449453557610315, |d| 1.26391e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 169 (t = 16.9 s): actual 0.90448176871425068, reference 0.90449440960996474, |d| 1.26409e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 170 (t = 17.0 s): actual 0.90448164714404966, reference 0.90449428975031032, |d| 1.26426e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 171 (t = 17.1 s): actual 0.9044815317435615, reference 0.90449417597449466, |d| 1.26442e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 172 (t = 17.2 s): actual 0.9044814224691613, reference 0.90449406823716427, |d| 1.26458e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 173 (t = 17.3 s): actual 0.90448131925880948, reference 0.90449396648125169, |d| 1.26472e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 174 (t = 17.4 s): actual 0.90448122203361403, reference 0.90449387062324227, |d| 1.26486e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 175 (t = 17.5 s): actual 0.90448113069934311, reference 0.90449378057484608, |d| 1.26499e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 176 (t = 17.6 s): actual 0.90448104514787309, reference 0.90449369622542319, |d| 1.26511e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 177 (t = 17.7 s): actual 0.90448096525859145, reference 0.90449361745805368, |d| 1.26522e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 178 (t = 17.8 s): actual 0.90448089089972405, reference 0.90449354414007466, |d| 1.26532e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 179 (t = 17.9 s): actual 0.90448082192962798, reference 0.90449347613678599, |d| 1.26542e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 180 (t = 18.0 s): actual 0.90448075819800056, reference 0.90449341329602873, |d| 1.26551e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 181 (t = 18.1 s): actual 0.90448069954704535, reference 0.90449335546213905, |d| 1.26559e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 182 (t = 18.2 s): actual 0.90448064581257825, reference 0.90449330247357174, |d| 1.26567e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 183 (t = 18.3 s): actual 0.90448059682507276, reference 0.90449325416384974, |d| 1.26573e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 184 (t = 18.4 s): actual 0.90448055241064207, reference 0.90449321035900376, |d| 1.26579e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 185 (t = 18.5 s): actual 0.90448051239198113, reference 0.90449317088860326, |d| 1.26585e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 186 (t = 18.6 s): actual 0.90448047658922914, reference 0.90449313557341748, |d| 1.2659e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 187 (t = 18.7 s): actual 0.90448044482080225, reference 0.90449310423302498, |d| 1.26594e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 188 (t = 18.8 s): actual 0.9044804169041516, reference 0.90449307668701751, |d| 1.26598e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 189 (t = 18.9 s): actual 0.90448039265647984, reference 0.90449305275963865, |d| 1.26601e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 190 (t = 19.0 s): actual 0.90448037189540476, reference 0.90449303226512812, |d| 1.26604e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 191 (t = 19.1 s): actual 0.90448035443957164, reference 0.90449301502873425, |d| 1.26606e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 192 (t = 19.2 s): actual 0.90448034010921641, reference 0.9044930008737766, |d| 1.26608e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 193 (t = 19.3 s): actual 0.90448032872668582, reference 0.90449298962221381, |d| 1.26609e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 194 (t = 19.4 s): actual 0.90448032011690838, reference 0.90449298110222942, |d| 1.2661e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 195 (t = 19.5 s): actual 0.90448031410782037, reference 0.90449297514631666, |d| 1.2661e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 196 (t = 19.6 s): actual 0.90448031053075761, reference 0.90449297158846165, |d| 1.26611e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 197 (t = 19.7 s): actual 0.90448030922079992, reference 0.9044929702621114, |d| 1.2661e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 198 (t = 19.8 s): actual 0.90448031001707641, reference 0.9044929710129368, |d| 1.2661e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 199 (t = 19.9 s): actual 0.90448031276304319, reference 0.90449297368354431, |d| 1.26609e-05 > tol_abs 7.28991e-06
+621:
+621: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+621: Value of: inside
+621:   Actual: false
+621: Expected: true
+621: case13p2 density sample 200 (t = 20.0 s): actual 0.90448031730671274, reference 0.90449297812932039, |d| 1.26608e-05 > tol_abs 7.28991e-06
+621:
+621: case13p2: 201 samples compared, 20001 frames, halted false, stopped at an exceedance false; Q5 guard largest relative miss force 0, moment 0
+621:   latitude     tol_abs 2.22261e-07  sample 0 0.0002474  ungated max 0.07498    at   79  gated max 0.1872     at  200  first gated exceedance    -1
+621:   longitude    tol_abs 2.73722e-07  sample 0 0.0002806  ungated max 0.07498    at   79  gated max 0.1872     at  200  first gated exceedance    -1
+621:   altitude     tol_abs 0.152139     sample 0 1.865e-09  ungated max 0.8495     at   67  gated max 0.8355     at   80  first gated exceedance    -1
+621:   v_north      tol_abs 0.0727057    sample 0 0.0216     ungated max 0.2145     at   51  gated max 0.1808     at   80  first gated exceedance    -1
+621:   v_east       tol_abs 0.0727744    sample 0 0.02158    ungated max 0.2145     at   51  gated max 0.1809     at   80  first gated exceedance    -1
+621:   v_down       tol_abs 0.0036571    sample 0 2.982e-07  ungated max 9.798      at   18  gated max 0.8655     at   87  first gated exceedance    -1
+621:   yaw          tol_abs 2.02964e-07  sample 0 6.564e-09  ungated max 10.57      at    2  gated max 0.3258     at   80  first gated exceedance    -1
+621:   pitch        tol_abs 0.000104068  sample 0 0.0189     ungated max 3.02       at    2  gated max 0.381      at   80  first gated exceedance    -1
+621:   roll         tol_abs 1.87071e-06  sample 0 1.227e-09  ungated max 1.376      at    5  gated max 0.3556     at   80  first gated exceedance    -1
+621:   rate_p       tol_abs 3.56905e-07  sample 0 0.812      ungated max 96.67      at    1  gated max 0.7117     at   80  first gated exceedance    -1
+621:   rate_q       tol_abs 1.86369e-06  sample 0 0.02712    ungated max 668.2      at    1  gated max 3.873      at   90  first gated exceedance    80
+621:   rate_r       tol_abs 8.46159e-08  sample 0 81.92      ungated max 138.9      at    1  gated max 0.2408     at   87  first gated exceedance    -1
+621:   force_x      tol_abs 27.9011      sample 0 28.32      ungated max 28.32      at    0  gated max 0.1862     at   80  first gated exceedance    -1
+621:   force_y      tol_abs 0.0252569    sample 0 19.74      ungated max 74.03      at    2  gated max 0.1735     at   84  first gated exceedance    -1
+621:   force_z      tol_abs 73.3607      sample 0 54.75      ungated max 54.75      at    0  gated max 0.3095     at   80  first gated exceedance    -1
+621:   moment_l     tol_abs 0.219454     sample 0 1.752      ungated max 208.2      at    1  gated max 0.1665     at   83  first gated exceedance    -1  zero-accepting: not evidence
+621:   moment_m     tol_abs 387.186      sample 0 48.9       ungated max 48.9       at    0  gated max 0.1704     at   84  first gated exceedance    -1  zero-accepting: not evidence
+621:   moment_n     tol_abs 0.0860062    sample 0 28.65      ungated max 83.64      at    2  gated max 0.1698     at   84  first gated exceedance    -1  zero-accepting: not evidence
+621:   density      tol_abs 7.28991e-06  sample 0 0.216      ungated max 1.867      at   67  gated max 1.84       at   80  first gated exceedance    80
+621:   pressure     tol_abs 3.26766      sample 0 0.1133     ungated max 0.4637     at   67  gated max 0.458      at   80  first gated exceedance    -1
+621:   temperature  tol_abs 0.000987953  sample 0 1.02e-07   ungated max 0.8495     at   67  gated max 0.8355     at   80  first gated exceedance    -1
+621: case13p2 guards: G2 EAS largest relative miss 2.15e-15 (1e-12); G3 cross-track largest |d| / bound 0; G4 latched-against-reply mismatches 0; G5 frame-0 EAS against the literal 1.15e-15 (1e-9)
+621: [  FAILED  ] NescF16.Case13p2ClosedLoop (38 ms)
+621: [----------] 1 test from NescF16 (38 ms total)
+621:
+621: [----------] Global test environment tear-down
+621: [==========] 1 test from 1 test suite ran. (38 ms total)
+621: [  PASSED  ] 0 tests.
+621: [  FAILED  ] 1 test, listed below:
+621: [  FAILED  ] NescF16.Case13p2ClosedLoop
+621:
+621:  1 FAILED TEST
+2/4 Test #621: physics.NescF16.Case13p2ClosedLoop ...***Failed    0.04 sec
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = NescF16.Case13p2ClosedLoop
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from NescF16
+[ RUN      ] NescF16.Case13p2ClosedLoop
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 80 (t = 8.0 s): actual 0.00067906763466303783, reference 0.00067341035151091688, |d| 5.65728e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 80 (t = 8.0 s): actual 0.9044190142789722, reference 0.90443242955660197, |d| 1.34153e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 81 (t = 8.1 s): actual 0.00069127635907406269, reference 0.00068528556269266633, |d| 5.9908e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 81 (t = 8.1 s): actual 0.90442161317944403, reference 0.9044350013589586, |d| 1.33882e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 82 (t = 8.2 s): actual 0.00069991429283853971, reference 0.00069363364008430504, |d| 6.28065e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 82 (t = 8.2 s): actual 0.90442423121045568, reference 0.90443759153781444, |d| 1.33603e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 83 (t = 8.3 s): actual 0.0007052129722040925, reference 0.00069868555106052544, |d| 6.52742e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 83 (t = 8.3 s): actual 0.90442685774448384, reference 0.90444018962043349, |d| 1.33319e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 84 (t = 8.4 s): actual 0.00070739778399961199, reference 0.00070066486508309081, |d| 6.73292e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 84 (t = 8.4 s): actual 0.90442948290013025, reference 0.90444278587151183, |d| 1.3303e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 85 (t = 8.5 s): actual 0.00070668846133331998, reference 0.00069978922468422688, |d| 6.89924e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 85 (t = 8.5 s): actual 0.90443209752246356, reference 0.90444537127056646, |d| 1.32737e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 86 (t = 8.6 s): actual 0.00070329887135442794, reference 0.00069627038837354288, |d| 7.02848e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 86 (t = 8.6 s): actual 0.90443469316225922, reference 0.90444793750223273, |d| 1.32443e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 87 (t = 8.7 s): actual 0.00069743671439903348, reference 0.00069031388177010562, |d| 7.12283e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 87 (t = 8.7 s): actual 0.90443726205425623, reference 0.9044504769162629, |d| 1.32149e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 88 (t = 8.8 s): actual 0.00068930324436696768, reference 0.00068211878349037328, |d| 7.18446e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 88 (t = 8.8 s): actual 0.90443979709459799, reference 0.90445298252176309, |d| 1.31854e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 89 (t = 8.9 s): actual 0.00067909302786007012, reference 0.00067187766566050933, |d| 7.21536e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 89 (t = 8.9 s): actual 0.90444229181758284, reference 0.90445544795802491, |d| 1.31561e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 90 (t = 9.0 s): actual 0.00066699374429290731, reference 0.0006597760193343136, |d| 7.21772e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 90 (t = 9.0 s): actual 0.90444474037186651, reference 0.90445786746649537, |d| 1.31271e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 91 (t = 9.1 s): actual 0.00065318602539899111, reference 0.00064599254263111579, |d| 7.19348e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 91 (t = 9.1 s): actual 0.90444713749622674, reference 0.90446023587704505, |d| 1.30984e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 92 (t = 9.2 s): actual 0.00063784333331047484, reference 0.00063069872821765866, |d| 7.14461e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 92 (t = 9.2 s): actual 0.90444947849502588, reference 0.90446254857187525, |d| 1.30701e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 93 (t = 9.3 s): actual 0.00062113187249287713, reference 0.00061405884856314641, |d| 7.07302e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 93 (t = 9.3 s): actual 0.90445175921346044, reference 0.90446480147364716, |d| 1.30423e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 94 (t = 9.4 s): actual 0.00060321053514469762, reference 0.00059622987666882747, |d| 6.98066e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 94 (t = 9.4 s): actual 0.90445397601272082, reference 0.90446699100723682, |d| 1.3015e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 95 (t = 9.5 s): actual 0.00058423087603517857, reference 0.00057736162702287609, |d| 6.86925e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 95 (t = 9.5 s): actual 0.90445612574513801, reference 0.90446911408228692, |d| 1.29883e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 96 (t = 9.6 s): actual 0.00056433711428752599, reference 0.0005575964843307059, |d| 6.74063e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 96 (t = 9.6 s): actual 0.90445820572941327, reference 0.9044711680759574, |d| 1.29623e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 97 (t = 9.7 s): actual 0.00054366616050552602, reference 0.00053706975700296763, |d| 6.5964e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 97 (t = 9.7 s): actual 0.90446021372601293, reference 0.90447315079465296, |d| 1.29371e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 98 (t = 9.8 s): actual 0.0005223476675475957, reference 0.00051590937390669158, |d| 6.43829e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 98 (t = 9.8 s): actual 0.90446214791280766, reference 0.90447506045449866, |d| 1.29125e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 99 (t = 9.9 s): actual 0.00050050410283213227, reference 0.00049423629450594242, |d| 6.26781e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 99 (t = 9.9 s): actual 0.9044640068610067, reference 0.90447689566413092, |d| 1.28888e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 100 (t = 10.0 s): actual 0.00047825084025827729, reference 0.0004721644120455785, |d| 6.08643e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 100 (t = 10.0 s): actual 0.90446578951147316, reference 0.90447865539509165, |d| 1.28659e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 101 (t = 10.1 s): actual 0.00045569627101217706, reference 0.00044980064120597458, |d| 5.89563e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 101 (t = 10.1 s): actual 0.90446749515145686, reference 0.90448033895715052, |d| 1.28438e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 102 (t = 10.2 s): actual 0.00043294193127283305, reference 0.00042724520208163206, |d| 5.69673e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 102 (t = 10.2 s): actual 0.90446912339181618, reference 0.90448194598739928, |d| 1.28226e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 103 (t = 10.3 s): actual 0.00041008264491968789, reference 0.00040459151406029925, |d| 5.49113e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 103 (t = 10.3 s): actual 0.90447067414474547, reference 0.90448347640513027, |d| 1.28023e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 104 (t = 10.4 s): actual 0.00038720667935085895, reference 0.00038192673753434576, |d| 5.27994e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 104 (t = 10.4 s): actual 0.90447214760208405, reference 0.90448493042276068, |d| 1.27828e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 105 (t = 10.5 s): actual 0.00036439591386628435, reference 0.00035933149409454068, |d| 5.06442e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 105 (t = 10.5 s): actual 0.90447354421421078, reference 0.90448630849033729, |d| 1.27643e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 106 (t = 10.6 s): actual 0.00034172601754452284, reference 0.00033688039290597453, |d| 4.84562e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 106 (t = 10.6 s): actual 0.90447486466957039, reference 0.90448761130443933, |d| 1.27466e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 107 (t = 10.7 s): actual 0.00031926663583547841, reference 0.00031464203827118701, |d| 4.6246e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 107 (t = 10.7 s): actual 0.90447610987486393, reference 0.90448883977204397, |d| 1.27299e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 108 (t = 10.8 s): actual 0.00029708158556150514, reference 0.00029267931998216816, |d| 4.40227e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 108 (t = 10.8 s): actual 0.90447728093590418, reference 0.90448999499112048, |d| 1.27141e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 109 (t = 10.9 s): actual 0.00027522905493110382, reference 0.00027104951533503082, |d| 4.17954e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 109 (t = 10.9 s): actual 0.90447837913917717, reference 0.90449107824635866, |d| 1.26991e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 110 (t = 11.0 s): actual 0.00025376180951799325, reference 0.00024980451232420678, |d| 3.9573e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 110 (t = 11.0 s): actual 0.90447940593410436, reference 0.90449209097753913, |d| 1.2685e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 111 (t = 11.1 s): actual 0.00023272740222517619, reference 0.00022899108779768717, |d| 3.73631e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 111 (t = 11.1 s): actual 0.90448036291603717, reference 0.90449303476808507, |d| 1.26719e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 112 (t = 11.2 s): actual 0.00021216838578946308, reference 0.00020865106953856937, |d| 3.51732e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 112 (t = 11.2 s): actual 0.90448125180996664, reference 0.90449391132711188, |d| 1.26595e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 113 (t = 11.3 s): actual 0.00019212252859403503, reference 0.00018882161035916391, |d| 3.30092e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 113 (t = 11.3 s): actual 0.90448207445497208, reference 0.90449472247904894, |d| 1.2648e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 114 (t = 11.4 s): actual 0.00017262303081595518, reference 0.00016953525306981804, |d| 3.08778e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 114 (t = 11.4 s): actual 0.90448283278940722, reference 0.90449547014619103, |d| 1.26374e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 115 (t = 11.5 s): actual 0.00015369874071522954, reference 0.00015082038356289436, |d| 2.87836e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 115 (t = 11.5 s): actual 0.90448352883680883, reference 0.90449615632838243, |d| 1.26275e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 116 (t = 11.6 s): actual 0.00013537437144538254, reference 0.00013270114197417454, |d| 2.67323e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 116 (t = 11.6 s): actual 0.90448416469254167, reference 0.90449678310458625, |d| 1.26184e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 117 (t = 11.7 s): actual 0.00011767071553426608, reference 0.00011519786861616309, |d| 2.47285e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 117 (t = 11.7 s): actual 0.90448474251116373, reference 0.90449735260331876, |d| 1.26101e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 118 (t = 11.8 s): actual 0.000100604858431638, reference 9.8327250707053285e-05, |d| 2.27761e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 118 (t = 11.8 s): actual 0.90448526449450373, reference 0.90449786700449419, |d| 1.26025e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 119 (t = 11.9 s): actual 8.4190388563409603e-05, reference 8.210254316513301e-05, |d| 2.08785e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 119 (t = 11.9 s): actual 0.90448573288044309, reference 0.90449832851826639, |d| 1.25956e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 rate_q sample 120 (t = 12.0 s): actual 6.8437605096358445e-05, reference 6.6533825451239731e-05, |d| 1.90378e-06 > tol_abs 1.86369e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 120 (t = 12.0 s): actual 0.90448614993239507, reference 0.90449873938810166, |d| 1.25895e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 121 (t = 12.1 s): actual 0.90448651792945522, reference 0.90449910186182469, |d| 1.25839e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 122 (t = 12.2 s): actual 0.90448683915722117, reference 0.90449941820085, |d| 1.2579e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 123 (t = 12.3 s): actual 0.90448711589925745, reference 0.90449969066016078, |d| 1.25748e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 124 (t = 12.4 s): actual 0.90448735042919226, reference 0.90449992148681102, |d| 1.25711e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 125 (t = 12.5 s): actual 0.9044875450034251, reference 0.90450011291170473, |d| 1.25679e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 126 (t = 12.6 s): actual 0.9044877018544315, reference 0.90450026713767384, |d| 1.25653e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 127 (t = 12.7 s): actual 0.90448782318463516, reference 0.90450038633755825, |d| 1.25632e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 128 (t = 12.8 s): actual 0.90448791116083682, reference 0.90450047265324163, |d| 1.25615e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 129 (t = 12.9 s): actual 0.90448796790918073, reference 0.90450052818559123, |d| 1.25603e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 130 (t = 13.0 s): actual 0.90448799551062253, reference 0.90450055498474469, |d| 1.25595e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 131 (t = 13.1 s): actual 0.90448799599689478, reference 0.90450055505828764, |d| 1.25591e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 132 (t = 13.2 s): actual 0.90448797134693537, reference 0.90450053035906874, |d| 1.2559e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 133 (t = 13.3 s): actual 0.90448792348377138, reference 0.90450048278406281, |d| 1.25593e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 134 (t = 13.4 s): actual 0.90448785427181644, reference 0.90450041417238602, |d| 1.25599e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 135 (t = 13.5 s): actual 0.90448776551457988, reference 0.90450032630484722, |d| 1.25608e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 136 (t = 13.6 s): actual 0.90448765895275929, reference 0.90450022089751159, |d| 1.25619e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 137 (t = 13.7 s): actual 0.90448753626268463, reference 0.90450009960600652, |d| 1.25633e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 138 (t = 13.8 s): actual 0.90448739905511411, reference 0.90449996401517629, |d| 1.2565e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 139 (t = 13.9 s): actual 0.90448724887434362, reference 0.90449981565055015, |d| 1.25668e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 140 (t = 14.0 s): actual 0.90448708719761206, reference 0.90449965596893434, |d| 1.25688e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 141 (t = 14.1 s): actual 0.90448691543479498, reference 0.904499486357209, |d| 1.25709e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 142 (t = 14.2 s): actual 0.90448673492835174, reference 0.90449930814338919, |d| 1.25732e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 143 (t = 14.3 s): actual 0.90448654695351782, reference 0.9044991225833301, |d| 1.25756e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 144 (t = 14.4 s): actual 0.90448635271871247, reference 0.90449893086647659, |d| 1.25781e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 145 (t = 14.5 s): actual 0.90448615336616944, reference 0.90449873412097692, |d| 1.25808e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 146 (t = 14.6 s): actual 0.90448594997273124, reference 0.90449853340657271, |d| 1.25834e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 147 (t = 14.7 s): actual 0.90448574355083777, reference 0.9044983297204291, |d| 1.25862e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 148 (t = 14.8 s): actual 0.90448553504965656, reference 0.90449812399968355, |d| 1.2589e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 149 (t = 14.9 s): actual 0.9044853253563585, reference 0.90449791711499783, |d| 1.25918e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 150 (t = 15.0 s): actual 0.90448511529751763, reference 0.90449770988631073, |d| 1.25946e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 151 (t = 15.1 s): actual 0.90448490564061912, reference 0.90449750306583188, |d| 1.25974e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 152 (t = 15.2 s): actual 0.90448469709567902, reference 0.90449729735391138, |d| 1.26003e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 153 (t = 15.3 s): actual 0.90448449031692679, reference 0.90449709339247397, |d| 1.26031e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 154 (t = 15.4 s): actual 0.90448428590458074, reference 0.90449689177625225, |d| 1.26059e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 155 (t = 15.5 s): actual 0.90448408440667505, reference 0.90449669304313918, |d| 1.26086e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 156 (t = 15.6 s): actual 0.90448388632093568, reference 0.90449649768551477, |d| 1.26114e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 157 (t = 15.7 s): actual 0.90448369209670654, reference 0.90449630614104914, |d| 1.2614e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 158 (t = 15.8 s): actual 0.90448350213688966, reference 0.90449611880897018, |d| 1.26167e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 159 (t = 15.9 s): actual 0.90448331679992877, reference 0.90449593604331113, |d| 1.26192e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 160 (t = 16.0 s): actual 0.90448313640177858, reference 0.90449575815127359, |d| 1.26217e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 161 (t = 16.1 s): actual 0.9044829612179095, reference 0.90449558540724784, |d| 1.26242e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 162 (t = 16.2 s): actual 0.90448279148527788, reference 0.90449541804096034, |d| 1.26266e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 163 (t = 16.3 s): actual 0.9044826274043174, reference 0.90449525625345073, |d| 1.26288e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 164 (t = 16.4 s): actual 0.90448246914088992, reference 0.90449510020338231, |d| 1.26311e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 165 (t = 16.5 s): actual 0.90448231682823133, reference 0.90449495002526548, |d| 1.26332e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 166 (t = 16.6 s): actual 0.90448217056886282, reference 0.90449480581782948, |d| 1.26352e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 167 (t = 16.7 s): actual 0.90448203043647124, reference 0.90449466765298281, |d| 1.26372e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 168 (t = 16.8 s): actual 0.90448189647775901, reference 0.90449453557610315, |d| 1.26391e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 169 (t = 16.9 s): actual 0.90448176871425068, reference 0.90449440960996474, |d| 1.26409e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 170 (t = 17.0 s): actual 0.90448164714404966, reference 0.90449428975031032, |d| 1.26426e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 171 (t = 17.1 s): actual 0.9044815317435615, reference 0.90449417597449466, |d| 1.26442e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 172 (t = 17.2 s): actual 0.9044814224691613, reference 0.90449406823716427, |d| 1.26458e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 173 (t = 17.3 s): actual 0.90448131925880948, reference 0.90449396648125169, |d| 1.26472e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 174 (t = 17.4 s): actual 0.90448122203361403, reference 0.90449387062324227, |d| 1.26486e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 175 (t = 17.5 s): actual 0.90448113069934311, reference 0.90449378057484608, |d| 1.26499e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 176 (t = 17.6 s): actual 0.90448104514787309, reference 0.90449369622542319, |d| 1.26511e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 177 (t = 17.7 s): actual 0.90448096525859145, reference 0.90449361745805368, |d| 1.26522e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 178 (t = 17.8 s): actual 0.90448089089972405, reference 0.90449354414007466, |d| 1.26532e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 179 (t = 17.9 s): actual 0.90448082192962798, reference 0.90449347613678599, |d| 1.26542e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 180 (t = 18.0 s): actual 0.90448075819800056, reference 0.90449341329602873, |d| 1.26551e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 181 (t = 18.1 s): actual 0.90448069954704535, reference 0.90449335546213905, |d| 1.26559e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 182 (t = 18.2 s): actual 0.90448064581257825, reference 0.90449330247357174, |d| 1.26567e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 183 (t = 18.3 s): actual 0.90448059682507276, reference 0.90449325416384974, |d| 1.26573e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 184 (t = 18.4 s): actual 0.90448055241064207, reference 0.90449321035900376, |d| 1.26579e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 185 (t = 18.5 s): actual 0.90448051239198113, reference 0.90449317088860326, |d| 1.26585e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 186 (t = 18.6 s): actual 0.90448047658922914, reference 0.90449313557341748, |d| 1.2659e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 187 (t = 18.7 s): actual 0.90448044482080225, reference 0.90449310423302498, |d| 1.26594e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 188 (t = 18.8 s): actual 0.9044804169041516, reference 0.90449307668701751, |d| 1.26598e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 189 (t = 18.9 s): actual 0.90448039265647984, reference 0.90449305275963865, |d| 1.26601e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 190 (t = 19.0 s): actual 0.90448037189540476, reference 0.90449303226512812, |d| 1.26604e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 191 (t = 19.1 s): actual 0.90448035443957164, reference 0.90449301502873425, |d| 1.26606e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 192 (t = 19.2 s): actual 0.90448034010921641, reference 0.9044930008737766, |d| 1.26608e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 193 (t = 19.3 s): actual 0.90448032872668582, reference 0.90449298962221381, |d| 1.26609e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 194 (t = 19.4 s): actual 0.90448032011690838, reference 0.90449298110222942, |d| 1.2661e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 195 (t = 19.5 s): actual 0.90448031410782037, reference 0.90449297514631666, |d| 1.2661e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 196 (t = 19.6 s): actual 0.90448031053075761, reference 0.90449297158846165, |d| 1.26611e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 197 (t = 19.7 s): actual 0.90448030922079992, reference 0.9044929702621114, |d| 1.2661e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 198 (t = 19.8 s): actual 0.90448031001707641, reference 0.9044929710129368, |d| 1.2661e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 199 (t = 19.9 s): actual 0.90448031276304319, reference 0.90449297368354431, |d| 1.26609e-05 > tol_abs 7.28991e-06
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p2 density sample 200 (t = 20.0 s): actual 0.90448031730671274, reference 0.90449297812932039, |d| 1.26608e-05 > tol_abs 7.28991e-06
+
+case13p2: 201 samples compared, 20001 frames, halted false, stopped at an exceedance false; Q5 guard largest relative miss force 0, moment 0
+  latitude     tol_abs 2.22261e-07  sample 0 0.0002474  ungated max 0.07498    at   79  gated max 0.1872     at  200  first gated exceedance    -1
+  longitude    tol_abs 2.73722e-07  sample 0 0.0002806  ungated max 0.07498    at   79  gated max 0.1872     at  200  first gated exceedance    -1
+  altitude     tol_abs 0.152139     sample 0 1.865e-09  ungated max 0.8495     at   67  gated max 0.8355     at   80  first gated exceedance    -1
+  v_north      tol_abs 0.0727057    sample 0 0.0216     ungated max 0.2145     at   51  gated max 0.1808     at   80  first gated exceedance    -1
+  v_east       tol_abs 0.0727744    sample 0 0.02158    ungated max 0.2145     at   51  gated max 0.1809     at   80  first gated exceedance    -1
+  v_down       tol_abs 0.0036571    sample 0 2.982e-07  ungated max 9.798      at   18  gated max 0.8655     at   87  first gated exceedance    -1
+  yaw          tol_abs 2.02964e-07  sample 0 6.564e-09  ungated max 10.57      at    2  gated max 0.3258     at   80  first gated exceedance    -1
+  pitch        tol_abs 0.000104068  sample 0 0.0189     ungated max 3.02       at    2  gated max 0.381      at   80  first gated exceedance    -1
+  roll         tol_abs 1.87071e-06  sample 0 1.227e-09  ungated max 1.376      at    5  gated max 0.3556     at   80  first gated exceedance    -1
+  rate_p       tol_abs 3.56905e-07  sample 0 0.812      ungated max 96.67      at    1  gated max 0.7117     at   80  first gated exceedance    -1
+  rate_q       tol_abs 1.86369e-06  sample 0 0.02712    ungated max 668.2      at    1  gated max 3.873      at   90  first gated exceedance    80
+  rate_r       tol_abs 8.46159e-08  sample 0 81.92      ungated max 138.9      at    1  gated max 0.2408     at   87  first gated exceedance    -1
+  force_x      tol_abs 27.9011      sample 0 28.32      ungated max 28.32      at    0  gated max 0.1862     at   80  first gated exceedance    -1
+  force_y      tol_abs 0.0252569    sample 0 19.74      ungated max 74.03      at    2  gated max 0.1735     at   84  first gated exceedance    -1
+  force_z      tol_abs 73.3607      sample 0 54.75      ungated max 54.75      at    0  gated max 0.3095     at   80  first gated exceedance    -1
+  moment_l     tol_abs 0.219454     sample 0 1.752      ungated max 208.2      at    1  gated max 0.1665     at   83  first gated exceedance    -1  zero-accepting: not evidence
+  moment_m     tol_abs 387.186      sample 0 48.9       ungated max 48.9       at    0  gated max 0.1704     at   84  first gated exceedance    -1  zero-accepting: not evidence
+  moment_n     tol_abs 0.0860062    sample 0 28.65      ungated max 83.64      at    2  gated max 0.1698     at   84  first gated exceedance    -1  zero-accepting: not evidence
+  density      tol_abs 7.28991e-06  sample 0 0.216      ungated max 1.867      at   67  gated max 1.84       at   80  first gated exceedance    80
+  pressure     tol_abs 3.26766      sample 0 0.1133     ungated max 0.4637     at   67  gated max 0.458      at   80  first gated exceedance    -1
+  temperature  tol_abs 0.000987953  sample 0 1.02e-07   ungated max 0.8495     at   67  gated max 0.8355     at   80  first gated exceedance    -1
+case13p2 guards: G2 EAS largest relative miss 2.15e-15 (1e-12); G3 cross-track largest |d| / bound 0; G4 latched-against-reply mismatches 0; G5 frame-0 EAS against the literal 1.15e-15 (1e-9)
+[  FAILED  ] NescF16.Case13p2ClosedLoop (38 ms)
+[----------] 1 test from NescF16 (38 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (38 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] NescF16.Case13p2ClosedLoop
+
+ 1 FAILED TEST
+
+test 622
+    Start 622: physics.NescF16.Case13p3ClosedLoop
+
+622: Test command: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics/astra_physics_tests "--gtest_filter=NescF16.Case13p3ClosedLoop" "--gtest_also_run_disabled_tests"
+622: Working Directory: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics
+622: Test timeout computed to be: 10000000
+622: Running main() from ./googletest/src/gtest_main.cc
+622: Note: Google Test filter = NescF16.Case13p3ClosedLoop
+622: [==========] Running 1 test from 1 test suite.
+622: [----------] Global test environment set-up.
+622: [----------] 1 test from NescF16
+622: [ RUN      ] NescF16.Case13p3ClosedLoop
+622: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+622: Value of: inside
+622:   Actual: false
+622: Expected: true
+622: case13p3 force_y sample 156 (t = 15.6 s): actual 9692.2451818918162, reference -21189.581356988776, |d| 30881.8 > tol_abs 21449.3
+622:
+622: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+622: Value of: inside
+622:   Actual: false
+622: Expected: true
+622: case13p3 moment_l sample 156 (t = 15.6 s): actual 211249.87513847186, reference -109991.12930175888, |d| 321241 > tol_abs 134020
+622:
+622: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+622: Value of: inside
+622:   Actual: false
+622: Expected: true
+622: case13p3 moment_n sample 156 (t = 15.6 s): actual -95250.658429652671, reference 65059.71586754328, |d| 160310 > tol_abs 111724
+622:
+622: case13p3: 301 samples compared, 30001 frames, halted false, stopped at an exceedance false; Q5 guard largest relative miss force 0, moment 0
+622:   latitude     tol_abs 1.8456e-07   sample 0 0.0002979  ungated max 0.08621    at   79  gated max 0.5484     at  300  first gated exceedance    -1
+622:   longitude    tol_abs 9.27151e-07  sample 0 8.283e-05  ungated max 0.02114    at   79  gated max 0.05441    at  158  first gated exceedance    -1
+622:   altitude     tol_abs 0.581782     sample 0 4.877e-10  ungated max 0.2203     at   65  gated max 0.2182     at  156  first gated exceedance    -1
+622:   v_north      tol_abs 0.599068     sample 0 0.002622   ungated max 0.02197    at   72  gated max 0.3987     at  161  first gated exceedance    -1
+622:   v_east       tol_abs 0.850739     sample 0 0.001846   ungated max 0.0155     at   71  gated max 0.2556     at  161  first gated exceedance    -1
+622:   v_down       tol_abs 0.530958     sample 0 2.054e-09  ungated max 0.06749    at   18  gated max 0.3304     at  161  first gated exceedance    -1
+622:   yaw          tol_abs 0.041289     sample 0 3.227e-14  ungated max 5.195e-05  at    2  gated max 0.3801     at  158  first gated exceedance    -1
+622:   pitch        tol_abs 0.00824238   sample 0 0.0002386  ungated max 0.03813    at    2  gated max 0.3477     at  157  first gated exceedance    -1
+622:   roll         tol_abs 0.0424506    sample 0 5.408e-14  ungated max 6.062e-05  at    5  gated max 0.7979     at  156  first gated exceedance    -1
+622:   rate_p       tol_abs 1.24522      sample 0 2.327e-07  ungated max 2.771e-05  at    1  gated max 0.644      at  155  first gated exceedance    -1
+622:   rate_q       tol_abs 0.122038     sample 0 4.141e-07  ungated max 0.0102     at    1  gated max 0.3843     at  157  first gated exceedance    -1
+622:   rate_r       tol_abs 0.234606     sample 0 2.955e-05  ungated max 5.008e-05  at    1  gated max 0.312      at  157  first gated exceedance    -1
+622:   force_x      tol_abs 7982.62      sample 0 0.09897    ungated max 0.09897    at    0  gated max 0.1757     at  158  first gated exceedance    -1
+622:   force_y      tol_abs 21449.3      sample 0 2.324e-05  ungated max 8.717e-05  at    2  gated max 1.44       at  156  first gated exceedance   156
+622:   force_z      tol_abs 62578.6      sample 0 0.06419    ungated max 0.06419    at    0  gated max 0.2537     at  158  first gated exceedance    -1
+622:   moment_l     tol_abs 134020       sample 0 2.868e-06  ungated max 0.0003409  at    1  gated max 2.397      at  156  first gated exceedance   156
+622:   moment_m     tol_abs 165538       sample 0 0.1144     ungated max 0.1144     at    0  gated max 0.1479     at  158  first gated exceedance    -1  zero-accepting: not evidence
+622:   moment_n     tol_abs 111724       sample 0 2.205e-05  ungated max 6.439e-05  at    2  gated max 1.435      at  156  first gated exceedance   156
+622:   density      tol_abs 4.73173e-05  sample 0 0.03328    ungated max 0.2856     at   65  gated max 0.2832     at  156  first gated exceedance    -1
+622:   pressure     tol_abs 7.07573      sample 0 0.05231    ungated max 0.2128     at   65  gated max 0.2113     at  156  first gated exceedance    -1
+622:   temperature  tol_abs 0.00377796   sample 0 2.666e-08  ungated max 0.2203     at   65  gated max 0.2182     at  156  first gated exceedance    -1
+622: case13p3 guards: G2 EAS largest relative miss 2.3e-15 (1e-12); G3 cross-track largest |d| / bound 0; G4 latched-against-reply mismatches 0; G5 frame-0 EAS against the literal 1.15e-15 (1e-9)
+622: [  FAILED  ] NescF16.Case13p3ClosedLoop (48 ms)
+622: [----------] 1 test from NescF16 (48 ms total)
+622:
+622: [----------] Global test environment tear-down
+622: [==========] 1 test from 1 test suite ran. (48 ms total)
+622: [  PASSED  ] 0 tests.
+622: [  FAILED  ] 1 test, listed below:
+622: [  FAILED  ] NescF16.Case13p3ClosedLoop
+622:
+622:  1 FAILED TEST
+3/4 Test #622: physics.NescF16.Case13p3ClosedLoop ...***Failed    0.05 sec
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = NescF16.Case13p3ClosedLoop
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from NescF16
+[ RUN      ] NescF16.Case13p3ClosedLoop
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p3 force_y sample 156 (t = 15.6 s): actual 9692.2451818918162, reference -21189.581356988776, |d| 30881.8 > tol_abs 21449.3
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p3 moment_l sample 156 (t = 15.6 s): actual 211249.87513847186, reference -109991.12930175888, |d| 321241 > tol_abs 134020
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p3 moment_n sample 156 (t = 15.6 s): actual -95250.658429652671, reference 65059.71586754328, |d| 160310 > tol_abs 111724
+
+case13p3: 301 samples compared, 30001 frames, halted false, stopped at an exceedance false; Q5 guard largest relative miss force 0, moment 0
+  latitude     tol_abs 1.8456e-07   sample 0 0.0002979  ungated max 0.08621    at   79  gated max 0.5484     at  300  first gated exceedance    -1
+  longitude    tol_abs 9.27151e-07  sample 0 8.283e-05  ungated max 0.02114    at   79  gated max 0.05441    at  158  first gated exceedance    -1
+  altitude     tol_abs 0.581782     sample 0 4.877e-10  ungated max 0.2203     at   65  gated max 0.2182     at  156  first gated exceedance    -1
+  v_north      tol_abs 0.599068     sample 0 0.002622   ungated max 0.02197    at   72  gated max 0.3987     at  161  first gated exceedance    -1
+  v_east       tol_abs 0.850739     sample 0 0.001846   ungated max 0.0155     at   71  gated max 0.2556     at  161  first gated exceedance    -1
+  v_down       tol_abs 0.530958     sample 0 2.054e-09  ungated max 0.06749    at   18  gated max 0.3304     at  161  first gated exceedance    -1
+  yaw          tol_abs 0.041289     sample 0 3.227e-14  ungated max 5.195e-05  at    2  gated max 0.3801     at  158  first gated exceedance    -1
+  pitch        tol_abs 0.00824238   sample 0 0.0002386  ungated max 0.03813    at    2  gated max 0.3477     at  157  first gated exceedance    -1
+  roll         tol_abs 0.0424506    sample 0 5.408e-14  ungated max 6.062e-05  at    5  gated max 0.7979     at  156  first gated exceedance    -1
+  rate_p       tol_abs 1.24522      sample 0 2.327e-07  ungated max 2.771e-05  at    1  gated max 0.644      at  155  first gated exceedance    -1
+  rate_q       tol_abs 0.122038     sample 0 4.141e-07  ungated max 0.0102     at    1  gated max 0.3843     at  157  first gated exceedance    -1
+  rate_r       tol_abs 0.234606     sample 0 2.955e-05  ungated max 5.008e-05  at    1  gated max 0.312      at  157  first gated exceedance    -1
+  force_x      tol_abs 7982.62      sample 0 0.09897    ungated max 0.09897    at    0  gated max 0.1757     at  158  first gated exceedance    -1
+  force_y      tol_abs 21449.3      sample 0 2.324e-05  ungated max 8.717e-05  at    2  gated max 1.44       at  156  first gated exceedance   156
+  force_z      tol_abs 62578.6      sample 0 0.06419    ungated max 0.06419    at    0  gated max 0.2537     at  158  first gated exceedance    -1
+  moment_l     tol_abs 134020       sample 0 2.868e-06  ungated max 0.0003409  at    1  gated max 2.397      at  156  first gated exceedance   156
+  moment_m     tol_abs 165538       sample 0 0.1144     ungated max 0.1144     at    0  gated max 0.1479     at  158  first gated exceedance    -1  zero-accepting: not evidence
+  moment_n     tol_abs 111724       sample 0 2.205e-05  ungated max 6.439e-05  at    2  gated max 1.435      at  156  first gated exceedance   156
+  density      tol_abs 4.73173e-05  sample 0 0.03328    ungated max 0.2856     at   65  gated max 0.2832     at  156  first gated exceedance    -1
+  pressure     tol_abs 7.07573      sample 0 0.05231    ungated max 0.2128     at   65  gated max 0.2113     at  156  first gated exceedance    -1
+  temperature  tol_abs 0.00377796   sample 0 2.666e-08  ungated max 0.2203     at   65  gated max 0.2182     at  156  first gated exceedance    -1
+case13p3 guards: G2 EAS largest relative miss 2.3e-15 (1e-12); G3 cross-track largest |d| / bound 0; G4 latched-against-reply mismatches 0; G5 frame-0 EAS against the literal 1.15e-15 (1e-9)
+[  FAILED  ] NescF16.Case13p3ClosedLoop (48 ms)
+[----------] 1 test from NescF16 (48 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (48 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] NescF16.Case13p3ClosedLoop
+
+ 1 FAILED TEST
+
+test 623
+    Start 623: physics.NescF16.Case13p4ClosedLoop
+
+623: Test command: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics/astra_physics_tests "--gtest_filter=NescF16.Case13p4ClosedLoop" "--gtest_also_run_disabled_tests"
+623: Working Directory: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics
+623: Test timeout computed to be: 10000000
+623: Running main() from ./googletest/src/gtest_main.cc
+623: Note: Google Test filter = NescF16.Case13p4ClosedLoop
+623: [==========] Running 1 test from 1 test suite.
+623: [----------] Global test environment set-up.
+623: [----------] 1 test from NescF16
+623: [ RUN      ] NescF16.Case13p4ClosedLoop
+623: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+623: Value of: inside
+623:   Actual: false
+623: Expected: true
+623: case13p4 moment_l sample 200 (t = 20.0 s): actual 239077.89966884194, reference -31357.709141186537, |d| 270436 > tol_abs 208338
+623:
+623: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+623: Value of: inside
+623:   Actual: false
+623: Expected: true
+623: case13p4 force_y sample 206 (t = 20.6 s): actual 9691.1422052340113, reference -22822.103854213237, |d| 32513.2 > tol_abs 28808.2
+623:
+623: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+623: Value of: inside
+623:   Actual: false
+623: Expected: true
+623: case13p4 moment_l sample 206 (t = 20.6 s): actual 211248.60314441432, reference -106470.79962416315, |d| 317719 > tol_abs 208338
+623:
+623: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+623: Value of: inside
+623:   Actual: false
+623: Expected: true
+623: case13p4 moment_n sample 206 (t = 20.6 s): actual -95247.893565754304, reference 70980.843364830027, |d| 166229 > tol_abs 146118
+623:
+623: case13p4: 601 samples compared, 60001 frames, halted false, stopped at an exceedance false; Q5 guard largest relative miss force 0, moment 0
+623:   latitude     tol_abs 1.65788e-06  sample 0 3.316e-05  ungated max 0.009598   at   79  gated max 0.3402     at  600  first gated exceedance    -1
+623:   longitude    tol_abs 7.30084e-07  sample 0 0.0001052  ungated max 0.02684    at   79  gated max 0.4203     at  600  first gated exceedance    -1
+623:   altitude     tol_abs 0.595767     sample 0 4.763e-10  ungated max 0.2152     at   65  gated max 0.2141     at  290  first gated exceedance    -1
+623:   v_north      tol_abs 0.565786     sample 0 0.002776   ungated max 0.02326    at   72  gated max 0.3597     at  211  first gated exceedance    -1
+623:   v_east       tol_abs 0.816485     sample 0 0.001924   ungated max 0.01615    at   71  gated max 0.2384     at  206  first gated exceedance    -1
+623:   v_down       tol_abs 0.581656     sample 0 1.875e-09  ungated max 0.0616     at   18  gated max 0.2858     at  211  first gated exceedance    -1
+623:   yaw          tol_abs 0.0448237    sample 0 2.972e-14  ungated max 4.786e-05  at    2  gated max 0.3158     at  208  first gated exceedance    -1
+623:   pitch        tol_abs 0.00889267   sample 0 0.0002211  ungated max 0.03534    at    2  gated max 0.3213     at  207  first gated exceedance    -1
+623:   roll         tol_abs 0.0345609    sample 0 8.25e-14   ungated max 7.446e-05  at    5  gated max 0.9382     at  206  first gated exceedance    -1
+623:   rate_p       tol_abs 0.956468     sample 0 3.03e-07   ungated max 3.607e-05  at    1  gated max 0.7449     at  205  first gated exceedance    -1
+623:   rate_q       tol_abs 0.138973     sample 0 3.637e-07  ungated max 0.008961   at    1  gated max 0.3341     at  207  first gated exceedance    -1
+623:   rate_r       tol_abs 0.231492     sample 0 2.994e-05  ungated max 5.075e-05  at    1  gated max 0.328      at  207  first gated exceedance    -1
+623:   force_x      tol_abs 8385.28      sample 0 0.09422    ungated max 0.09422    at    0  gated max 0.157      at  209  first gated exceedance    -1
+623:   force_y      tol_abs 28808.2      sample 0 1.73e-05   ungated max 6.491e-05  at    2  gated max 1.129      at  206  first gated exceedance   206
+623:   force_z      tol_abs 62399.3      sample 0 0.06437    ungated max 0.06437    at    0  gated max 0.2375     at  208  first gated exceedance    -1
+623:   moment_l     tol_abs 208338       sample 0 1.845e-06  ungated max 0.0002193  at    1  gated max 1.525      at  206  first gated exceedance   200
+623:   moment_m     tol_abs 159551       sample 0 0.1187     ungated max 0.1187     at    0  gated max 0.1423     at  208  first gated exceedance    -1  zero-accepting: not evidence
+623:   moment_n     tol_abs 146118       sample 0 1.686e-05  ungated max 4.923e-05  at    2  gated max 1.138      at  206  first gated exceedance   206
+623:   density      tol_abs 4.86202e-05  sample 0 0.03239    ungated max 0.278      at   65  gated max 0.2767     at  290  first gated exceedance    -1
+623:   pressure     tol_abs 7.19967      sample 0 0.05141    ungated max 0.2092     at   65  gated max 0.2084     at  290  first gated exceedance    -1
+623:   temperature  tol_abs 0.00386877   sample 0 2.604e-08  ungated max 0.2152     at   65  gated max 0.2141     at  290  first gated exceedance    -1
+623: case13p4 guards: G2 EAS largest relative miss 2.3e-15 (1e-12); G3 cross-track largest |d| / bound 0; G4 latched-against-reply mismatches 0; G5 frame-0 EAS against the literal 1.15e-15 (1e-9)
+623: [  FAILED  ] NescF16.Case13p4ClosedLoop (89 ms)
+623: [----------] 1 test from NescF16 (89 ms total)
+623:
+623: [----------] Global test environment tear-down
+623: [==========] 1 test from 1 test suite ran. (89 ms total)
+623: [  PASSED  ] 0 tests.
+623: [  FAILED  ] 1 test, listed below:
+623: [  FAILED  ] NescF16.Case13p4ClosedLoop
+623:
+623:  1 FAILED TEST
+4/4 Test #623: physics.NescF16.Case13p4ClosedLoop ...***Failed    0.09 sec
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = NescF16.Case13p4ClosedLoop
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from NescF16
+[ RUN      ] NescF16.Case13p4ClosedLoop
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p4 moment_l sample 200 (t = 20.0 s): actual 239077.89966884194, reference -31357.709141186537, |d| 270436 > tol_abs 208338
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p4 force_y sample 206 (t = 20.6 s): actual 9691.1422052340113, reference -22822.103854213237, |d| 32513.2 > tol_abs 28808.2
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p4 moment_l sample 206 (t = 20.6 s): actual 211248.60314441432, reference -106470.79962416315, |d| 317719 > tol_abs 208338
+
+/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/tests/physics/nesc/f16_flight.hpp:356: Failure
+Value of: inside
+  Actual: false
+Expected: true
+case13p4 moment_n sample 206 (t = 20.6 s): actual -95247.893565754304, reference 70980.843364830027, |d| 166229 > tol_abs 146118
+
+case13p4: 601 samples compared, 60001 frames, halted false, stopped at an exceedance false; Q5 guard largest relative miss force 0, moment 0
+  latitude     tol_abs 1.65788e-06  sample 0 3.316e-05  ungated max 0.009598   at   79  gated max 0.3402     at  600  first gated exceedance    -1
+  longitude    tol_abs 7.30084e-07  sample 0 0.0001052  ungated max 0.02684    at   79  gated max 0.4203     at  600  first gated exceedance    -1
+  altitude     tol_abs 0.595767     sample 0 4.763e-10  ungated max 0.2152     at   65  gated max 0.2141     at  290  first gated exceedance    -1
+  v_north      tol_abs 0.565786     sample 0 0.002776   ungated max 0.02326    at   72  gated max 0.3597     at  211  first gated exceedance    -1
+  v_east       tol_abs 0.816485     sample 0 0.001924   ungated max 0.01615    at   71  gated max 0.2384     at  206  first gated exceedance    -1
+  v_down       tol_abs 0.581656     sample 0 1.875e-09  ungated max 0.0616     at   18  gated max 0.2858     at  211  first gated exceedance    -1
+  yaw          tol_abs 0.0448237    sample 0 2.972e-14  ungated max 4.786e-05  at    2  gated max 0.3158     at  208  first gated exceedance    -1
+  pitch        tol_abs 0.00889267   sample 0 0.0002211  ungated max 0.03534    at    2  gated max 0.3213     at  207  first gated exceedance    -1
+  roll         tol_abs 0.0345609    sample 0 8.25e-14   ungated max 7.446e-05  at    5  gated max 0.9382     at  206  first gated exceedance    -1
+  rate_p       tol_abs 0.956468     sample 0 3.03e-07   ungated max 3.607e-05  at    1  gated max 0.7449     at  205  first gated exceedance    -1
+  rate_q       tol_abs 0.138973     sample 0 3.637e-07  ungated max 0.008961   at    1  gated max 0.3341     at  207  first gated exceedance    -1
+  rate_r       tol_abs 0.231492     sample 0 2.994e-05  ungated max 5.075e-05  at    1  gated max 0.328      at  207  first gated exceedance    -1
+  force_x      tol_abs 8385.28      sample 0 0.09422    ungated max 0.09422    at    0  gated max 0.157      at  209  first gated exceedance    -1
+  force_y      tol_abs 28808.2      sample 0 1.73e-05   ungated max 6.491e-05  at    2  gated max 1.129      at  206  first gated exceedance   206
+  force_z      tol_abs 62399.3      sample 0 0.06437    ungated max 0.06437    at    0  gated max 0.2375     at  208  first gated exceedance    -1
+  moment_l     tol_abs 208338       sample 0 1.845e-06  ungated max 0.0002193  at    1  gated max 1.525      at  206  first gated exceedance   200
+  moment_m     tol_abs 159551       sample 0 0.1187     ungated max 0.1187     at    0  gated max 0.1423     at  208  first gated exceedance    -1  zero-accepting: not evidence
+  moment_n     tol_abs 146118       sample 0 1.686e-05  ungated max 4.923e-05  at    2  gated max 1.138      at  206  first gated exceedance   206
+  density      tol_abs 4.86202e-05  sample 0 0.03239    ungated max 0.278      at   65  gated max 0.2767     at  290  first gated exceedance    -1
+  pressure     tol_abs 7.19967      sample 0 0.05141    ungated max 0.2092     at   65  gated max 0.2084     at  290  first gated exceedance    -1
+  temperature  tol_abs 0.00386877   sample 0 2.604e-08  ungated max 0.2152     at   65  gated max 0.2141     at  290  first gated exceedance    -1
+case13p4 guards: G2 EAS largest relative miss 2.3e-15 (1e-12); G3 cross-track largest |d| / bound 0; G4 latched-against-reply mismatches 0; G5 frame-0 EAS against the literal 1.15e-15 (1e-9)
+[  FAILED  ] NescF16.Case13p4ClosedLoop (89 ms)
+[----------] 1 test from NescF16 (89 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (89 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] NescF16.Case13p4ClosedLoop
+
+ 1 FAILED TEST
+
+
+0% tests passed, 4 tests failed out of 4
+
+Label Time Summary:
+physics    =   0.23 sec*proc (4 tests)
+
+Total Test time (real) =   0.24 sec
+
+The following tests FAILED:
+	620 - physics.NescF16.Case13p1ClosedLoop (Failed)
+	621 - physics.NescF16.Case13p2ClosedLoop (Failed)
+	622 - physics.NescF16.Case13p3ClosedLoop (Failed)
+	623 - physics.NescF16.Case13p4ClosedLoop (Failed)
+Errors while running CTest
