@@ -278,6 +278,12 @@ class NescControlPeer : public astra::Transport {
   }
 
   void read_schedule(const astra::Config& schedule) {
+    // A scalar, null or map schedule has size 0, and at() has already marked the key consumed, so
+    // without this check it would fly with no command step at all (Codex review R-001).
+    if (!schedule.is_sequence()) {
+      throw astra::ConfigError(schedule.origin(), schedule.path(),
+                               "must be a sequence of schedule entries");
+    }
     for (std::size_t i = 0; i < schedule.size(); ++i) {
       const astra::Config entry = schedule.at(i);
       Change change;

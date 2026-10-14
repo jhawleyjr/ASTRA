@@ -1619,6 +1619,12 @@ TEST(F16Control, InitRefusesMissingOrOutOfRangeKeys) {
       {"peer:\n  trim: {elevator: -0.05, throttle: 0.1, theta: 0.05}\n"
        "  commands: {altitude_ft: 10013, equivalent_airspeed_knots: 288}\n",
        "peer.commands.course_deg"},
+      // A schedule that is not a sequence (Codex review R-001): each would otherwise fly with no
+      // command step.
+      {peer_block() + "  schedule: 5000\n", "peer.schedule"},
+      {peer_block() + "  schedule: ~\n", "peer.schedule"},
+      {peer_block() + "  schedule: \"[{frame: 5000, altitude_ft: 10113}]\"\n", "peer.schedule"},
+      {peer_block() + "  schedule: {frame: 5000, altitude_ft: 10113}\n", "peer.schedule"},
   };
   for (const Bad& c : cases) {
     astra::aircraft_f16_nesc_control::NescControlPeer peer;
