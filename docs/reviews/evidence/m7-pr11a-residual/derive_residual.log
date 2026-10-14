@@ -1,0 +1,256 @@
+M7 PR 9: Q7's expected trim residual for cases 11 and 12, from the DML alone
+P1: /home/joe/repos/ASTRA/docs/refs/Atmospheric_models/F16_package/F16_S119_source
+  F16_aero.dml SHA-256 82796577b989b5f3becb7d13430ff6c619b3ecd2e642a6427b743658fb177e51 (matches the addendum's section 1.1)
+  F16_prop.dml SHA-256 e5fd7772e5c05cdac666c94febbe4cb50139418b26045affd92dbd198f2215c6 (matches the addendum's section 1.1)
+  F16_inertia.dml SHA-256 e11d4eba5b158d24db7034bd85682ad0b896dd2f3172f007ca3d6d6d4e693c4a (matches the addendum's section 1.1)
+
+Constants (amendment 13): this script's value, the core's value read as text, and its source
+  T0       288.14999999999998 K          core 288.14999999999998  identical                    [USSA 1976 Table 2]
+  P0       101325 Pa         core 101325  identical                    [USSA 1976 Table 2]
+  L0       -0.0064999999999999997 K/m'       core -0.0064999999999999997  identical                    [USSA 1976 Table 4, layer 0]
+  g0       9.8066499999999994 m/s^2      core 9.8066499999999994  identical                    [USSA 1976 Table 2 (g0')]
+  R*       8.3143200000000004 J/(mol K)  core 8314.3199999999997  identical                    [USSA 1976 Table 2; the core states 8314.32 J/(kmol K)]
+  M0       0.028964400000000001 kg/mol     core 28.964400000000001  identical                    [USSA 1976 eq 20; the core states 28.9644 kg/kmol]
+  r0       6356766 m          core 6356766  identical                    [USSA 1976 eq 18; both convert geometric to geopotential]
+  gamma    1.3999999999999999 -          core 1.3999999999999999  identical                    [USSA 1976 eq 50]
+  a        6378137 m          core 6378137  identical                    [TR8350.2 eq 3-1]
+  f        0.0033528106647474805 -          core 0.0033528106647474805  identical                    [TR8350.2 eq 3-2]
+  omega_ie 7.2921149999999999e-05 rad/s      core 7.2921149999999999e-05  identical                    [TR8350.2 eq 3-6]
+  GM       398600441800000 m^3/s^2    core 398600441800000  identical                    [TR8350.2 eq 3-3]
+  J2       0.0010826299890000001 -          core 0.0010826299890000001  identical                    [the gravity model's declared value (PLAN.md's kJ2 item)]
+  ft       0.30480000000000002 m          core 0.30480000000000002  identical                    [Vol II Table 73]
+  lbf      4.4482216152604996 N          core 4.4482216152604996  identical                    [Vol II Table 73]
+  slug     14.593902937206362 kg         core 14.593902937206364  differs by 1.22e-16 relative [lbf s^2/ft from Vol II Table 73, as LBF / FT]
+  R*/M0 (the only form either code uses): ours 287.05307204706469, core 287.05307204706463, differs by 1.98e-16 relative
+
+This transcription against the DML's checkData:
+  F16_aero.dml: 16 shots x 6 coefficients pass; largest miss/tol 8.24e-06
+  F16_prop.dml: 9 shots x 6 outputs pass; largest miss/tol 0.948
+
+F16_inertia.dml: mass 637.1595 slug, Ixx 9496.0, Iyy 55814.0, Izz 63100.0, Izx 982.0 slug ft^2; CM 1.1320000000000001 ft forward of the MRC
+
+=== case 11: aircraft/f16/configs/case13p1_subsonic_altitude_change.yaml
+The config's values, read as text (amendments 3 and 12):
+  controls.elevator          text     -0.05642226572274011  %.17g -0.05642226572274011
+  controls.aileron           text                      0.0  %.17g 0
+  controls.rudder            text                      0.0  %.17g 0
+  controls.throttle          text      0.13873817846824657  %.17g 0.13873817846824657
+  initial.state.p_n[0]  text       0.6286530522161018  %.17g 0.62865305221610179
+  initial.state.p_n[1]  text      -1.3207682150955165  %.17g -1.3207682150955165
+  initial.state.p_n[2]  text       3051.9624000000003  %.17g 3051.9624000000003
+  initial.state.v_b[0]  text       172.23806690598641  %.17g 172.23806690598641
+  initial.state.v_b[1]  text                      0.0  %.17g 0
+  initial.state.v_b[2]  text       7.9385835316476205  %.17g 7.9385835316476205
+  initial.state.euler_nb[0]  text       0.7853981633974483  %.17g 0.78539816339744828
+  initial.state.euler_nb[1]  text       0.0460581645127969  %.17g 0.046058164512796901
+  initial.state.euler_nb[2]  text                      0.0  %.17g 0
+  initial.state.omega_b[0]  text    4.421479346717576e-05  %.17g 4.421479346717576e-05
+  initial.state.omega_b[1]  text   -6.875360966116474e-05  %.17g -6.8753609661164743e-05
+  initial.state.omega_b[2]  text  -5.4779192377020555e-05  %.17g -5.4779192377020555e-05
+
+Independent trim against the config (amendment 1(b): each within 1e-6):
+  theta (rad)     script 0.046058164512796901  config 0.046058164512796901  diff  0.000e+00  within 1e-6
+  elevator (rad)  script -0.056422265722740117  config -0.05642226572274011  diff -6.939e-18  within 1e-6
+  throttle        script 0.13873817846824665  config 0.13873817846824657  diff  8.327e-17  within 1e-6
+
+Residual by parts at the script's own trim:
+  omega_b  4.421479e-05, -6.875361e-05, -5.477919e-05 rad/s; Earth-relative  5.794325e-07, -2.704838e-05, -1.386315e-05 rad/s
+  Mach 0.525070, density 0.9044035853 kg/m^3, |g| 9.7888408339 m/s^2
+  aero at the CM: Y -0.02850416549 lbf, L -0.09976359789, N 0.3880264571 lbf ft; static lateral part (beta = ail = rdr = 0) 0 N, 0, 0 N m
+  v_dot_y kinematic  1.717976865e-02   p_dot, r_dot kinematic -2.984217492e-09  2.126376334e-09
+  v_dot_y gravity    4.935440258e-06   p_dot, r_dot gravity    0.000000000e+00  0.000000000e+00
+  v_dot_y aero      -1.363562756e-05   p_dot, r_dot aero      -9.885844340e-06  5.995539746e-06
+  v_dot_y engine     0.000000000e+00   p_dot, r_dot engine     0.000000000e+00  0.000000000e+00
+  v_dot_y TOTAL      0.017171068467368308
+  p_dot TOTAL       -9.8888285577672003e-06
+  r_dot TOTAL        5.9976661226860619e-06
+  solved: u_dot  0.000e+00, w_dot  0.000e+00, q_dot -3.820e-17
+
+Residual by parts at the config's literals:
+  omega_b  4.421479e-05, -6.875361e-05, -5.477919e-05 rad/s; Earth-relative  5.794325e-07, -2.704838e-05, -1.386315e-05 rad/s
+  Mach 0.525070, density 0.9044035853 kg/m^3, |g| 9.7888408339 m/s^2
+  aero at the CM: Y -0.02850416549 lbf, L -0.09976359789, N 0.3880264571 lbf ft; static lateral part (beta = ail = rdr = 0) 0 N, 0, 0 N m
+  v_dot_y kinematic  1.717976865e-02   p_dot, r_dot kinematic -2.984217492e-09  2.126376334e-09
+  v_dot_y gravity    4.935440258e-06   p_dot, r_dot gravity    0.000000000e+00  0.000000000e+00
+  v_dot_y aero      -1.363562756e-05   p_dot, r_dot aero      -9.885844340e-06  5.995539746e-06
+  v_dot_y engine     0.000000000e+00   p_dot, r_dot engine     0.000000000e+00  0.000000000e+00
+  v_dot_y TOTAL      0.017171068467368312
+  p_dot TOTAL       -9.8888285577672511e-06
+  r_dot TOTAL        5.9976661226860661e-06
+  solved: u_dot -8.882e-16, w_dot  0.000e+00, q_dot -3.819e-17
+
+The constants for nesc_f16_open_loop_test.cpp (the config's literals, %.17g), with the plan's pre-registered bounds:
+  v_dot_y  0.017171068467368312  bound 9.7888e-12  (own trim minus literals -3.469e-18)
+  p_dot    -9.8888285577672511e-06  bound 9.8858e-18  (own trim minus literals  5.082e-20)
+  r_dot    5.9976661226860661e-06  bound 5.9955e-18  (own trim minus literals -4.235e-21)
+  solved at the literals: u_dot -8.882e-16, w_dot 0.000e+00, q_dot -3.819e-17 (R4 bounds ASTRA's at 1e-6)
+
+=== case 11: aircraft/f16/configs/case13p2_subsonic_airspeed_change.yaml
+The config's values, read as text (amendments 3 and 12):
+  controls.elevator          text     -0.05642226572274011  %.17g -0.05642226572274011
+  controls.aileron           text                      0.0  %.17g 0
+  controls.rudder            text                      0.0  %.17g 0
+  controls.throttle          text      0.13873817846824657  %.17g 0.13873817846824657
+  initial.state.p_n[0]  text       0.6286530522161018  %.17g 0.62865305221610179
+  initial.state.p_n[1]  text      -1.3207682150955165  %.17g -1.3207682150955165
+  initial.state.p_n[2]  text       3051.9624000000003  %.17g 3051.9624000000003
+  initial.state.v_b[0]  text       172.23806690598641  %.17g 172.23806690598641
+  initial.state.v_b[1]  text                      0.0  %.17g 0
+  initial.state.v_b[2]  text       7.9385835316476205  %.17g 7.9385835316476205
+  initial.state.euler_nb[0]  text       0.7853981633974483  %.17g 0.78539816339744828
+  initial.state.euler_nb[1]  text       0.0460581645127969  %.17g 0.046058164512796901
+  initial.state.euler_nb[2]  text                      0.0  %.17g 0
+  initial.state.omega_b[0]  text    4.421479346717576e-05  %.17g 4.421479346717576e-05
+  initial.state.omega_b[1]  text   -6.875360966116474e-05  %.17g -6.8753609661164743e-05
+  initial.state.omega_b[2]  text  -5.4779192377020555e-05  %.17g -5.4779192377020555e-05
+
+Independent trim against the config (amendment 1(b): each within 1e-6):
+  theta (rad)     script 0.046058164512796901  config 0.046058164512796901  diff  0.000e+00  within 1e-6
+  elevator (rad)  script -0.056422265722740117  config -0.05642226572274011  diff -6.939e-18  within 1e-6
+  throttle        script 0.13873817846824665  config 0.13873817846824657  diff  8.327e-17  within 1e-6
+
+Residual by parts at the script's own trim:
+  omega_b  4.421479e-05, -6.875361e-05, -5.477919e-05 rad/s; Earth-relative  5.794325e-07, -2.704838e-05, -1.386315e-05 rad/s
+  Mach 0.525070, density 0.9044035853 kg/m^3, |g| 9.7888408339 m/s^2
+  aero at the CM: Y -0.02850416549 lbf, L -0.09976359789, N 0.3880264571 lbf ft; static lateral part (beta = ail = rdr = 0) 0 N, 0, 0 N m
+  v_dot_y kinematic  1.717976865e-02   p_dot, r_dot kinematic -2.984217492e-09  2.126376334e-09
+  v_dot_y gravity    4.935440258e-06   p_dot, r_dot gravity    0.000000000e+00  0.000000000e+00
+  v_dot_y aero      -1.363562756e-05   p_dot, r_dot aero      -9.885844340e-06  5.995539746e-06
+  v_dot_y engine     0.000000000e+00   p_dot, r_dot engine     0.000000000e+00  0.000000000e+00
+  v_dot_y TOTAL      0.017171068467368308
+  p_dot TOTAL       -9.8888285577672003e-06
+  r_dot TOTAL        5.9976661226860619e-06
+  solved: u_dot  0.000e+00, w_dot  0.000e+00, q_dot -3.820e-17
+
+Residual by parts at the config's literals:
+  omega_b  4.421479e-05, -6.875361e-05, -5.477919e-05 rad/s; Earth-relative  5.794325e-07, -2.704838e-05, -1.386315e-05 rad/s
+  Mach 0.525070, density 0.9044035853 kg/m^3, |g| 9.7888408339 m/s^2
+  aero at the CM: Y -0.02850416549 lbf, L -0.09976359789, N 0.3880264571 lbf ft; static lateral part (beta = ail = rdr = 0) 0 N, 0, 0 N m
+  v_dot_y kinematic  1.717976865e-02   p_dot, r_dot kinematic -2.984217492e-09  2.126376334e-09
+  v_dot_y gravity    4.935440258e-06   p_dot, r_dot gravity    0.000000000e+00  0.000000000e+00
+  v_dot_y aero      -1.363562756e-05   p_dot, r_dot aero      -9.885844340e-06  5.995539746e-06
+  v_dot_y engine     0.000000000e+00   p_dot, r_dot engine     0.000000000e+00  0.000000000e+00
+  v_dot_y TOTAL      0.017171068467368312
+  p_dot TOTAL       -9.8888285577672511e-06
+  r_dot TOTAL        5.9976661226860661e-06
+  solved: u_dot -8.882e-16, w_dot  0.000e+00, q_dot -3.819e-17
+
+The constants for nesc_f16_open_loop_test.cpp (the config's literals, %.17g), with the plan's pre-registered bounds:
+  v_dot_y  0.017171068467368312  bound 9.7888e-12  (own trim minus literals -3.469e-18)
+  p_dot    -9.8888285577672511e-06  bound 9.8858e-18  (own trim minus literals  5.082e-20)
+  r_dot    5.9976661226860661e-06  bound 5.9955e-18  (own trim minus literals -4.235e-21)
+  solved at the literals: u_dot -8.882e-16, w_dot 0.000e+00, q_dot -3.819e-17 (R4 bounds ASTRA's at 1e-6)
+
+=== case 11: aircraft/f16/configs/case13p3_subsonic_heading_change.yaml
+The config's values, read as text (amendments 3 and 12):
+  controls.elevator          text     -0.05642226572274011  %.17g -0.05642226572274011
+  controls.aileron           text                      0.0  %.17g 0
+  controls.rudder            text                      0.0  %.17g 0
+  controls.throttle          text      0.13873817846824657  %.17g 0.13873817846824657
+  initial.state.p_n[0]  text       0.6286530522161018  %.17g 0.62865305221610179
+  initial.state.p_n[1]  text      -1.3207682150955165  %.17g -1.3207682150955165
+  initial.state.p_n[2]  text       3051.9624000000003  %.17g 3051.9624000000003
+  initial.state.v_b[0]  text       172.23806690598641  %.17g 172.23806690598641
+  initial.state.v_b[1]  text                      0.0  %.17g 0
+  initial.state.v_b[2]  text       7.9385835316476205  %.17g 7.9385835316476205
+  initial.state.euler_nb[0]  text       0.7853981633974483  %.17g 0.78539816339744828
+  initial.state.euler_nb[1]  text       0.0460581645127969  %.17g 0.046058164512796901
+  initial.state.euler_nb[2]  text                      0.0  %.17g 0
+  initial.state.omega_b[0]  text    4.421479346717576e-05  %.17g 4.421479346717576e-05
+  initial.state.omega_b[1]  text   -6.875360966116474e-05  %.17g -6.8753609661164743e-05
+  initial.state.omega_b[2]  text  -5.4779192377020555e-05  %.17g -5.4779192377020555e-05
+
+Independent trim against the config (amendment 1(b): each within 1e-6):
+  theta (rad)     script 0.046058164512796901  config 0.046058164512796901  diff  0.000e+00  within 1e-6
+  elevator (rad)  script -0.056422265722740117  config -0.05642226572274011  diff -6.939e-18  within 1e-6
+  throttle        script 0.13873817846824665  config 0.13873817846824657  diff  8.327e-17  within 1e-6
+
+Residual by parts at the script's own trim:
+  omega_b  4.421479e-05, -6.875361e-05, -5.477919e-05 rad/s; Earth-relative  5.794325e-07, -2.704838e-05, -1.386315e-05 rad/s
+  Mach 0.525070, density 0.9044035853 kg/m^3, |g| 9.7888408339 m/s^2
+  aero at the CM: Y -0.02850416549 lbf, L -0.09976359789, N 0.3880264571 lbf ft; static lateral part (beta = ail = rdr = 0) 0 N, 0, 0 N m
+  v_dot_y kinematic  1.717976865e-02   p_dot, r_dot kinematic -2.984217492e-09  2.126376334e-09
+  v_dot_y gravity    4.935440258e-06   p_dot, r_dot gravity    0.000000000e+00  0.000000000e+00
+  v_dot_y aero      -1.363562756e-05   p_dot, r_dot aero      -9.885844340e-06  5.995539746e-06
+  v_dot_y engine     0.000000000e+00   p_dot, r_dot engine     0.000000000e+00  0.000000000e+00
+  v_dot_y TOTAL      0.017171068467368308
+  p_dot TOTAL       -9.8888285577672003e-06
+  r_dot TOTAL        5.9976661226860619e-06
+  solved: u_dot  0.000e+00, w_dot  0.000e+00, q_dot -3.820e-17
+
+Residual by parts at the config's literals:
+  omega_b  4.421479e-05, -6.875361e-05, -5.477919e-05 rad/s; Earth-relative  5.794325e-07, -2.704838e-05, -1.386315e-05 rad/s
+  Mach 0.525070, density 0.9044035853 kg/m^3, |g| 9.7888408339 m/s^2
+  aero at the CM: Y -0.02850416549 lbf, L -0.09976359789, N 0.3880264571 lbf ft; static lateral part (beta = ail = rdr = 0) 0 N, 0, 0 N m
+  v_dot_y kinematic  1.717976865e-02   p_dot, r_dot kinematic -2.984217492e-09  2.126376334e-09
+  v_dot_y gravity    4.935440258e-06   p_dot, r_dot gravity    0.000000000e+00  0.000000000e+00
+  v_dot_y aero      -1.363562756e-05   p_dot, r_dot aero      -9.885844340e-06  5.995539746e-06
+  v_dot_y engine     0.000000000e+00   p_dot, r_dot engine     0.000000000e+00  0.000000000e+00
+  v_dot_y TOTAL      0.017171068467368312
+  p_dot TOTAL       -9.8888285577672511e-06
+  r_dot TOTAL        5.9976661226860661e-06
+  solved: u_dot -8.882e-16, w_dot  0.000e+00, q_dot -3.819e-17
+
+The constants for nesc_f16_open_loop_test.cpp (the config's literals, %.17g), with the plan's pre-registered bounds:
+  v_dot_y  0.017171068467368312  bound 9.7888e-12  (own trim minus literals -3.469e-18)
+  p_dot    -9.8888285577672511e-06  bound 9.8858e-18  (own trim minus literals  5.082e-20)
+  r_dot    5.9976661226860661e-06  bound 5.9955e-18  (own trim minus literals -4.235e-21)
+  solved at the literals: u_dot -8.882e-16, w_dot 0.000e+00, q_dot -3.819e-17 (R4 bounds ASTRA's at 1e-6)
+
+=== case 11: aircraft/f16/configs/case13p4_subsonic_lateral_side_step.yaml
+The config's values, read as text (amendments 3 and 12):
+  controls.elevator          text     -0.05642226572274011  %.17g -0.05642226572274011
+  controls.aileron           text                      0.0  %.17g 0
+  controls.rudder            text                      0.0  %.17g 0
+  controls.throttle          text      0.13873817846824657  %.17g 0.13873817846824657
+  initial.state.p_n[0]  text       0.6286530522161018  %.17g 0.62865305221610179
+  initial.state.p_n[1]  text      -1.3207682150955165  %.17g -1.3207682150955165
+  initial.state.p_n[2]  text       3051.9624000000003  %.17g 3051.9624000000003
+  initial.state.v_b[0]  text       172.23806690598641  %.17g 172.23806690598641
+  initial.state.v_b[1]  text                      0.0  %.17g 0
+  initial.state.v_b[2]  text       7.9385835316476205  %.17g 7.9385835316476205
+  initial.state.euler_nb[0]  text       0.7853981633974483  %.17g 0.78539816339744828
+  initial.state.euler_nb[1]  text       0.0460581645127969  %.17g 0.046058164512796901
+  initial.state.euler_nb[2]  text                      0.0  %.17g 0
+  initial.state.omega_b[0]  text    4.421479346717576e-05  %.17g 4.421479346717576e-05
+  initial.state.omega_b[1]  text   -6.875360966116474e-05  %.17g -6.8753609661164743e-05
+  initial.state.omega_b[2]  text  -5.4779192377020555e-05  %.17g -5.4779192377020555e-05
+
+Independent trim against the config (amendment 1(b): each within 1e-6):
+  theta (rad)     script 0.046058164512796901  config 0.046058164512796901  diff  0.000e+00  within 1e-6
+  elevator (rad)  script -0.056422265722740117  config -0.05642226572274011  diff -6.939e-18  within 1e-6
+  throttle        script 0.13873817846824665  config 0.13873817846824657  diff  8.327e-17  within 1e-6
+
+Residual by parts at the script's own trim:
+  omega_b  4.421479e-05, -6.875361e-05, -5.477919e-05 rad/s; Earth-relative  5.794325e-07, -2.704838e-05, -1.386315e-05 rad/s
+  Mach 0.525070, density 0.9044035853 kg/m^3, |g| 9.7888408339 m/s^2
+  aero at the CM: Y -0.02850416549 lbf, L -0.09976359789, N 0.3880264571 lbf ft; static lateral part (beta = ail = rdr = 0) 0 N, 0, 0 N m
+  v_dot_y kinematic  1.717976865e-02   p_dot, r_dot kinematic -2.984217492e-09  2.126376334e-09
+  v_dot_y gravity    4.935440258e-06   p_dot, r_dot gravity    0.000000000e+00  0.000000000e+00
+  v_dot_y aero      -1.363562756e-05   p_dot, r_dot aero      -9.885844340e-06  5.995539746e-06
+  v_dot_y engine     0.000000000e+00   p_dot, r_dot engine     0.000000000e+00  0.000000000e+00
+  v_dot_y TOTAL      0.017171068467368308
+  p_dot TOTAL       -9.8888285577672003e-06
+  r_dot TOTAL        5.9976661226860619e-06
+  solved: u_dot  0.000e+00, w_dot  0.000e+00, q_dot -3.820e-17
+
+Residual by parts at the config's literals:
+  omega_b  4.421479e-05, -6.875361e-05, -5.477919e-05 rad/s; Earth-relative  5.794325e-07, -2.704838e-05, -1.386315e-05 rad/s
+  Mach 0.525070, density 0.9044035853 kg/m^3, |g| 9.7888408339 m/s^2
+  aero at the CM: Y -0.02850416549 lbf, L -0.09976359789, N 0.3880264571 lbf ft; static lateral part (beta = ail = rdr = 0) 0 N, 0, 0 N m
+  v_dot_y kinematic  1.717976865e-02   p_dot, r_dot kinematic -2.984217492e-09  2.126376334e-09
+  v_dot_y gravity    4.935440258e-06   p_dot, r_dot gravity    0.000000000e+00  0.000000000e+00
+  v_dot_y aero      -1.363562756e-05   p_dot, r_dot aero      -9.885844340e-06  5.995539746e-06
+  v_dot_y engine     0.000000000e+00   p_dot, r_dot engine     0.000000000e+00  0.000000000e+00
+  v_dot_y TOTAL      0.017171068467368312
+  p_dot TOTAL       -9.8888285577672511e-06
+  r_dot TOTAL        5.9976661226860661e-06
+  solved: u_dot -8.882e-16, w_dot  0.000e+00, q_dot -3.819e-17
+
+The constants for nesc_f16_open_loop_test.cpp (the config's literals, %.17g), with the plan's pre-registered bounds:
+  v_dot_y  0.017171068467368312  bound 9.7888e-12  (own trim minus literals -3.469e-18)
+  p_dot    -9.8888285577672511e-06  bound 9.8858e-18  (own trim minus literals  5.082e-20)
+  r_dot    5.9976661226860661e-06  bound 5.9955e-18  (own trim minus literals -4.235e-21)
+  solved at the literals: u_dot -8.882e-16, w_dot 0.000e+00, q_dot -3.819e-17 (R4 bounds ASTRA's at 1e-6)
+
+derive_residual: OK

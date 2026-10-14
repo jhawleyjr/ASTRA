@@ -1,0 +1,8 @@
+M7 PR 11a: the initial airspeed command, from aircraft/f16/configs/case11_trim_check_subsonic.yaml (case 11's trim, 13.x's IC)
+  initial.state.p_n[2]  text       3051.9624000000003  %.17g 3051.9624000000003
+  initial.state.v_b[0]  text       172.23806690598641  %.17g 172.23806690598641
+  initial.state.v_b[1]  text                      0.0  %.17g 0
+  initial.state.v_b[2]  text       7.9385835316476205  %.17g 7.9385835316476205
+  |v_b| 172.42091752452774 m/s; rho 0.90440358525438713 kg/m^3; rho0 1.2249991558877122 kg/m^3
+  equivalent_airspeed_knots (initial) 287.98158203347975
+  13.2's step, minus 5 kt            282.98158203347975

@@ -1,0 +1,244 @@
+[HANDLER_VERBOSE_OUTPUT]
+UpdateCTestConfiguration  from :/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/DartConfiguration.tcl
+
+UpdateCTestConfiguration  from :/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/DartConfiguration.tcl
+[HANDLER_OUTPUT]
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release
+
+[HANDLER_VERBOSE_OUTPUT]
+Constructing a list of tests
+
+Done constructing a list of tests
+Updating test list for fixtures
+Added 0 tests to meet fixture requirements
+Checking test dependency graph...
+Checking test dependency graph end
+test 621
+[HANDLER_OUTPUT]
+    Start 621: physics.NescF16.Case13p1ClosedLoop
+
+[HANDLER_VERBOSE_OUTPUT]
+
+621: Test command: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics/astra_physics_tests "--gtest_filter=NescF16.Case13p1ClosedLoop" "--gtest_also_run_disabled_tests"
+
+621: Working Directory: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics
+621: Test timeout computed to be: 10000000
+621: Running main() from ./googletest/src/gtest_main.cc
+621: Note: Google Test filter = NescF16.Case13p1ClosedLoop
+621: [==========] Running 1 test from 1 test suite.
+621: [----------] Global test environment set-up.
+621: [----------] 1 test from NescF16
+621: [ RUN      ] NescF16.Case13p1ClosedLoop
+621: case13p1: 201 samples compared, 20001 frames, halted false, stopped at an exceedance false; Q5 guard largest relative miss force 0, moment 0
+621:   latitude     tol_abs 2.28977e-07  sample 0 0.0002401  ungated max 0.0661     at   79  gated max 0.1725     at  200  first gated exceedance    -1
+621:   longitude    tol_abs 2.81999e-07  sample 0 0.0002723  ungated max 0.06605    at   79  gated max 0.1725     at  200  first gated exceedance    -1
+621:   altitude     tol_abs 0.231498     sample 0 1.226e-09  ungated max 0.2121     at   79  gated max 0.2121     at   80  first gated exceedance    -1
+621:   v_north      tol_abs 0.0734867    sample 0 0.02137    ungated max 0.3445     at   51  gated max 0.1771     at   89  first gated exceedance    -1
+621:   v_east       tol_abs 0.0735866    sample 0 0.02134    ungated max 0.3443     at   51  gated max 0.1771     at   90  first gated exceedance    -1
+621:   v_down       tol_abs 0.0210048    sample 0 5.192e-08  ungated max 2.246      at   52  gated max 0.2891     at  105  first gated exceedance    -1
+621:   yaw          tol_abs 1.97204e-06  sample 0 6.756e-10  ungated max 2.981      at   52  gated max 0.1102     at   82  first gated exceedance    -1
+621:   pitch        tol_abs 0.000219325  sample 0 0.008966   ungated max 6.725      at   53  gated max 0.2646     at   89  first gated exceedance    -1
+621:   roll         tol_abs 4.65111e-06  sample 0 4.936e-10  ungated max 1.413      at   52  gated max 0.1928     at   95  first gated exceedance    -1
+621:   rate_p       tol_abs 1.10775e-05  sample 0 0.02616    ungated max 11.53      at   53  gated max 0.08377    at   83  first gated exceedance    -1
+621:   rate_q       tol_abs 0.00025038   sample 0 0.0002019  ungated max 82.45      at   53  gated max 0.1694     at   80  first gated exceedance    -1
+621:   rate_r       tol_abs 1.27468e-05  sample 0 0.5438     ungated max 3.174      at   54  gated max 0.05572    at   80  first gated exceedance    -1
+621:   force_x      tol_abs 481.659      sample 0 0.2265     ungated max 19.53      at   53  gated max 0.1648     at   80  first gated exceedance    -1
+621:   force_y      tol_abs 1.75166      sample 0 0.2846     ungated max 3.661      at   52  gated max 0.09639    at   81  first gated exceedance    -1  zero-accepting: not evidence
+621:   force_z      tol_abs 2411.23      sample 0 0.2305     ungated max 11.02      at   53  gated max 0.1553     at   80  first gated exceedance    -1
+621:   moment_l     tol_abs 26.4283      sample 0 0.01455    ungated max 7.497      at   52  gated max 0.1612     at   80  first gated exceedance    -1  zero-accepting: not evidence
+621:   moment_m     tol_abs 11727        sample 0 0.2234     ungated max 5.588      at   53  gated max 0.1677     at   80  first gated exceedance    -1  zero-accepting: not evidence
+621:   moment_n     tol_abs 6.35562      sample 0 0.3877     ungated max 2.898      at   52  gated max 0.0882     at   81  first gated exceedance    -1  zero-accepting: not evidence
+621:   density      tol_abs 1.46696e-05  sample 0 0.1073     ungated max 0.4181     at   79  gated max 0.4181     at   80  first gated exceedance    -1
+621:   pressure     tol_abs 3.96123      sample 0 0.09344    ungated max 0.2027     at   79  gated max 0.2027     at   80  first gated exceedance    -1
+621:   temperature  tol_abs 0.00150328   sample 0 6.7e-08    ungated max 0.2121     at   79  gated max 0.2121     at   80  first gated exceedance    -1
+621: case13p1 guards: G2 EAS largest relative miss 2.11e-15 (1e-12); G3 cross-track largest |d| / bound 0; G4 latched-against-reply mismatches 0; G5 frame-0 EAS against the literal 1.15e-15 (1e-9)
+621: [       OK ] NescF16.Case13p1ClosedLoop (39 ms)
+621: [----------] 1 test from NescF16 (39 ms total)
+621:
+621: [----------] Global test environment tear-down
+621: [==========] 1 test from 1 test suite ran. (39 ms total)
+621: [  PASSED  ] 1 test.
+[HANDLER_OUTPUT]
+1/4 Test #621: physics.NescF16.Case13p1ClosedLoop ...
+   Passed    0.04 sec
+[HANDLER_VERBOSE_OUTPUT]
+test 622
+
+[HANDLER_OUTPUT]
+    Start 622: physics.NescF16.Case13p2ClosedLoop
+
+[HANDLER_VERBOSE_OUTPUT]
+
+622: Test command: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics/astra_physics_tests "--gtest_filter=NescF16.Case13p2ClosedLoop" "--gtest_also_run_disabled_tests"
+
+622: Working Directory: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics
+622: Test timeout computed to be: 10000000
+622: Running main() from ./googletest/src/gtest_main.cc
+622: Note: Google Test filter = NescF16.Case13p2ClosedLoop
+622: [==========] Running 1 test from 1 test suite.
+622: [----------] Global test environment set-up.
+622: [----------] 1 test from NescF16
+622: [ RUN      ] NescF16.Case13p2ClosedLoop
+622: case13p2: 201 samples compared, 20001 frames, halted false, stopped at an exceedance false; Q5 guard largest relative miss force 0, moment 0
+622:   latitude     tol_abs 2.22261e-07  sample 0 0.0002474  ungated max 0.0738     at   79  gated max 0.1828     at  200  first gated exceedance    -1
+622:   longitude    tol_abs 2.73722e-07  sample 0 0.0002806  ungated max 0.07379    at   79  gated max 0.1828     at  200  first gated exceedance    -1
+622:   altitude     tol_abs 0.152139     sample 0 1.865e-09  ungated max 0.1842     at   72  gated max 0.182      at   80  first gated exceedance    -1
+622:   v_north      tol_abs 0.0727057    sample 0 0.0216     ungated max 0.2094     at   51  gated max 0.1753     at   80  first gated exceedance    -1
+622:   v_east       tol_abs 0.0727744    sample 0 0.02158    ungated max 0.2094     at   51  gated max 0.1753     at   80  first gated exceedance    -1
+622:   v_down       tol_abs 0.0036571    sample 0 2.982e-07  ungated max 2.054      at   18  gated max 0.2646     at   90  first gated exceedance    -1
+622:   yaw          tol_abs 2.02964e-07  sample 0 6.564e-09  ungated max 10.6       at    2  gated max 0.207      at   84  first gated exceedance    -1
+622:   pitch        tol_abs 0.000104068  sample 0 0.0189     ungated max 0.5133     at    2  gated max 0.2266     at   80  first gated exceedance    -1
+622:   roll         tol_abs 1.87071e-06  sample 0 1.227e-09  ungated max 1.186      at    5  gated max 0.2174     at   80  first gated exceedance    -1
+622:   rate_p       tol_abs 3.56905e-07  sample 0 0.812      ungated max 92.18      at    1  gated max 0.2711     at   80  first gated exceedance    -1
+622:   rate_q       tol_abs 1.86369e-06  sample 0 0.02712    ungated max 562        at   51  gated max 0.786      at   98  first gated exceedance    -1
+622:   rate_r       tol_abs 8.46159e-08  sample 0 81.92      ungated max 140.2      at    1  gated max 0.2081     at   87  first gated exceedance    -1
+622:   force_x      tol_abs 27.9011      sample 0 3.91       ungated max 3.91       at    0  gated max 0.18       at   81  first gated exceedance    -1
+622:   force_y      tol_abs 0.0252569    sample 0 19.74      ungated max 74.79      at    2  gated max 0.1752     at   84  first gated exceedance    -1
+622:   force_z      tol_abs 73.3607      sample 0 7.578      ungated max 7.578      at    0  gated max 0.2552     at   80  first gated exceedance    -1
+622:   moment_l     tol_abs 0.219454     sample 0 1.752      ungated max 207.4      at    1  gated max 0.1636     at   83  first gated exceedance    -1  zero-accepting: not evidence
+622:   moment_m     tol_abs 387.186      sample 0 6.767      ungated max 6.767      at    0  gated max 0.1703     at   84  first gated exceedance    -1  zero-accepting: not evidence
+622:   moment_n     tol_abs 0.0860062    sample 0 28.65      ungated max 84.49      at    2  gated max 0.176      at   84  first gated exceedance    -1  zero-accepting: not evidence
+622:   density      tol_abs 7.28991e-06  sample 0 0.216      ungated max 0.5741     at   72  gated max 0.5698     at   80  first gated exceedance    -1
+622:   pressure     tol_abs 3.26766      sample 0 0.1133     ungated max 0.1893     at   72  gated max 0.1884     at   80  first gated exceedance    -1
+622:   temperature  tol_abs 0.000987953  sample 0 1.02e-07   ungated max 0.1842     at   72  gated max 0.182      at   80  first gated exceedance    -1
+622: case13p2 guards: G2 EAS largest relative miss 2.15e-15 (1e-12); G3 cross-track largest |d| / bound 0; G4 latched-against-reply mismatches 0; G5 frame-0 EAS against the literal 1.15e-15 (1e-9)
+622: [       OK ] NescF16.Case13p2ClosedLoop (34 ms)
+622: [----------] 1 test from NescF16 (34 ms total)
+622:
+622: [----------] Global test environment tear-down
+622: [==========] 1 test from 1 test suite ran. (34 ms total)
+622: [  PASSED  ] 1 test.
+[HANDLER_OUTPUT]
+2/4 Test #622: physics.NescF16.Case13p2ClosedLoop ...
+   Passed    0.04 sec
+[HANDLER_VERBOSE_OUTPUT]
+test 623
+
+[HANDLER_OUTPUT]
+    Start 623: physics.NescF16.Case13p3ClosedLoop
+
+[HANDLER_VERBOSE_OUTPUT]
+
+623: Test command: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics/astra_physics_tests "--gtest_filter=NescF16.Case13p3ClosedLoop" "--gtest_also_run_disabled_tests"
+
+623: Working Directory: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics
+623: Test timeout computed to be: 10000000
+623: Running main() from ./googletest/src/gtest_main.cc
+623: Note: Google Test filter = NescF16.Case13p3ClosedLoop
+623: [==========] Running 1 test from 1 test suite.
+623: [----------] Global test environment set-up.
+623: [----------] 1 test from NescF16
+623: [ RUN      ] NescF16.Case13p3ClosedLoop
+623: case13p3: 301 samples compared, 30001 frames, halted false, stopped at an exceedance false; Q5 guard largest relative miss force 0, moment 0
+623:   latitude     tol_abs 1.8456e-07   sample 0 0.0002979  ungated max 0.08495    at   79  gated max 0.5401     at  300  first gated exceedance    -1
+623:   longitude    tol_abs 9.27151e-07  sample 0 8.283e-05  ungated max 0.02082    at   79  gated max 0.05346    at  158  first gated exceedance    -1
+623:   altitude     tol_abs 0.581782     sample 0 4.877e-10  ungated max 0.04612    at   64  gated max 0.1253     at  175  first gated exceedance    -1
+623:   v_north      tol_abs 0.599068     sample 0 0.002622   ungated max 0.02127    at   71  gated max 0.398      at  161  first gated exceedance    -1
+623:   v_east       tol_abs 0.850739     sample 0 0.001846   ungated max 0.01499    at   71  gated max 0.256      at  161  first gated exceedance    -1
+623:   v_down       tol_abs 0.530958     sample 0 2.054e-09  ungated max 0.01415    at   18  gated max 0.3307     at  161  first gated exceedance    -1
+623:   yaw          tol_abs 0.041289     sample 0 3.227e-14  ungated max 5.21e-05   at    2  gated max 0.3801     at  158  first gated exceedance    -1
+623:   pitch        tol_abs 0.00824238   sample 0 0.0002386  ungated max 0.006481   at    2  gated max 0.3476     at  157  first gated exceedance    -1
+623:   roll         tol_abs 0.0424506    sample 0 5.408e-14  ungated max 5.228e-05  at    5  gated max 0.798      at  156  first gated exceedance    -1
+623:   rate_p       tol_abs 1.24522      sample 0 2.327e-07  ungated max 2.642e-05  at    1  gated max 0.644      at  155  first gated exceedance    -1
+623:   rate_q       tol_abs 0.122038     sample 0 4.141e-07  ungated max 0.002219   at    1  gated max 0.3843     at  157  first gated exceedance    -1
+623:   rate_r       tol_abs 0.234606     sample 0 2.955e-05  ungated max 5.056e-05  at    1  gated max 0.3121     at  157  first gated exceedance    -1
+623:   force_x      tol_abs 7982.62      sample 0 0.01367    ungated max 0.01367    at    0  gated max 0.1757     at  158  first gated exceedance    -1  reported, not asserted
+623:   force_y      tol_abs 21449.3      sample 0 2.324e-05  ungated max 8.807e-05  at    2  gated max 1.44       at  156  first gated exceedance   156  reported, not asserted
+623:   force_z      tol_abs 62578.6      sample 0 0.008883   ungated max 0.008883   at    0  gated max 0.2537     at  158  first gated exceedance    -1  reported, not asserted
+623:   moment_l     tol_abs 134020       sample 0 2.868e-06  ungated max 0.0003396  at    1  gated max 2.397      at  156  first gated exceedance   156  reported, not asserted
+623:   moment_m     tol_abs 165538       sample 0 0.01583    ungated max 0.01583    at    0  gated max 0.1479     at  158  first gated exceedance    -1  zero-accepting: not evidence; reported, not asserted
+623:   moment_n     tol_abs 111724       sample 0 2.205e-05  ungated max 6.505e-05  at    2  gated max 1.435      at  156  first gated exceedance   156  reported, not asserted
+623:   density      tol_abs 4.73173e-05  sample 0 0.03328    ungated max 0.08611    at   64  gated max 0.1103     at  175  first gated exceedance    -1
+623:   pressure     tol_abs 7.07573      sample 0 0.05231    ungated max 0.08592    at   64  gated max 0.09416    at  156  first gated exceedance    -1
+623:   temperature  tol_abs 0.00377796   sample 0 2.666e-08  ungated max 0.04612    at   64  gated max 0.1253     at  175  first gated exceedance    -1
+623: case13p3 guards: G2 EAS largest relative miss 2.11e-15 (1e-12); G3 cross-track largest |d| / bound 0; G4 latched-against-reply mismatches 0; G5 frame-0 EAS against the literal 1.15e-15 (1e-9)
+623: case13p3: R6 not met for the six aero channels, reported, never asserted (Joe, 2026-10-13):
+623:   force_x   largest gated ratio 0.1757 at sample 158, first gated exceedance -1
+623:   force_y   largest gated ratio 1.44 at sample 156, first gated exceedance 156
+623:   force_z   largest gated ratio 0.2537 at sample 158, first gated exceedance -1
+623:   moment_l  largest gated ratio 2.397 at sample 156, first gated exceedance 156
+623:   moment_m  largest gated ratio 0.1479 at sample 158, first gated exceedance -1 (zero-accepting: not evidence)
+623:   moment_n  largest gated ratio 1.435 at sample 156, first gated exceedance 156
+623: [       OK ] NescF16.Case13p3ClosedLoop (45 ms)
+623: [----------] 1 test from NescF16 (45 ms total)
+623:
+623: [----------] Global test environment tear-down
+623: [==========] 1 test from 1 test suite ran. (45 ms total)
+623: [  PASSED  ] 1 test.
+[HANDLER_OUTPUT]
+3/4 Test #623: physics.NescF16.Case13p3ClosedLoop ...
+   Passed    0.05 sec
+[HANDLER_VERBOSE_OUTPUT]
+test 624
+
+[HANDLER_OUTPUT]
+    Start 624: physics.NescF16.Case13p4ClosedLoop
+
+[HANDLER_VERBOSE_OUTPUT]
+
+624: Test command: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics/astra_physics_tests "--gtest_filter=NescF16.Case13p4ClosedLoop" "--gtest_also_run_disabled_tests"
+
+624: Working Directory: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics
+624: Test timeout computed to be: 10000000
+624: Running main() from ./googletest/src/gtest_main.cc
+624: Note: Google Test filter = NescF16.Case13p4ClosedLoop
+624: [==========] Running 1 test from 1 test suite.
+624: [----------] Global test environment set-up.
+624: [----------] 1 test from NescF16
+624: [ RUN      ] NescF16.Case13p4ClosedLoop
+624: case13p4: 601 samples compared, 60001 frames, halted false, stopped at an exceedance false; Q5 guard largest relative miss force 0, moment 0
+624:   latitude     tol_abs 1.65788e-06  sample 0 3.316e-05  ungated max 0.009457   at   79  gated max 0.3381     at  600  first gated exceedance    -1
+624:   longitude    tol_abs 7.30084e-07  sample 0 0.0001052  ungated max 0.02644    at   79  gated max 0.426      at  600  first gated exceedance    -1
+624:   altitude     tol_abs 0.595767     sample 0 4.763e-10  ungated max 0.04504    at   64  gated max 0.1245     at  225  first gated exceedance    -1
+624:   v_north      tol_abs 0.565786     sample 0 0.002776   ungated max 0.02252    at   71  gated max 0.359      at  211  first gated exceedance    -1
+624:   v_east       tol_abs 0.816485     sample 0 0.001924   ungated max 0.01562    at   71  gated max 0.2379     at  206  first gated exceedance    -1
+624:   v_down       tol_abs 0.581656     sample 0 1.875e-09  ungated max 0.01291    at   18  gated max 0.2858     at  211  first gated exceedance    -1
+624:   yaw          tol_abs 0.0448237    sample 0 2.972e-14  ungated max 4.8e-05    at    2  gated max 0.3159     at  208  first gated exceedance    -1
+624:   pitch        tol_abs 0.00889267   sample 0 0.0002211  ungated max 0.006008   at    2  gated max 0.3213     at  207  first gated exceedance    -1
+624:   roll         tol_abs 0.0345609    sample 0 8.25e-14   ungated max 6.421e-05  at    5  gated max 0.9383     at  206  first gated exceedance    -1
+624:   rate_p       tol_abs 0.956468     sample 0 3.03e-07   ungated max 3.44e-05   at    1  gated max 0.7449     at  205  first gated exceedance    -1
+624:   rate_q       tol_abs 0.138973     sample 0 3.637e-07  ungated max 0.001949   at    1  gated max 0.3341     at  207  first gated exceedance    -1
+624:   rate_r       tol_abs 0.231492     sample 0 2.994e-05  ungated max 5.124e-05  at    1  gated max 0.328      at  207  first gated exceedance    -1
+624:   force_x      tol_abs 8385.28      sample 0 0.01301    ungated max 0.01301    at    0  gated max 0.157      at  209  first gated exceedance    -1  reported, not asserted
+624:   force_y      tol_abs 28808.2      sample 0 1.73e-05   ungated max 6.557e-05  at    2  gated max 1.129      at  206  first gated exceedance   206  reported, not asserted
+624:   force_z      tol_abs 62399.3      sample 0 0.008909   ungated max 0.008909   at    0  gated max 0.2376     at  208  first gated exceedance    -1  reported, not asserted
+624:   moment_l     tol_abs 208338       sample 0 1.845e-06  ungated max 0.0002184  at    1  gated max 1.525      at  206  first gated exceedance   200  reported, not asserted
+624:   moment_m     tol_abs 159551       sample 0 0.01642    ungated max 0.01642    at    0  gated max 0.1423     at  208  first gated exceedance    -1  zero-accepting: not evidence; reported, not asserted
+624:   moment_n     tol_abs 146118       sample 0 1.686e-05  ungated max 4.973e-05  at    2  gated max 1.138      at  206  first gated exceedance   206  reported, not asserted
+624:   density      tol_abs 4.86202e-05  sample 0 0.03239    ungated max 0.0838     at   64  gated max 0.1097     at  225  first gated exceedance    -1
+624:   pressure     tol_abs 7.19967      sample 0 0.05141    ungated max 0.08444    at   64  gated max 0.09296    at  290  first gated exceedance    -1
+624:   temperature  tol_abs 0.00386877   sample 0 2.604e-08  ungated max 0.04504    at   64  gated max 0.1245     at  225  first gated exceedance    -1
+624: case13p4 guards: G2 EAS largest relative miss 2.3e-15 (1e-12); G3 cross-track largest |d| / bound 0; G4 latched-against-reply mismatches 0; G5 frame-0 EAS against the literal 1.15e-15 (1e-9)
+624: case13p4: R6 not met for the six aero channels, reported, never asserted (Joe, 2026-10-13):
+624:   force_x   largest gated ratio 0.157 at sample 209, first gated exceedance -1
+624:   force_y   largest gated ratio 1.129 at sample 206, first gated exceedance 206
+624:   force_z   largest gated ratio 0.2376 at sample 208, first gated exceedance -1
+624:   moment_l  largest gated ratio 1.525 at sample 206, first gated exceedance 200
+624:   moment_m  largest gated ratio 0.1423 at sample 208, first gated exceedance -1 (zero-accepting: not evidence)
+624:   moment_n  largest gated ratio 1.138 at sample 206, first gated exceedance 206
+624: [       OK ] NescF16.Case13p4ClosedLoop (88 ms)
+624: [----------] 1 test from NescF16 (88 ms total)
+624:
+624: [----------] Global test environment tear-down
+624: [==========] 1 test from 1 test suite ran. (88 ms total)
+624: [  PASSED  ] 1 test.
+[HANDLER_OUTPUT]
+4/4 Test #624: physics.NescF16.Case13p4ClosedLoop ...
+   Passed    0.09 sec
+[HANDLER_VERBOSE_OUTPUT]
+
+The following tests passed:
+
+	physics.NescF16.Case13p1ClosedLoop
+	physics.NescF16.Case13p2ClosedLoop
+	physics.NescF16.Case13p3ClosedLoop
+	physics.NescF16.Case13p4ClosedLoop
+[HANDLER_OUTPUT]
+
+100% tests passed, 0 tests failed out of 4
+
+
+Label Time Summary:
+physics    =   0.22 sec*proc (4 tests)
+
+Total Test time (real) =   0.23 sec

@@ -90,6 +90,25 @@ Source: `aircraft/f16/physical/mass/mass.cpp`.
 
 Reads no config key: a config names it by its path alone.
 
+## `aircraft/f16/sim/transport/nesc_control`
+
+Source: `aircraft/f16/sim/transport/nesc_control/nesc_control.cpp`.
+
+| Key | Type | Unit | Default | Required | Meaning |
+|---|---|---|---|---|---|
+| `peer.trim.elevator` | number | `rad` |  | yes | The trim's elevator, the same text as vehicle.initial\_controls.controls.elevator. Inverted at init through the law's limit-and-scale block to trimmedPilotControl\_long = elevator / (-25 deg), which must lie in [-1, 1]. |
+| `peer.trim.throttle` | number | `1` |  | yes | The trim's throttle, the same text as vehicle.initial\_controls.controls.throttle: trimmedPilotControl\_throttle, in [0, 1]. |
+| `peer.trim.theta` | number | `rad` |  | yes | The trim's pitch, the same text as initial.state.euler\_nb[1]: the LQR's trimmedAlpha and trimmedTheta (alpha = theta at gamma = 0, level and still air; the M7 plan's Q11 as amended 2026-10-13). trimmedKEAS is commands.equivalent\_airspeed\_knots. Within +-90 deg. |
+| `peer.commands.altitude_ft` | number | `ft` |  | yes | altitudeMslCommand from frame 0, in feet, converted at init. |
+| `peer.commands.equivalent_airspeed_knots` | number | `kt` |  | yes | equivalentAirspeedCommand from frame 0, KEAS, converted with the exact knot; above 0. |
+| `peer.commands.course_deg` | number | `deg` |  | yes | trueBaseCourseCommand from frame 0, degrees true, converted at init. 13.4's base course. |
+| `peer.schedule[].frame` | integer | `1` |  | yes | The frame from which this entry's commands apply, at the first exchange at or after it; at least 0, strictly ascending. The schedule itself is optional. |
+| `peer.schedule[].altitude_ft` | number | `ft` | - | no | altitudeMslCommand from this entry's frame on; left out, it is unchanged. |
+| `peer.schedule[].equivalent_airspeed_knots` | number | `kt` | - | no | equivalentAirspeedCommand from this entry's frame on, KEAS; above 0; left out, it is unchanged. |
+| `peer.schedule[].course_deg` | number | `deg` | - | no | trueBaseCourseCommand from this entry's frame on; left out, it is unchanged. Each entry changes at least one. |
+| `peer.lateral_offset.frame` | integer | `1` |  | yes | 13.4's side step: from this frame on, lateralDeviationError is the cross-track distance from the initial-plane line through the frame-0 position at course\_deg, minus offset\_ft. Without lateral\_offset the law holds the course (lateralDeviationError 0). |
+| `peer.lateral_offset.offset_ft` | number | `ft` |  | yes | The offset to the right of that line, in feet, converted at init. |
+
 ## `aircraft/notional_transport/hardware/propulsion/turbofan`
 
 Source: `aircraft/notional_transport/hardware/propulsion/turbofan/turbofan.cpp`.

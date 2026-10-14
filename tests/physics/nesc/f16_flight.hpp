@@ -4,10 +4,9 @@
 //
 // Per sample k (frame 100k, ADR-0028 item 4), in M2 PR 3c's R12 order:
 // 1. the pre-step state gives the kinematic channels: latitude, longitude and altitude from p_n
-// (the
-//    altitude is the height above the WGS-84 ellipsoid, as both members' altitudeMsl_ft is: the
-//    plan's Q2), v_n = rotate_b_to_n(q_nb, v_b), the Euler angles from q_nb, and omega_b (inertial,
-//    as bodyAngularRateWrtEi);
+//    (the altitude is the height above the WGS-84 ellipsoid, as both members' altitudeMsl_ft is:
+//    the plan's Q2), v_n = rotate_b_to_n(q_nb, v_b), the Euler angles from q_nb, and omega_b
+//    (inertial, as bodyAngularRateWrtEi);
 // 2. run(1);
 // 3. copy_inputs() on both evaluator instances, now that the latched controls are this frame's
 //    (the plan's harness design);
@@ -25,7 +24,16 @@
 // never before (ADR-0028 item 5); the samples before it are compared and logged only. No channel is
 // excluded (the plan's D4: ADR-0028 item 2's footnotes exclude none in cases 11 and 12).
 // Mode::kControl asserts nothing per sample: it records each channel's largest ratio and first
-// gated exceedance, and may stop at a named channel's first gated exceedance.
+// gated exceedance, and may stop at a named channel's first gated exceedance, or at the first gated
+// exceedance of any channel that is not zero-accepting.
+//
+// Additive for M7 PR 11a (docs/plans/m7-pr11a-control-peer.md, D8; PR 9's two test sources are
+// unchanged): FlightOptions' stop at any discriminating channel and its per-sample callback, which
+// the 13.x harness's guards use, and two helpers generalized to a config: check_trim_residuals
+// (PR 9's R4 check) and with_constant_mass (PR 9's mass-route swap). And FlightOptions' reported
+// channels: in Mode::kGate, a channel marked reported is compared and logged at every sample but
+// never asserted (Joe's 2026-10-13 R6 decision for 13.3's and 13.4's six aero channels, recorded
+// as R6 not met for them, never as a pass). The default reports none.
 //
 // Test-only code: it allocates and throws.
 #pragma once
@@ -38,9 +46,12 @@
 #include <cmath>
 #include <cstdint>
 #include <format>
+#include <fstream>
+#include <functional>
 #include <iostream>
 #include <numbers>
 #include <span>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -56,6 +67,7 @@
 #include "astra/kernel/vehicle_state.hpp"
 #include "astra/plugin/loader.hpp"
 #include "astra/util/frames.hpp"
+#include "astra/util/units.hpp"
 #include "independent_evaluator.hpp"
 
 namespace astra::test::nesc::f16 {
@@ -107,10 +119,24 @@ std::array<ChannelRef, kChannelCount> channels_of(const Band& band) {
   }};
 }
 
-// The channel indices the negative controls name.
+// The channel indices the negative controls name (kRoll: PR 11a's aileron-sign control).
 inline constexpr int kPitch = 7;
+inline constexpr int kRoll = 8;
 inline constexpr int kRateQ = 10;
 inline constexpr int kForceZ = 14;
+
+// The six aero force and moment channels, reported, never asserted, in 13.3's and 13.4's decided
+// runs (Joe's 2026-10-13 R6 decision, PR 11a).
+inline constexpr std::array<int, 6> kAeroChannels = {12, 13, 14, 15, 16, 17};
+
+// FlightOptions::reported with the six aero channels marked.
+inline std::array<bool, kChannelCount> aero_reported() {
+  std::array<bool, kChannelCount> reported{};
+  for (const int c : kAeroChannels) {
+    reported.at(static_cast<std::size_t>(c)) = true;
+  }
+  return reported;
+}
 
 // ADR-0015's accepts_zero over the gated samples: the band is at least the reference's magnitude at
 // every gated sample, so a trajectory of zeros would pass. Such a channel is asserted, but never
@@ -138,6 +164,19 @@ struct FlightOptions {
   Mode mode = Mode::kGate;
   // kControl only: stop after the sample at which this channel first exceeds its band while gated.
   int stop_channel = -1;
+  // kControl only: stop after the sample at which any channel that is not zero-accepting first
+  // exceeds its band while gated (the 13.x controls' "any discriminating channel", PR 11a).
+  bool stop_at_any_discriminating = false;
+  // Called at every sample k after run(1), with the sample's pre-step state and the frame's latched
+  // environment (the 13.x harness's per-sample guards, PR 11a). Default-initialized here, so a
+  // designated initializer that leaves it out (PR 9's controls) stays warning-free.
+  using SampleHook =
+      std::function<void(int k, const StateVector& pre_step, const EnvironmentSample& latched)>;
+  // NOLINTNEXTLINE(readability-redundant-member-init): -Wmissing-field-initializers needs it.
+  SampleHook on_sample = {};
+  // kGate only: the channels compared and logged but never asserted (PR 11a; none by default).
+  // NOLINTNEXTLINE(readability-redundant-member-init): -Wmissing-field-initializers needs it.
+  std::array<bool, kChannelCount> reported = {};
 };
 
 struct FlightResult {
@@ -148,9 +187,13 @@ struct FlightResult {
   int halt_sample = -1;
   astra::HaltReason halt;
   bool stopped_at_exceedance = false;
+  // The first gated exceedance of a channel that is not zero-accepting, and which channel.
+  int first_discriminating_exceedance = -1;
+  int first_discriminating_channel = -1;
   std::uint64_t frames = 0;
   double guard_force = 0.0;  // the largest relative miss of D5's guard, force and moment
   double guard_moment = 0.0;
+  std::array<bool, kChannelCount> reported{};  // FlightOptions::reported, for the summary
 };
 
 // The sim, built from a config, with PR 7's evaluator around it: the frame-start environment and
@@ -182,10 +225,11 @@ class Flight {
   Simulation& sim() noexcept { return sim_; }
 
   template <typename Band>
-  FlightResult fly(std::string_view name, const Band& band, FlightOptions options = {}) {
+  FlightResult fly(std::string_view name, const Band& band, const FlightOptions& options = {}) {
     using B = std::remove_cvref_t<Band>;
     const std::array<ChannelRef, kChannelCount> channels = channels_of(band);
     FlightResult result;
+    result.reported = options.reported;
     for (int k = 0; k < B::kSampleCount; ++k) {
       // An explicit copy, taken before run(1) moves the live state on (R12's own copy).
       const StateVector pre_step = sim_.vehicles().front().state();
@@ -233,12 +277,31 @@ class Flight {
           latched.atmosphere.pressure_pa,
           latched.atmosphere.temperature_k,
       };
-      compare(name, channels, actual, k, B::kFirstGatedSample, options.mode, result);
+      compare(name, channels, actual, k, B::kFirstGatedSample, options.mode, options.reported,
+              result);
       result.samples_compared = k + 1;
+      if (options.on_sample) {
+        options.on_sample(k, pre_step, latched);
+      }
+      if (result.first_discriminating_exceedance < 0) {
+        for (std::size_t c = 0; c < channels.size(); ++c) {
+          if (result.stats.at(c).first_gated_exceedance == k &&
+              !zero_accepting(channels.at(c), B::kFirstGatedSample)) {
+            result.first_discriminating_exceedance = k;
+            result.first_discriminating_channel = static_cast<int>(c);
+            break;
+          }
+        }
+      }
 
       if (options.mode == Mode::kControl && options.stop_channel >= 0 &&
           result.stats.at(static_cast<std::size_t>(options.stop_channel)).first_gated_exceedance >=
               0) {
+        result.stopped_at_exceedance = true;
+        break;
+      }
+      if (options.mode == Mode::kControl && options.stop_at_any_discriminating &&
+          result.first_discriminating_exceedance >= 0) {
         result.stopped_at_exceedance = true;
         break;
       }
@@ -283,7 +346,8 @@ class Flight {
 
   static void compare(std::string_view name, const std::array<ChannelRef, kChannelCount>& channels,
                       const std::array<double, kChannelCount>& actual, int k, int first_gated,
-                      Mode mode, FlightResult& result) {
+                      Mode mode, const std::array<bool, kChannelCount>& reported,
+                      FlightResult& result) {
     for (std::size_t c = 0; c < channels.size(); ++c) {
       const ChannelRef& channel = channels.at(c);
       const double reference = channel.reference[static_cast<std::size_t>(k)];
@@ -312,7 +376,7 @@ class Flight {
       if (!inside && stats.first_gated_exceedance < 0) {
         stats.first_gated_exceedance = k;
       }
-      if (mode == Mode::kGate) {
+      if (mode == Mode::kGate && !reported.at(c)) {
         EXPECT_TRUE(inside) << name << " " << channel.name << " sample " << k
                             << " (t = " << std::format("{:.1f}", 0.1 * k) << " s): actual "
                             << std::format("{:.17g}", actual.at(c)) << ", reference "
@@ -332,6 +396,18 @@ class Flight {
   std::vector<const double*> total_;
 };
 
+// Whether a run stayed inside every band a gating asserts: no channel outside `reported` left its
+// band at a gated sample (PR 11a's reported controls and variants, against the decided gating).
+inline bool within_asserted_bands(const FlightResult& result,
+                                  const std::array<bool, kChannelCount>& reported) {
+  for (std::size_t c = 0; c < result.stats.size(); ++c) {
+    if (!reported.at(c) && result.stats.at(c).first_gated_exceedance >= 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
 // The plan's D3 log: per channel, sample 0's ratio |d|/tol_abs, the largest ratio before the window
 // and where, the largest gated ratio and where, and whether the channel is zero-accepting.
 template <typename Band>
@@ -346,13 +422,97 @@ void print_summary(std::string_view name, const Band& band, const FlightResult& 
       result.guard_force, result.guard_moment);
   for (std::size_t c = 0; c < channels.size(); ++c) {
     const ChannelStats& s = result.stats.at(c);
+    const bool zero = zero_accepting(channels.at(c), B::kFirstGatedSample);
+    std::string_view reported_note;
+    if (result.reported.at(c)) {
+      reported_note = zero ? "; reported, not asserted" : "reported, not asserted";
+    }
     std::cout << std::format(
         "  {:12s} tol_abs {:<12.6g} sample 0 {:<10.4g} ungated max {:<10.4g} at {:>4}  gated max "
-        "{:<10.4g} at {:>4}  first gated exceedance {:>5}  {}\n",
+        "{:<10.4g} at {:>4}  first gated exceedance {:>5}  {}{}\n",
         channels.at(c).name, channels.at(c).tol_abs, s.sample0_ratio, s.max_ungated_ratio,
         s.max_ungated_at, s.max_gated_ratio, s.max_gated_at, s.first_gated_exceedance,
-        zero_accepting(channels.at(c), B::kFirstGatedSample) ? "zero-accepting: not evidence" : "");
+        zero ? "zero-accepting: not evidence" : "", reported_note);
   }
+}
+
+// --- Helpers generalized to a config path (M7 PR 11a, D8; PR 9's originals stay in its sources)
+
+inline std::string read_text(const std::string& path) {
+  std::ifstream in{path};
+  if (!in) {
+    throw astra::Error("cannot read " + path);
+  }
+  std::ostringstream text;
+  text << in.rdbuf();
+  return text.str();
+}
+
+// One lateral residual's expected value and its pre-registered absolute bound (Q7's R4 check).
+struct LateralResidual {
+  std::string_view name;
+  int index;  // into Simulation::derivative's output
+  double expected;
+  double bound;
+};
+
+// PR 9's R4 check at a config's initial state, with its controls latched: the solved three (u_dot,
+// w_dot, q_dot) at most 1e-6 (M3's D8), each lateral residual within its bound of the DML's
+// expected value, and the latched controls.throttle in [0, 1].
+inline void check_trim_residuals(const std::string& config_path, std::string_view name,
+                                 const std::array<LateralResidual, 3>& lateral) {
+  const Config config = Config::from_file(config_path);
+  Simulation sim = Simulation::from_config(config, ASTRA_TEST_PLUGIN_DIR);
+  const StateVector state = sim.vehicles().front().state();
+  const std::vector<double> derivative =
+      sim.derivative(std::span<const double>(state.data(), static_cast<std::size_t>(state.size())));
+  ASSERT_EQ(derivative.size(), static_cast<std::size_t>(state.size()));
+  constexpr double kSolvedBound = 1e-6;
+  for (const int index : {state::kVelocity, state::kVelocity + 2, state::kAngularRate + 1}) {
+    const double value = derivative.at(static_cast<std::size_t>(index));
+    EXPECT_LE(std::abs(value), kSolvedBound) << name << ": solved residual at index " << index;
+    std::cout << std::format("{} solved residual [{}] {:.6g}\n", name, index, value);
+  }
+  for (const LateralResidual& r : lateral) {
+    const double value = derivative.at(static_cast<std::size_t>(r.index));
+    const double miss = std::abs(value - r.expected);
+    EXPECT_LE(miss, r.bound) << name << " " << r.name << ": " << std::format("{:.17g}", value)
+                             << " against the DML's " << std::format("{:.17g}", r.expected);
+    std::cout << std::format("{} {} {:.17g}, expected {:.17g}, miss {:.3g}, bound {:.5g}\n", name,
+                             r.name, value, r.expected, miss, r.bound);
+  }
+  const double* throttle = sim.registry().find("v0.controls.throttle");
+  ASSERT_NE(throttle, nullptr) << name;
+  EXPECT_GE(*throttle, 0.0) << name << ": the trim throttle leaves the engine's 0..1";
+  EXPECT_LE(*throttle, 1.0) << name << ": the trim throttle leaves the engine's 0..1";
+  std::cout << std::format("{} controls.throttle {:.17g}\n", name, *throttle);
+}
+
+// A config's text with physical.mass swapped for plugins/physical/mass/constant carrying
+// F16_inertia.dml's values through the same core/util/units functions the F-16 mass plugin uses,
+// written %.17g, ixz the S&L product of inertia times izx_sign (PR 9's mass route, by path).
+inline std::string with_constant_mass(const std::string& config_path, double izx_sign) {
+  const std::string block = "  mass:\n    plugin: aircraft/f16/physical/mass\n";
+  std::string text = read_text(config_path);
+  const std::size_t at = text.find(block);
+  if (at == std::string::npos || text.find(block, at + 1) != std::string::npos) {
+    throw astra::Error(config_path + " does not hold exactly one F-16 mass block");
+  }
+  const std::string swapped = std::format(
+      "  mass:\n"
+      "    plugin: plugins/physical/mass/constant\n"
+      "    mass: {:.17g}\n"
+      "    ixx: {:.17g}\n"
+      "    iyy: {:.17g}\n"
+      "    izz: {:.17g}\n"
+      "    ixz: {:.17g}\n",
+      units::slugs_to_kilograms(637.1595),
+      units::slug_square_feet_to_kilogram_square_meters(9496.0),
+      units::slug_square_feet_to_kilogram_square_meters(55814.0),
+      units::slug_square_feet_to_kilogram_square_meters(63100.0),
+      izx_sign * units::slug_square_feet_to_kilogram_square_meters(982.0));
+  text.replace(at, block.size(), swapped);
+  return text;
 }
 
 }  // namespace astra::test::nesc::f16

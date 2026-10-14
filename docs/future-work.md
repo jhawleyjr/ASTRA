@@ -20,8 +20,8 @@ In this order; Joe accepted it as proposed, with the decisions listed after it.
 - **M6 Analysis tooling:** plotting and plot packages, Monte Carlo visualization, failure-to-draw
   correlation, Monte Carlo sizing, the run report, the frame-time benchmark, `astra run --strict`, and the
   superseding ADR to ADR-0025's Finalization.
-- **M7 F-16 and the NESC oracle:** `aircraft/f16`, NESC cases 11, 12, 13.1 to 13.4, 15 and 16, the tutorial
-  and the config-key reference. Takes the open items on Earth/gravity rotation consistency, the mass
+- **M7 F-16 and the NESC oracle:** `aircraft/f16`, NESC cases 11, 12 and 13.1 to 13.4, and the config-key
+  reference; cases 15 and 16, the embedded port and the tutorial are unscheduled (Joe, 2026-10-13). Takes the open items on Earth/gravity rotation consistency, the mass
   product-of-inertia convention, trim's control names, §15 envelope monitors and ADR-0002's wording.
 - **M8 Actuators and controller tuning:** the actuator models, gains loaded at startup, the tuning tool,
   frequency-domain and handling-qualities analysis. Takes the open items on deflection range, throttle
@@ -112,7 +112,8 @@ loop-at-a-time margins for the gains that ship.
   and JSBSim took part in the study. The same ensemble-as-oracle pattern as M2's cases 1 to 10
   (ADR-0013). The maneuver cases fly the NESC's own control laws, defined in DAVE-ML (Vol II): 13.x use
   `F16_control.dml` (stability augmentation and a three-axis autopilot) and 15 and 16 use `F16_gnc.dml`.
-  Case 17 (two-stage rocket to orbit) is out of scope by Joe's call.
+  Case 17 (two-stage rocket to orbit) is out of scope by Joe's call. Cases 15 and 16 are unscheduled (Joe,
+  2026-10-13: the NESC closed-loop ensemble is two members with loose maneuver bands).
 
 ## Model fidelity
 
