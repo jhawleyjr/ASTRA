@@ -90,6 +90,18 @@ Source: `aircraft/f16/physical/mass/mass.cpp`.
 
 Reads no config key: a config names it by its path alone.
 
+## `aircraft/f16/sim/transport/nesc_control`
+
+Source: `aircraft/f16/sim/transport/nesc_control/nesc_control.cpp`.
+
+| Key | Type | Unit | Default | Required | Meaning |
+|---|---|---|---|---|---|
+| `peer.trim.elevator` | number | `rad` |  | yes | The trim's elevator, the same text as vehicle.initial\_controls.controls.elevator. Inverted at init through the law's limit-and-scale block to trimmedPilotControl\_long = elevator / (-25 deg), which must lie in [-1, 1]. |
+| `peer.trim.throttle` | number | `1` |  | yes | The trim's throttle, the same text as vehicle.initial\_controls.controls.throttle: trimmedPilotControl\_throttle, in [0, 1]. |
+| `peer.commands.altitude_ft` | number | `ft` |  | yes | altitudeMslCommand from frame 0, in feet, converted at init. |
+| `peer.commands.equivalent_airspeed_knots` | number | `kt` |  | yes | equivalentAirspeedCommand from frame 0, KEAS, converted with the exact knot; above 0. |
+| `peer.commands.course_deg` | number | `deg` |  | yes | trueBaseCourseCommand from frame 0, degrees true, converted at init. |
+
 ## `aircraft/notional_transport/hardware/propulsion/turbofan`
 
 Source: `aircraft/notional_transport/hardware/propulsion/turbofan/turbofan.cpp`.

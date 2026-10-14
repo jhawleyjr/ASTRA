@@ -204,6 +204,56 @@ strict regex, and lists the constants first.
   margin there is the obligation's redundant safeguard. The **chiErr wrap is a true discontinuity:** at ±180°, φCmd flips
   between +30° and −30°. That boundary is the one the margin protects. Hand-built frames may sit exactly on a
   min/max limit (13.1's ΔθCmd lands on +5° at its step), never on the wrap.
+- ***Deviation 1, 2026-10-13 (Joe, two decisions in this PR's commit-2 session): the seeded bound follows the
+  law's input conditioning.***
+  - **The premise was wrong.** It assumed roundoff scales with the output's summands. The law forms differences
+    of its inputs before its gains, and the two implementations round those inputs differently (degrees against
+    radians, feet against meters).
+  - **The first run on the redesigned draws** (deviation 2): 97 of the 5,000 near-design frames missed the floor
+    alone, worst at 1.75 times it. 95 misses were on the aileron, through chiErr = β + ψ − course with |ψ| up to π
+    and a gain of about 662 rad/rad. Two were on the elevator, through altErr = altitude − altCmd with altitude up
+    to 11 km and a gain of 0.226 rad/m.
+  - **The seeded bound per frame and command** is 1e-12 · max(|c_ref|, F) + eps · Σ over rounding steps of |that
+    step's own result| · |G|, with eps = 2^-52.
+    - G is the law's gain from that step's quantity to the command, derived in the test from the reference's own
+      DML constants and conversions, never read from the SI law.
+    - Each step between a raw input and the difference the law forms is charged relative to its own result, both
+      implementations summed. The counts are named per input in `control_test.cpp`'s comment and printed.
+    - **ψ: 3.** The reference's ψ/deg (|ψ|), the reference's β + ψ (|chiEst|), and the SI's β + ψ (|chiEst|).
+    - **Course: 3.** The reference's ΔχCmd + base (|chiCmd|), the SI's deg-to-rad conversion (|course|), and the
+      SI's Δχ + course (|chiCmd|).
+    - chiErr's own subtraction and its wrap are charged at their own (small) results, separately.
+  - **The throttle term at low Mach.** In the EAS route, each step carries a derived coefficient on ln V. The two
+    pow − 1 cancellations amplify a step's rounding by κ = B^3.5 / (B^3.5 − 1), with B = 1 + 0.2 M², about 143
+    at Mach 0.1, and the law's ΔV gain (about one throttle per knot) carries it into the throttle. The EAS route
+    does not change: this is roundoff between the two implementations, about 3e-14 relative in EAS, not an error
+    in either. ADR-0029 Decision 8 fixes the peer's expression order for the port.
+  - **The gains are verified, not capped.** For every frame and command, each gain must agree within 1 % with the
+    reference's own central finite difference, with a step of 1e-6 of each input's full scale.
+    - Within ten steps of a saturation or chiErr's wrap, the difference is one-sided on the open side.
+    - A saturated command is still charged with its unsaturated gain (conservative), and the check skips it.
+    - Both branches are counted and printed.
+  - Three planted defects must still fail by at least 1e8 times the bound: a deg↔rad slip on longLQR14, the
+    aileron's flip omitted, and a ft↔m slip on the altitude gain.
+  - The floor F, the margin and the chiErr wrap do not move.
+- ***Deviation 2, 2026-10-13 (Joe accepted it, recorded; it is not absorbed by the plan): the seeded draws were
+  redesigned after the first design's comparison ran.***
+  - **The first design** drew the pilot's inputs past ±1, to −0.2..1.2 for the throttle and ±1.3 for the sticks.
+    The other draws were wide: φ ±60°, θ ±30°, α −10..30°, β ±10°, rates ±3 rad/s and course 0..360°.
+  - **What it produced:** 425 seeded frames with SAS and autopilot off. A pilot input past its limit is saturated
+    before it reaches the totals, so totLatStk and totPedal sat exactly on Q2's ±1 boundaries and were redrawn by
+    the margin. The plan named this stop condition ("beyond a handful").
+    - Every compared frame agreed (worst 0.75 of the floor). The 425 redrawn frames, compared as a diagnostic,
+      agreed to 4e-4 of it. 95 % of the draws saturated a stick.
+  - **The new draws:**
+    - the pilot's inputs inside their limits; the past-limit cases are hand-built ("pilot inputs past their limits"
+      in the MathML anchor);
+    - alternate frames near the design point, which keep the LQR's sums inside their limits: φ ±0.1°, β ±0.05°,
+      α and θ within 0.1° of 2.6538°, rates ±0.005 rad/s, altCmd within 1 ft, keasCmd within 0.2 kt, and a
+      course within 0.005° of the track estimate;
+    - the first design's wide ranges, otherwise unchanged.
+    The envelope's other ranges are unchanged: latitude ±89.95°, longitude ±180°, altitude 0 to 11 km, heading
+    ±180°, Mach 0.1 to 0.95, and static pressure 20 to 110 kPa.
 
 ### Q3. Where R12's ρ comes from
 
