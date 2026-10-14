@@ -24,7 +24,22 @@
 //   peer.commands.equivalent_airspeed_knots | number | kt  | required | equivalentAirspeedCommand
 //          from frame 0, KEAS, converted with the exact knot; above 0.
 //   peer.commands.course_deg                | number | deg | required | trueBaseCourseCommand from
-//          frame 0, degrees true, converted at init.
+//          frame 0, degrees true, converted at init. 13.4's base course.
+//   peer.schedule[].frame                   | integer | 1  | required | The frame from which this
+//          entry's commands apply, at the first exchange at or after it; at least 0, strictly
+//          ascending. The schedule itself is optional.
+//   peer.schedule[].altitude_ft             | number | ft  | -        | altitudeMslCommand from
+//          this entry's frame on; left out, it is unchanged.
+//   peer.schedule[].equivalent_airspeed_knots | number | kt | -       | equivalentAirspeedCommand
+//          from this entry's frame on, KEAS; above 0; left out, it is unchanged.
+//   peer.schedule[].course_deg              | number | deg | -        | trueBaseCourseCommand from
+//          this entry's frame on; left out, it is unchanged. Each entry changes at least one.
+//   peer.lateral_offset.frame               | integer | 1  | required | 13.4's side step: from this
+//          frame on, lateralDeviationError is the cross-track distance from the initial-plane line
+//          through the frame-0 position at course_deg, minus offset_ft. Without lateral_offset the
+//          law holds the course (lateralDeviationError 0).
+//   peer.lateral_offset.offset_ft           | number | ft  | required | The offset to the right of
+//          that line, in feet, converted at init.
 #include <memory>
 
 #include "astra/core_api.hpp"

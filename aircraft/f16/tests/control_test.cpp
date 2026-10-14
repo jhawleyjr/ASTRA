@@ -37,6 +37,7 @@
 #include <Eigen/Core>
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -58,6 +59,7 @@
 #include "astra/interfaces/earth_model.hpp"
 #include "astra/interfaces/transport.hpp"
 #include "astra/kernel/environment_sample.hpp"
+#include "astra/kernel/exchange_recorder.hpp"
 #include "astra/kernel/health_monitor.hpp"
 #include "astra/kernel/lockstep_exchange.hpp"
 #include "astra/kernel/simulation.hpp"
@@ -708,8 +710,9 @@ std::string peer_block(double elevator = kTrimElevator, double throttle = kTrimT
 }
 
 // The transport block for a config: the exchange's sim-owned keys and the peer's.
-std::string transport_block(double elevator = kTrimElevator, double throttle = kTrimThrottle) {
-  std::string peer = peer_block(elevator, throttle);
+std::string transport_block(double elevator = kTrimElevator, double throttle = kTrimThrottle,
+                            std::string_view extra_peer = "", std::string_view plugin = kPeer) {
+  std::string peer = peer_block(elevator, throttle) + std::string{extra_peer};
   std::string indented;
   std::istringstream lines{peer};
   for (std::string line; std::getline(lines, line);) {
@@ -723,7 +726,7 @@ std::string transport_block(double elevator = kTrimElevator, double throttle = k
              "controls.rudder, throttle: [controls.throttle, controls.throttle]}}\n"
              "  limits: {{elevator: [{:.17g}, {:.17g}], aileron: [{:.17g}, {:.17g}], rudder: "
              "[{:.17g}, {:.17g}], throttle: [0.0, 1.0]}}\n",
-             kPeer, -law::kElevatorRange, law::kElevatorRange, -law::kAileronRange,
+             plugin, -law::kElevatorRange, law::kElevatorRange, -law::kAileronRange,
              law::kAileronRange, -law::kRudderRange, law::kRudderRange) +
          indented;
 }
@@ -734,8 +737,8 @@ struct LoadedPeer {
   astra::Transport* transport = nullptr;
   astra::SignalRegistry registry;
 
-  explicit LoadedPeer(const std::string& block) {
-    plugin = loader.load(kPeer);
+  explicit LoadedPeer(const std::string& block, std::string_view path = kPeer) {
+    plugin = loader.load(path);
     transport = dynamic_cast<astra::Transport*>(plugin.model.get());
     if (transport == nullptr) {
       throw astra::Error("the peer is not a Transport");
@@ -1389,6 +1392,43 @@ TEST(F16Control, RefusesEveryFlaggedFrame) {
   EXPECT_FALSE(all_non_finite(again));
   EXPECT_EQ(again.elevator, first.elevator);
   EXPECT_EQ(peer.signal("transport.peer.refusal"), 0.0);
+
+  // 13.4's base point (ADR-0029 Decisions 2 and 6): with the lateral offset configured, a first
+  // exchange whose frame is not 0 is refused, and nothing ever latches...
+  const std::string side_step =
+      peer_block() + "  lateral_offset: {frame: 20000, offset_ft: 2000}\n";
+  {
+    LoadedPeer late{side_step};
+    astra_sim_to_sw_v1 f = good;
+    f.frame = 10;
+    EXPECT_TRUE(all_non_finite(late.exchange(f, 1)));
+    EXPECT_EQ(static_cast<std::uint32_t>(late.signal("transport.peer.refusal")),
+              law::kRefusalBasePointFrame);
+    f.frame = 20;
+    EXPECT_TRUE(all_non_finite(late.exchange(f, 2))) << "no base point ever latched";
+  }
+  // ...and a frame 0 refused for LATLON_NOT_MODELED latches nothing, so every later frame is
+  // refused for the base point.
+  {
+    LoadedPeer flat{side_step};
+    astra_sim_to_sw_v1 f = good;
+    f.status_flags |= ASTRA_ICD_STATUS_LATLON_NOT_MODELED;
+    EXPECT_TRUE(all_non_finite(flat.exchange(f, 0)));
+    f = good;
+    f.frame = 10;
+    EXPECT_TRUE(all_non_finite(flat.exchange(f, 1)));
+    EXPECT_EQ(static_cast<std::uint32_t>(flat.signal("transport.peer.refusal")),
+              law::kRefusalBasePointFrame);
+  }
+  // A good frame 0 latches, and later frames compute.
+  {
+    LoadedPeer latched{side_step};
+    EXPECT_FALSE(all_non_finite(latched.exchange(good, 0)));
+    astra_sim_to_sw_v1 f = good;
+    f.frame = 10;
+    EXPECT_FALSE(all_non_finite(latched.exchange(f, 1)));
+    EXPECT_EQ(latched.signal("transport.peer.refusal"), 0.0);
+  }
 }
 
 // R12 and Q8 through Simulation: a refused frame 0 halts kTransport at the exchange's non-finite
@@ -1517,5 +1557,204 @@ TEST(F16Control, InitRefusesMissingOrOutOfRangeKeys) {
     } catch (const astra::ConfigError& error) {
       EXPECT_EQ(error.config_path(), c.key) << c.block << " -> " << error.what();
     }
+  }
+}
+
+namespace {
+
+// --- R10 and R22: the schedules and the onset --------------------------------------------------
+
+// This file's own initial-plane cross-track (ADR-0029 Decision 6), from its own WGS-84 radii.
+double reference_cross_track(double lat0, double lon0, double h0, double chi, double lat,
+                             double lon) {
+  constexpr double kA = 6378137.0;
+  constexpr double kF = 1.0 / 298.257223563;
+  const double e2 = kF * (2.0 - kF);
+  const double s2 = std::sin(lat0) * std::sin(lat0);
+  const double m0 = kA * (1.0 - e2) / std::pow(1.0 - e2 * s2, 1.5);
+  const double n0 = kA / std::sqrt(1.0 - e2 * s2);
+  const double dn = (lat - lat0) * (m0 + h0);
+  const double de = (lon - lon0) * (n0 + h0) * std::cos(lat0);
+  return (-dn * std::sin(chi)) + (de * std::cos(chi));
+}
+
+// One 13.x case's commands, in Vol II's units (Tables 37 to 40; D.1.14 for the airspeed), and the
+// peer lines that schedule them. The step frames are Vol II's times over dt = 1 ms.
+struct StepCase {
+  std::string_view name;
+  std::string_view peer_lines;
+  std::uint64_t step_frame;
+  std::uint64_t last_frame;
+  double alt_before_ft;
+  double alt_after_ft;
+  double keas_before;
+  double keas_after;
+  double course_before_deg;
+  double course_after_deg;
+  bool side_step;  // 13.4: a 2,000 ft lateral offset from the step on
+};
+
+constexpr double kKeas0 = 287.98158203;  // peer_block's initial command literal
+const std::array<StepCase, 4> kStepCases = {{
+    {"13.1", "  schedule:\n    - {frame: 5000, altitude_ft: 10113}\n", 5000, 20000, 10013.0,
+     10113.0, kKeas0, kKeas0, 45.0, 45.0, false},
+    {"13.2", "  schedule:\n    - {frame: 5000, equivalent_airspeed_knots: 282.98158203}\n", 5000,
+     20000, 10013.0, 10013.0, kKeas0, kKeas0 - 5.0, 45.0, 45.0, false},
+    {"13.3", "  schedule:\n    - {frame: 15000, course_deg: 60}\n", 15000, 30000, 10013.0, 10013.0,
+     kKeas0, kKeas0, 45.0, 60.0, false},
+    {"13.4", "  lateral_offset: {frame: 20000, offset_ft: 2000}\n", 20000, 60000, 10013.0, 10013.0,
+     kKeas0, kKeas0, 45.0, 45.0, true},
+}};
+
+struct Onset {
+  bool reply_matches = false;
+  bool latched_matches = false;
+  bool changed = false;  // the reply differs from the previous exchange's
+  double ratio = 0.0;    // the largest |reply - reference| / bound
+};
+
+bool same_bits(double a, double b) {
+  return std::bit_cast<std::uint64_t>(a) == std::bit_cast<std::uint64_t>(b);
+}
+
+// Runs `sim` through `frame` and checks that frame's exchange (R22): the reply to the recorded
+// request against an independent evaluation of the DML at that frame's commands, within R11's
+// seeded bound; the latched controls bit for bit equal to the reply (zero compute delay).
+Onset onset_at(astra::Simulation& sim, const StepCase& sc, std::uint64_t frame) {
+  const std::uint64_t now = sim.clock().frame();
+  EXPECT_FALSE(sim.run(frame + 1 - now)) << sc.name << ": halted before frame " << frame;
+  const astra::ExchangeRecorder* recorder = sim.exchange_recorder();
+  const auto requests = recorder->requests();
+  const auto replies = recorder->replies();
+  const astra_sim_to_sw_v1& request = requests.back();
+  const astra_sw_to_sim_v1& reply = replies.back();
+  EXPECT_EQ(request.frame, frame) << sc.name;
+  EXPECT_EQ(reply.frame, frame) << sc.name;
+
+  const bool after = frame >= sc.step_frame;
+  Case c;
+  c.frame = request;
+  c.alt_cmd_ft = after ? sc.alt_after_ft : sc.alt_before_ft;
+  c.keas_cmd = after ? sc.keas_after : sc.keas_before;
+  c.course_deg = after ? sc.course_after_deg : sc.course_before_deg;
+  if (sc.side_step && after) {
+    const astra_sim_to_sw_v1& f0 = requests.front();
+    const double d =
+        reference_cross_track(f0.lat, f0.lon, f0.altitude, 45.0 * kDeg, request.lat, request.lon);
+    c.lat_offset_ft = (d - (2000.0 * kFt)) / kFt;
+  }
+  c.long_stk_trim = law::trim_from_controls(kTrimElevator, kTrimThrottle).long_stick;
+  c.throttle_trim = kTrimThrottle;
+  const ref::Inputs in = reference_inputs(c);
+  const ref::Outputs want = ref::evaluate(in);
+  const ref::Icd icd = ref::to_icd(want);
+  const std::array<double, 4> bound = bounds(icd, conditioning(c, in, want, gains_at(in, want)));
+  const std::array<double, 4> got{reply.elevator, reply.aileron, reply.rudder, reply.throttle[0]};
+  const std::array<double, 4> expected{icd.elevator, icd.aileron, icd.rudder, icd.throttle};
+
+  Onset out;
+  out.reply_matches = same_bits(reply.throttle[0], reply.throttle[1]);
+  for (std::size_t k = 0; k < 4; ++k) {
+    const double ratio = std::abs(got.at(k) - expected.at(k)) / bound.at(k);
+    out.ratio = std::max(out.ratio, ratio);
+    out.reply_matches = out.reply_matches && ratio <= 1.0;
+  }
+  const auto latched = [&sim](std::string_view name) {
+    const double* value = sim.registry().find(name);
+    return value == nullptr ? std::numeric_limits<double>::quiet_NaN() : *value;
+  };
+  out.latched_matches = same_bits(latched("v0.controls.elevator"), reply.elevator) &&
+                        same_bits(latched("v0.controls.aileron"), reply.aileron) &&
+                        same_bits(latched("v0.controls.rudder"), reply.rudder) &&
+                        same_bits(latched("v0.controls.throttle"), reply.throttle[0]);
+  if (replies.size() >= 2) {
+    const astra_sw_to_sim_v1& before = replies[replies.size() - 2];
+    out.changed = !same_bits(before.elevator, reply.elevator) ||
+                  !same_bits(before.aileron, reply.aileron) ||
+                  !same_bits(before.rudder, reply.rudder) ||
+                  !same_bits(before.throttle[0], reply.throttle[0]);
+  }
+  std::cout << std::format(
+      "{} frame {}: reply el {:.9f} ail {:.9f} rdr {:.9f} rad, throttle {:.9f}; largest |d| / "
+      "bound {:.3g}; latched {}\n",
+      sc.name, frame, reply.elevator, reply.aileron, reply.rudder, reply.throttle[0], out.ratio,
+      out.latched_matches ? "bit for bit" : "DIFFERS");
+  return out;
+}
+
+astra::Simulation onset_sim(const StepCase& sc, std::string_view plugin,
+                            std::string_view variant_lines = "") {
+  const std::string text =
+      read_text(config_path("case11_trim_check_subsonic.yaml")) +
+      transport_block(kTrimElevator, kTrimThrottle,
+                      std::string{sc.peer_lines} + std::string{variant_lines}, plugin);
+  return astra::Simulation::from_config(astra::Config::from_string(text, std::string{sc.name}),
+                                        ASTRA_TEST_PLUGIN_DIR);
+}
+
+// R10: one peer block's command timeline, read from the peer's signals at every exchange, against
+// Vol II's table for its case.
+void expect_timeline(const StepCase& sc, const std::string& block, std::string_view where) {
+  LoadedPeer peer{block};
+  astra_sim_to_sw_v1 frame = packed(trim_state());
+  for (std::uint64_t f = 0; f <= sc.last_frame; f += 10) {
+    frame.frame = f;
+    static_cast<void>(peer.exchange(frame, static_cast<std::uint32_t>(f / 10)));
+    const bool after = f >= sc.step_frame;
+    const double alt_ft = peer.signal("transport.peer.altitude_command") / kFt;
+    const double keas = peer.signal("transport.peer.equivalent_airspeed_command") / kKt;
+    const double course = peer.signal("transport.peer.course_command") / kDeg;
+    const double offset = peer.signal("transport.peer.lateral_deviation_error");
+    const std::string at = std::format("{} {} frame {}", where, sc.name, f);
+    ASSERT_NEAR(alt_ft, after ? sc.alt_after_ft : sc.alt_before_ft, 1e-9) << at;
+    ASSERT_NEAR(keas, after ? sc.keas_after : sc.keas_before, 1e-9) << at;
+    // Vol II gives the initial airspeed command as 287.98 KEAS (D.1.14) and the step as 5 kt.
+    ASSERT_NEAR(keas - (after ? sc.keas_after - sc.keas_before : 0.0), 287.98, 0.005) << at;
+    ASSERT_NEAR(course, after ? sc.course_after_deg : sc.course_before_deg, 1e-12) << at;
+    // At the base point itself d = 0, so the error is 0 before the step and -2,000 ft from it.
+    ASSERT_NEAR(offset, sc.side_step && after ? -2000.0 * kFt : 0.0, 1e-9) << at;
+  }
+}
+
+}  // namespace
+
+// R10 (the peer's half; the port's is PR 12's): each case's schedule, frame for frame, against
+// Vol II Tables 37 to 40.
+TEST(F16Control, ScheduleMatchesVolIITables) {
+  for (const StepCase& sc : kStepCases) {
+    expect_timeline(sc, peer_block() + std::string{sc.peer_lines}, "fixture");
+  }
+}
+
+// R22: at engagement (frame 0) and at each case's command step, the reply to the recorded request
+// is the DML's command for that frame, computed independently, and it is latched the same frame.
+// Frame 5000, 15000 or 20000 is an exchange frame at divisor 10. 13.1's and 13.2's onset at 5 s is
+// inside the ungated span, which only these fixtures check.
+TEST(F16Control, OnsetAtEngagementAndAtEachCommandStep) {
+  for (const StepCase& sc : kStepCases) {
+    astra::Simulation sim = onset_sim(sc, kPeer);
+    for (const std::uint64_t frame : {std::uint64_t{0}, sc.step_frame - 10, sc.step_frame}) {
+      const Onset o = onset_at(sim, sc, frame);
+      EXPECT_TRUE(o.reply_matches) << sc.name << " frame " << frame;
+      EXPECT_TRUE(o.latched_matches) << sc.name << " frame " << frame;
+      if (frame == sc.step_frame) {
+        EXPECT_TRUE(o.changed) << sc.name << ": the step must change the command";
+      }
+    }
+  }
+}
+
+// R22's plant: a peer that applies each command one exchange late fails the onset fixture at every
+// step (tests/plugins/nesc_control_variant's one_exchange_delay; at engagement it has nothing
+// earlier to send, so frame 0 still matches).
+TEST(F16Control, APlantedOneExchangeDelayFailsTheOnsetFixture) {
+  for (const StepCase& sc : kStepCases) {
+    astra::Simulation sim =
+        onset_sim(sc, "tests/plugins/nesc_control_variant", "  test_variant: one_exchange_delay\n");
+    const Onset engagement = onset_at(sim, sc, 0);
+    EXPECT_TRUE(engagement.reply_matches) << sc.name;
+    const Onset step = onset_at(sim, sc, sc.step_frame);
+    EXPECT_FALSE(step.reply_matches) << sc.name << ": the delayed reply must fail the fixture";
+    EXPECT_TRUE(step.latched_matches) << sc.name << ": the delay is the peer's, not the exchange's";
   }
 }
