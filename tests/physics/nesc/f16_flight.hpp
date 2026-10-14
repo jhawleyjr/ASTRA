@@ -422,16 +422,17 @@ void print_summary(std::string_view name, const Band& band, const FlightResult& 
       result.guard_force, result.guard_moment);
   for (std::size_t c = 0; c < channels.size(); ++c) {
     const ChannelStats& s = result.stats.at(c);
+    const bool zero = zero_accepting(channels.at(c), B::kFirstGatedSample);
+    std::string_view reported_note;
+    if (result.reported.at(c)) {
+      reported_note = zero ? "; reported, not asserted" : "reported, not asserted";
+    }
     std::cout << std::format(
         "  {:12s} tol_abs {:<12.6g} sample 0 {:<10.4g} ungated max {:<10.4g} at {:>4}  gated max "
         "{:<10.4g} at {:>4}  first gated exceedance {:>5}  {}{}\n",
         channels.at(c).name, channels.at(c).tol_abs, s.sample0_ratio, s.max_ungated_ratio,
         s.max_ungated_at, s.max_gated_ratio, s.max_gated_at, s.first_gated_exceedance,
-        zero_accepting(channels.at(c), B::kFirstGatedSample) ? "zero-accepting: not evidence" : "",
-        result.reported.at(c)
-            ? (zero_accepting(channels.at(c), B::kFirstGatedSample) ? "; reported, not asserted"
-                                                                    : "reported, not asserted")
-            : "");
+        zero ? "zero-accepting: not evidence" : "", reported_note);
   }
 }
 

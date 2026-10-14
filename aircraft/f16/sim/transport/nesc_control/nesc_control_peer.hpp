@@ -196,6 +196,8 @@ class NescControlPeer : public astra::Transport {
 
  private:
   static constexpr std::uint32_t kSentinel = 0xFFFFFFFFU;  // ADR-0024
+  // peer.trim.theta's range: a 3-2-1 pitch lies within +-90 deg.
+  static constexpr double kPitchLimit = astra::units::degrees_to_radians(90.0);
 
   // One schedule entry: from `frame` on, each command it names takes its value (SI).
   struct Change {
@@ -249,7 +251,7 @@ class NescControlPeer : public astra::Transport {
     const double elevator = finite_number(trim, "elevator");
     const double throttle = finite_number(trim, "throttle");
     trim_theta_ = finite_number(trim, "theta");
-    if (std::abs(trim_theta_) > astra::units::degrees_to_radians(90.0)) {
+    if (std::abs(trim_theta_) > kPitchLimit) {
       throw astra::ConfigError(trim.origin(), keyed(trim, "theta"),
                                "must lie within +-90 deg (a 3-2-1 pitch)");
     }
