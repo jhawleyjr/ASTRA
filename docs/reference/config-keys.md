@@ -98,6 +98,7 @@ Source: `aircraft/f16/sim/transport/nesc_control/nesc_control.cpp`.
 |---|---|---|---|---|---|
 | `peer.trim.elevator` | number | `rad` |  | yes | The trim's elevator, the same text as vehicle.initial\_controls.controls.elevator. Inverted at init through the law's limit-and-scale block to trimmedPilotControl\_long = elevator / (-25 deg), which must lie in [-1, 1]. |
 | `peer.trim.throttle` | number | `1` |  | yes | The trim's throttle, the same text as vehicle.initial\_controls.controls.throttle: trimmedPilotControl\_throttle, in [0, 1]. |
+| `peer.trim.theta` | number | `rad` |  | yes | The trim's pitch, the same text as initial.state.euler\_nb[1]: the LQR's trimmedAlpha and trimmedTheta (alpha = theta at gamma = 0, level and still air; the M7 plan's Q11 as amended 2026-10-13). trimmedKEAS is commands.equivalent\_airspeed\_knots. Within +-90 deg. |
 | `peer.commands.altitude_ft` | number | `ft` |  | yes | altitudeMslCommand from frame 0, in feet, converted at init. |
 | `peer.commands.equivalent_airspeed_knots` | number | `kt` |  | yes | equivalentAirspeedCommand from frame 0, KEAS, converted with the exact knot; above 0. |
 | `peer.commands.course_deg` | number | `deg` |  | yes | trueBaseCourseCommand from frame 0, degrees true, converted at init. 13.4's base course. |

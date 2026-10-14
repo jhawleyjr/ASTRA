@@ -30,7 +30,10 @@
 // Additive for M7 PR 11a (docs/plans/m7-pr11a-control-peer.md, D8; PR 9's two test sources are
 // unchanged): FlightOptions' stop at any discriminating channel and its per-sample callback, which
 // the 13.x harness's guards use, and two helpers generalized to a config: check_trim_residuals
-// (PR 9's R4 check) and with_constant_mass (PR 9's mass-route swap).
+// (PR 9's R4 check) and with_constant_mass (PR 9's mass-route swap). And FlightOptions' reported
+// channels: in Mode::kGate, a channel marked reported is compared and logged at every sample but
+// never asserted (Joe's 2026-10-13 R6 decision for 13.3's and 13.4's six aero channels, recorded
+// as R6 not met for them, never as a pass). The default reports none.
 //
 // Test-only code: it allocates and throws.
 #pragma once
@@ -116,10 +119,24 @@ std::array<ChannelRef, kChannelCount> channels_of(const Band& band) {
   }};
 }
 
-// The channel indices the negative controls name.
+// The channel indices the negative controls name (kRoll: PR 11a's aileron-sign control).
 inline constexpr int kPitch = 7;
+inline constexpr int kRoll = 8;
 inline constexpr int kRateQ = 10;
 inline constexpr int kForceZ = 14;
+
+// The six aero force and moment channels, reported, never asserted, in 13.3's and 13.4's decided
+// runs (Joe's 2026-10-13 R6 decision, PR 11a).
+inline constexpr std::array<int, 6> kAeroChannels = {12, 13, 14, 15, 16, 17};
+
+// FlightOptions::reported with the six aero channels marked.
+inline std::array<bool, kChannelCount> aero_reported() {
+  std::array<bool, kChannelCount> reported{};
+  for (const int c : kAeroChannels) {
+    reported.at(static_cast<std::size_t>(c)) = true;
+  }
+  return reported;
+}
 
 // ADR-0015's accepts_zero over the gated samples: the band is at least the reference's magnitude at
 // every gated sample, so a trajectory of zeros would pass. Such a channel is asserted, but never
@@ -157,6 +174,9 @@ struct FlightOptions {
       std::function<void(int k, const StateVector& pre_step, const EnvironmentSample& latched)>;
   // NOLINTNEXTLINE(readability-redundant-member-init): -Wmissing-field-initializers needs it.
   SampleHook on_sample = {};
+  // kGate only: the channels compared and logged but never asserted (PR 11a; none by default).
+  // NOLINTNEXTLINE(readability-redundant-member-init): -Wmissing-field-initializers needs it.
+  std::array<bool, kChannelCount> reported = {};
 };
 
 struct FlightResult {
@@ -173,6 +193,7 @@ struct FlightResult {
   std::uint64_t frames = 0;
   double guard_force = 0.0;  // the largest relative miss of D5's guard, force and moment
   double guard_moment = 0.0;
+  std::array<bool, kChannelCount> reported{};  // FlightOptions::reported, for the summary
 };
 
 // The sim, built from a config, with PR 7's evaluator around it: the frame-start environment and
@@ -208,6 +229,7 @@ class Flight {
     using B = std::remove_cvref_t<Band>;
     const std::array<ChannelRef, kChannelCount> channels = channels_of(band);
     FlightResult result;
+    result.reported = options.reported;
     for (int k = 0; k < B::kSampleCount; ++k) {
       // An explicit copy, taken before run(1) moves the live state on (R12's own copy).
       const StateVector pre_step = sim_.vehicles().front().state();
@@ -255,7 +277,8 @@ class Flight {
           latched.atmosphere.pressure_pa,
           latched.atmosphere.temperature_k,
       };
-      compare(name, channels, actual, k, B::kFirstGatedSample, options.mode, result);
+      compare(name, channels, actual, k, B::kFirstGatedSample, options.mode, options.reported,
+              result);
       result.samples_compared = k + 1;
       if (options.on_sample) {
         options.on_sample(k, pre_step, latched);
@@ -323,7 +346,8 @@ class Flight {
 
   static void compare(std::string_view name, const std::array<ChannelRef, kChannelCount>& channels,
                       const std::array<double, kChannelCount>& actual, int k, int first_gated,
-                      Mode mode, FlightResult& result) {
+                      Mode mode, const std::array<bool, kChannelCount>& reported,
+                      FlightResult& result) {
     for (std::size_t c = 0; c < channels.size(); ++c) {
       const ChannelRef& channel = channels.at(c);
       const double reference = channel.reference[static_cast<std::size_t>(k)];
@@ -352,7 +376,7 @@ class Flight {
       if (!inside && stats.first_gated_exceedance < 0) {
         stats.first_gated_exceedance = k;
       }
-      if (mode == Mode::kGate) {
+      if (mode == Mode::kGate && !reported.at(c)) {
         EXPECT_TRUE(inside) << name << " " << channel.name << " sample " << k
                             << " (t = " << std::format("{:.1f}", 0.1 * k) << " s): actual "
                             << std::format("{:.17g}", actual.at(c)) << ", reference "
@@ -372,6 +396,18 @@ class Flight {
   std::vector<const double*> total_;
 };
 
+// Whether a run stayed inside every band a gating asserts: no channel outside `reported` left its
+// band at a gated sample (PR 11a's reported controls and variants, against the decided gating).
+inline bool within_asserted_bands(const FlightResult& result,
+                                  const std::array<bool, kChannelCount>& reported) {
+  for (std::size_t c = 0; c < result.stats.size(); ++c) {
+    if (!reported.at(c) && result.stats.at(c).first_gated_exceedance >= 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
 // The plan's D3 log: per channel, sample 0's ratio |d|/tol_abs, the largest ratio before the window
 // and where, the largest gated ratio and where, and whether the channel is zero-accepting.
 template <typename Band>
@@ -388,15 +424,18 @@ void print_summary(std::string_view name, const Band& band, const FlightResult& 
     const ChannelStats& s = result.stats.at(c);
     std::cout << std::format(
         "  {:12s} tol_abs {:<12.6g} sample 0 {:<10.4g} ungated max {:<10.4g} at {:>4}  gated max "
-        "{:<10.4g} at {:>4}  first gated exceedance {:>5}  {}\n",
+        "{:<10.4g} at {:>4}  first gated exceedance {:>5}  {}{}\n",
         channels.at(c).name, channels.at(c).tol_abs, s.sample0_ratio, s.max_ungated_ratio,
         s.max_ungated_at, s.max_gated_ratio, s.max_gated_at, s.first_gated_exceedance,
-        zero_accepting(channels.at(c), B::kFirstGatedSample) ? "zero-accepting: not evidence" : "");
+        zero_accepting(channels.at(c), B::kFirstGatedSample) ? "zero-accepting: not evidence" : "",
+        result.reported.at(c)
+            ? (zero_accepting(channels.at(c), B::kFirstGatedSample) ? "; reported, not asserted"
+                                                                    : "reported, not asserted")
+            : "");
   }
 }
 
 // --- Helpers generalized to a config path (M7 PR 11a, D8; PR 9's originals stay in its sources)
-// ---
 
 inline std::string read_text(const std::string& path) {
   std::ifstream in{path};

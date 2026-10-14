@@ -6,12 +6,12 @@
 // - the negative controls' plants, applied to the shipped law's reply (Q7):
 //   - elevator_sign: the reply's elevator negated, a sign slip at the law's boundary;
 //   - aileron_sign: the reply's aileron negated, the boundary's +LWD-to-+RWD flip omitted (after
-//   the
-//     interconnect, which still reads the +LWD aileron);
+//     the interconnect, which still reads the +LWD aileron);
 //   - one_exchange_delay: each reply carries the previous exchange's commands (R22's plant);
 // - the reported variants, never selected (the M7 plan's R6):
-//   - sim5_references: SIM 5's LQR references, transport.peer.test_references.{alpha, theta, eas}
-//     (rad, rad, m/s), in place of the DML's hard-coded ones (Q11; the plan's D11);
+//   - dml_references: the DML's hard-coded LQR references in place of the trim's (the M7 plan's
+//     Q11 as amended 2026-10-13 after the measurement: the decided references are the trim's, SIM
+//     5's choice, and the DML's, the first decided choice, are reported);
 //   - rhumb_line, great_circle: 13.4's base course as the rhumb line, or the WGS-84 geodesic at h0,
 //     through the base point at the course command (Q27);
 //   - line_at_offset_frame: the decided initial-plane line, its base point latched from the lateral
@@ -47,7 +47,7 @@ enum class Variant : std::uint8_t {
   kElevatorSign,
   kAileronSign,
   kOneExchangeDelay,
-  kSim5References,
+  kDmlReferences,
   kRhumbLine,
   kGreatCircle,
   kLineAtOffsetFrame
@@ -64,8 +64,8 @@ Variant variant_of(const astra::Config& peer_block) {
   if (name == "one_exchange_delay") {
     return Variant::kOneExchangeDelay;
   }
-  if (name == "sim5_references") {
-    return Variant::kSim5References;
+  if (name == "dml_references") {
+    return Variant::kDmlReferences;
   }
   if (name == "rhumb_line") {
     return Variant::kRhumbLine;
@@ -94,12 +94,7 @@ class VariantPeer final : public peer::NescControlPeer {
     const astra::Config block = config.at("peer");
     variant_ = variant_of(block);
     peer::Options options;
-    if (variant_ == Variant::kSim5References) {
-      const astra::Config refs = block.at("test_references");
-      options.references.alpha = refs.number("alpha");
-      options.references.theta = refs.number("theta");
-      options.references.eas = refs.number("eas");
-    }
+    options.dml_references = variant_ == Variant::kDmlReferences;
     options.latch_at_offset_frame = variant_ == Variant::kLineAtOffsetFrame;
     set_options(options);
     NescControlPeer::init(config, registry);

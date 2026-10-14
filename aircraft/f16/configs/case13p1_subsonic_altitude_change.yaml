@@ -15,8 +15,10 @@
 # Decision 4), on ICD v1's frame, and replies through the command map onto controls.* (ADR-0017,
 # ADR-0022):
 # - transport.peer.trim repeats the trim's elevator and throttle; the peer inverts them to
-#   trimmedPilotControl_long and _throttle (the plan's D3). The LQR's references are the DML's
-#   hard-coded ones (the M7 plan's Q11).
+#   trimmedPilotControl_long and _throttle (the plan's D3), and the trim's pitch, the same text as
+#   initial.state.euler_nb[1]: the LQR's reference angle of attack and pitch (alpha = theta at
+#   gamma = 0). The reference airspeed is the initial equivalent-airspeed command (the M7 plan's
+#   Q11, as amended 2026-10-13 after the measurement).
 # - transport.peer.commands are the commands from frame 0 (the plan's D1): altitude 10,013 ft, the
 #   initial condition's; course 45 deg true; the equivalent airspeed 287.98158203347975 kt, the trim's own EAS
 #   (Vol II D.1.14: "decrease speed 5 kt to 282.98 KEAS"), from
@@ -72,7 +74,7 @@ transport:
     rudder: [-0.52660074191172901, 0.52660074191172901]
     throttle: [0.0, 1.0]
   peer:
-    trim: {elevator: -0.05642226572274011, throttle: 0.13873817846824657}
+    trim: {elevator: -0.05642226572274011, throttle: 0.13873817846824657, theta: 0.0460581645127969}
     commands: {altitude_ft: 10013, equivalent_airspeed_knots: 287.98158203347975, course_deg: 45}
     schedule:
       - {frame: 5000, altitude_ft: 10113}  # t = 5 s: +100 ft

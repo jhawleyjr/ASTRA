@@ -94,6 +94,90 @@ governs.
     carries it.
 14. **Accepted as written:** Q2, Q3, Q5, Q6, Q8, D1 to D7, D11 and the stop conditions.
 
+## Joe's decisions after the measurement (2026-10-13)
+
+*Recorded 2026-10-13.* Joe made these decisions after reading commit 6a's results: the R6 finding, the reported
+variants, the lag diagnosis and the figures (`docs/reviews/evidence/m7-pr11a-r6/`). The M7 plan's amendment 5
+governs them. They are recorded as decisions made after the measurement, never as pre-registered ones. Where an
+earlier section of this plan says otherwise, this list governs, and the earlier text stays as the pre-registered
+record.
+
+1. **Q11 is amended** (a dated line under the M7 plan's Q11).
+   - The LQR's reference angle of attack and pitch are ASTRA's own trim θ (α = θ at γ = 0). The reference airspeed
+     is the initial equivalent-airspeed command.
+   - Joe's rationale: the references and the trimmed stick must describe one equilibrium. SIM 4 reached that
+     through its stick trim (PR 1b's `compare.log:232`), and SIM 5 through its references. The DML's hard-coded
+     numbers are one participant's trim solution.
+   - The hard-coded references become the reported variant: `dml_references` in
+     `tests/plugins/nesc_control_variant`, replacing `sim5_references`, flown by
+     `NescF16Variant.Case13p{1-4}DmlReferences`.
+   - One new key, `peer.trim.theta` (rad). It is checked bit-identical to `initial.state.euler_nb[1]` by D3's test
+     and by the round-trip script, and the round trip also checks it against the trim's solved `alpha_rad`. The
+     key block and `docs/reference/config-keys.md` are regenerated.
+   - ADR-0029 Decision 9 cites Q11 to the plan, so no ADR changes.
+2. **Q12 stands: divisor 10.** ADR-0029 Decision 4 is not superseded. Commit 6a's divisor-1 runs and the lag table
+   stay in the evidence as the record of why the maneuver transients differ.
+3. **R6 for 13.3 and 13.4, Joe's decision as oracle owner.**
+   - `Case13p3ClosedLoop` and `Case13p4ClosedLoop` gate every kinematic channel at every gated sample. The six aero
+     force and moment channels are reported, each with its largest ratio.
+   - R6 is recorded as **not met** for those six channels in those two cases. The reason: the misses are at the
+     command-step samples. There, ASTRA's 100 Hz law trails members that ran faster by 30–40 ms, and the members
+     differ from each other by about as much. ADR-0028 already names these bands loose.
+   - This is a deviation from R6 and from D7. It is recorded here, in the PR body and in PLAN.md's PR 11a line,
+     never as a pass.
+   - 13.1 and 13.2 keep all 21 channels gated.
+   - *As built:* the asserted set in 13.3 and 13.4 is every channel but the six aero ones, 15 in all: latitude,
+     longitude, altitude, the three velocities, the three Euler angles, the three rates, density, pressure and
+     temperature. Joe's list names density. Pressure and temperature are not aero channels, so they stay gated:
+     the reading that gates more. `FlightOptions::reported` in `f16_flight.hpp` carries the choice. It is
+     additive and reports nothing by default, so PR 9's tests are unchanged.
+4. **The rerun.** The four decided runs are flown again under item 1 at divisor 10, and the table is shown again.
+   - Joe's expectation: 13.1 and 13.2 inside every band; 13.3 and 13.4 inside every kinematic band.
+   - Any kinematic miss comes back to Joe and stops the PR.
+   - *Result:* as expected (`amended_table.md`). The largest asserted ratios are density 0.418 (13.1), rate_q 0.786
+     (13.2), roll 0.798 (13.3) and roll 0.938 (13.4).
+   - The reported channels above 1: 13.3's moment_l 2.40, force_y 1.44 and moment_n 1.44, at sample 156; and 13.4's
+     moment_l 1.52 (first at 200), force_y 1.13 and moment_n 1.14, at 206.
+   - Guards: G1 0, G2 at most 2.3e-15, G4 0 mismatches, G5 1.15e-15.
+   - Commit 6a's SIM 5 rows equal the amended decided rows, and its decided rows the DML-references rows, in every
+     channel of all four cases.
+5. **D11 at divisor 1**, one more reported run set, so the record says where the oracle would have landed with
+   both changes. `NescF16Variant.Case13p{1-4}Divisor1` now fly the trim's references at divisor 1. Reported only.
+   - *Result:* 13.1, 13.2 and 13.3 are inside every band, with largest ratios v_down 0.411, density 0.562 and v_down
+     0.198.
+   - 13.4 keeps moment_l 1.30 at sample 200 (the offset step) and is inside every other band.
+6. **Commit 6b under item 3's gating:**
+   - the elevator-sign plant asserts pitch in all four cases;
+   - the aileron-sign plant asserts roll in 13.3 and 13.4;
+   - the wrong-divisor control is reported: "divisor 1 within every gated band", as R9 allows. The `Divisor1` runs
+     print that line against the decided gating, and no `WrongDivisorFails` test exists;
+   - Izx's sign is reported in all four cases (`NescF16Control.Case13p{1-4}IzxSignReported`), since its only
+     expected exceedances, force_y and moment_n, are now reported channels. R9's Izx clause is recorded as "not
+     discriminated by the 13.x kinematic bands", rather than carried further;
+   - the positive control stays (`NescF16Control.Case13p3MassRoutePositiveControl`).
+   - *Result:* the elevator-sign plant fails pitch at sample 80 in all four cases, at ratios 76.3, 436, 5.58 and
+     5.17, with no halt. Q7's *scratch* gave 179 to 14,400. The aileron-sign plant fails roll at sample 80 in 13.3
+     and 13.4, at 2.70 and 3.31 (*scratch*: 37 and 97). The positive control is bit-identical.
+   - *Result, for Joe:* the measurement contradicts the Izx clause's wording. 13.3's flipped Izx leaves the
+     **latitude** band, a kinematic channel: 1.07 at sample 300, first at sample 257. It also brings force_y (1.44
+     → 0.76) and moment_n (1.44 → 0.77) inside, and lowers moment_l (2.40 → 2.17). 13.4's flipped Izx stays inside
+     every asserted band; its moment_l falls from 1.52 to 1.38, and force_y and moment_n come inside. 13.1 and
+     13.2 stay inside every band. The control stays reported, never gated after the fact (amendment 11). The
+     clause "not discriminated by the 13.x kinematic bands" is not recorded as worded, because it does not hold
+     for 13.3. Its wording is Joe's.
+7. **Then** the gate, the Codex review (at most two rounds) and `/human-review`, as planned. The PR body's R6
+   section leads with item 3's recorded failure.
+8. **/wrap.**
+   - PLAN.md's PR 11a line states the two amendments (Q11 and R6's 13.3/13.4 gating) and the recorded R6 result.
+   - PR 11b, 12 and 15 move to unscheduled items, one line each: "the NESC closed-loop ensemble is two members
+     with loose maneuver bands; Joe, 2026-10-13".
+   - PR 13 stays eligible as a framework feature.
+   - STATE's next step: a planning PR for the closed-loop oracles that replace them, which Joe will brief
+     separately. Those oracles are an exact sampled-data closed-loop check on a linear plant, the port pattern on
+     M4's autopilot, and symmetry tests.
+   - This replaces the earlier /wrap section's "PR 11b and PR 13 eligible, PR 12 waits on 11b", and its carrying
+     of the rate-frame and Izx clauses to 11b.
+
 ## Context
 
 Cases 13.1 to 13.4 fly the F-16 from case 11's trimmed initial condition with `F16_control.dml` engaged at

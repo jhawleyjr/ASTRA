@@ -11,7 +11,9 @@ configs carry its text. This script shows, on this branch:
    the vehicle.initial_controls and initial.state lines are case 11's, character for character;
 3. each 13.x config, built with its transport block, starts at that same trim result bit for bit;
 4. D3: each 13.x config's transport.peer.trim.{elevator, throttle} equals its
-   vehicle.initial_controls.controls.{elevator, throttle} bit for bit (one trim result).
+   vehicle.initial_controls.controls.{elevator, throttle} bit for bit (one trim result), and
+   (the M7 plan's Q11 as amended 2026-10-13) its transport.peer.trim.theta equals its
+   initial.state.euler_nb[1] and the trim's solved alpha_rad (theta = alpha at gamma = 0) bit for bit.
 
 Run from the repository root, after `just python`:
     .venv/bin/python -I -B docs/reviews/evidence/m7-pr11a-trim/round_trip.py
@@ -27,6 +29,7 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
+import yaml
 
 import astra.trim
 from astra import _core
@@ -141,6 +144,19 @@ def main() -> int:
                 f"{'equals' if ok else 'DIFFERS from'} the initial control {vehicle!r}"
             )
             failures += 0 if ok else 1
+        theta = config.number("transport.peer.trim.theta")
+        # Config's Python binding has no sequence index, so the pitch is read with PyYAML, from the
+        # same text.
+        pitch = float(
+            yaml.safe_load(path.read_text(encoding="utf-8"))["initial"]["state"]["euler_nb"][1]
+        )
+        ok = bits(theta) == bits(pitch) == bits(result.alpha_rad)
+        print(
+            f"  4. transport.peer.trim.theta {theta!r} "
+            f"{'equals' if ok else 'DIFFERS from'} initial.state.euler_nb[1] {pitch!r}"
+            f" and the trim's solved alpha_rad (= theta, level) {result.alpha_rad!r}"
+        )
+        failures += 0 if ok else 1
     print(f"round trip: {'OK' if failures == 0 else f'{failures} mismatch(es)'}")
     return 0 if failures == 0 else 1
 

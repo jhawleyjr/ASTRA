@@ -18,6 +18,7 @@ aircraft/f16/configs/case13p1_subsonic_altitude_change.yaml:
   3. residual   bit for bit
   4. transport.peer.trim.elevator -0.05642226572274011 equals the initial control -0.05642226572274011
   4. transport.peer.trim.throttle 0.13873817846824657 equals the initial control 0.13873817846824657
+  4. transport.peer.trim.theta 0.0460581645127969 equals initial.state.euler_nb[1] 0.0460581645127969 and the trim's solved alpha_rad (= theta, level) 0.0460581645127969
 aircraft/f16/configs/case13p2_subsonic_airspeed_change.yaml:
   2. trim text identical to case 11 (12 lines)
   3. state      bit for bit
@@ -26,6 +27,7 @@ aircraft/f16/configs/case13p2_subsonic_airspeed_change.yaml:
   3. residual   bit for bit
   4. transport.peer.trim.elevator -0.05642226572274011 equals the initial control -0.05642226572274011
   4. transport.peer.trim.throttle 0.13873817846824657 equals the initial control 0.13873817846824657
+  4. transport.peer.trim.theta 0.0460581645127969 equals initial.state.euler_nb[1] 0.0460581645127969 and the trim's solved alpha_rad (= theta, level) 0.0460581645127969
 aircraft/f16/configs/case13p3_subsonic_heading_change.yaml:
   2. trim text identical to case 11 (12 lines)
   3. state      bit for bit
@@ -34,6 +36,7 @@ aircraft/f16/configs/case13p3_subsonic_heading_change.yaml:
   3. residual   bit for bit
   4. transport.peer.trim.elevator -0.05642226572274011 equals the initial control -0.05642226572274011
   4. transport.peer.trim.throttle 0.13873817846824657 equals the initial control 0.13873817846824657
+  4. transport.peer.trim.theta 0.0460581645127969 equals initial.state.euler_nb[1] 0.0460581645127969 and the trim's solved alpha_rad (= theta, level) 0.0460581645127969
 aircraft/f16/configs/case13p4_subsonic_lateral_side_step.yaml:
   2. trim text identical to case 11 (12 lines)
   3. state      bit for bit
@@ -42,4 +45,5 @@ aircraft/f16/configs/case13p4_subsonic_lateral_side_step.yaml:
   3. residual   bit for bit
   4. transport.peer.trim.elevator -0.05642226572274011 equals the initial control -0.05642226572274011
   4. transport.peer.trim.throttle 0.13873817846824657 equals the initial control 0.13873817846824657
+  4. transport.peer.trim.theta 0.0460581645127969 equals initial.state.euler_nb[1] 0.0460581645127969 and the trim's solved alpha_rad (= theta, level) 0.0460581645127969
 round trip: OK

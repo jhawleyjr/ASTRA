@@ -17,11 +17,17 @@
 //    frame-0 exchange, and from the lateral offset's frame on, lateralDeviationError = d - offset,
 //    d the signed cross-track distance from the initial-plane line through the base point at the
 //    initial course command, positive to the right; 0 before. It reads only lat and lon;
-// 4. EAS from cas and mach, the body rate relative to the Earth, the law, and the three boundary
-//    steps (control_law.hpp);
+// 4. EAS from cas and mach, the body rate relative to the Earth, the law at the LQR references, and
+//    the three boundary steps (control_law.hpp);
 // 5. the reply, zeroed first (ADR-0022), echoing the request's frame.
 // Its commands reach the inputs only through the exchange's command map (ADR-0017, ADR-0022),
 // staged and latched the same frame. It reads no clock (ADR-0023) and holds no write handle.
+//
+// The LQR references (the M7 plan's Q11, as amended 2026-10-13 after the measurement): trimmedAlpha
+// and trimmedTheta are the trim's own pitch, peer.trim.theta (alpha = theta at gamma = 0, level and
+// still air), and trimmedKEAS is the initial equivalent-airspeed command, so the references and the
+// trimmed stick describe one equilibrium. The DML's hard-coded references are a reported variant
+// only (tests/plugins/nesc_control_variant's dml_references).
 //
 // The assumption it cannot check (the plan's Q4, Joe's decision): it subtracts a rotating WGS-84
 // Earth's rate, geodesy::kOmegaIe, from ICD v1's inertial body rates. The peer sees only the ICD
@@ -61,9 +67,12 @@ namespace astra::aircraft_f16_nesc_control {
 namespace law = astra::aircraft_f16_control_law;
 
 // What a variant of the peer may change (tests/plugins/nesc_control_variant). The defaults are the
-// decided ones (the M7 plan's Q11; ADR-0029 Decision 6), and the shipped plugin uses only those.
+// decided ones (the M7 plan's Q11 as amended 2026-10-13; ADR-0029 Decision 6), and the shipped
+// plugin uses only those.
 struct Options {
-  law::References references{};
+  // false: the LQR references from the trim (decided). true: the DML's hard-coded ones (Q11's
+  // reported variant).
+  bool dml_references = false;
   // false: the base point latches from the frame-0 exchange (decided). true: from the lateral
   // offset's frame (Q27's reported variant "the decided line through the position at 20 s").
   bool latch_at_offset_frame = false;
@@ -77,6 +86,9 @@ class NescControlPeer : public astra::Transport {
     const astra::Config peer = config.at("peer");
     read_trim(peer.at("trim"));
     read_commands(peer.at("commands"));
+    references_ = options_.dml_references
+                      ? law::References{}
+                      : law::References{trim_theta_, trim_theta_, initial_commands_.eas};
     if (peer.has("schedule")) {
       read_schedule(peer.at("schedule"));
     }
@@ -143,7 +155,7 @@ class NescControlPeer : public astra::Transport {
     const law::Inputs in = law::inputs_from(request);
     equivalent_airspeed_ = in.eas;
     const law::IcdCommands icd =
-        law::to_icd(law::evaluate(in, commands_, trim_, law::Modes{}, options_.references));
+        law::to_icd(law::evaluate(in, commands_, trim_, law::Modes{}, references_));
     reply_.elevator = icd.elevator;
     reply_.aileron = icd.aileron;
     reply_.rudder = icd.rudder;
@@ -162,8 +174,10 @@ class NescControlPeer : public astra::Transport {
 
   void close(astra::CloseReason /*reason*/) noexcept override {}
 
-  // The trimmed pilot controls the peer derived at init (R23's route), and the commands in force.
+  // The trimmed pilot controls the peer derived at init (R23's route), the LQR references it set
+  // at init (Q11), and the commands in force.
   [[nodiscard]] const law::Trim& trim() const noexcept { return trim_; }
+  [[nodiscard]] const law::References& references() const noexcept { return references_; }
   [[nodiscard]] const law::Commands& commands() const noexcept { return commands_; }
 
  protected:
@@ -229,10 +243,16 @@ class NescControlPeer : public astra::Transport {
     return astra::units::knots_to_meters_per_second(value);
   }
 
-  // The trim's physical controls, inverted through the law's own limit-and-scale block (R23).
+  // The trim's physical controls, inverted through the law's own limit-and-scale block (R23), and
+  // the trim's pitch, the LQR's reference angle of attack and pitch (Q11).
   void read_trim(const astra::Config& trim) {
     const double elevator = finite_number(trim, "elevator");
     const double throttle = finite_number(trim, "throttle");
+    trim_theta_ = finite_number(trim, "theta");
+    if (std::abs(trim_theta_) > astra::units::degrees_to_radians(90.0)) {
+      throw astra::ConfigError(trim.origin(), keyed(trim, "theta"),
+                               "must lie within +-90 deg (a 3-2-1 pitch)");
+    }
     trim_ = law::trim_from_controls(elevator, throttle);
     if (std::abs(trim_.long_stick) > 1.0) {
       throw astra::ConfigError(
@@ -337,6 +357,8 @@ class NescControlPeer : public astra::Transport {
 
   Options options_;
   law::Trim trim_{};
+  double trim_theta_ = 0.0;
+  law::References references_{};
   law::Commands initial_commands_{};
   std::vector<Change> schedule_;
   Offset offset_{};

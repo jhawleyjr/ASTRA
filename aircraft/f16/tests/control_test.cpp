@@ -229,6 +229,10 @@ struct Case {
   double long_stk_trim = 0.0;
   double throttle_trim = 0.0;
   law::Modes modes{};
+  // The LQR references, when not the DML's hard-coded defaults on both sides: the peer's decided
+  // ones (the M7 plan's Q11 as amended 2026-10-13), given in SI and converted to the DML's units by
+  // the reference's own constants.
+  std::optional<law::References> refs;
 };
 
 law::IcdCommands si_commands(const Case& c) {
@@ -238,7 +242,8 @@ law::IcdCommands si_commands(const Case& c) {
   cmd.course = units::degrees_to_radians(c.course_deg);
   cmd.lateral_deviation_error = units::feet_to_meters(c.lat_offset_ft);
   const law::Trim trim{c.long_stk_trim, c.throttle_trim};
-  return law::to_icd(law::evaluate(law::inputs_from(c.frame), cmd, trim, c.modes));
+  return law::to_icd(law::evaluate(law::inputs_from(c.frame), cmd, trim, c.modes,
+                                   c.refs.value_or(law::References{})));
 }
 
 ref::Inputs reference_inputs(const Case& c) {
@@ -250,6 +255,11 @@ ref::Inputs reference_inputs(const Case& c) {
   in.long_stk = c.modes.long_stick;
   in.lat_stk = c.modes.lat_stick;
   in.pedal = c.modes.pedal;
+  if (c.refs) {
+    in.trimmed_alpha = c.refs->alpha / ref::kDegree;
+    in.trimmed_theta = c.refs->theta / ref::kDegree;
+    in.trimmed_keas = c.refs->eas / ref::kKnot;
+  }
   return in;
 }
 
@@ -703,12 +713,12 @@ Case engaged_trim_case() {
 // --- The peer through its plugin --------------------------------------------------------------
 
 std::string peer_block(double elevator = kTrimElevator, double throttle = kTrimThrottle,
-                       double keas = 287.98158203) {
+                       double keas = 287.98158203, double theta = kTrimEuler[1]) {
   return std::format(
       "peer:\n"
-      "  trim: {{elevator: {:.17g}, throttle: {:.17g}}}\n"
+      "  trim: {{elevator: {:.17g}, throttle: {:.17g}, theta: {:.17g}}}\n"
       "  commands: {{altitude_ft: 10013, equivalent_airspeed_knots: {:.17g}, course_deg: 45}}\n",
-      elevator, throttle, keas);
+      elevator, throttle, theta, keas);
 }
 
 // The transport block for a config: the exchange's sim-owned keys and the peer's.
@@ -1530,6 +1540,56 @@ TEST(F16Control, DisengagedLawReproducesTheTrim) {
                            trim.throttle);
 }
 
+// The M7 plan's Q11 as amended 2026-10-13 after the measurement: the peer's LQR references are the
+// trim's pitch (trimmedAlpha = trimmedTheta = peer.trim.theta) and the initial equivalent-airspeed
+// command (trimmedKEAS), bit for bit, in the fixture and in each tracked config; the reported
+// variant's are the DML's hard-coded ones.
+TEST(F16Control, LqrReferencesAreTheTrimsPitchAndTheInitialAirspeedCommand) {
+  const auto expect_references = [](const law::References& got, double theta, double eas,
+                                    std::string_view where) {
+    EXPECT_TRUE(std::bit_cast<std::uint64_t>(got.alpha) == std::bit_cast<std::uint64_t>(theta))
+        << where << std::format(": trimmedAlpha {:.17g} against {:.17g}", got.alpha, theta);
+    EXPECT_TRUE(std::bit_cast<std::uint64_t>(got.theta) == std::bit_cast<std::uint64_t>(theta))
+        << where << std::format(": trimmedTheta {:.17g} against {:.17g}", got.theta, theta);
+    EXPECT_TRUE(std::bit_cast<std::uint64_t>(got.eas) == std::bit_cast<std::uint64_t>(eas))
+        << where << std::format(": trimmedKEAS {:.17g} against {:.17g} m/s", got.eas, eas);
+  };
+  {
+    astra::aircraft_f16_nesc_control::NescControlPeer peer;
+    astra::SignalRegistry registry;
+    peer.init(astra::Config::from_string(peer_block(), "f16-control-references"), registry);
+    expect_references(peer.references(), kTrimEuler[1],
+                      units::knots_to_meters_per_second(287.98158203), "the fixture");
+  }
+  for (const std::string_view name :
+       {"case13p1_subsonic_altitude_change.yaml", "case13p2_subsonic_airspeed_change.yaml",
+        "case13p3_subsonic_heading_change.yaml", "case13p4_subsonic_lateral_side_step.yaml"}) {
+    const astra::Config config = astra::Config::from_file(config_path(name));
+    astra::aircraft_f16_nesc_control::NescControlPeer peer;
+    astra::SignalRegistry registry;
+    peer.init(config.at("transport"), registry);
+    expect_references(peer.references(), config.at("initial.state.euler_nb").at(1).number(),
+                      units::knots_to_meters_per_second(
+                          config.number("transport.peer.commands.equivalent_airspeed_knots")),
+                      name);
+  }
+  // Q11's reported variant.
+  astra::aircraft_f16_nesc_control::Options dml;
+  dml.dml_references = true;
+  astra::aircraft_f16_nesc_control::NescControlPeer peer{dml};
+  astra::SignalRegistry registry;
+  peer.init(astra::Config::from_string(peer_block(), "f16-control-dml-references"), registry);
+  // law::References{} holds the DML's values
+  // (GainsAndLimitsEqualTheDmlValuesTimesTheirConversions).
+  expect_references(peer.references(), law::References{}.theta, law::References{}.eas,
+                    "the DML's hard-coded references");
+  EXPECT_EQ(law::References{}.alpha, law::References{}.theta);
+  std::cout << std::format(
+      "decided references: trimmedAlpha = trimmedTheta = {:.17g} rad, "
+      "trimmedKEAS {:.17g} m/s\n",
+      kTrimEuler[1], units::knots_to_meters_per_second(287.98158203));
+}
+
 TEST(F16Control, InitRefusesMissingOrOutOfRangeKeys) {
   struct Bad {
     std::string block;
@@ -1539,18 +1599,24 @@ TEST(F16Control, InitRefusesMissingOrOutOfRangeKeys) {
       {"{}\n", "peer"},
       {"peer:\n  commands: {altitude_ft: 10013, equivalent_airspeed_knots: 288, course_deg: 45}\n",
        "peer.trim"},
-      {"peer:\n  trim: {throttle: 0.1}\n"
+      {"peer:\n  trim: {throttle: 0.1, theta: 0.05}\n"
        "  commands: {altitude_ft: 10013, equivalent_airspeed_knots: 288, course_deg: 45}\n",
        "peer.trim.elevator"},
+      {"peer:\n  trim: {elevator: -0.05, throttle: 0.1}\n"
+       "  commands: {altitude_ft: 10013, equivalent_airspeed_knots: 288, course_deg: 45}\n",
+       "peer.trim.theta"},
+      {peer_block(kTrimElevator, kTrimThrottle, 288.0, std::numeric_limits<double>::quiet_NaN()),
+       "peer.trim.theta"},
+      {peer_block(kTrimElevator, kTrimThrottle, 288.0, 1.6), "peer.trim.theta"},
       {peer_block(0.5), "peer.trim.elevator"},
       {peer_block(kTrimElevator, 1.2), "peer.trim.throttle"},
       {peer_block(kTrimElevator, -0.1), "peer.trim.throttle"},
       {peer_block(kTrimElevator, kTrimThrottle, 0.0), "peer.commands.equivalent_airspeed_knots"},
       {peer_block(kTrimElevator, kTrimThrottle, -5.0), "peer.commands.equivalent_airspeed_knots"},
-      {"peer:\n  trim: {elevator: -0.05, throttle: 0.1}\n"
+      {"peer:\n  trim: {elevator: -0.05, throttle: 0.1, theta: 0.05}\n"
        "  commands: {altitude_ft: .nan, equivalent_airspeed_knots: 288, course_deg: 45}\n",
        "peer.commands.altitude_ft"},
-      {"peer:\n  trim: {elevator: -0.05, throttle: 0.1}\n"
+      {"peer:\n  trim: {elevator: -0.05, throttle: 0.1, theta: 0.05}\n"
        "  commands: {altitude_ft: 10013, equivalent_airspeed_knots: 288}\n",
        "peer.commands.course_deg"},
   };
@@ -1655,6 +1721,8 @@ Onset onset_at(astra::Simulation& sim, const StepCase& sc, std::uint64_t frame) 
   }
   c.long_stk_trim = law::trim_from_controls(kTrimElevator, kTrimThrottle).long_stick;
   c.throttle_trim = kTrimThrottle;
+  // The peer's decided LQR references (Q11 as amended): the trim's pitch, and the initial command.
+  c.refs = law::References{kTrimEuler[1], kTrimEuler[1], units::knots_to_meters_per_second(kKeas0)};
   const ref::Inputs in = reference_inputs(c);
   const ref::Outputs want = ref::evaluate(in);
   const ref::Icd icd = ref::to_icd(want);
@@ -1807,10 +1875,16 @@ bool bit_equal(double a, double b) {
 }  // namespace
 
 // The plan's D3: each tracked config carries one trim result, the peer's copy bit for bit equal to
-// the vehicle's initial controls.
+// the vehicle's initial controls, and (Q11 as amended 2026-10-13) its theta bit for bit equal to
+// the initial state's pitch, euler_nb[1].
 TEST(F16Control, EachConfigsPeerTrimEqualsItsInitialControls) {
   for (const std::string_view name : kTrackedConfigs) {
     const astra::Config config = astra::Config::from_file(config_path(name));
+    const double theta = config.number("transport.peer.trim.theta");
+    const double pitch = config.at("initial.state.euler_nb").at(1).number();
+    EXPECT_TRUE(bit_equal(theta, pitch))
+        << name << ": transport.peer.trim.theta" << std::format(" {:.17g}", theta)
+        << " against initial.state.euler_nb[1]" << std::format(" {:.17g}", pitch);
     for (const std::string_view key : {"elevator", "throttle"}) {
       const double peer = config.number("transport.peer.trim." + std::string{key});
       const double vehicle = config.number("vehicle.initial_controls.controls." + std::string{key});

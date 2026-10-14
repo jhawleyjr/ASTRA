@@ -1,15 +1,23 @@
 // NASA/TM-2015-218675 atmospheric check-cases 13.1 to 13.4, the F-16 flown closed loop by the
 // sim-side F16_control peer (M7 PR 11a, docs/plans/m7-pr11a-control-peer.md; the M7 plan's R4 13.x
-// half and R6, Q11's and Q12's decided choices, Q27's 13.4 logic). The configs are
-// aircraft/f16/configs/case13p*.yaml: case 11's trim, with the peer at divisor 10
-// (docs/reviews/evidence/m7-pr11a-trim/).
+// half and R6, Q11's and Q12's decided choices, Q11 as amended 2026-10-13 after the measurement,
+// Q27's 13.4 logic). The configs are aircraft/f16/configs/case13p*.yaml: case 11's trim, with the
+// peer at divisor 10 (docs/reviews/evidence/m7-pr11a-trim/).
 //
 // NescF16.Case13p{1,2,3,4}ClosedLoop (R6) fly each config against ADR-0028's band through
-// f16_flight.hpp: every one of the 21 channels is asserted at every sample from
-// Band::kFirstGatedSample on, and the samples before it are logged, never asserted. No channel is
-// excluded (the plan's D7: ADR-0028 item 2's footnotes exclude none). A zero-accepting channel is
-// asserted too, but the log marks it, and it is never cited as evidence. At every sample, the
-// plan's per-sample guards (amendment 8), each its own expectation:
+// f16_flight.hpp, from Band::kFirstGatedSample on; the samples before it are logged, never
+// asserted. A zero-accepting channel is asserted too, but the log marks it, and it is never cited
+// as evidence.
+// - 13.1 and 13.2: every one of the 21 channels is asserted at every gated sample (the plan's D7:
+//   ADR-0028 item 2's footnotes exclude none).
+// - 13.3 and 13.4 (Joe's decision as oracle owner, 2026-10-13, after reading commit 6a's
+//   measurement): the 15 kinematic and atmosphere channels are asserted at every gated sample, and
+//   the six aero force and moment channels are reported, never asserted, each with its largest
+//   gated ratio. R6 is not met for those six channels in those two cases: their misses are at the
+//   command-step samples, where ASTRA's 100 Hz law trails members that ran faster by 30 to 40 ms,
+//   the members differ from each other by about as much, and ADR-0028 names these bands loose.
+//   This is a recorded deviation from R6 and the plan's D7, never a pass.
+// At every sample, the plan's per-sample guards (amendment 8), each its own expectation:
 // - G1, Q5's route: aero plus engine equals v0.wrench_total.* (f16_flight.hpp, 1e-12 normwise);
 // - G2, EAS in flight (Q3): transport.peer.equivalent_airspeed against |v_b| sqrt(rho / rho0), rho
 //   the latched environment's density, rho0 = p0 M0 / (R* T0) from icd_pack, to 1e-12 relative;
@@ -86,10 +94,15 @@ struct GuardStats {
   double frame0_eas_relative = 0.0;
 };
 
+enum class Gating : std::uint8_t {
+  kAllChannels,   // 13.1 and 13.2
+  kAeroReported,  // 13.3 and 13.4 (the file's header comment)
+};
+
 // Flies one 13.x config with the guards (the file's header comment).
 template <typename Band>
-void fly_closed_loop(std::string_view name, std::string_view file, const Band& band,
-                     bool side_step) {
+void fly_closed_loop(std::string_view name, std::string_view file, const Band& band, bool side_step,
+                     Gating gating) {
   using B = std::remove_cvref_t<Band>;
   const Config config = Config::from_file(config_path(file));
   f16::Flight flight{config};
@@ -115,6 +128,9 @@ void fly_closed_loop(std::string_view name, std::string_view file, const Band& b
   GuardStats stats;
   Eigen::Vector3d base = Eigen::Vector3d::Zero();
   f16::FlightOptions options;
+  if (gating == Gating::kAeroReported) {
+    options.reported = f16::aero_reported();
+  }
   options.on_sample = [&](int k, const astra::StateVector& pre_step,
                           const astra::EnvironmentSample& env) {
     const std::uint64_t frame = f16::kFramesPerSample * static_cast<std::uint64_t>(k);
@@ -173,6 +189,22 @@ void fly_closed_loop(std::string_view name, std::string_view file, const Band& b
       "(1e-9)\n",
       name, stats.eas_relative, stats.cross_track_ratio, stats.g4_mismatches,
       stats.frame0_eas_relative);
+  if (gating == Gating::kAeroReported) {
+    const std::array<f16::ChannelRef, f16::kChannelCount> channels = f16::channels_of(band);
+    std::cout << std::format(
+        "{}: R6 not met for the six aero channels, reported, never asserted (Joe, 2026-10-13):\n",
+        name);
+    for (const int c : f16::kAeroChannels) {
+      const f16::ChannelStats& s = result.stats.at(static_cast<std::size_t>(c));
+      std::cout << std::format(
+          "  {:9s} largest gated ratio {:.4g} at sample {}, first gated exceedance {}{}\n",
+          channels.at(static_cast<std::size_t>(c)).name, s.max_gated_ratio, s.max_gated_at,
+          s.first_gated_exceedance,
+          f16::zero_accepting(channels.at(static_cast<std::size_t>(c)), B::kFirstGatedSample)
+              ? " (zero-accepting: not evidence)"
+              : "");
+    }
+  }
   EXPECT_EQ(result.samples_compared, B::kSampleCount) << name;
   // 100 (N - 1) + 1 frames, which is the config's sim.frames (the plan's D6).
   const auto frames = (f16::kFramesPerSample * (B::kSampleCount - 1)) + 1;
@@ -204,20 +236,20 @@ TEST(NescF16, Case13p4TrimResiduals) {
 
 TEST(NescF16, Case13p1ClosedLoop) {
   fly_closed_loop("case13p1", "case13p1_subsonic_altitude_change.yaml", nesc::case13p1::kBand,
-                  false);
+                  false, Gating::kAllChannels);
 }
 
 TEST(NescF16, Case13p2ClosedLoop) {
   fly_closed_loop("case13p2", "case13p2_subsonic_airspeed_change.yaml", nesc::case13p2::kBand,
-                  false);
+                  false, Gating::kAllChannels);
 }
 
 TEST(NescF16, Case13p3ClosedLoop) {
-  fly_closed_loop("case13p3", "case13p3_subsonic_heading_change.yaml", nesc::case13p3::kBand,
-                  false);
+  fly_closed_loop("case13p3", "case13p3_subsonic_heading_change.yaml", nesc::case13p3::kBand, false,
+                  Gating::kAeroReported);
 }
 
 TEST(NescF16, Case13p4ClosedLoop) {
   fly_closed_loop("case13p4", "case13p4_subsonic_lateral_side_step.yaml", nesc::case13p4::kBand,
-                  true);
+                  true, Gating::kAeroReported);
 }

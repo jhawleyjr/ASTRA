@@ -3,12 +3,19 @@
 // geometry variants"). Each flies a committed 13.x config with exactly one thing changed, through
 // f16_flight.hpp in Mode::kControl: no band is asserted, every channel's largest ratio is logged,
 // and the run must complete without a halt. None of them selects anything: the decided runs are
-// nesc_f16_closed_loop_test.cpp's, and Joe decides on all of it together (his 2026-10-13 decision
-// on the R6 finding).
-// - NescF16Variant.Case13p{1-4}Sim5References: SIM 5's replacement of the LQR's hard-coded
-//   references with the trim's own values (the plan's D11): trimmedAlpha = trimmedTheta = the
-//   trim's theta, trimmedKEAS = the trim's EAS, through tests/plugins/nesc_control_variant.
-// - NescF16Variant.Case13p{1-4}Divisor1: the law at exchange divisor 1 (Q6's measurement).
+// nesc_f16_closed_loop_test.cpp's.
+//
+// Joe's decision of 2026-10-13, made after reading commit 6a's measurement, amended the M7 plan's
+// Q11: the decided LQR references are now the trim's own (SIM 5's replacement, the plan's D11), so
+// the configs fly them, and the DML's hard-coded references, the first decided choice, are the
+// reported variant. Commit 6a's runs of the earlier configs are kept as evidence
+// (docs/reviews/evidence/m7-pr11a-r6/variants.log).
+// - NescF16Variant.Case13p{1-4}DmlReferences: the DML's hard-coded LQR references
+//   (trimmedAlpha = trimmedTheta = 2.653813535191715 deg, trimmedKEAS = 287.8088596053291 kt)
+//   in place of the trim's, through tests/plugins/nesc_control_variant.
+// - NescF16Variant.Case13p{1-4}Divisor1: the law at exchange divisor 1 with the decided (trim)
+//   references, so D11 at divisor 1: where the oracle would have landed with both changes (Joe's
+//   item 5; Q6's measurement, reported only, since Q12 stands at divisor 10).
 // - NescF16Variant.Case13p4{RhumbLine,GreatCircle,LineAtOffsetFrame}: Q27's three geometries,
 //   through the variant plugin. Each logs its lateralDeviationError minus the decided line's, from
 //   the same sample's position, against the plan's geometric estimate (Q5: -0.24, -0.72 and
@@ -16,6 +23,7 @@
 #include <gtest/gtest.h>
 
 #include <Eigen/Core>
+#include <array>
 #include <cmath>
 #include <format>
 #include <iostream>
@@ -64,14 +72,9 @@ std::string variant_config(std::string_view file, std::string_view peer_lines) {
   return replaced_once(text, "  peer:\n", "  peer:\n" + std::string{peer_lines});
 }
 
-// SIM 5's references (D11): the trim's theta (= alpha, level and still air) and the trim's EAS,
-// the configs' own literals.
-std::string sim5_references(std::string_view file) {
-  return variant_config(
-      file, std::format("    test_variant: sim5_references\n"
-                        "    test_references: {{alpha: {:.17g}, theta: {:.17g}, eas: {:.17g}}}\n",
-                        0.0460581645127969, 0.0460581645127969,
-                        units::knots_to_meters_per_second(287.98158203347975)));
+// The DML's hard-coded LQR references (Q11's reported variant since the 2026-10-13 amendment).
+std::string dml_references(std::string_view file) {
+  return variant_config(file, "    test_variant: dml_references\n");
 }
 
 std::string divisor_one(std::string_view file) {
@@ -79,17 +82,26 @@ std::string divisor_one(std::string_view file) {
                        "  divisor: 10  # 100 Hz (ADR-0029 Decision 4)\n", "  divisor: 1\n");
 }
 
+// Each run also logs whether it stayed inside every band the decided run asserts (Joe's item 3:
+// all 21 channels in 13.1 and 13.2, the six aero channels reported in 13.3 and 13.4). For the
+// Divisor1 runs, that line is R9's wrong-divisor record.
 template <typename Band>
 void fly_reported(std::string_view name, const std::string& text, const Band& band,
-                  f16::FlightOptions options = {}) {
+                  bool aero_reported) {
   using B = std::remove_cvref_t<Band>;
   f16::Flight flight{Config::from_string(text, std::string{name})};
+  f16::FlightOptions options;
   options.mode = f16::Mode::kControl;
   const f16::FlightResult result = flight.fly(name, band, options);
   f16::print_summary(std::format("{} (reported, no band asserted)", name), band, result);
   std::cout << std::format(
       "{}: first gated exceedance of a discriminating channel: sample {}, {}\n", name,
       result.first_discriminating_exceedance, result.first_discriminating_channel);
+  const std::array<bool, f16::kChannelCount> reported =
+      aero_reported ? f16::aero_reported() : std::array<bool, f16::kChannelCount>{};
+  std::cout << std::format("{}: inside every band the decided run asserts ({}): {}\n", name,
+                           aero_reported ? "15 channels, the six aero reported" : "all 21 channels",
+                           f16::within_asserted_bands(result, reported) ? "yes" : "NO");
   EXPECT_FALSE(result.halted) << name << ": halted at sample " << result.halt_sample << " ("
                               << result.halt.source << ")";
   EXPECT_EQ(result.samples_compared, B::kSampleCount) << name << " must complete";
@@ -136,44 +148,46 @@ void fly_geometry(std::string_view name, std::string_view variant, const Band& b
 
 }  // namespace
 
-TEST(NescF16Variant, Case13p1Sim5References) {
-  fly_reported("case13p1 SIM 5 references",
-               sim5_references("case13p1_subsonic_altitude_change.yaml"), nesc::case13p1::kBand);
+TEST(NescF16Variant, Case13p1DmlReferences) {
+  fly_reported("case13p1 DML references", dml_references("case13p1_subsonic_altitude_change.yaml"),
+               nesc::case13p1::kBand, false);
 }
 
-TEST(NescF16Variant, Case13p2Sim5References) {
-  fly_reported("case13p2 SIM 5 references",
-               sim5_references("case13p2_subsonic_airspeed_change.yaml"), nesc::case13p2::kBand);
+TEST(NescF16Variant, Case13p2DmlReferences) {
+  fly_reported("case13p2 DML references", dml_references("case13p2_subsonic_airspeed_change.yaml"),
+               nesc::case13p2::kBand, false);
 }
 
-TEST(NescF16Variant, Case13p3Sim5References) {
-  fly_reported("case13p3 SIM 5 references",
-               sim5_references("case13p3_subsonic_heading_change.yaml"), nesc::case13p3::kBand);
+TEST(NescF16Variant, Case13p3DmlReferences) {
+  fly_reported("case13p3 DML references", dml_references("case13p3_subsonic_heading_change.yaml"),
+               nesc::case13p3::kBand, true);
 }
 
-TEST(NescF16Variant, Case13p4Sim5References) {
-  fly_reported("case13p4 SIM 5 references",
-               sim5_references("case13p4_subsonic_lateral_side_step.yaml"), nesc::case13p4::kBand);
+TEST(NescF16Variant, Case13p4DmlReferences) {
+  fly_reported("case13p4 DML references",
+               dml_references("case13p4_subsonic_lateral_side_step.yaml"), nesc::case13p4::kBand,
+               true);
 }
 
 TEST(NescF16Variant, Case13p1Divisor1) {
-  fly_reported("case13p1 divisor 1", divisor_one("case13p1_subsonic_altitude_change.yaml"),
-               nesc::case13p1::kBand);
+  fly_reported("case13p1 divisor 1 (trim references)",
+               divisor_one("case13p1_subsonic_altitude_change.yaml"), nesc::case13p1::kBand, false);
 }
 
 TEST(NescF16Variant, Case13p2Divisor1) {
-  fly_reported("case13p2 divisor 1", divisor_one("case13p2_subsonic_airspeed_change.yaml"),
-               nesc::case13p2::kBand);
+  fly_reported("case13p2 divisor 1 (trim references)",
+               divisor_one("case13p2_subsonic_airspeed_change.yaml"), nesc::case13p2::kBand, false);
 }
 
 TEST(NescF16Variant, Case13p3Divisor1) {
-  fly_reported("case13p3 divisor 1", divisor_one("case13p3_subsonic_heading_change.yaml"),
-               nesc::case13p3::kBand);
+  fly_reported("case13p3 divisor 1 (trim references)",
+               divisor_one("case13p3_subsonic_heading_change.yaml"), nesc::case13p3::kBand, true);
 }
 
 TEST(NescF16Variant, Case13p4Divisor1) {
-  fly_reported("case13p4 divisor 1", divisor_one("case13p4_subsonic_lateral_side_step.yaml"),
-               nesc::case13p4::kBand);
+  fly_reported("case13p4 divisor 1 (trim references)",
+               divisor_one("case13p4_subsonic_lateral_side_step.yaml"), nesc::case13p4::kBand,
+               true);
 }
 
 TEST(NescF16Variant, Case13p4RhumbLine) {

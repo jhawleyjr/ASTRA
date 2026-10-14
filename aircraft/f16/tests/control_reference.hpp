@@ -52,7 +52,8 @@ struct Inputs {
   double rb = 0.0;
   double throttle_trim = 0.1390191130965607;  // :226-235's defaults
   double long_stk_trim = 0.1296382327486013;
-  // The LQR's design references (:471-487); SIM 5's replacement overrides them (D11).
+  // The LQR's design references (:471-487); the peer's decided ones, the trim's (the M7 plan's Q11
+  // as amended 2026-10-13), override them.
   double trimmed_alpha = 2.653813535191715;  // deg
   double trimmed_theta = 2.653813535191715;  // deg
   double trimmed_keas = 2.878088596053291e+02;

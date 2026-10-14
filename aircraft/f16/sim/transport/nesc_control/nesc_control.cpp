@@ -19,7 +19,11 @@
 //   peer.trim.throttle                      | number | 1   | required | The trim's throttle, the
 //          same text as vehicle.initial_controls.controls.throttle: trimmedPilotControl_throttle,
 //          in [0, 1].
-//   peer.commands.altitude_ft               | number | ft  | required | altitudeMslCommand from
+//   peer.trim.theta                         | number | rad | required | The trim's pitch, the same
+//          text as initial.state.euler_nb[1]: the LQR's trimmedAlpha and trimmedTheta (alpha =
+//          theta at gamma = 0, level and still air; the M7 plan's Q11 as amended 2026-10-13).
+//          trimmedKEAS is commands.equivalent_airspeed_knots. Within +-90 deg.
+//   peer.commands.altitude_ft              | number | ft  | required | altitudeMslCommand from
 //          frame 0, in feet, converted at init.
 //   peer.commands.equivalent_airspeed_knots | number | kt  | required | equivalentAirspeedCommand
 //          from frame 0, KEAS, converted with the exact knot; above 0.

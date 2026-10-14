@@ -17,6 +17,12 @@ zero. It reads, read-only:
     .venv/bin/python -I -B docs/reviews/evidence/m7-pr11a-r6/r6_report.py variants
     .venv/bin/python -I -B docs/reviews/evidence/m7-pr11a-r6/r6_report.py lag
     .venv/bin/python -I -B docs/reviews/evidence/m7-pr11a-r6/r6_report.py figures
+
+Its outputs (decided_table.md, variants_table.md, lag_table.md, case13p*.png) are commit 6a's, and
+it reproduces them at that commit, 5fc3285. Joe's 2026-10-13 decision after reading them amended
+Q11, so from the next commit on, the configs fly the trim's references and the variant plugin has
+no sim5_references: run at a later commit, its "decided" is the amended one and its variants mode
+stops at the unknown variant. The amended runs' tables are amended_table.py's.
 """
 
 from __future__ import annotations

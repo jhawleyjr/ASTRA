@@ -75,8 +75,10 @@ inline constexpr double kPhiLimit = units::degrees_to_radians(30.0);
 inline constexpr double kHalfTurn = units::degrees_to_radians(180.0);
 inline constexpr double kFullTurn = units::degrees_to_radians(360.0);
 
-// --- The LQR's hard-coded references (:471-487; trimmedKEAS's units are written "nim_h", the
-// file's typo for nmi_h, addendum section 5) ---
+// --- The LQR's references. The defaults are the DML's hard-coded values (:471-487; trimmedKEAS's
+// units are written "nim_h", the file's typo for nmi_h, addendum section 5). The peer sets them
+// from the trim instead (the M7 plan's Q11 as amended 2026-10-13, nesc_control_peer.hpp), and uses
+// these defaults only in Q11's reported variant ---
 struct References {
   double alpha = units::degrees_to_radians(2.653813535191715);            // trimmedAlpha
   double theta = units::degrees_to_radians(2.653813535191715);            // trimmedTheta
