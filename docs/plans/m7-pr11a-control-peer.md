@@ -152,8 +152,9 @@ record.
    - the wrong-divisor control is reported: "divisor 1 within every gated band", as R9 allows. The `Divisor1` runs
      print that line against the decided gating, and no `WrongDivisorFails` test exists;
    - Izx's sign is reported in all four cases (`NescF16Control.Case13p{1-4}IzxSignReported`), since its only
-     expected exceedances, force_y and moment_n, are now reported channels. R9's Izx clause is recorded as "not
-     discriminated by the 13.x kinematic bands", rather than carried further;
+     expected exceedances, force_y and moment_n, are now reported channels. R9's Izx clause was first to be
+     recorded as "not discriminated by the 13.x kinematic bands"; the measurement below contradicted that, and
+     Joe's final wording closes it (the last bullet of this item);
    - the positive control stays (`NescF16Control.Case13p3MassRoutePositiveControl`).
    - *Result:* the elevator-sign plant fails pitch at sample 80 in all four cases, at ratios 76.3, 436, 5.58 and
      5.17, with no halt. Q7's *scratch* gave 179 to 14,400. The aileron-sign plant fails roll at sample 80 in 13.3
@@ -165,6 +166,7 @@ record.
      13.2 stay inside every band. The control stays reported, never gated after the fact (amendment 11). The
      clause "not discriminated by the 13.x kinematic bands" is not recorded as worded, because it does not hold
      for 13.3. Its wording is Joe's.
+   - *The Izx clause, Joe's wording (2026-10-13, after the measurement), which closes it:* "Izx's sign is a reported control in 13.x. In 13.3 the flipped sign leaves the latitude band (1.07 at sample 300, first out at sample 257) and moves force_y and moment_n inside theirs (1.44 to 0.76 and 0.77); 13.1, 13.2 and 13.4 stay inside every asserted band. It was pre-registered as gated on force_y and moment_n in 13.3, which became reported channels under Joe's R6 decision, so it stays reported; a gate on latitude would be chosen after the measurement and is not added. The clause closes here: the sign is discriminated weakly, by one kinematic band in one case."
 7. **Then** the gate, the Codex review (at most two rounds) and `/human-review`, as planned. The PR body's R6
    section leads with item 3's recorded failure.
 8. **/wrap.**
