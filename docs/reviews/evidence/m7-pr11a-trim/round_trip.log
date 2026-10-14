@@ -1,0 +1,45 @@
+M7 PR 11a: the 13.x configs' trim, by PR 9's route on this branch
+1. case 11's base round trip (aircraft/f16/configs/case11_trim_check_subsonic.yaml):
+  state      bit for bit
+  controls   bit for bit
+  altitude   bit for bit
+  residual   bit for bit
+  idempotent bit for bit
+  theta      0.0460581645127969 rad
+  controls.elevator      -0.05642226572274011
+  controls.aileron       0.0
+  controls.rudder        0.0
+  controls.throttle      0.13873817846824657
+aircraft/f16/configs/case13p1_subsonic_altitude_change.yaml:
+  2. trim text identical to case 11 (12 lines)
+  3. state      bit for bit
+  3. controls   bit for bit
+  3. altitude   bit for bit
+  3. residual   bit for bit
+  4. transport.peer.trim.elevator -0.05642226572274011 equals the initial control -0.05642226572274011
+  4. transport.peer.trim.throttle 0.13873817846824657 equals the initial control 0.13873817846824657
+aircraft/f16/configs/case13p2_subsonic_airspeed_change.yaml:
+  2. trim text identical to case 11 (12 lines)
+  3. state      bit for bit
+  3. controls   bit for bit
+  3. altitude   bit for bit
+  3. residual   bit for bit
+  4. transport.peer.trim.elevator -0.05642226572274011 equals the initial control -0.05642226572274011
+  4. transport.peer.trim.throttle 0.13873817846824657 equals the initial control 0.13873817846824657
+aircraft/f16/configs/case13p3_subsonic_heading_change.yaml:
+  2. trim text identical to case 11 (12 lines)
+  3. state      bit for bit
+  3. controls   bit for bit
+  3. altitude   bit for bit
+  3. residual   bit for bit
+  4. transport.peer.trim.elevator -0.05642226572274011 equals the initial control -0.05642226572274011
+  4. transport.peer.trim.throttle 0.13873817846824657 equals the initial control 0.13873817846824657
+aircraft/f16/configs/case13p4_subsonic_lateral_side_step.yaml:
+  2. trim text identical to case 11 (12 lines)
+  3. state      bit for bit
+  3. controls   bit for bit
+  3. altitude   bit for bit
+  3. residual   bit for bit
+  4. transport.peer.trim.elevator -0.05642226572274011 equals the initial control -0.05642226572274011
+  4. transport.peer.trim.throttle 0.13873817846824657 equals the initial control 0.13873817846824657
+round trip: OK

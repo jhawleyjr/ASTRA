@@ -41,11 +41,13 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <format>
 #include <fstream>
 #include <iostream>
 #include <limits>
 #include <numbers>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -737,13 +739,17 @@ struct LoadedPeer {
   astra::Transport* transport = nullptr;
   astra::SignalRegistry registry;
 
-  explicit LoadedPeer(const std::string& block, std::string_view path = kPeer) {
+  explicit LoadedPeer(const std::string& block, std::string_view path = kPeer)
+      : LoadedPeer(astra::Config::from_string(block, "f16-control-fixture"), path) {}
+
+  // A transport block as a config holds it (a tracked config's `transport`).
+  explicit LoadedPeer(const astra::Config& block, std::string_view path = kPeer) {
     plugin = loader.load(path);
     transport = dynamic_cast<astra::Transport*>(plugin.model.get());
     if (transport == nullptr) {
       throw astra::Error("the peer is not a Transport");
     }
-    transport->init(astra::Config::from_string(block, "f16-control-fixture"), registry);
+    transport->init(block, registry);
     static_cast<void>(transport->open(astra::TransportSettings{}));
   }
 
@@ -1595,6 +1601,10 @@ struct StepCase {
 };
 
 constexpr double kKeas0 = 287.98158203;  // peer_block's initial command literal
+// The tracked 13.x configs, in kStepCases' order.
+constexpr std::array<std::string_view, 4> kTrackedConfigs = {
+    "case13p1_subsonic_altitude_change.yaml", "case13p2_subsonic_airspeed_change.yaml",
+    "case13p3_subsonic_heading_change.yaml", "case13p4_subsonic_lateral_side_step.yaml"};
 const std::array<StepCase, 4> kStepCases = {{
     {"13.1", "  schedule:\n    - {frame: 5000, altitude_ft: 10113}\n", 5000, 20000, 10013.0,
      10113.0, kKeas0, kKeas0, 45.0, 45.0, false},
@@ -1694,9 +1704,9 @@ astra::Simulation onset_sim(const StepCase& sc, std::string_view plugin,
 
 // R10: one peer block's command timeline, read from the peer's signals at every exchange, against
 // Vol II's table for its case.
-void expect_timeline(const StepCase& sc, const std::string& block, std::string_view where) {
-  LoadedPeer peer{block};
+void expect_timeline(const StepCase& sc, LoadedPeer& peer, std::string_view where) {
   astra_sim_to_sw_v1 frame = packed(trim_state());
+  double keas0 = 0.0;
   for (std::uint64_t f = 0; f <= sc.last_frame; f += 10) {
     frame.frame = f;
     static_cast<void>(peer.exchange(frame, static_cast<std::uint32_t>(f / 10)));
@@ -1707,9 +1717,12 @@ void expect_timeline(const StepCase& sc, const std::string& block, std::string_v
     const double offset = peer.signal("transport.peer.lateral_deviation_error");
     const std::string at = std::format("{} {} frame {}", where, sc.name, f);
     ASSERT_NEAR(alt_ft, after ? sc.alt_after_ft : sc.alt_before_ft, 1e-9) << at;
-    ASSERT_NEAR(keas, after ? sc.keas_after : sc.keas_before, 1e-9) << at;
-    // Vol II gives the initial airspeed command as 287.98 KEAS (D.1.14) and the step as 5 kt.
-    ASSERT_NEAR(keas - (after ? sc.keas_after - sc.keas_before : 0.0), 287.98, 0.005) << at;
+    // Vol II gives the initial airspeed command as 287.98 KEAS (D.1.14) and 13.2's step as 5 kt.
+    if (f == 0) {
+      keas0 = keas;
+      ASSERT_NEAR(keas0, 287.98, 0.005) << at;
+    }
+    ASSERT_NEAR(keas - keas0, after ? sc.keas_after - sc.keas_before : 0.0, 1e-9) << at;
     ASSERT_NEAR(course, after ? sc.course_after_deg : sc.course_before_deg, 1e-12) << at;
     // At the base point itself d = 0, so the error is 0 before the step and -2,000 ft from it.
     ASSERT_NEAR(offset, sc.side_step && after ? -2000.0 * kFt : 0.0, 1e-9) << at;
@@ -1722,7 +1735,14 @@ void expect_timeline(const StepCase& sc, const std::string& block, std::string_v
 // Vol II Tables 37 to 40.
 TEST(F16Control, ScheduleMatchesVolIITables) {
   for (const StepCase& sc : kStepCases) {
-    expect_timeline(sc, peer_block() + std::string{sc.peer_lines}, "fixture");
+    LoadedPeer fixture{peer_block() + std::string{sc.peer_lines}};
+    expect_timeline(sc, fixture, "fixture");
+  }
+  // The tracked configs (aircraft/f16/configs/case13p*.yaml).
+  for (std::size_t i = 0; i < kStepCases.size(); ++i) {
+    const astra::Config config = astra::Config::from_file(config_path(kTrackedConfigs.at(i)));
+    LoadedPeer tracked{config.at("transport")};
+    expect_timeline(kStepCases.at(i), tracked, kTrackedConfigs.at(i));
   }
 }
 
@@ -1757,4 +1777,132 @@ TEST(F16Control, APlantedOneExchangeDelayFailsTheOnsetFixture) {
     EXPECT_FALSE(step.reply_matches) << sc.name << ": the delayed reply must fail the fixture";
     EXPECT_TRUE(step.latched_matches) << sc.name << ": the delay is the peer's, not the exchange's";
   }
+}
+
+namespace {
+
+// One law evaluation at frame-like inputs that drive the totals where `rate_r` and `delta_theta`
+// put them (a large r saturates totLatStk and totPedal on the same side; a large deltaTheta,
+// totLongStk), engaged, from case 11's trim.
+law::IcdCommands saturated(double rate_r, double theta_offset, double eas_offset) {
+  law::Inputs in = law::inputs_from(packed(trim_state()));
+  in.r = rate_r;
+  in.theta += theta_offset;
+  in.eas += eas_offset;
+  law::Commands cmd;
+  cmd.altitude = in.altitude;
+  cmd.eas = in.eas - eas_offset;
+  cmd.course = in.beta + in.psi;
+  return law::to_icd(law::evaluate(in, cmd, law::trim_from_controls(kTrimElevator, kTrimThrottle)));
+}
+
+double limit_at(const astra::Config& config, std::string_view key, std::size_t end) {
+  return config.at("transport.limits").at(key).at(end).number();
+}
+
+bool bit_equal(double a, double b) {
+  return std::bit_cast<std::uint64_t>(a) == std::bit_cast<std::uint64_t>(b);
+}
+
+}  // namespace
+
+// The plan's D3: each tracked config carries one trim result, the peer's copy bit for bit equal to
+// the vehicle's initial controls.
+TEST(F16Control, EachConfigsPeerTrimEqualsItsInitialControls) {
+  for (const std::string_view name : kTrackedConfigs) {
+    const astra::Config config = astra::Config::from_file(config_path(name));
+    for (const std::string_view key : {"elevator", "throttle"}) {
+      const double peer = config.number("transport.peer.trim." + std::string{key});
+      const double vehicle = config.number("vehicle.initial_controls.controls." + std::string{key});
+      EXPECT_TRUE(bit_equal(peer, vehicle))
+          << name << ": transport.peer.trim." << key << std::format(" {:.17g}", peer)
+          << " against the initial control" << std::format(" {:.17g}", vehicle);
+    }
+  }
+}
+
+// The plan's D9 (amendment 3, with its 2026-10-13 wording fix): each tracked config's exchange
+// limits, read through Config, are bit for bit the law's own saturated values, and those values
+// pass the exchange's inclusive lo <= v <= hi check (lockstep_exchange.cpp), so a saturated
+// command is never halted. 13.1's elevator at its step, exactly -25 deg, is the case this
+// protects.
+TEST(F16Control, ExchangeLimitsContainTheLawsRange) {
+  // The law's saturated outputs, each way.
+  const law::IcdCommands up = saturated(10.0, -1.0, -50.0);   // r > 0, theta low, EAS low
+  const law::IcdCommands down = saturated(-10.0, 1.0, 50.0);  // r < 0, theta high, EAS high
+  EXPECT_TRUE(bit_equal(up.elevator, -down.elevator));
+  EXPECT_TRUE(bit_equal(std::abs(up.elevator), law::kElevatorRange));
+  EXPECT_TRUE(bit_equal(std::abs(up.aileron), law::kAileronRange));
+  EXPECT_TRUE(bit_equal(std::abs(up.rudder), law::kRudderRange))
+      << std::format("{:.17g} against {:.17g}", up.rudder, law::kRudderRange);
+  EXPECT_TRUE(bit_equal(std::abs(down.rudder), law::kRudderRange));
+  EXPECT_TRUE((up.throttle == 1.0 && down.throttle == 0.0) ||
+              (up.throttle == 0.0 && down.throttle == 1.0));
+
+  // 13.1's step: deltaThetaCmd lands on +5 deg and the stick saturates, so the elevator is exactly
+  // -25 deg.
+  Case step = engaged_trim_case();
+  step.alt_cmd_ft = 10113.0;
+  const law::IcdCommands at_step = si_commands(step);
+  EXPECT_TRUE(bit_equal(at_step.elevator, -law::kElevatorRange));
+  EXPECT_TRUE(bit_equal(at_step.throttle, 1.0));
+
+  for (const std::string_view name : kTrackedConfigs) {
+    const astra::Config config = astra::Config::from_file(config_path(name));
+    const std::array<std::pair<std::string_view, double>, 4> ranges = {
+        {{"elevator", law::kElevatorRange},
+         {"aileron", law::kAileronRange},
+         {"rudder", law::kRudderRange},
+         {"throttle", 1.0}}};
+    for (const auto& [key, range] : ranges) {
+      const double lo = limit_at(config, key, 0);
+      const double hi = limit_at(config, key, 1);
+      EXPECT_TRUE(bit_equal(hi, range)) << name << " " << key << std::format(" hi {:.17g}", hi);
+      EXPECT_TRUE(bit_equal(lo, key == "throttle" ? 0.0 : -range))
+          << name << " " << key << std::format(" lo {:.17g}", lo);
+    }
+    const auto passes = [&](std::string_view key, double v) {
+      return v >= limit_at(config, key, 0) && v <= limit_at(config, key, 1);
+    };
+    for (const law::IcdCommands& c : {up, down, at_step}) {
+      EXPECT_TRUE(passes("elevator", c.elevator)) << name;
+      EXPECT_TRUE(passes("aileron", c.aileron)) << name;
+      EXPECT_TRUE(passes("rudder", c.rudder)) << name;
+      EXPECT_TRUE(passes("throttle", c.throttle)) << name;
+    }
+  }
+}
+
+// The plan's Q4 (Joe's amendment 10): the peer cannot see the Earth model, so every config in the
+// tree that names it must pair it with the rotating WGS-84 Earth it assumes. The scan reads every
+// *.yaml under aircraft/ and tests/ that parses as a config with a transport block.
+TEST(F16Control, TrackedConfigsPairThePeerWithTheRotatingEarth) {
+  const std::filesystem::path root =
+      std::filesystem::path{ASTRA_F16_CONFIG_DIR}.parent_path().parent_path().parent_path();
+  std::vector<std::string> found;
+  for (const std::string_view top : {"aircraft", "tests"}) {
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(root / top)) {
+      if (!entry.is_regular_file() || entry.path().extension() != ".yaml") {
+        continue;
+      }
+      std::optional<astra::Config> config;
+      try {
+        config = astra::Config::from_file(entry.path());
+      } catch (const astra::Error&) {
+        continue;  // not a config this check reads
+      }
+      if (!config->is_map() || !config->has("transport") ||
+          config->text("transport.plugin", "") != kPeer) {
+        continue;
+      }
+      const astra::Config earth = config->at("physical.earth");
+      const std::string plugin = earth.is_map() ? earth.text("plugin") : earth.text();
+      EXPECT_EQ(plugin, "plugins/physical/earth/wgs84_rotating") << entry.path();
+      found.push_back(entry.path().filename().string());
+    }
+  }
+  for (const std::string_view name : kTrackedConfigs) {
+    EXPECT_NE(std::find(found.begin(), found.end(), name), found.end()) << name;
+  }
+  std::cout << std::format("configs naming the peer: {}\n", found.size());
 }

@@ -1,0 +1,77 @@
+# NASA/TM-2015-218675 atmospheric check-case 13.4, "lateral side step of a subsonic aircraft" (Vol II
+# Table 40, C.1.16): case 11's trimmed F-16 with F16_control.dml engaged at frame 0 (SAS and
+# autopilot on), then a 2,000 ft lateral offset to the right at t = 20 s, flown for 60 s (M7 PR 11a,
+# docs/plans/m7-pr11a-control-peer.md). tests/physics/nesc/nesc_f16_closed_loop_test.cpp flies it
+# against ADR-0028's band (tests/golden/nesc/case13p4_subsonic_lateral_side_step_f16_band.hpp).
+#
+# The initial condition is case 11's (Vol II Table 40 repeats Table 35), and so is the trim: the
+# initial.state and vehicle.initial_controls below are case11_trim_check_subsonic.yaml's text, bit
+# for bit (astra trim <case 11's base> --airspeed 172.42091752452774 --altitude 3051.9624000000003
+# --heading 0.7853981633974483 --rate-convention n_frame; docs/reviews/evidence/m7-pr9-trim/ and
+# m7-pr11a-trim/). astra trim refuses a transport block by design (the M7 plan's Q9 (b)), so the
+# trim is solved on the base and its text carried here.
+#
+# The law runs in aircraft/f16/sim/transport/nesc_control at exchange divisor 10 (100 Hz; ADR-0029
+# Decision 4), on ICD v1's frame, and replies through the command map onto controls.* (ADR-0017,
+# ADR-0022):
+# - transport.peer.trim repeats the trim's elevator and throttle; the peer inverts them to
+#   trimmedPilotControl_long and _throttle (the plan's D3). The LQR's references are the DML's
+#   hard-coded ones (the M7 plan's Q11).
+# - transport.peer.commands are the commands from frame 0 (the plan's D1): altitude 10,013 ft, the
+#   initial condition's; course 45 deg true; the equivalent airspeed 287.98158203347975 kt, the trim's own EAS
+#   (Vol II D.1.14: "decrease speed 5 kt to 282.98 KEAS"), from
+#   docs/reviews/evidence/m7-pr11a-residual/ic_eas.py.
+# - transport.limits are the law's own saturated ranges, each the %.17g text of the expression the
+#   law saturates with: degrees_to_radians(25), degrees_to_radians(21.5),
+#   degrees_to_radians(30) + 0.008 * degrees_to_radians(21.5), and [0, 1] (the plan's D9). A value
+#   outside them halts kTransport, never clamped.
+# - The peer assumes a rotating WGS-84 Earth, which it cannot check (the plan's Q4): physical.earth
+#   stays plugins/physical/earth/wgs84_rotating.
+#
+# sim.frames is 60,001, 100 (N - 1) + 1 for the band's N samples: the harness drives one frame
+# per sample beyond the last 100-frame interval for that sample's frame-start wrench, and the
+# exchange recorder's capacity follows sim.frames (the plan's D6). Every tool that refuses a
+# transport block refuses this config (astra run, astra trim, astra.montecarlo, astra.scenario,
+# astra.log.replay); Simulation flies it, from C++ or astra._core.
+sim:
+  dt: 0.001
+  frames: 60001
+vehicle:
+  models:
+    - plugin: aircraft/f16/physical/aero
+    - plugin: aircraft/f16/hardware/propulsion/engine
+  initial_controls:
+    controls:
+      elevator: -0.05642226572274011  # rad
+      aileron: 0.0
+      rudder: 0.0
+      throttle: 0.13873817846824657
+physical:
+  earth: plugins/physical/earth/wgs84_rotating
+  gravity: plugins/physical/gravity/wgs84_j2
+  atmosphere: plugins/physical/atmosphere/isa1976
+  mass:
+    plugin: aircraft/f16/physical/mass
+initial:
+  state:
+    p_n: [0.6286530522161018, -1.3207682150955165, 3051.9624000000003]  # lat, lon (rad), altitude (m)
+    v_b: [172.23806690598641, 0.0, 7.9385835316476205]  # m/s, body axes
+    euler_nb: [0.7853981633974483, 0.0460581645127969, 0.0]  # [psi, theta, phi] rad
+    omega_b: [4.421479346717576e-05, -6.875360966116474e-05, -5.4779192377020555e-05]  # rad/s
+transport:
+  plugin: aircraft/f16/sim/transport/nesc_control
+  divisor: 10  # 100 Hz (ADR-0029 Decision 4)
+  commands:
+    elevator: controls.elevator
+    aileron: controls.aileron
+    rudder: controls.rudder
+    throttle: [controls.throttle, controls.throttle]
+  limits:  # rad, and throttle 0..1: the law's own ranges (D9)
+    elevator: [-0.43633231299858238, 0.43633231299858238]
+    aileron: [-0.37524578917878088, 0.37524578917878088]
+    rudder: [-0.52660074191172901, 0.52660074191172901]
+    throttle: [0.0, 1.0]
+  peer:
+    trim: {elevator: -0.05642226572274011, throttle: 0.13873817846824657}
+    commands: {altitude_ft: 10013, equivalent_airspeed_knots: 287.98158203347975, course_deg: 45}
+    lateral_offset: {frame: 20000, offset_ft: 2000}  # t = 20 s: 2,000 ft right
