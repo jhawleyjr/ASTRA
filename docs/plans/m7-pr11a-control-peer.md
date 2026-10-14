@@ -41,11 +41,21 @@ governs.
    - "PR 9's cases 11 and 12 unchanged" means their sources too.
 3. **D9: the exchange limits.** In each of the four configs, each limit is written as the `%.17g` text of the
    same core expression the law saturates with: `degrees_to_radians(25)`, `degrees_to_radians(21.5)`,
-   `degrees_to_radians(30 + 0.008 * 21.5)`, and 1.
+   `degrees_to_radians(30) + 0.008 * degrees_to_radians(21.5)`, and 1.
    - `F16Control.ExchangeLimitsContainTheLawsRange` reads the limits from each tracked config through `Config`,
      not from a C++ constant. It asserts that the law's saturated outputs pass the exchange's own inclusive check.
    - The case this protects: 13.1's elevator at frame 5000, exactly −25°.
    - A `kCommandLimit` halt in a nominal case is a stop condition.
+   - *Wording fix, 2026-10-13 (Joe; amendment 3 as applied).* The rudder limit is the law's own saturated
+     expression, `degrees_to_radians(30) + 0.008 * degrees_to_radians(21.5)`, in the law's factor order. It is not
+     `degrees_to_radians(30 + 0.008 * 21.5)`, a different expression that can differ by one ulp. The YAML limit
+     is the `%.17g` text of that value.
+     - This is not a number move: the limit is still the law's range.
+     - The test also asserts that each configured rudder limit is bit-identical to the law's saturated value, as
+       it does for the elevator and the aileron. A future rewrite of either expression then fails the test,
+       rather than halting 13.3 or 13.4 at the course step.
+     - Q2's rudder full scale for the floor stays 30.172°: it is a scale, not a limit, and one ulp there is
+       immaterial.
 4. **The round trip.** `astra trim` refuses a transport block by design (ADR-0029 Context, Q9 (b)), so this is
    not an open risk.
    - Commit 4's evidence: case 11's base round trip rerun on this branch (PR 9's route, the same command, D3's
@@ -420,10 +430,14 @@ fixed here; a control stops at its first gated exceedance and logs every channel
 - **D9. The exchange limits** in each config are the law's own ranges: elevator ±25°, aileron ±21.5°, rudder
   ±30.172° (in rad), throttle [0, 1]. Each is written as the `%.17g` text of the same core expression the law
   saturates with: `units::degrees_to_radians(25.0)`, `units::degrees_to_radians(21.5)`,
-  `units::degrees_to_radians(30.0 + 0.008 * 21.5)` and 1 (amendment 3).
-  - `F16Control.ExchangeLimitsContainTheLawsRange` reads each tracked config's limits through `Config`. It asserts
-    that the law's saturated outputs pass the exchange's inclusive `lo ≤ v ≤ hi` check: 13.1's −25° elevator at
-    frame 5000 is the case this protects.
+  `units::degrees_to_radians(30.0) + 0.008 * units::degrees_to_radians(21.5)` and 1 (amendment 3, with its
+  2026-10-13 wording fix: the rudder's in the law's own factor order).
+  - `F16Control.ExchangeLimitsContainTheLawsRange` reads each tracked config's limits through `Config`. It checks
+    two things:
+    - the law's saturated outputs pass the exchange's inclusive `lo ≤ v ≤ hi` check. 13.1's −25° elevator at
+      frame 5000 is the case this protects;
+    - each configured limit (elevator, aileron, rudder, both signs) is bit-identical to the law's saturated value.
+      A rewrite of either expression then fails here, not at 13.3's or 13.4's course step.
   - So a law output beyond its own limits halts `kCommandLimit`, never clamped (§15). In a nominal case, that
     halt is a stop condition.
 - **D10. The no-alloc test** is `F16ControlNoAlloc.ExchangesAllocateNothing`, in a new
