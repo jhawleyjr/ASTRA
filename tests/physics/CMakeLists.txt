@@ -21,6 +21,9 @@
 # 12 from aircraft/f16/configs/ (ASTRA_AIRCRAFT_DIR below) against their ADR-0028 bands through
 # nesc/f16_flight.hpp, and checks each config's trim residual against Q7's DML derivation.
 # nesc/nesc_f16_negative_controls_test.cpp plants that family's negative controls (the plan's Q4).
+# nesc/nesc_f16_closed_loop_test.cpp (M7 PR 11a, docs/plans/m7-pr11a-control-peer.md) flies NESC
+# cases 13.1 to 13.4 from aircraft/f16/configs/ with the sim-side F16_control peer against their
+# ADR-0028 bands, with the plan's per-sample guards, and checks each config's trim residual.
 #
 # dynamics/{rigid_body_r1_golden_test.cpp,cruise_end_to_end_r1_golden_test.cpp} (ADR-0021, PLAN.md
 # M3 PR 4a): R1/R1-Sim against tests/golden/dynamics/**'s frozen goldens (rigid_body_6dof_r1_golden.hpp
@@ -36,6 +39,7 @@ add_executable(astra_physics_tests
   nesc/f16_evaluator_test.cpp
   nesc/nesc_cases_test.cpp
   nesc/nesc_f16_bands_test.cpp
+  nesc/nesc_f16_closed_loop_test.cpp
   nesc/nesc_f16_negative_controls_test.cpp
   nesc/nesc_f16_open_loop_test.cpp
   no_alloc_test.cpp
