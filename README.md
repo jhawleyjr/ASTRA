@@ -420,8 +420,8 @@ save GitHub Actions minutes, so a green `check` on GitHub is not evidence that t
 M0 to M6 are done: bootstrap, rigid body, environment, the notional transport, lockstep with the embedded
 autopilot, tooling, and analysis tooling. Next, in order:
 
-- **M7 F-16 and the NESC oracle:** `aircraft/f16` from the template; NESC cases 11, 12, 13.1 to 13.4, 15 and
-  16; a tutorial and a config-key reference.
+- **M7 F-16 and the NESC oracle:** `aircraft/f16` from the template; NESC cases 11, 12 and 13.1 to 13.4; a
+  config-key reference. Cases 15 and 16, the embedded port and the tutorial are unscheduled (Joe, 2026-10-13).
 - **M8 Actuators and controller tuning:** actuator models with rate and position limits, gains loaded at
   startup, a tuning tool, frequency-domain and handling-qualities analysis.
 - **M9 Sensors and ICD v2:** IMU, GNSS, barometric, air-data and magnetometer models; nonstandard days, gusts,

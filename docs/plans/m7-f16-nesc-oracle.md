@@ -627,6 +627,10 @@ is enough. Blocks: the first PR that cannot start without it.
   that through its stick trim (PR 1b's `compare.log:232`), and SIM 5 through its references; the DML's
   hard-coded numbers are one participant's trim solution. The peer reads the trim's θ from
   `peer.trim.theta`. ADR-0029 Decision 9 cites Q11 to this plan, so no ADR changes.
+  *Noted 2026-10-13 ([M7 PR 11a's plan](m7-pr11a-control-peer.md), Context and M5; Joe's amendment 13 there):* the DML's `trimmedKEAS` is
+  inert with the autopilot on (`keasCmdSw = keasCmd` when `apOn > 0.5`), so the hard-coded references
+  acted in 13.x only through `trimmedAlpha` and `trimmedTheta`. Vol II D.1.13's prose attributes SIM 4's
+  airspeed offset to it, which the MathML does not route.
 - **Q12. The law's execution rate (ADR-0029; blocks PR 11a).** Recommend the DML's rate if it states one.
   Otherwise the exchange divisor 10 (100 Hz, the architecture's default). Vol II names execution-rate
   differences as a possible cause (D.1.15, D.1.16). The divisor is fixed by PR 6a's addendum before any run
@@ -826,7 +830,7 @@ Joe's follow-ups at approval (2026-10-04). Each PR's own plan starts from them.
 
 | PR | Obligation |
 |---|---|
-| 11a | R11's comparison at 1e-12 relative needs an absolute floor, so commands near zero do not fail on roundoff. Its randomized frames must also avoid inputs within roundoff of a limit or saturation boundary: a limit stated in degrees and the same limit in radians can saturate on opposite sides there. The plan states the floor and the exclusion margin |
+| 11a | R11's comparison at 1e-12 relative needs an absolute floor, so commands near zero do not fail on roundoff. Its randomized frames must also avoid inputs within roundoff of a limit or saturation boundary: a limit stated in degrees and the same limit in radians can saturate on opposite sides there. The plan states the floor and the exclusion margin. *Answered 2026-10-13 ([M7 PR 11a's plan](m7-pr11a-control-peer.md), Q2 and its two dated deviations, Joe's decisions):* the floor is 1e-12·max(|c_ref|, F), F each command's full scale, with the 1e-9 boundary margin; the seeded bound adds each rounding step's eps·|own result| times the law's gain from that step, gains verified by finite difference against the reference, not capped |
 | 6a | The addendum records the files actually used from `Atmospheric_models.zip`, with the archive's URL and SHA-256. It also corrects `docs/refs/README.md`: `Atmospheric_checkcases/` and `Initial_Conditions.xlsx` come from the same NESC Academy 2015 page (`https://nescacademy.nasa.gov/flightsim/2015`), not NTRS |
 | 6a, 13 | (Joe, at M7 PR 1a.) The F-16's Mach limit. ADR-0031 has an aero model declare the domain of its own data: its table breakpoints, or a stated validity limit along an axis its data does not span. If the F-16 aero has no Mach dependence, its declared Mach limit is a validity limit stated by P1. If P1 states none, case 12's expected nonzero Mach counter (R18, N-07) has no basis, and the expectation returns to Joe before PR 13 fixes it |
 | 11a | (Joe, at M7 PR 1a.) R12 compares the peer's EAS against TAS·√(ρ/ρ0) from "the sim's own atmosphere signals", but no atmosphere signal is logged. PR 11a's plan states where ρ comes from |

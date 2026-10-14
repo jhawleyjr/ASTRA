@@ -407,7 +407,8 @@ takes them as a prefix.
       NESC F-16 control laws (`F16_control.dml` for 13.x, `F16_gnc.dml` for 15 and 16) run outside
       `embedded/` first and are shown to match the ensemble, then are ported to `embedded/` (Joe,
       2026-09-29). Plan questions: where the sim-side control law lives, the port's equivalence criterion, and
-      hand-porting the aero tables versus a generic DAVE-ML table plugin.
+      hand-porting the aero tables versus a generic DAVE-ML table plugin. PR 11b (15 and 16), PR 12 (the port)
+      and PR 15 (the tutorial) are unscheduled (Joe, 2026-10-13; the open items below).
   - Planning (#104): M7 spec, plan and PR decomposition (PR 0 to 16, PR 1 split into 1a and 1b); approved
     by Joe with Q1 to Q27 and his amendments, after a Codex plan critique and a verification pass. The NESC
     DAVE-ML files (P1, P2) are still to be placed in `docs/refs`. Plans:
@@ -532,6 +533,18 @@ takes them as a prefix.
     the elevator's sign fails force_z, SIM 2's zero-inertial trim fails rate_q in 11 and 12, and Izx's sign
     stays inside every case 11 band, reported, not gated. Plan: [plan](docs/plans/m7-pr9-open-loop.md). Packet:
     in the PR body.
+  - PR 11a (#119): the sim-side `F16_control` peer, `aircraft/f16/sim/transport/nesc_control`, and cases 13.1 to
+    13.4 (R4's 13.x half, R6, R9 for 13.x, R10's peer half, R11, R12, R22, R23). The DML law in SI on the ICD v1
+    frame at divisor 10, on the Earth-relative rate, refusing flagged frames; its schedule and 13.4's
+    initial-plane line from the frame-0 base point in `transport.peer` keys; four configs carrying case 11's
+    trim. Two amendments by Joe after the measurement (2026-10-13): Q11's LQR references are the trim's θ
+    (`peer.trim.theta`) and the initial EAS command, the DML's hard-coded ones reported; and 13.3 and 13.4
+    assert the 15 kinematic and atmosphere channels and report the six aero ones. **R6 is recorded as not met
+    for those six channels in 13.3 and 13.4** (moment_l 2.40 and 1.52, force_y 1.44 and 1.13, moment_n 1.44
+    and 1.14, at the command steps, where the 100 Hz law trails the members by 30–40 ms), never as a pass; 13.1
+    and 13.2 pass all 21. The elevator's sign fails pitch in all four and the aileron's roll in 13.3 and 13.4;
+    Izx's sign and the wrong divisor are reported (divisor 1 within every asserted band). Plan:
+    [plan](docs/plans/m7-pr11a-control-peer.md). Packet: in the PR body.
 - [ ] **M8 Actuators and controller tuning** — a first-order lag and a nonlinear second-order actuator model
       with rate and position limits; autopilot gains loaded at startup; the tuning tool (spec-driven on the
       linear model, time-domain on the nonlinear sim, robustness across draws, gain schedules) with
@@ -695,6 +708,13 @@ takes them as a prefix.
       only open-loop runs, and `astra run` refuses a `transport` block until M10 (exit 65). Not started.
 - [ ] (M10) Replaying a lockstep run (origin: M5 plan Q11; Joe's call): `astra.log.replay` refuses a log with a
       `transport` block, since replaying commands without the peer is a different feature. Not started.
+- [ ] (unscheduled) M7 PR 11b, the sim-side `F16_gnc` peer and cases 15 and 16: the NESC closed-loop ensemble
+      is two members with loose maneuver bands; Joe, 2026-10-13. It carries the M7 plan's 11b obligation
+      (`rate_frame.py` on case 15).
+- [ ] (unscheduled) M7 PR 12, the C++17 port of the NESC laws in `embedded/`: the NESC closed-loop ensemble is two
+      members with loose maneuver bands; Joe, 2026-10-13.
+- [ ] (unscheduled) M7 PR 15, the tutorial from the F-16 path: the NESC closed-loop ensemble is two members with
+      loose maneuver bands; Joe, 2026-10-13.
 - [ ] (M9) ICD v2 carries an Earth rate or an Earth-relative body rate, which removes `nesc_control`'s
       non-rotating-Earth limitation (origin: M7 PR 1b; Joe 2026-10-09;
       [ADR-0029](docs/decisions/0029-sim-side-flight-software-peer.md), Decision 7). ICD v1 carries no Earth rate,
