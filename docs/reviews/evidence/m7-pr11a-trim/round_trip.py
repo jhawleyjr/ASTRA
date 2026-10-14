@@ -13,7 +13,8 @@ configs carry its text. This script shows, on this branch:
 4. D3: each 13.x config's transport.peer.trim.{elevator, throttle} equals its
    vehicle.initial_controls.controls.{elevator, throttle} bit for bit (one trim result), and
    (the M7 plan's Q11 as amended 2026-10-13) its transport.peer.trim.theta equals its
-   initial.state.euler_nb[1] and the trim's solved alpha_rad (theta = alpha at gamma = 0) bit for bit.
+   initial.state.euler_nb[1] and the trim's solved alpha_rad (theta = alpha at gamma = 0) bit
+   for bit.
 
 Run from the repository root, after `just python`:
     .venv/bin/python -I -B docs/reviews/evidence/m7-pr11a-trim/round_trip.py
