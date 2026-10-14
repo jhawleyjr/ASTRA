@@ -1,11 +1,11 @@
-[HANDLER_VERBOSE_OUTPUT] 
+[HANDLER_VERBOSE_OUTPUT]
 UpdateCTestConfiguration  from :/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/DartConfiguration.tcl
 
 UpdateCTestConfiguration  from :/home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/DartConfiguration.tcl
-[HANDLER_OUTPUT] 
+[HANDLER_OUTPUT]
 Test project /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release
 
-[HANDLER_VERBOSE_OUTPUT] 
+[HANDLER_VERBOSE_OUTPUT]
 Constructing a list of tests
 
 Done constructing a list of tests
@@ -14,10 +14,10 @@ Added 0 tests to meet fixture requirements
 Checking test dependency graph...
 Checking test dependency graph end
 test 646
-[HANDLER_OUTPUT] 
+[HANDLER_OUTPUT]
       Start 646: physics.NescF16Variant.Case13p1DmlReferences
 
-[HANDLER_VERBOSE_OUTPUT] 
+[HANDLER_VERBOSE_OUTPUT]
 
 646: Test command: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics/astra_physics_tests "--gtest_filter=NescF16Variant.Case13p1DmlReferences" "--gtest_also_run_disabled_tests"
 
@@ -30,45 +30,45 @@ test 646
 646: [----------] 1 test from NescF16Variant
 646: [ RUN      ] NescF16Variant.Case13p1DmlReferences
 646: case13p1 DML references (reported, no band asserted): 201 samples compared, 20001 frames, halted false, stopped at an exceedance false; Q5 guard largest relative miss force 0, moment 0
-646:   latitude     tol_abs 2.28977e-07  sample 0 0.0002401  ungated max 0.06704    at   79  gated max 0.1768     at  200  first gated exceedance    -1  
-646:   longitude    tol_abs 2.81999e-07  sample 0 0.0002723  ungated max 0.067      at   79  gated max 0.1768     at  200  first gated exceedance    -1  
-646:   altitude     tol_abs 0.231498     sample 0 1.226e-09  ungated max 0.6531     at   76  gated max 0.6501     at   80  first gated exceedance    -1  
-646:   v_north      tol_abs 0.0734867    sample 0 0.02137    ungated max 0.3511     at   51  gated max 0.1837     at   86  first gated exceedance    -1  
-646:   v_east       tol_abs 0.0735866    sample 0 0.02134    ungated max 0.351      at   51  gated max 0.1838     at   86  first gated exceedance    -1  
-646:   v_down       tol_abs 0.0210048    sample 0 5.192e-08  ungated max 2.08       at   54  gated max 0.3838     at   99  first gated exceedance    -1  
-646:   yaw          tol_abs 1.97204e-06  sample 0 6.756e-10  ungated max 3          at   52  gated max 0.1244     at   82  first gated exceedance    -1  
-646:   pitch        tol_abs 0.000219325  sample 0 0.008966   ungated max 7.293      at   53  gated max 0.3478     at   81  first gated exceedance    -1  
-646:   roll         tol_abs 4.65111e-06  sample 0 4.936e-10  ungated max 1.505      at   52  gated max 0.2261     at   85  first gated exceedance    -1  
-646:   rate_p       tol_abs 1.10775e-05  sample 0 0.02616    ungated max 12.01      at   53  gated max 0.06833    at   83  first gated exceedance    -1  
-646:   rate_q       tol_abs 0.00025038   sample 0 0.0002019  ungated max 87.58      at   53  gated max 0.1982     at   80  first gated exceedance    -1  
-646:   rate_r       tol_abs 1.27468e-05  sample 0 0.5438     ungated max 3.174      at   54  gated max 0.05462    at   80  first gated exceedance    -1  
-646:   force_x      tol_abs 481.659      sample 0 1.64       ungated max 19.49      at   53  gated max 0.1641     at   80  first gated exceedance    -1  
+646:   latitude     tol_abs 2.28977e-07  sample 0 0.0002401  ungated max 0.06704    at   79  gated max 0.1768     at  200  first gated exceedance    -1
+646:   longitude    tol_abs 2.81999e-07  sample 0 0.0002723  ungated max 0.067      at   79  gated max 0.1768     at  200  first gated exceedance    -1
+646:   altitude     tol_abs 0.231498     sample 0 1.226e-09  ungated max 0.6531     at   76  gated max 0.6501     at   80  first gated exceedance    -1
+646:   v_north      tol_abs 0.0734867    sample 0 0.02137    ungated max 0.3511     at   51  gated max 0.1837     at   86  first gated exceedance    -1
+646:   v_east       tol_abs 0.0735866    sample 0 0.02134    ungated max 0.351      at   51  gated max 0.1838     at   86  first gated exceedance    -1
+646:   v_down       tol_abs 0.0210048    sample 0 5.192e-08  ungated max 2.08       at   54  gated max 0.3838     at   99  first gated exceedance    -1
+646:   yaw          tol_abs 1.97204e-06  sample 0 6.756e-10  ungated max 3          at   52  gated max 0.1244     at   82  first gated exceedance    -1
+646:   pitch        tol_abs 0.000219325  sample 0 0.008966   ungated max 7.293      at   53  gated max 0.3478     at   81  first gated exceedance    -1
+646:   roll         tol_abs 4.65111e-06  sample 0 4.936e-10  ungated max 1.505      at   52  gated max 0.2261     at   85  first gated exceedance    -1
+646:   rate_p       tol_abs 1.10775e-05  sample 0 0.02616    ungated max 12.01      at   53  gated max 0.06833    at   83  first gated exceedance    -1
+646:   rate_q       tol_abs 0.00025038   sample 0 0.0002019  ungated max 87.58      at   53  gated max 0.1982     at   80  first gated exceedance    -1
+646:   rate_r       tol_abs 1.27468e-05  sample 0 0.5438     ungated max 3.174      at   54  gated max 0.05462    at   80  first gated exceedance    -1
+646:   force_x      tol_abs 481.659      sample 0 1.64       ungated max 19.49      at   53  gated max 0.1641     at   80  first gated exceedance    -1
 646:   force_y      tol_abs 1.75166      sample 0 0.2846     ungated max 3.658      at   52  gated max 0.09663    at   81  first gated exceedance    -1  zero-accepting: not evidence
-646:   force_z      tol_abs 2411.23      sample 0 1.666      ungated max 11.13      at   53  gated max 0.1524     at   80  first gated exceedance    -1  
+646:   force_z      tol_abs 2411.23      sample 0 1.666      ungated max 11.13      at   53  gated max 0.1524     at   80  first gated exceedance    -1
 646:   moment_l     tol_abs 26.4283      sample 0 0.01455    ungated max 7.5        at   52  gated max 0.1611     at   80  first gated exceedance    -1  zero-accepting: not evidence
 646:   moment_m     tol_abs 11727        sample 0 1.615      ungated max 5.748      at   52  gated max 0.1677     at   80  first gated exceedance    -1  zero-accepting: not evidence
 646:   moment_n     tol_abs 6.35562      sample 0 0.3877     ungated max 2.894      at   52  gated max 0.0883     at   81  first gated exceedance    -1  zero-accepting: not evidence
-646:   density      tol_abs 1.46696e-05  sample 0 0.1073     ungated max 1.066      at   75  gated max 1.061      at   80  first gated exceedance    80  
-646:   pressure     tol_abs 3.96123      sample 0 0.09344    ungated max 0.4308     at   75  gated max 0.429      at   80  first gated exceedance    -1  
-646:   temperature  tol_abs 0.00150328   sample 0 6.7e-08    ungated max 0.6531     at   76  gated max 0.6501     at   80  first gated exceedance    -1  
+646:   density      tol_abs 1.46696e-05  sample 0 0.1073     ungated max 1.066      at   75  gated max 1.061      at   80  first gated exceedance    80
+646:   pressure     tol_abs 3.96123      sample 0 0.09344    ungated max 0.4308     at   75  gated max 0.429      at   80  first gated exceedance    -1
+646:   temperature  tol_abs 0.00150328   sample 0 6.7e-08    ungated max 0.6531     at   76  gated max 0.6501     at   80  first gated exceedance    -1
 646: case13p1 DML references: first gated exceedance of a discriminating channel: sample 80, 18
 646: case13p1 DML references: inside every band the decided run asserts (all 21 channels): NO
 646: [       OK ] NescF16Variant.Case13p1DmlReferences (32 ms)
 646: [----------] 1 test from NescF16Variant (32 ms total)
-646: 
+646:
 646: [----------] Global test environment tear-down
 646: [==========] 1 test from 1 test suite ran. (32 ms total)
 646: [  PASSED  ] 1 test.
-[HANDLER_OUTPUT] 
+[HANDLER_OUTPUT]
  1/11 Test #646: physics.NescF16Variant.Case13p1DmlReferences .......
    Passed    0.03 sec
-[HANDLER_VERBOSE_OUTPUT] 
+[HANDLER_VERBOSE_OUTPUT]
 test 647
 
-[HANDLER_OUTPUT] 
+[HANDLER_OUTPUT]
       Start 647: physics.NescF16Variant.Case13p2DmlReferences
 
-[HANDLER_VERBOSE_OUTPUT] 
+[HANDLER_VERBOSE_OUTPUT]
 
 647: Test command: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics/astra_physics_tests "--gtest_filter=NescF16Variant.Case13p2DmlReferences" "--gtest_also_run_disabled_tests"
 
@@ -81,45 +81,45 @@ test 647
 647: [----------] 1 test from NescF16Variant
 647: [ RUN      ] NescF16Variant.Case13p2DmlReferences
 647: case13p2 DML references (reported, no band asserted): 201 samples compared, 20001 frames, halted false, stopped at an exceedance false; Q5 guard largest relative miss force 0, moment 0
-647:   latitude     tol_abs 2.22261e-07  sample 0 0.0002474  ungated max 0.07498    at   79  gated max 0.1872     at  200  first gated exceedance    -1  
-647:   longitude    tol_abs 2.73722e-07  sample 0 0.0002806  ungated max 0.07498    at   79  gated max 0.1872     at  200  first gated exceedance    -1  
-647:   altitude     tol_abs 0.152139     sample 0 1.865e-09  ungated max 0.8495     at   67  gated max 0.8355     at   80  first gated exceedance    -1  
-647:   v_north      tol_abs 0.0727057    sample 0 0.0216     ungated max 0.2145     at   51  gated max 0.1808     at   80  first gated exceedance    -1  
-647:   v_east       tol_abs 0.0727744    sample 0 0.02158    ungated max 0.2145     at   51  gated max 0.1809     at   80  first gated exceedance    -1  
-647:   v_down       tol_abs 0.0036571    sample 0 2.982e-07  ungated max 9.798      at   18  gated max 0.8655     at   87  first gated exceedance    -1  
-647:   yaw          tol_abs 2.02964e-07  sample 0 6.564e-09  ungated max 10.57      at    2  gated max 0.3258     at   80  first gated exceedance    -1  
-647:   pitch        tol_abs 0.000104068  sample 0 0.0189     ungated max 3.02       at    2  gated max 0.381      at   80  first gated exceedance    -1  
-647:   roll         tol_abs 1.87071e-06  sample 0 1.227e-09  ungated max 1.376      at    5  gated max 0.3556     at   80  first gated exceedance    -1  
-647:   rate_p       tol_abs 3.56905e-07  sample 0 0.812      ungated max 96.67      at    1  gated max 0.7117     at   80  first gated exceedance    -1  
-647:   rate_q       tol_abs 1.86369e-06  sample 0 0.02712    ungated max 668.2      at    1  gated max 3.873      at   90  first gated exceedance    80  
-647:   rate_r       tol_abs 8.46159e-08  sample 0 81.92      ungated max 138.9      at    1  gated max 0.2408     at   87  first gated exceedance    -1  
-647:   force_x      tol_abs 27.9011      sample 0 28.32      ungated max 28.32      at    0  gated max 0.1862     at   80  first gated exceedance    -1  
-647:   force_y      tol_abs 0.0252569    sample 0 19.74      ungated max 74.03      at    2  gated max 0.1735     at   84  first gated exceedance    -1  
-647:   force_z      tol_abs 73.3607      sample 0 54.75      ungated max 54.75      at    0  gated max 0.3095     at   80  first gated exceedance    -1  
+647:   latitude     tol_abs 2.22261e-07  sample 0 0.0002474  ungated max 0.07498    at   79  gated max 0.1872     at  200  first gated exceedance    -1
+647:   longitude    tol_abs 2.73722e-07  sample 0 0.0002806  ungated max 0.07498    at   79  gated max 0.1872     at  200  first gated exceedance    -1
+647:   altitude     tol_abs 0.152139     sample 0 1.865e-09  ungated max 0.8495     at   67  gated max 0.8355     at   80  first gated exceedance    -1
+647:   v_north      tol_abs 0.0727057    sample 0 0.0216     ungated max 0.2145     at   51  gated max 0.1808     at   80  first gated exceedance    -1
+647:   v_east       tol_abs 0.0727744    sample 0 0.02158    ungated max 0.2145     at   51  gated max 0.1809     at   80  first gated exceedance    -1
+647:   v_down       tol_abs 0.0036571    sample 0 2.982e-07  ungated max 9.798      at   18  gated max 0.8655     at   87  first gated exceedance    -1
+647:   yaw          tol_abs 2.02964e-07  sample 0 6.564e-09  ungated max 10.57      at    2  gated max 0.3258     at   80  first gated exceedance    -1
+647:   pitch        tol_abs 0.000104068  sample 0 0.0189     ungated max 3.02       at    2  gated max 0.381      at   80  first gated exceedance    -1
+647:   roll         tol_abs 1.87071e-06  sample 0 1.227e-09  ungated max 1.376      at    5  gated max 0.3556     at   80  first gated exceedance    -1
+647:   rate_p       tol_abs 3.56905e-07  sample 0 0.812      ungated max 96.67      at    1  gated max 0.7117     at   80  first gated exceedance    -1
+647:   rate_q       tol_abs 1.86369e-06  sample 0 0.02712    ungated max 668.2      at    1  gated max 3.873      at   90  first gated exceedance    80
+647:   rate_r       tol_abs 8.46159e-08  sample 0 81.92      ungated max 138.9      at    1  gated max 0.2408     at   87  first gated exceedance    -1
+647:   force_x      tol_abs 27.9011      sample 0 28.32      ungated max 28.32      at    0  gated max 0.1862     at   80  first gated exceedance    -1
+647:   force_y      tol_abs 0.0252569    sample 0 19.74      ungated max 74.03      at    2  gated max 0.1735     at   84  first gated exceedance    -1
+647:   force_z      tol_abs 73.3607      sample 0 54.75      ungated max 54.75      at    0  gated max 0.3095     at   80  first gated exceedance    -1
 647:   moment_l     tol_abs 0.219454     sample 0 1.752      ungated max 208.2      at    1  gated max 0.1665     at   83  first gated exceedance    -1  zero-accepting: not evidence
 647:   moment_m     tol_abs 387.186      sample 0 48.9       ungated max 48.9       at    0  gated max 0.1704     at   84  first gated exceedance    -1  zero-accepting: not evidence
 647:   moment_n     tol_abs 0.0860062    sample 0 28.65      ungated max 83.64      at    2  gated max 0.1698     at   84  first gated exceedance    -1  zero-accepting: not evidence
-647:   density      tol_abs 7.28991e-06  sample 0 0.216      ungated max 1.867      at   67  gated max 1.84       at   80  first gated exceedance    80  
-647:   pressure     tol_abs 3.26766      sample 0 0.1133     ungated max 0.4637     at   67  gated max 0.458      at   80  first gated exceedance    -1  
-647:   temperature  tol_abs 0.000987953  sample 0 1.02e-07   ungated max 0.8495     at   67  gated max 0.8355     at   80  first gated exceedance    -1  
+647:   density      tol_abs 7.28991e-06  sample 0 0.216      ungated max 1.867      at   67  gated max 1.84       at   80  first gated exceedance    80
+647:   pressure     tol_abs 3.26766      sample 0 0.1133     ungated max 0.4637     at   67  gated max 0.458      at   80  first gated exceedance    -1
+647:   temperature  tol_abs 0.000987953  sample 0 1.02e-07   ungated max 0.8495     at   67  gated max 0.8355     at   80  first gated exceedance    -1
 647: case13p2 DML references: first gated exceedance of a discriminating channel: sample 80, 10
 647: case13p2 DML references: inside every band the decided run asserts (all 21 channels): NO
 647: [       OK ] NescF16Variant.Case13p2DmlReferences (30 ms)
 647: [----------] 1 test from NescF16Variant (30 ms total)
-647: 
+647:
 647: [----------] Global test environment tear-down
 647: [==========] 1 test from 1 test suite ran. (30 ms total)
 647: [  PASSED  ] 1 test.
-[HANDLER_OUTPUT] 
+[HANDLER_OUTPUT]
  2/11 Test #647: physics.NescF16Variant.Case13p2DmlReferences .......
    Passed    0.03 sec
-[HANDLER_VERBOSE_OUTPUT] 
+[HANDLER_VERBOSE_OUTPUT]
 test 648
 
-[HANDLER_OUTPUT] 
+[HANDLER_OUTPUT]
       Start 648: physics.NescF16Variant.Case13p3DmlReferences
 
-[HANDLER_VERBOSE_OUTPUT] 
+[HANDLER_VERBOSE_OUTPUT]
 
 648: Test command: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics/astra_physics_tests "--gtest_filter=NescF16Variant.Case13p3DmlReferences" "--gtest_also_run_disabled_tests"
 
@@ -132,45 +132,45 @@ test 648
 648: [----------] 1 test from NescF16Variant
 648: [ RUN      ] NescF16Variant.Case13p3DmlReferences
 648: case13p3 DML references (reported, no band asserted): 301 samples compared, 30001 frames, halted false, stopped at an exceedance false; Q5 guard largest relative miss force 0, moment 0
-648:   latitude     tol_abs 1.8456e-07   sample 0 0.0002979  ungated max 0.08621    at   79  gated max 0.5484     at  300  first gated exceedance    -1  
-648:   longitude    tol_abs 9.27151e-07  sample 0 8.283e-05  ungated max 0.02114    at   79  gated max 0.05441    at  158  first gated exceedance    -1  
-648:   altitude     tol_abs 0.581782     sample 0 4.877e-10  ungated max 0.2203     at   65  gated max 0.2182     at  156  first gated exceedance    -1  
-648:   v_north      tol_abs 0.599068     sample 0 0.002622   ungated max 0.02197    at   72  gated max 0.3987     at  161  first gated exceedance    -1  
-648:   v_east       tol_abs 0.850739     sample 0 0.001846   ungated max 0.0155     at   71  gated max 0.2556     at  161  first gated exceedance    -1  
-648:   v_down       tol_abs 0.530958     sample 0 2.054e-09  ungated max 0.06749    at   18  gated max 0.3304     at  161  first gated exceedance    -1  
-648:   yaw          tol_abs 0.041289     sample 0 3.227e-14  ungated max 5.195e-05  at    2  gated max 0.3801     at  158  first gated exceedance    -1  
-648:   pitch        tol_abs 0.00824238   sample 0 0.0002386  ungated max 0.03813    at    2  gated max 0.3477     at  157  first gated exceedance    -1  
-648:   roll         tol_abs 0.0424506    sample 0 5.408e-14  ungated max 6.062e-05  at    5  gated max 0.7979     at  156  first gated exceedance    -1  
-648:   rate_p       tol_abs 1.24522      sample 0 2.327e-07  ungated max 2.771e-05  at    1  gated max 0.644      at  155  first gated exceedance    -1  
-648:   rate_q       tol_abs 0.122038     sample 0 4.141e-07  ungated max 0.0102     at    1  gated max 0.3843     at  157  first gated exceedance    -1  
-648:   rate_r       tol_abs 0.234606     sample 0 2.955e-05  ungated max 5.008e-05  at    1  gated max 0.312      at  157  first gated exceedance    -1  
-648:   force_x      tol_abs 7982.62      sample 0 0.09897    ungated max 0.09897    at    0  gated max 0.1757     at  158  first gated exceedance    -1  
-648:   force_y      tol_abs 21449.3      sample 0 2.324e-05  ungated max 8.717e-05  at    2  gated max 1.44       at  156  first gated exceedance   156  
-648:   force_z      tol_abs 62578.6      sample 0 0.06419    ungated max 0.06419    at    0  gated max 0.2537     at  158  first gated exceedance    -1  
-648:   moment_l     tol_abs 134020       sample 0 2.868e-06  ungated max 0.0003409  at    1  gated max 2.397      at  156  first gated exceedance   156  
+648:   latitude     tol_abs 1.8456e-07   sample 0 0.0002979  ungated max 0.08621    at   79  gated max 0.5484     at  300  first gated exceedance    -1
+648:   longitude    tol_abs 9.27151e-07  sample 0 8.283e-05  ungated max 0.02114    at   79  gated max 0.05441    at  158  first gated exceedance    -1
+648:   altitude     tol_abs 0.581782     sample 0 4.877e-10  ungated max 0.2203     at   65  gated max 0.2182     at  156  first gated exceedance    -1
+648:   v_north      tol_abs 0.599068     sample 0 0.002622   ungated max 0.02197    at   72  gated max 0.3987     at  161  first gated exceedance    -1
+648:   v_east       tol_abs 0.850739     sample 0 0.001846   ungated max 0.0155     at   71  gated max 0.2556     at  161  first gated exceedance    -1
+648:   v_down       tol_abs 0.530958     sample 0 2.054e-09  ungated max 0.06749    at   18  gated max 0.3304     at  161  first gated exceedance    -1
+648:   yaw          tol_abs 0.041289     sample 0 3.227e-14  ungated max 5.195e-05  at    2  gated max 0.3801     at  158  first gated exceedance    -1
+648:   pitch        tol_abs 0.00824238   sample 0 0.0002386  ungated max 0.03813    at    2  gated max 0.3477     at  157  first gated exceedance    -1
+648:   roll         tol_abs 0.0424506    sample 0 5.408e-14  ungated max 6.062e-05  at    5  gated max 0.7979     at  156  first gated exceedance    -1
+648:   rate_p       tol_abs 1.24522      sample 0 2.327e-07  ungated max 2.771e-05  at    1  gated max 0.644      at  155  first gated exceedance    -1
+648:   rate_q       tol_abs 0.122038     sample 0 4.141e-07  ungated max 0.0102     at    1  gated max 0.3843     at  157  first gated exceedance    -1
+648:   rate_r       tol_abs 0.234606     sample 0 2.955e-05  ungated max 5.008e-05  at    1  gated max 0.312      at  157  first gated exceedance    -1
+648:   force_x      tol_abs 7982.62      sample 0 0.09897    ungated max 0.09897    at    0  gated max 0.1757     at  158  first gated exceedance    -1
+648:   force_y      tol_abs 21449.3      sample 0 2.324e-05  ungated max 8.717e-05  at    2  gated max 1.44       at  156  first gated exceedance   156
+648:   force_z      tol_abs 62578.6      sample 0 0.06419    ungated max 0.06419    at    0  gated max 0.2537     at  158  first gated exceedance    -1
+648:   moment_l     tol_abs 134020       sample 0 2.868e-06  ungated max 0.0003409  at    1  gated max 2.397      at  156  first gated exceedance   156
 648:   moment_m     tol_abs 165538       sample 0 0.1144     ungated max 0.1144     at    0  gated max 0.1479     at  158  first gated exceedance    -1  zero-accepting: not evidence
-648:   moment_n     tol_abs 111724       sample 0 2.205e-05  ungated max 6.439e-05  at    2  gated max 1.435      at  156  first gated exceedance   156  
-648:   density      tol_abs 4.73173e-05  sample 0 0.03328    ungated max 0.2856     at   65  gated max 0.2832     at  156  first gated exceedance    -1  
-648:   pressure     tol_abs 7.07573      sample 0 0.05231    ungated max 0.2128     at   65  gated max 0.2113     at  156  first gated exceedance    -1  
-648:   temperature  tol_abs 0.00377796   sample 0 2.666e-08  ungated max 0.2203     at   65  gated max 0.2182     at  156  first gated exceedance    -1  
+648:   moment_n     tol_abs 111724       sample 0 2.205e-05  ungated max 6.439e-05  at    2  gated max 1.435      at  156  first gated exceedance   156
+648:   density      tol_abs 4.73173e-05  sample 0 0.03328    ungated max 0.2856     at   65  gated max 0.2832     at  156  first gated exceedance    -1
+648:   pressure     tol_abs 7.07573      sample 0 0.05231    ungated max 0.2128     at   65  gated max 0.2113     at  156  first gated exceedance    -1
+648:   temperature  tol_abs 0.00377796   sample 0 2.666e-08  ungated max 0.2203     at   65  gated max 0.2182     at  156  first gated exceedance    -1
 648: case13p3 DML references: first gated exceedance of a discriminating channel: sample 156, 13
 648: case13p3 DML references: inside every band the decided run asserts (15 channels, the six aero reported): yes
 648: [       OK ] NescF16Variant.Case13p3DmlReferences (44 ms)
 648: [----------] 1 test from NescF16Variant (44 ms total)
-648: 
+648:
 648: [----------] Global test environment tear-down
 648: [==========] 1 test from 1 test suite ran. (44 ms total)
 648: [  PASSED  ] 1 test.
-[HANDLER_OUTPUT] 
+[HANDLER_OUTPUT]
  3/11 Test #648: physics.NescF16Variant.Case13p3DmlReferences .......
    Passed    0.05 sec
-[HANDLER_VERBOSE_OUTPUT] 
+[HANDLER_VERBOSE_OUTPUT]
 test 649
 
-[HANDLER_OUTPUT] 
+[HANDLER_OUTPUT]
       Start 649: physics.NescF16Variant.Case13p4DmlReferences
 
-[HANDLER_VERBOSE_OUTPUT] 
+[HANDLER_VERBOSE_OUTPUT]
 
 649: Test command: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics/astra_physics_tests "--gtest_filter=NescF16Variant.Case13p4DmlReferences" "--gtest_also_run_disabled_tests"
 
@@ -183,45 +183,45 @@ test 649
 649: [----------] 1 test from NescF16Variant
 649: [ RUN      ] NescF16Variant.Case13p4DmlReferences
 649: case13p4 DML references (reported, no band asserted): 601 samples compared, 60001 frames, halted false, stopped at an exceedance false; Q5 guard largest relative miss force 0, moment 0
-649:   latitude     tol_abs 1.65788e-06  sample 0 3.316e-05  ungated max 0.009598   at   79  gated max 0.3402     at  600  first gated exceedance    -1  
-649:   longitude    tol_abs 7.30084e-07  sample 0 0.0001052  ungated max 0.02684    at   79  gated max 0.4203     at  600  first gated exceedance    -1  
-649:   altitude     tol_abs 0.595767     sample 0 4.763e-10  ungated max 0.2152     at   65  gated max 0.2141     at  290  first gated exceedance    -1  
-649:   v_north      tol_abs 0.565786     sample 0 0.002776   ungated max 0.02326    at   72  gated max 0.3597     at  211  first gated exceedance    -1  
-649:   v_east       tol_abs 0.816485     sample 0 0.001924   ungated max 0.01615    at   71  gated max 0.2384     at  206  first gated exceedance    -1  
-649:   v_down       tol_abs 0.581656     sample 0 1.875e-09  ungated max 0.0616     at   18  gated max 0.2858     at  211  first gated exceedance    -1  
-649:   yaw          tol_abs 0.0448237    sample 0 2.972e-14  ungated max 4.786e-05  at    2  gated max 0.3158     at  208  first gated exceedance    -1  
-649:   pitch        tol_abs 0.00889267   sample 0 0.0002211  ungated max 0.03534    at    2  gated max 0.3213     at  207  first gated exceedance    -1  
-649:   roll         tol_abs 0.0345609    sample 0 8.25e-14   ungated max 7.446e-05  at    5  gated max 0.9382     at  206  first gated exceedance    -1  
-649:   rate_p       tol_abs 0.956468     sample 0 3.03e-07   ungated max 3.607e-05  at    1  gated max 0.7449     at  205  first gated exceedance    -1  
-649:   rate_q       tol_abs 0.138973     sample 0 3.637e-07  ungated max 0.008961   at    1  gated max 0.3341     at  207  first gated exceedance    -1  
-649:   rate_r       tol_abs 0.231492     sample 0 2.994e-05  ungated max 5.075e-05  at    1  gated max 0.328      at  207  first gated exceedance    -1  
-649:   force_x      tol_abs 8385.28      sample 0 0.09422    ungated max 0.09422    at    0  gated max 0.157      at  209  first gated exceedance    -1  
-649:   force_y      tol_abs 28808.2      sample 0 1.73e-05   ungated max 6.491e-05  at    2  gated max 1.129      at  206  first gated exceedance   206  
-649:   force_z      tol_abs 62399.3      sample 0 0.06437    ungated max 0.06437    at    0  gated max 0.2375     at  208  first gated exceedance    -1  
-649:   moment_l     tol_abs 208338       sample 0 1.845e-06  ungated max 0.0002193  at    1  gated max 1.525      at  206  first gated exceedance   200  
+649:   latitude     tol_abs 1.65788e-06  sample 0 3.316e-05  ungated max 0.009598   at   79  gated max 0.3402     at  600  first gated exceedance    -1
+649:   longitude    tol_abs 7.30084e-07  sample 0 0.0001052  ungated max 0.02684    at   79  gated max 0.4203     at  600  first gated exceedance    -1
+649:   altitude     tol_abs 0.595767     sample 0 4.763e-10  ungated max 0.2152     at   65  gated max 0.2141     at  290  first gated exceedance    -1
+649:   v_north      tol_abs 0.565786     sample 0 0.002776   ungated max 0.02326    at   72  gated max 0.3597     at  211  first gated exceedance    -1
+649:   v_east       tol_abs 0.816485     sample 0 0.001924   ungated max 0.01615    at   71  gated max 0.2384     at  206  first gated exceedance    -1
+649:   v_down       tol_abs 0.581656     sample 0 1.875e-09  ungated max 0.0616     at   18  gated max 0.2858     at  211  first gated exceedance    -1
+649:   yaw          tol_abs 0.0448237    sample 0 2.972e-14  ungated max 4.786e-05  at    2  gated max 0.3158     at  208  first gated exceedance    -1
+649:   pitch        tol_abs 0.00889267   sample 0 0.0002211  ungated max 0.03534    at    2  gated max 0.3213     at  207  first gated exceedance    -1
+649:   roll         tol_abs 0.0345609    sample 0 8.25e-14   ungated max 7.446e-05  at    5  gated max 0.9382     at  206  first gated exceedance    -1
+649:   rate_p       tol_abs 0.956468     sample 0 3.03e-07   ungated max 3.607e-05  at    1  gated max 0.7449     at  205  first gated exceedance    -1
+649:   rate_q       tol_abs 0.138973     sample 0 3.637e-07  ungated max 0.008961   at    1  gated max 0.3341     at  207  first gated exceedance    -1
+649:   rate_r       tol_abs 0.231492     sample 0 2.994e-05  ungated max 5.075e-05  at    1  gated max 0.328      at  207  first gated exceedance    -1
+649:   force_x      tol_abs 8385.28      sample 0 0.09422    ungated max 0.09422    at    0  gated max 0.157      at  209  first gated exceedance    -1
+649:   force_y      tol_abs 28808.2      sample 0 1.73e-05   ungated max 6.491e-05  at    2  gated max 1.129      at  206  first gated exceedance   206
+649:   force_z      tol_abs 62399.3      sample 0 0.06437    ungated max 0.06437    at    0  gated max 0.2375     at  208  first gated exceedance    -1
+649:   moment_l     tol_abs 208338       sample 0 1.845e-06  ungated max 0.0002193  at    1  gated max 1.525      at  206  first gated exceedance   200
 649:   moment_m     tol_abs 159551       sample 0 0.1187     ungated max 0.1187     at    0  gated max 0.1423     at  208  first gated exceedance    -1  zero-accepting: not evidence
-649:   moment_n     tol_abs 146118       sample 0 1.686e-05  ungated max 4.923e-05  at    2  gated max 1.138      at  206  first gated exceedance   206  
-649:   density      tol_abs 4.86202e-05  sample 0 0.03239    ungated max 0.278      at   65  gated max 0.2767     at  290  first gated exceedance    -1  
-649:   pressure     tol_abs 7.19967      sample 0 0.05141    ungated max 0.2092     at   65  gated max 0.2084     at  290  first gated exceedance    -1  
-649:   temperature  tol_abs 0.00386877   sample 0 2.604e-08  ungated max 0.2152     at   65  gated max 0.2141     at  290  first gated exceedance    -1  
+649:   moment_n     tol_abs 146118       sample 0 1.686e-05  ungated max 4.923e-05  at    2  gated max 1.138      at  206  first gated exceedance   206
+649:   density      tol_abs 4.86202e-05  sample 0 0.03239    ungated max 0.278      at   65  gated max 0.2767     at  290  first gated exceedance    -1
+649:   pressure     tol_abs 7.19967      sample 0 0.05141    ungated max 0.2092     at   65  gated max 0.2084     at  290  first gated exceedance    -1
+649:   temperature  tol_abs 0.00386877   sample 0 2.604e-08  ungated max 0.2152     at   65  gated max 0.2141     at  290  first gated exceedance    -1
 649: case13p4 DML references: first gated exceedance of a discriminating channel: sample 200, 15
 649: case13p4 DML references: inside every band the decided run asserts (15 channels, the six aero reported): yes
 649: [       OK ] NescF16Variant.Case13p4DmlReferences (89 ms)
 649: [----------] 1 test from NescF16Variant (89 ms total)
-649: 
+649:
 649: [----------] Global test environment tear-down
 649: [==========] 1 test from 1 test suite ran. (89 ms total)
 649: [  PASSED  ] 1 test.
-[HANDLER_OUTPUT] 
+[HANDLER_OUTPUT]
  4/11 Test #649: physics.NescF16Variant.Case13p4DmlReferences .......
    Passed    0.09 sec
-[HANDLER_VERBOSE_OUTPUT] 
+[HANDLER_VERBOSE_OUTPUT]
 test 650
 
-[HANDLER_OUTPUT] 
+[HANDLER_OUTPUT]
       Start 650: physics.NescF16Variant.Case13p1Divisor1
 
-[HANDLER_VERBOSE_OUTPUT] 
+[HANDLER_VERBOSE_OUTPUT]
 
 650: Test command: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics/astra_physics_tests "--gtest_filter=NescF16Variant.Case13p1Divisor1" "--gtest_also_run_disabled_tests"
 
@@ -234,45 +234,45 @@ test 650
 650: [----------] 1 test from NescF16Variant
 650: [ RUN      ] NescF16Variant.Case13p1Divisor1
 650: case13p1 divisor 1 (trim references) (reported, no band asserted): 201 samples compared, 20001 frames, halted false, stopped at an exceedance false; Q5 guard largest relative miss force 0, moment 0
-650:   latitude     tol_abs 2.28977e-07  sample 0 0.0002401  ungated max 0.06839    at   79  gated max 0.1741     at  200  first gated exceedance    -1  
-650:   longitude    tol_abs 2.81999e-07  sample 0 0.0002723  ungated max 0.06835    at   79  gated max 0.1741     at  200  first gated exceedance    -1  
-650:   altitude     tol_abs 0.231498     sample 0 1.226e-09  ungated max 0.1164     at   51  gated max 0.135      at  113  first gated exceedance    -1  
-650:   v_north      tol_abs 0.0734867    sample 0 0.02137    ungated max 0.2263     at   52  gated max 0.1739     at  117  first gated exceedance    -1  
-650:   v_east       tol_abs 0.0735866    sample 0 0.02134    ungated max 0.2276     at   52  gated max 0.174      at  117  first gated exceedance    -1  
-650:   v_down       tol_abs 0.0210048    sample 0 5.192e-08  ungated max 1.796      at   53  gated max 0.4107     at   83  first gated exceedance    -1  
-650:   yaw          tol_abs 1.97204e-06  sample 0 6.756e-10  ungated max 3.107      at   52  gated max 0.1342     at   83  first gated exceedance    -1  
-650:   pitch        tol_abs 0.000219325  sample 0 0.008966   ungated max 5.843      at   52  gated max 0.2035     at   80  first gated exceedance    -1  
-650:   roll         tol_abs 4.65111e-06  sample 0 4.936e-10  ungated max 1.411      at   52  gated max 0.204      at  106  first gated exceedance    -1  
-650:   rate_p       tol_abs 1.10775e-05  sample 0 0.02616    ungated max 2.39       at   51  gated max 0.2036     at   83  first gated exceedance    -1  
-650:   rate_q       tol_abs 0.00025038   sample 0 0.0002019  ungated max 27.15      at   53  gated max 0.08337    at   80  first gated exceedance    -1  
-650:   rate_r       tol_abs 1.27468e-05  sample 0 0.5438     ungated max 3.411      at   54  gated max 0.169      at   80  first gated exceedance    -1  
-650:   force_x      tol_abs 481.659      sample 0 0.2265     ungated max 4.315      at   52  gated max 0.1696     at   80  first gated exceedance    -1  
+650:   latitude     tol_abs 2.28977e-07  sample 0 0.0002401  ungated max 0.06839    at   79  gated max 0.1741     at  200  first gated exceedance    -1
+650:   longitude    tol_abs 2.81999e-07  sample 0 0.0002723  ungated max 0.06835    at   79  gated max 0.1741     at  200  first gated exceedance    -1
+650:   altitude     tol_abs 0.231498     sample 0 1.226e-09  ungated max 0.1164     at   51  gated max 0.135      at  113  first gated exceedance    -1
+650:   v_north      tol_abs 0.0734867    sample 0 0.02137    ungated max 0.2263     at   52  gated max 0.1739     at  117  first gated exceedance    -1
+650:   v_east       tol_abs 0.0735866    sample 0 0.02134    ungated max 0.2276     at   52  gated max 0.174      at  117  first gated exceedance    -1
+650:   v_down       tol_abs 0.0210048    sample 0 5.192e-08  ungated max 1.796      at   53  gated max 0.4107     at   83  first gated exceedance    -1
+650:   yaw          tol_abs 1.97204e-06  sample 0 6.756e-10  ungated max 3.107      at   52  gated max 0.1342     at   83  first gated exceedance    -1
+650:   pitch        tol_abs 0.000219325  sample 0 0.008966   ungated max 5.843      at   52  gated max 0.2035     at   80  first gated exceedance    -1
+650:   roll         tol_abs 4.65111e-06  sample 0 4.936e-10  ungated max 1.411      at   52  gated max 0.204      at  106  first gated exceedance    -1
+650:   rate_p       tol_abs 1.10775e-05  sample 0 0.02616    ungated max 2.39       at   51  gated max 0.2036     at   83  first gated exceedance    -1
+650:   rate_q       tol_abs 0.00025038   sample 0 0.0002019  ungated max 27.15      at   53  gated max 0.08337    at   80  first gated exceedance    -1
+650:   rate_r       tol_abs 1.27468e-05  sample 0 0.5438     ungated max 3.411      at   54  gated max 0.169      at   80  first gated exceedance    -1
+650:   force_x      tol_abs 481.659      sample 0 0.2265     ungated max 4.315      at   52  gated max 0.1696     at   80  first gated exceedance    -1
 650:   force_y      tol_abs 1.75166      sample 0 0.2846     ungated max 3.866      at   52  gated max 0.1708     at   82  first gated exceedance    -1  zero-accepting: not evidence
-650:   force_z      tol_abs 2411.23      sample 0 0.2305     ungated max 9.561      at   52  gated max 0.1787     at   80  first gated exceedance    -1  
+650:   force_z      tol_abs 2411.23      sample 0 0.2305     ungated max 9.561      at   52  gated max 0.1787     at   80  first gated exceedance    -1
 650:   moment_l     tol_abs 26.4283      sample 0 0.01455    ungated max 7.685      at   52  gated max 0.1663     at   80  first gated exceedance    -1  zero-accepting: not evidence
 650:   moment_m     tol_abs 11727        sample 0 0.2234     ungated max 8.855      at   52  gated max 0.1668     at   80  first gated exceedance    -1  zero-accepting: not evidence
 650:   moment_n     tol_abs 6.35562      sample 0 0.3877     ungated max 3.105      at   52  gated max 0.1691     at   82  first gated exceedance    -1  zero-accepting: not evidence
-650:   density      tol_abs 1.46696e-05  sample 0 0.1073     ungated max 0.2784     at   51  gated max 0.3045     at  113  first gated exceedance    -1  
-650:   pressure     tol_abs 3.96123      sample 0 0.09344    ungated max 0.1537     at   51  gated max 0.1626     at  113  first gated exceedance    -1  
-650:   temperature  tol_abs 0.00150328   sample 0 6.7e-08    ungated max 0.1164     at   51  gated max 0.135      at  113  first gated exceedance    -1  
+650:   density      tol_abs 1.46696e-05  sample 0 0.1073     ungated max 0.2784     at   51  gated max 0.3045     at  113  first gated exceedance    -1
+650:   pressure     tol_abs 3.96123      sample 0 0.09344    ungated max 0.1537     at   51  gated max 0.1626     at  113  first gated exceedance    -1
+650:   temperature  tol_abs 0.00150328   sample 0 6.7e-08    ungated max 0.1164     at   51  gated max 0.135      at  113  first gated exceedance    -1
 650: case13p1 divisor 1 (trim references): first gated exceedance of a discriminating channel: sample -1, -1
 650: case13p1 divisor 1 (trim references): inside every band the decided run asserts (all 21 channels): yes
 650: [       OK ] NescF16Variant.Case13p1Divisor1 (35 ms)
 650: [----------] 1 test from NescF16Variant (35 ms total)
-650: 
+650:
 650: [----------] Global test environment tear-down
 650: [==========] 1 test from 1 test suite ran. (35 ms total)
 650: [  PASSED  ] 1 test.
-[HANDLER_OUTPUT] 
+[HANDLER_OUTPUT]
  5/11 Test #650: physics.NescF16Variant.Case13p1Divisor1 ............
    Passed    0.04 sec
-[HANDLER_VERBOSE_OUTPUT] 
+[HANDLER_VERBOSE_OUTPUT]
 test 651
 
-[HANDLER_OUTPUT] 
+[HANDLER_OUTPUT]
       Start 651: physics.NescF16Variant.Case13p2Divisor1
 
-[HANDLER_VERBOSE_OUTPUT] 
+[HANDLER_VERBOSE_OUTPUT]
 
 651: Test command: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics/astra_physics_tests "--gtest_filter=NescF16Variant.Case13p2Divisor1" "--gtest_also_run_disabled_tests"
 
@@ -285,45 +285,45 @@ test 651
 651: [----------] 1 test from NescF16Variant
 651: [ RUN      ] NescF16Variant.Case13p2Divisor1
 651: case13p2 divisor 1 (trim references) (reported, no band asserted): 201 samples compared, 20001 frames, halted false, stopped at an exceedance false; Q5 guard largest relative miss force 0, moment 0
-651:   latitude     tol_abs 2.22261e-07  sample 0 0.0002474  ungated max 0.07405    at   79  gated max 0.183      at  200  first gated exceedance    -1  
-651:   longitude    tol_abs 2.73722e-07  sample 0 0.0002806  ungated max 0.07404    at   79  gated max 0.1831     at  200  first gated exceedance    -1  
-651:   altitude     tol_abs 0.152139     sample 0 1.865e-09  ungated max 0.1791     at   74  gated max 0.178      at   80  first gated exceedance    -1  
-651:   v_north      tol_abs 0.0727057    sample 0 0.0216     ungated max 0.2073     at   53  gated max 0.1753     at   80  first gated exceedance    -1  
-651:   v_east       tol_abs 0.0727744    sample 0 0.02158    ungated max 0.2074     at   52  gated max 0.1753     at   80  first gated exceedance    -1  
-651:   v_down       tol_abs 0.0036571    sample 0 2.982e-07  ungated max 2.054      at   18  gated max 0.201      at   92  first gated exceedance    -1  
-651:   yaw          tol_abs 2.02964e-07  sample 0 6.564e-09  ungated max 10.13      at    2  gated max 0.2031     at   83  first gated exceedance    -1  
-651:   pitch        tol_abs 0.000104068  sample 0 0.0189     ungated max 0.5134     at    2  gated max 0.2094     at   80  first gated exceedance    -1  
-651:   roll         tol_abs 1.87071e-06  sample 0 1.227e-09  ungated max 1.127      at    5  gated max 0.2096     at   80  first gated exceedance    -1  
-651:   rate_p       tol_abs 3.56905e-07  sample 0 0.812      ungated max 24.54      at    1  gated max 0.2259     at   80  first gated exceedance    -1  
-651:   rate_q       tol_abs 1.86369e-06  sample 0 0.02712    ungated max 239.2      at   51  gated max 0.5052     at  101  first gated exceedance    -1  
-651:   rate_r       tol_abs 8.46159e-08  sample 0 81.92      ungated max 137.5      at    1  gated max 0.198      at   87  first gated exceedance    -1  
-651:   force_x      tol_abs 27.9011      sample 0 3.91       ungated max 3.91       at    0  gated max 0.1774     at   82  first gated exceedance    -1  
-651:   force_y      tol_abs 0.0252569    sample 0 19.74      ungated max 70.74      at    2  gated max 0.1705     at   84  first gated exceedance    -1  
-651:   force_z      tol_abs 73.3607      sample 0 7.578      ungated max 7.578      at    0  gated max 0.245      at   80  first gated exceedance    -1  
+651:   latitude     tol_abs 2.22261e-07  sample 0 0.0002474  ungated max 0.07405    at   79  gated max 0.183      at  200  first gated exceedance    -1
+651:   longitude    tol_abs 2.73722e-07  sample 0 0.0002806  ungated max 0.07404    at   79  gated max 0.1831     at  200  first gated exceedance    -1
+651:   altitude     tol_abs 0.152139     sample 0 1.865e-09  ungated max 0.1791     at   74  gated max 0.178      at   80  first gated exceedance    -1
+651:   v_north      tol_abs 0.0727057    sample 0 0.0216     ungated max 0.2073     at   53  gated max 0.1753     at   80  first gated exceedance    -1
+651:   v_east       tol_abs 0.0727744    sample 0 0.02158    ungated max 0.2074     at   52  gated max 0.1753     at   80  first gated exceedance    -1
+651:   v_down       tol_abs 0.0036571    sample 0 2.982e-07  ungated max 2.054      at   18  gated max 0.201      at   92  first gated exceedance    -1
+651:   yaw          tol_abs 2.02964e-07  sample 0 6.564e-09  ungated max 10.13      at    2  gated max 0.2031     at   83  first gated exceedance    -1
+651:   pitch        tol_abs 0.000104068  sample 0 0.0189     ungated max 0.5134     at    2  gated max 0.2094     at   80  first gated exceedance    -1
+651:   roll         tol_abs 1.87071e-06  sample 0 1.227e-09  ungated max 1.127      at    5  gated max 0.2096     at   80  first gated exceedance    -1
+651:   rate_p       tol_abs 3.56905e-07  sample 0 0.812      ungated max 24.54      at    1  gated max 0.2259     at   80  first gated exceedance    -1
+651:   rate_q       tol_abs 1.86369e-06  sample 0 0.02712    ungated max 239.2      at   51  gated max 0.5052     at  101  first gated exceedance    -1
+651:   rate_r       tol_abs 8.46159e-08  sample 0 81.92      ungated max 137.5      at    1  gated max 0.198      at   87  first gated exceedance    -1
+651:   force_x      tol_abs 27.9011      sample 0 3.91       ungated max 3.91       at    0  gated max 0.1774     at   82  first gated exceedance    -1
+651:   force_y      tol_abs 0.0252569    sample 0 19.74      ungated max 70.74      at    2  gated max 0.1705     at   84  first gated exceedance    -1
+651:   force_z      tol_abs 73.3607      sample 0 7.578      ungated max 7.578      at    0  gated max 0.245      at   80  first gated exceedance    -1
 651:   moment_l     tol_abs 0.219454     sample 0 1.752      ungated max 101.1      at    1  gated max 0.166      at   83  first gated exceedance    -1  zero-accepting: not evidence
 651:   moment_m     tol_abs 387.186      sample 0 6.767      ungated max 6.767      at    0  gated max 0.1673     at   84  first gated exceedance    -1  zero-accepting: not evidence
 651:   moment_n     tol_abs 0.0860062    sample 0 28.65      ungated max 79.74      at    2  gated max 0.1693     at   84  first gated exceedance    -1  zero-accepting: not evidence
-651:   density      tol_abs 7.28991e-06  sample 0 0.216      ungated max 0.5642     at   74  gated max 0.562      at   80  first gated exceedance    -1  
-651:   pressure     tol_abs 3.26766      sample 0 0.1133     ungated max 0.1872     at   74  gated max 0.1867     at   80  first gated exceedance    -1  
-651:   temperature  tol_abs 0.000987953  sample 0 1.02e-07   ungated max 0.1791     at   74  gated max 0.178      at   80  first gated exceedance    -1  
+651:   density      tol_abs 7.28991e-06  sample 0 0.216      ungated max 0.5642     at   74  gated max 0.562      at   80  first gated exceedance    -1
+651:   pressure     tol_abs 3.26766      sample 0 0.1133     ungated max 0.1872     at   74  gated max 0.1867     at   80  first gated exceedance    -1
+651:   temperature  tol_abs 0.000987953  sample 0 1.02e-07   ungated max 0.1791     at   74  gated max 0.178      at   80  first gated exceedance    -1
 651: case13p2 divisor 1 (trim references): first gated exceedance of a discriminating channel: sample -1, -1
 651: case13p2 divisor 1 (trim references): inside every band the decided run asserts (all 21 channels): yes
 651: [       OK ] NescF16Variant.Case13p2Divisor1 (35 ms)
 651: [----------] 1 test from NescF16Variant (35 ms total)
-651: 
+651:
 651: [----------] Global test environment tear-down
 651: [==========] 1 test from 1 test suite ran. (35 ms total)
 651: [  PASSED  ] 1 test.
-[HANDLER_OUTPUT] 
+[HANDLER_OUTPUT]
  6/11 Test #651: physics.NescF16Variant.Case13p2Divisor1 ............
    Passed    0.04 sec
-[HANDLER_VERBOSE_OUTPUT] 
+[HANDLER_VERBOSE_OUTPUT]
 test 652
 
-[HANDLER_OUTPUT] 
+[HANDLER_OUTPUT]
       Start 652: physics.NescF16Variant.Case13p3Divisor1
 
-[HANDLER_VERBOSE_OUTPUT] 
+[HANDLER_VERBOSE_OUTPUT]
 
 652: Test command: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics/astra_physics_tests "--gtest_filter=NescF16Variant.Case13p3Divisor1" "--gtest_also_run_disabled_tests"
 
@@ -336,45 +336,45 @@ test 652
 652: [----------] 1 test from NescF16Variant
 652: [ RUN      ] NescF16Variant.Case13p3Divisor1
 652: case13p3 divisor 1 (trim references) (reported, no band asserted): 301 samples compared, 30001 frames, halted false, stopped at an exceedance false; Q5 guard largest relative miss force 0, moment 0
-652:   latitude     tol_abs 1.8456e-07   sample 0 0.0002979  ungated max 0.08495    at   79  gated max 0.1643     at  152  first gated exceedance    -1  
-652:   longitude    tol_abs 9.27151e-07  sample 0 8.283e-05  ungated max 0.02082    at   79  gated max 0.1342     at  300  first gated exceedance    -1  
-652:   altitude     tol_abs 0.581782     sample 0 4.877e-10  ungated max 0.04612    at   64  gated max 0.1278     at  170  first gated exceedance    -1  
-652:   v_north      tol_abs 0.599068     sample 0 0.002622   ungated max 0.02127    at   71  gated max 0.1456     at  155  first gated exceedance    -1  
-652:   v_east       tol_abs 0.850739     sample 0 0.001846   ungated max 0.01499    at   71  gated max 0.1504     at  155  first gated exceedance    -1  
-652:   v_down       tol_abs 0.530958     sample 0 2.054e-09  ungated max 0.01415    at   18  gated max 0.1979     at  155  first gated exceedance    -1  
-652:   yaw          tol_abs 0.041289     sample 0 3.227e-14  ungated max 4.982e-05  at    2  gated max 0.1894     at  153  first gated exceedance    -1  
-652:   pitch        tol_abs 0.00824238   sample 0 0.0002386  ungated max 0.006482   at    2  gated max 0.1631     at  155  first gated exceedance    -1  
-652:   roll         tol_abs 0.0424506    sample 0 5.408e-14  ungated max 4.965e-05  at    5  gated max 0.1843     at  152  first gated exceedance    -1  
-652:   rate_p       tol_abs 1.24522      sample 0 2.327e-07  ungated max 7.034e-06  at    1  gated max 0.08865    at  155  first gated exceedance    -1  
-652:   rate_q       tol_abs 0.122038     sample 0 4.141e-07  ungated max 0.002229   at    1  gated max 0.1856     at  155  first gated exceedance    -1  
-652:   rate_r       tol_abs 0.234606     sample 0 2.955e-05  ungated max 4.96e-05   at    1  gated max 0.1589     at  152  first gated exceedance    -1  
-652:   force_x      tol_abs 7982.62      sample 0 0.01367    ungated max 0.01367    at    0  gated max 0.171      at  154  first gated exceedance    -1  
-652:   force_y      tol_abs 21449.3      sample 0 2.324e-05  ungated max 8.33e-05   at    2  gated max 0.1736     at  155  first gated exceedance    -1  
-652:   force_z      tol_abs 62578.6      sample 0 0.008883   ungated max 0.008883   at    0  gated max 0.1572     at  154  first gated exceedance    -1  
-652:   moment_l     tol_abs 134020       sample 0 2.868e-06  ungated max 0.0001656  at    1  gated max 0.1264     at  156  first gated exceedance    -1  
+652:   latitude     tol_abs 1.8456e-07   sample 0 0.0002979  ungated max 0.08495    at   79  gated max 0.1643     at  152  first gated exceedance    -1
+652:   longitude    tol_abs 9.27151e-07  sample 0 8.283e-05  ungated max 0.02082    at   79  gated max 0.1342     at  300  first gated exceedance    -1
+652:   altitude     tol_abs 0.581782     sample 0 4.877e-10  ungated max 0.04612    at   64  gated max 0.1278     at  170  first gated exceedance    -1
+652:   v_north      tol_abs 0.599068     sample 0 0.002622   ungated max 0.02127    at   71  gated max 0.1456     at  155  first gated exceedance    -1
+652:   v_east       tol_abs 0.850739     sample 0 0.001846   ungated max 0.01499    at   71  gated max 0.1504     at  155  first gated exceedance    -1
+652:   v_down       tol_abs 0.530958     sample 0 2.054e-09  ungated max 0.01415    at   18  gated max 0.1979     at  155  first gated exceedance    -1
+652:   yaw          tol_abs 0.041289     sample 0 3.227e-14  ungated max 4.982e-05  at    2  gated max 0.1894     at  153  first gated exceedance    -1
+652:   pitch        tol_abs 0.00824238   sample 0 0.0002386  ungated max 0.006482   at    2  gated max 0.1631     at  155  first gated exceedance    -1
+652:   roll         tol_abs 0.0424506    sample 0 5.408e-14  ungated max 4.965e-05  at    5  gated max 0.1843     at  152  first gated exceedance    -1
+652:   rate_p       tol_abs 1.24522      sample 0 2.327e-07  ungated max 7.034e-06  at    1  gated max 0.08865    at  155  first gated exceedance    -1
+652:   rate_q       tol_abs 0.122038     sample 0 4.141e-07  ungated max 0.002229   at    1  gated max 0.1856     at  155  first gated exceedance    -1
+652:   rate_r       tol_abs 0.234606     sample 0 2.955e-05  ungated max 4.96e-05   at    1  gated max 0.1589     at  152  first gated exceedance    -1
+652:   force_x      tol_abs 7982.62      sample 0 0.01367    ungated max 0.01367    at    0  gated max 0.171      at  154  first gated exceedance    -1
+652:   force_y      tol_abs 21449.3      sample 0 2.324e-05  ungated max 8.33e-05   at    2  gated max 0.1736     at  155  first gated exceedance    -1
+652:   force_z      tol_abs 62578.6      sample 0 0.008883   ungated max 0.008883   at    0  gated max 0.1572     at  154  first gated exceedance    -1
+652:   moment_l     tol_abs 134020       sample 0 2.868e-06  ungated max 0.0001656  at    1  gated max 0.1264     at  156  first gated exceedance    -1
 652:   moment_m     tol_abs 165538       sample 0 0.01583    ungated max 0.01583    at    0  gated max 0.1597     at  154  first gated exceedance    -1  zero-accepting: not evidence
-652:   moment_n     tol_abs 111724       sample 0 2.205e-05  ungated max 6.138e-05  at    2  gated max 0.1777     at  155  first gated exceedance    -1  
-652:   density      tol_abs 4.73173e-05  sample 0 0.03328    ungated max 0.08611    at   64  gated max 0.1797     at  170  first gated exceedance    -1  
-652:   pressure     tol_abs 7.07573      sample 0 0.05231    ungated max 0.08592    at   64  gated max 0.1455     at  170  first gated exceedance    -1  
-652:   temperature  tol_abs 0.00377796   sample 0 2.666e-08  ungated max 0.04612    at   64  gated max 0.1278     at  170  first gated exceedance    -1  
+652:   moment_n     tol_abs 111724       sample 0 2.205e-05  ungated max 6.138e-05  at    2  gated max 0.1777     at  155  first gated exceedance    -1
+652:   density      tol_abs 4.73173e-05  sample 0 0.03328    ungated max 0.08611    at   64  gated max 0.1797     at  170  first gated exceedance    -1
+652:   pressure     tol_abs 7.07573      sample 0 0.05231    ungated max 0.08592    at   64  gated max 0.1455     at  170  first gated exceedance    -1
+652:   temperature  tol_abs 0.00377796   sample 0 2.666e-08  ungated max 0.04612    at   64  gated max 0.1278     at  170  first gated exceedance    -1
 652: case13p3 divisor 1 (trim references): first gated exceedance of a discriminating channel: sample -1, -1
 652: case13p3 divisor 1 (trim references): inside every band the decided run asserts (15 channels, the six aero reported): yes
 652: [       OK ] NescF16Variant.Case13p3Divisor1 (53 ms)
 652: [----------] 1 test from NescF16Variant (53 ms total)
-652: 
+652:
 652: [----------] Global test environment tear-down
 652: [==========] 1 test from 1 test suite ran. (53 ms total)
 652: [  PASSED  ] 1 test.
-[HANDLER_OUTPUT] 
+[HANDLER_OUTPUT]
  7/11 Test #652: physics.NescF16Variant.Case13p3Divisor1 ............
    Passed    0.06 sec
-[HANDLER_VERBOSE_OUTPUT] 
+[HANDLER_VERBOSE_OUTPUT]
 test 653
 
-[HANDLER_OUTPUT] 
+[HANDLER_OUTPUT]
       Start 653: physics.NescF16Variant.Case13p4Divisor1
 
-[HANDLER_VERBOSE_OUTPUT] 
+[HANDLER_VERBOSE_OUTPUT]
 
 653: Test command: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics/astra_physics_tests "--gtest_filter=NescF16Variant.Case13p4Divisor1" "--gtest_also_run_disabled_tests"
 
@@ -387,45 +387,45 @@ test 653
 653: [----------] 1 test from NescF16Variant
 653: [ RUN      ] NescF16Variant.Case13p4Divisor1
 653: case13p4 divisor 1 (trim references) (reported, no band asserted): 601 samples compared, 60001 frames, halted false, stopped at an exceedance false; Q5 guard largest relative miss force 0, moment 0
-653:   latitude     tol_abs 1.65788e-06  sample 0 3.316e-05  ungated max 0.009457   at   79  gated max 0.3382     at  600  first gated exceedance    -1  
-653:   longitude    tol_abs 7.30084e-07  sample 0 0.0001052  ungated max 0.02644    at   79  gated max 0.4221     at  600  first gated exceedance    -1  
-653:   altitude     tol_abs 0.595767     sample 0 4.763e-10  ungated max 0.04504    at   64  gated max 0.1212     at  221  first gated exceedance    -1  
-653:   v_north      tol_abs 0.565786     sample 0 0.002776   ungated max 0.02252    at   71  gated max 0.2682     at  337  first gated exceedance    -1  
-653:   v_east       tol_abs 0.816485     sample 0 0.001924   ungated max 0.01562    at   71  gated max 0.1658     at  205  first gated exceedance    -1  
-653:   v_down       tol_abs 0.581656     sample 0 1.875e-09  ungated max 0.01291    at   18  gated max 0.1367     at  205  first gated exceedance    -1  
-653:   yaw          tol_abs 0.0448237    sample 0 2.972e-14  ungated max 4.589e-05  at    2  gated max 0.1681     at  204  first gated exceedance    -1  
-653:   pitch        tol_abs 0.00889267   sample 0 0.0002211  ungated max 0.006008   at    2  gated max 0.1186     at  205  first gated exceedance    -1  
-653:   roll         tol_abs 0.0345609    sample 0 8.25e-14   ungated max 6.098e-05  at    5  gated max 0.3141     at  267  first gated exceedance    -1  
-653:   rate_p       tol_abs 0.956468     sample 0 3.03e-07   ungated max 9.157e-06  at    1  gated max 0.05244    at  203  first gated exceedance    -1  
-653:   rate_q       tol_abs 0.138973     sample 0 3.637e-07  ungated max 0.001958   at    1  gated max 0.1184     at  205  first gated exceedance    -1  
-653:   rate_r       tol_abs 0.231492     sample 0 2.994e-05  ungated max 5.027e-05  at    1  gated max 0.1441     at  202  first gated exceedance    -1  
-653:   force_x      tol_abs 8385.28      sample 0 0.01301    ungated max 0.01301    at    0  gated max 0.1451     at  204  first gated exceedance    -1  
-653:   force_y      tol_abs 28808.2      sample 0 1.73e-05   ungated max 6.202e-05  at    2  gated max 0.8117     at  200  first gated exceedance    -1  
-653:   force_z      tol_abs 62399.3      sample 0 0.008909   ungated max 0.008909   at    0  gated max 0.1585     at  204  first gated exceedance    -1  
-653:   moment_l     tol_abs 208338       sample 0 1.845e-06  ungated max 0.0001065  at    1  gated max 1.298      at  200  first gated exceedance   200  
+653:   latitude     tol_abs 1.65788e-06  sample 0 3.316e-05  ungated max 0.009457   at   79  gated max 0.3382     at  600  first gated exceedance    -1
+653:   longitude    tol_abs 7.30084e-07  sample 0 0.0001052  ungated max 0.02644    at   79  gated max 0.4221     at  600  first gated exceedance    -1
+653:   altitude     tol_abs 0.595767     sample 0 4.763e-10  ungated max 0.04504    at   64  gated max 0.1212     at  221  first gated exceedance    -1
+653:   v_north      tol_abs 0.565786     sample 0 0.002776   ungated max 0.02252    at   71  gated max 0.2682     at  337  first gated exceedance    -1
+653:   v_east       tol_abs 0.816485     sample 0 0.001924   ungated max 0.01562    at   71  gated max 0.1658     at  205  first gated exceedance    -1
+653:   v_down       tol_abs 0.581656     sample 0 1.875e-09  ungated max 0.01291    at   18  gated max 0.1367     at  205  first gated exceedance    -1
+653:   yaw          tol_abs 0.0448237    sample 0 2.972e-14  ungated max 4.589e-05  at    2  gated max 0.1681     at  204  first gated exceedance    -1
+653:   pitch        tol_abs 0.00889267   sample 0 0.0002211  ungated max 0.006008   at    2  gated max 0.1186     at  205  first gated exceedance    -1
+653:   roll         tol_abs 0.0345609    sample 0 8.25e-14   ungated max 6.098e-05  at    5  gated max 0.3141     at  267  first gated exceedance    -1
+653:   rate_p       tol_abs 0.956468     sample 0 3.03e-07   ungated max 9.157e-06  at    1  gated max 0.05244    at  203  first gated exceedance    -1
+653:   rate_q       tol_abs 0.138973     sample 0 3.637e-07  ungated max 0.001958   at    1  gated max 0.1184     at  205  first gated exceedance    -1
+653:   rate_r       tol_abs 0.231492     sample 0 2.994e-05  ungated max 5.027e-05  at    1  gated max 0.1441     at  202  first gated exceedance    -1
+653:   force_x      tol_abs 8385.28      sample 0 0.01301    ungated max 0.01301    at    0  gated max 0.1451     at  204  first gated exceedance    -1
+653:   force_y      tol_abs 28808.2      sample 0 1.73e-05   ungated max 6.202e-05  at    2  gated max 0.8117     at  200  first gated exceedance    -1
+653:   force_z      tol_abs 62399.3      sample 0 0.008909   ungated max 0.008909   at    0  gated max 0.1585     at  204  first gated exceedance    -1
+653:   moment_l     tol_abs 208338       sample 0 1.845e-06  ungated max 0.0001065  at    1  gated max 1.298      at  200  first gated exceedance   200
 653:   moment_m     tol_abs 159551       sample 0 0.01642    ungated max 0.01642    at    0  gated max 0.1447     at  204  first gated exceedance    -1  zero-accepting: not evidence
-653:   moment_n     tol_abs 146118       sample 0 1.686e-05  ungated max 4.694e-05  at    2  gated max 0.8651     at  200  first gated exceedance    -1  
-653:   density      tol_abs 4.86202e-05  sample 0 0.03239    ungated max 0.0838     at   64  gated max 0.1708     at  221  first gated exceedance    -1  
-653:   pressure     tol_abs 7.19967      sample 0 0.05141    ungated max 0.08444    at   64  gated max 0.1403     at  221  first gated exceedance    -1  
-653:   temperature  tol_abs 0.00386877   sample 0 2.604e-08  ungated max 0.04504    at   64  gated max 0.1212     at  221  first gated exceedance    -1  
+653:   moment_n     tol_abs 146118       sample 0 1.686e-05  ungated max 4.694e-05  at    2  gated max 0.8651     at  200  first gated exceedance    -1
+653:   density      tol_abs 4.86202e-05  sample 0 0.03239    ungated max 0.0838     at   64  gated max 0.1708     at  221  first gated exceedance    -1
+653:   pressure     tol_abs 7.19967      sample 0 0.05141    ungated max 0.08444    at   64  gated max 0.1403     at  221  first gated exceedance    -1
+653:   temperature  tol_abs 0.00386877   sample 0 2.604e-08  ungated max 0.04504    at   64  gated max 0.1212     at  221  first gated exceedance    -1
 653: case13p4 divisor 1 (trim references): first gated exceedance of a discriminating channel: sample 200, 15
 653: case13p4 divisor 1 (trim references): inside every band the decided run asserts (15 channels, the six aero reported): yes
 653: [       OK ] NescF16Variant.Case13p4Divisor1 (104 ms)
 653: [----------] 1 test from NescF16Variant (104 ms total)
-653: 
+653:
 653: [----------] Global test environment tear-down
 653: [==========] 1 test from 1 test suite ran. (104 ms total)
 653: [  PASSED  ] 1 test.
-[HANDLER_OUTPUT] 
+[HANDLER_OUTPUT]
  8/11 Test #653: physics.NescF16Variant.Case13p4Divisor1 ............
    Passed    0.11 sec
-[HANDLER_VERBOSE_OUTPUT] 
+[HANDLER_VERBOSE_OUTPUT]
 test 654
 
-[HANDLER_OUTPUT] 
+[HANDLER_OUTPUT]
       Start 654: physics.NescF16Variant.Case13p4RhumbLine
 
-[HANDLER_VERBOSE_OUTPUT] 
+[HANDLER_VERBOSE_OUTPUT]
 
 654: Test command: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics/astra_physics_tests "--gtest_filter=NescF16Variant.Case13p4RhumbLine" "--gtest_also_run_disabled_tests"
 
@@ -441,43 +441,43 @@ test 654
 654: case13p4 rhumb line t = 40 s: variant lateralDeviationError + offset - decided d = -1.075 m (decided d 515.080 m)
 654: case13p4 rhumb line t = 60 s: variant lateralDeviationError + offset - decided d = -2.380 m (decided d 609.059 m)
 654: case13p4 rhumb line (reported, no band asserted): 601 samples compared, 60001 frames, halted false, stopped at an exceedance false; Q5 guard largest relative miss force 0, moment 0
-654:   latitude     tol_abs 1.65788e-06  sample 0 3.316e-05  ungated max 0.009457   at   79  gated max 0.217      at  600  first gated exceedance    -1  
-654:   longitude    tol_abs 7.30084e-07  sample 0 0.0001052  ungated max 0.02644    at   79  gated max 0.1319     at  600  first gated exceedance    -1  
-654:   altitude     tol_abs 0.595767     sample 0 4.763e-10  ungated max 0.04504    at   64  gated max 0.1245     at  225  first gated exceedance    -1  
-654:   v_north      tol_abs 0.565786     sample 0 0.002776   ungated max 0.02252    at   71  gated max 0.359      at  211  first gated exceedance    -1  
-654:   v_east       tol_abs 0.816485     sample 0 0.001924   ungated max 0.01562    at   71  gated max 0.2379     at  206  first gated exceedance    -1  
-654:   v_down       tol_abs 0.581656     sample 0 1.875e-09  ungated max 0.01291    at   18  gated max 0.2858     at  211  first gated exceedance    -1  
-654:   yaw          tol_abs 0.0448237    sample 0 2.972e-14  ungated max 4.8e-05    at    2  gated max 0.3159     at  208  first gated exceedance    -1  
-654:   pitch        tol_abs 0.00889267   sample 0 0.0002211  ungated max 0.006008   at    2  gated max 0.3213     at  207  first gated exceedance    -1  
-654:   roll         tol_abs 0.0345609    sample 0 8.25e-14   ungated max 6.421e-05  at    5  gated max 0.9383     at  206  first gated exceedance    -1  
-654:   rate_p       tol_abs 0.956468     sample 0 3.03e-07   ungated max 3.44e-05   at    1  gated max 0.7449     at  205  first gated exceedance    -1  
-654:   rate_q       tol_abs 0.138973     sample 0 3.637e-07  ungated max 0.001949   at    1  gated max 0.3341     at  207  first gated exceedance    -1  
-654:   rate_r       tol_abs 0.231492     sample 0 2.994e-05  ungated max 5.124e-05  at    1  gated max 0.328      at  207  first gated exceedance    -1  
-654:   force_x      tol_abs 8385.28      sample 0 0.01301    ungated max 0.01301    at    0  gated max 0.157      at  209  first gated exceedance    -1  
-654:   force_y      tol_abs 28808.2      sample 0 1.73e-05   ungated max 6.557e-05  at    2  gated max 1.129      at  206  first gated exceedance   206  
-654:   force_z      tol_abs 62399.3      sample 0 0.008909   ungated max 0.008909   at    0  gated max 0.2376     at  208  first gated exceedance    -1  
-654:   moment_l     tol_abs 208338       sample 0 1.845e-06  ungated max 0.0002184  at    1  gated max 1.525      at  206  first gated exceedance   200  
+654:   latitude     tol_abs 1.65788e-06  sample 0 3.316e-05  ungated max 0.009457   at   79  gated max 0.217      at  600  first gated exceedance    -1
+654:   longitude    tol_abs 7.30084e-07  sample 0 0.0001052  ungated max 0.02644    at   79  gated max 0.1319     at  600  first gated exceedance    -1
+654:   altitude     tol_abs 0.595767     sample 0 4.763e-10  ungated max 0.04504    at   64  gated max 0.1245     at  225  first gated exceedance    -1
+654:   v_north      tol_abs 0.565786     sample 0 0.002776   ungated max 0.02252    at   71  gated max 0.359      at  211  first gated exceedance    -1
+654:   v_east       tol_abs 0.816485     sample 0 0.001924   ungated max 0.01562    at   71  gated max 0.2379     at  206  first gated exceedance    -1
+654:   v_down       tol_abs 0.581656     sample 0 1.875e-09  ungated max 0.01291    at   18  gated max 0.2858     at  211  first gated exceedance    -1
+654:   yaw          tol_abs 0.0448237    sample 0 2.972e-14  ungated max 4.8e-05    at    2  gated max 0.3159     at  208  first gated exceedance    -1
+654:   pitch        tol_abs 0.00889267   sample 0 0.0002211  ungated max 0.006008   at    2  gated max 0.3213     at  207  first gated exceedance    -1
+654:   roll         tol_abs 0.0345609    sample 0 8.25e-14   ungated max 6.421e-05  at    5  gated max 0.9383     at  206  first gated exceedance    -1
+654:   rate_p       tol_abs 0.956468     sample 0 3.03e-07   ungated max 3.44e-05   at    1  gated max 0.7449     at  205  first gated exceedance    -1
+654:   rate_q       tol_abs 0.138973     sample 0 3.637e-07  ungated max 0.001949   at    1  gated max 0.3341     at  207  first gated exceedance    -1
+654:   rate_r       tol_abs 0.231492     sample 0 2.994e-05  ungated max 5.124e-05  at    1  gated max 0.328      at  207  first gated exceedance    -1
+654:   force_x      tol_abs 8385.28      sample 0 0.01301    ungated max 0.01301    at    0  gated max 0.157      at  209  first gated exceedance    -1
+654:   force_y      tol_abs 28808.2      sample 0 1.73e-05   ungated max 6.557e-05  at    2  gated max 1.129      at  206  first gated exceedance   206
+654:   force_z      tol_abs 62399.3      sample 0 0.008909   ungated max 0.008909   at    0  gated max 0.2376     at  208  first gated exceedance    -1
+654:   moment_l     tol_abs 208338       sample 0 1.845e-06  ungated max 0.0002184  at    1  gated max 1.525      at  206  first gated exceedance   200
 654:   moment_m     tol_abs 159551       sample 0 0.01642    ungated max 0.01642    at    0  gated max 0.1423     at  208  first gated exceedance    -1  zero-accepting: not evidence
-654:   moment_n     tol_abs 146118       sample 0 1.686e-05  ungated max 4.973e-05  at    2  gated max 1.138      at  206  first gated exceedance   206  
-654:   density      tol_abs 4.86202e-05  sample 0 0.03239    ungated max 0.0838     at   64  gated max 0.1097     at  225  first gated exceedance    -1  
-654:   pressure     tol_abs 7.19967      sample 0 0.05141    ungated max 0.08444    at   64  gated max 0.09033    at  290  first gated exceedance    -1  
-654:   temperature  tol_abs 0.00386877   sample 0 2.604e-08  ungated max 0.04504    at   64  gated max 0.1245     at  225  first gated exceedance    -1  
+654:   moment_n     tol_abs 146118       sample 0 1.686e-05  ungated max 4.973e-05  at    2  gated max 1.138      at  206  first gated exceedance   206
+654:   density      tol_abs 4.86202e-05  sample 0 0.03239    ungated max 0.0838     at   64  gated max 0.1097     at  225  first gated exceedance    -1
+654:   pressure     tol_abs 7.19967      sample 0 0.05141    ungated max 0.08444    at   64  gated max 0.09033    at  290  first gated exceedance    -1
+654:   temperature  tol_abs 0.00386877   sample 0 2.604e-08  ungated max 0.04504    at   64  gated max 0.1245     at  225  first gated exceedance    -1
 654: [       OK ] NescF16Variant.Case13p4RhumbLine (90 ms)
 654: [----------] 1 test from NescF16Variant (90 ms total)
-654: 
+654:
 654: [----------] Global test environment tear-down
 654: [==========] 1 test from 1 test suite ran. (90 ms total)
 654: [  PASSED  ] 1 test.
-[HANDLER_OUTPUT] 
+[HANDLER_OUTPUT]
  9/11 Test #654: physics.NescF16Variant.Case13p4RhumbLine ...........
    Passed    0.09 sec
-[HANDLER_VERBOSE_OUTPUT] 
+[HANDLER_VERBOSE_OUTPUT]
 test 655
 
-[HANDLER_OUTPUT] 
+[HANDLER_OUTPUT]
       Start 655: physics.NescF16Variant.Case13p4GreatCircle
 
-[HANDLER_VERBOSE_OUTPUT] 
+[HANDLER_VERBOSE_OUTPUT]
 
 655: Test command: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics/astra_physics_tests "--gtest_filter=NescF16Variant.Case13p4GreatCircle" "--gtest_also_run_disabled_tests"
 
@@ -493,43 +493,43 @@ test 655
 655: case13p4 great circle t = 40 s: variant lateralDeviationError + offset - decided d = -2.987 m (decided d 516.062 m)
 655: case13p4 great circle t = 60 s: variant lateralDeviationError + offset - decided d = -6.682 m (decided d 612.086 m)
 655: case13p4 great circle (reported, no band asserted): 601 samples compared, 60001 frames, halted false, stopped at an exceedance false; Q5 guard largest relative miss force 0, moment 0
-655:   latitude     tol_abs 1.65788e-06  sample 0 3.316e-05  ungated max 0.009457   at   79  gated max 0.04331    at  341  first gated exceedance    -1  
-655:   longitude    tol_abs 7.30084e-07  sample 0 0.0001052  ungated max 0.02644    at   79  gated max 0.395      at  600  first gated exceedance    -1  
-655:   altitude     tol_abs 0.595767     sample 0 4.763e-10  ungated max 0.04504    at   64  gated max 0.1245     at  225  first gated exceedance    -1  
-655:   v_north      tol_abs 0.565786     sample 0 0.002776   ungated max 0.02252    at   71  gated max 0.359      at  211  first gated exceedance    -1  
-655:   v_east       tol_abs 0.816485     sample 0 0.001924   ungated max 0.01562    at   71  gated max 0.2379     at  206  first gated exceedance    -1  
-655:   v_down       tol_abs 0.581656     sample 0 1.875e-09  ungated max 0.01291    at   18  gated max 0.2858     at  211  first gated exceedance    -1  
-655:   yaw          tol_abs 0.0448237    sample 0 2.972e-14  ungated max 4.8e-05    at    2  gated max 0.3159     at  208  first gated exceedance    -1  
-655:   pitch        tol_abs 0.00889267   sample 0 0.0002211  ungated max 0.006008   at    2  gated max 0.3213     at  207  first gated exceedance    -1  
-655:   roll         tol_abs 0.0345609    sample 0 8.25e-14   ungated max 6.421e-05  at    5  gated max 0.9383     at  206  first gated exceedance    -1  
-655:   rate_p       tol_abs 0.956468     sample 0 3.03e-07   ungated max 3.44e-05   at    1  gated max 0.7449     at  205  first gated exceedance    -1  
-655:   rate_q       tol_abs 0.138973     sample 0 3.637e-07  ungated max 0.001949   at    1  gated max 0.3341     at  207  first gated exceedance    -1  
-655:   rate_r       tol_abs 0.231492     sample 0 2.994e-05  ungated max 5.124e-05  at    1  gated max 0.328      at  207  first gated exceedance    -1  
-655:   force_x      tol_abs 8385.28      sample 0 0.01301    ungated max 0.01301    at    0  gated max 0.157      at  209  first gated exceedance    -1  
-655:   force_y      tol_abs 28808.2      sample 0 1.73e-05   ungated max 6.557e-05  at    2  gated max 1.129      at  206  first gated exceedance   206  
-655:   force_z      tol_abs 62399.3      sample 0 0.008909   ungated max 0.008909   at    0  gated max 0.2376     at  208  first gated exceedance    -1  
-655:   moment_l     tol_abs 208338       sample 0 1.845e-06  ungated max 0.0002184  at    1  gated max 1.525      at  206  first gated exceedance   200  
+655:   latitude     tol_abs 1.65788e-06  sample 0 3.316e-05  ungated max 0.009457   at   79  gated max 0.04331    at  341  first gated exceedance    -1
+655:   longitude    tol_abs 7.30084e-07  sample 0 0.0001052  ungated max 0.02644    at   79  gated max 0.395      at  600  first gated exceedance    -1
+655:   altitude     tol_abs 0.595767     sample 0 4.763e-10  ungated max 0.04504    at   64  gated max 0.1245     at  225  first gated exceedance    -1
+655:   v_north      tol_abs 0.565786     sample 0 0.002776   ungated max 0.02252    at   71  gated max 0.359      at  211  first gated exceedance    -1
+655:   v_east       tol_abs 0.816485     sample 0 0.001924   ungated max 0.01562    at   71  gated max 0.2379     at  206  first gated exceedance    -1
+655:   v_down       tol_abs 0.581656     sample 0 1.875e-09  ungated max 0.01291    at   18  gated max 0.2858     at  211  first gated exceedance    -1
+655:   yaw          tol_abs 0.0448237    sample 0 2.972e-14  ungated max 4.8e-05    at    2  gated max 0.3159     at  208  first gated exceedance    -1
+655:   pitch        tol_abs 0.00889267   sample 0 0.0002211  ungated max 0.006008   at    2  gated max 0.3213     at  207  first gated exceedance    -1
+655:   roll         tol_abs 0.0345609    sample 0 8.25e-14   ungated max 6.421e-05  at    5  gated max 0.9383     at  206  first gated exceedance    -1
+655:   rate_p       tol_abs 0.956468     sample 0 3.03e-07   ungated max 3.44e-05   at    1  gated max 0.7449     at  205  first gated exceedance    -1
+655:   rate_q       tol_abs 0.138973     sample 0 3.637e-07  ungated max 0.001949   at    1  gated max 0.3341     at  207  first gated exceedance    -1
+655:   rate_r       tol_abs 0.231492     sample 0 2.994e-05  ungated max 5.124e-05  at    1  gated max 0.328      at  207  first gated exceedance    -1
+655:   force_x      tol_abs 8385.28      sample 0 0.01301    ungated max 0.01301    at    0  gated max 0.157      at  209  first gated exceedance    -1
+655:   force_y      tol_abs 28808.2      sample 0 1.73e-05   ungated max 6.557e-05  at    2  gated max 1.129      at  206  first gated exceedance   206
+655:   force_z      tol_abs 62399.3      sample 0 0.008909   ungated max 0.008909   at    0  gated max 0.2376     at  208  first gated exceedance    -1
+655:   moment_l     tol_abs 208338       sample 0 1.845e-06  ungated max 0.0002184  at    1  gated max 1.525      at  206  first gated exceedance   200
 655:   moment_m     tol_abs 159551       sample 0 0.01642    ungated max 0.01642    at    0  gated max 0.1423     at  208  first gated exceedance    -1  zero-accepting: not evidence
-655:   moment_n     tol_abs 146118       sample 0 1.686e-05  ungated max 4.973e-05  at    2  gated max 1.138      at  206  first gated exceedance   206  
-655:   density      tol_abs 4.86202e-05  sample 0 0.03239    ungated max 0.0838     at   64  gated max 0.1097     at  225  first gated exceedance    -1  
-655:   pressure     tol_abs 7.19967      sample 0 0.05141    ungated max 0.08444    at   64  gated max 0.08536    at  288  first gated exceedance    -1  
-655:   temperature  tol_abs 0.00386877   sample 0 2.604e-08  ungated max 0.04504    at   64  gated max 0.1245     at  225  first gated exceedance    -1  
+655:   moment_n     tol_abs 146118       sample 0 1.686e-05  ungated max 4.973e-05  at    2  gated max 1.138      at  206  first gated exceedance   206
+655:   density      tol_abs 4.86202e-05  sample 0 0.03239    ungated max 0.0838     at   64  gated max 0.1097     at  225  first gated exceedance    -1
+655:   pressure     tol_abs 7.19967      sample 0 0.05141    ungated max 0.08444    at   64  gated max 0.08536    at  288  first gated exceedance    -1
+655:   temperature  tol_abs 0.00386877   sample 0 2.604e-08  ungated max 0.04504    at   64  gated max 0.1245     at  225  first gated exceedance    -1
 655: [       OK ] NescF16Variant.Case13p4GreatCircle (94 ms)
 655: [----------] 1 test from NescF16Variant (94 ms total)
-655: 
+655:
 655: [----------] Global test environment tear-down
 655: [==========] 1 test from 1 test suite ran. (94 ms total)
 655: [  PASSED  ] 1 test.
-[HANDLER_OUTPUT] 
+[HANDLER_OUTPUT]
 10/11 Test #655: physics.NescF16Variant.Case13p4GreatCircle .........
    Passed    0.10 sec
-[HANDLER_VERBOSE_OUTPUT] 
+[HANDLER_VERBOSE_OUTPUT]
 test 656
 
-[HANDLER_OUTPUT] 
+[HANDLER_OUTPUT]
       Start 656: physics.NescF16Variant.Case13p4LineAtOffsetFrame
 
-[HANDLER_VERBOSE_OUTPUT] 
+[HANDLER_VERBOSE_OUTPUT]
 
 656: Test command: /home/joe/repos/ASTRA/.claude/worktrees/m7-pr11a/build/release/tests/physics/astra_physics_tests "--gtest_filter=NescF16Variant.Case13p4LineAtOffsetFrame" "--gtest_also_run_disabled_tests"
 
@@ -545,37 +545,37 @@ test 656
 656: case13p4 line at the offset frame t = 40 s: variant lateralDeviationError + offset - decided d = -1.565 m (decided d 515.552 m)
 656: case13p4 line at the offset frame t = 60 s: variant lateralDeviationError + offset - decided d = -2.062 m (decided d 609.172 m)
 656: case13p4 line at the offset frame (reported, no band asserted): 601 samples compared, 60001 frames, halted false, stopped at an exceedance false; Q5 guard largest relative miss force 0, moment 0
-656:   latitude     tol_abs 1.65788e-06  sample 0 3.316e-05  ungated max 0.009457   at   79  gated max 0.2036     at  600  first gated exceedance    -1  
-656:   longitude    tol_abs 7.30084e-07  sample 0 0.0001052  ungated max 0.02644    at   79  gated max 0.1268     at  600  first gated exceedance    -1  
-656:   altitude     tol_abs 0.595767     sample 0 4.763e-10  ungated max 0.04504    at   64  gated max 0.1245     at  225  first gated exceedance    -1  
-656:   v_north      tol_abs 0.565786     sample 0 0.002776   ungated max 0.02252    at   71  gated max 0.359      at  211  first gated exceedance    -1  
-656:   v_east       tol_abs 0.816485     sample 0 0.001924   ungated max 0.01562    at   71  gated max 0.2379     at  206  first gated exceedance    -1  
-656:   v_down       tol_abs 0.581656     sample 0 1.875e-09  ungated max 0.01291    at   18  gated max 0.2858     at  211  first gated exceedance    -1  
-656:   yaw          tol_abs 0.0448237    sample 0 2.972e-14  ungated max 4.8e-05    at    2  gated max 0.3159     at  208  first gated exceedance    -1  
-656:   pitch        tol_abs 0.00889267   sample 0 0.0002211  ungated max 0.006008   at    2  gated max 0.3213     at  207  first gated exceedance    -1  
-656:   roll         tol_abs 0.0345609    sample 0 8.25e-14   ungated max 6.421e-05  at    5  gated max 0.9383     at  206  first gated exceedance    -1  
-656:   rate_p       tol_abs 0.956468     sample 0 3.03e-07   ungated max 3.44e-05   at    1  gated max 0.7449     at  205  first gated exceedance    -1  
-656:   rate_q       tol_abs 0.138973     sample 0 3.637e-07  ungated max 0.001949   at    1  gated max 0.3341     at  207  first gated exceedance    -1  
-656:   rate_r       tol_abs 0.231492     sample 0 2.994e-05  ungated max 5.124e-05  at    1  gated max 0.328      at  207  first gated exceedance    -1  
-656:   force_x      tol_abs 8385.28      sample 0 0.01301    ungated max 0.01301    at    0  gated max 0.157      at  209  first gated exceedance    -1  
-656:   force_y      tol_abs 28808.2      sample 0 1.73e-05   ungated max 6.557e-05  at    2  gated max 1.129      at  206  first gated exceedance   206  
-656:   force_z      tol_abs 62399.3      sample 0 0.008909   ungated max 0.008909   at    0  gated max 0.2376     at  208  first gated exceedance    -1  
-656:   moment_l     tol_abs 208338       sample 0 1.845e-06  ungated max 0.0002184  at    1  gated max 1.525      at  206  first gated exceedance   200  
+656:   latitude     tol_abs 1.65788e-06  sample 0 3.316e-05  ungated max 0.009457   at   79  gated max 0.2036     at  600  first gated exceedance    -1
+656:   longitude    tol_abs 7.30084e-07  sample 0 0.0001052  ungated max 0.02644    at   79  gated max 0.1268     at  600  first gated exceedance    -1
+656:   altitude     tol_abs 0.595767     sample 0 4.763e-10  ungated max 0.04504    at   64  gated max 0.1245     at  225  first gated exceedance    -1
+656:   v_north      tol_abs 0.565786     sample 0 0.002776   ungated max 0.02252    at   71  gated max 0.359      at  211  first gated exceedance    -1
+656:   v_east       tol_abs 0.816485     sample 0 0.001924   ungated max 0.01562    at   71  gated max 0.2379     at  206  first gated exceedance    -1
+656:   v_down       tol_abs 0.581656     sample 0 1.875e-09  ungated max 0.01291    at   18  gated max 0.2858     at  211  first gated exceedance    -1
+656:   yaw          tol_abs 0.0448237    sample 0 2.972e-14  ungated max 4.8e-05    at    2  gated max 0.3159     at  208  first gated exceedance    -1
+656:   pitch        tol_abs 0.00889267   sample 0 0.0002211  ungated max 0.006008   at    2  gated max 0.3213     at  207  first gated exceedance    -1
+656:   roll         tol_abs 0.0345609    sample 0 8.25e-14   ungated max 6.421e-05  at    5  gated max 0.9383     at  206  first gated exceedance    -1
+656:   rate_p       tol_abs 0.956468     sample 0 3.03e-07   ungated max 3.44e-05   at    1  gated max 0.7449     at  205  first gated exceedance    -1
+656:   rate_q       tol_abs 0.138973     sample 0 3.637e-07  ungated max 0.001949   at    1  gated max 0.3341     at  207  first gated exceedance    -1
+656:   rate_r       tol_abs 0.231492     sample 0 2.994e-05  ungated max 5.124e-05  at    1  gated max 0.328      at  207  first gated exceedance    -1
+656:   force_x      tol_abs 8385.28      sample 0 0.01301    ungated max 0.01301    at    0  gated max 0.157      at  209  first gated exceedance    -1
+656:   force_y      tol_abs 28808.2      sample 0 1.73e-05   ungated max 6.557e-05  at    2  gated max 1.129      at  206  first gated exceedance   206
+656:   force_z      tol_abs 62399.3      sample 0 0.008909   ungated max 0.008909   at    0  gated max 0.2376     at  208  first gated exceedance    -1
+656:   moment_l     tol_abs 208338       sample 0 1.845e-06  ungated max 0.0002184  at    1  gated max 1.525      at  206  first gated exceedance   200
 656:   moment_m     tol_abs 159551       sample 0 0.01642    ungated max 0.01642    at    0  gated max 0.1423     at  208  first gated exceedance    -1  zero-accepting: not evidence
-656:   moment_n     tol_abs 146118       sample 0 1.686e-05  ungated max 4.973e-05  at    2  gated max 1.138      at  206  first gated exceedance   206  
-656:   density      tol_abs 4.86202e-05  sample 0 0.03239    ungated max 0.0838     at   64  gated max 0.1097     at  225  first gated exceedance    -1  
-656:   pressure     tol_abs 7.19967      sample 0 0.05141    ungated max 0.08444    at   64  gated max 0.08623    at  289  first gated exceedance    -1  
-656:   temperature  tol_abs 0.00386877   sample 0 2.604e-08  ungated max 0.04504    at   64  gated max 0.1245     at  225  first gated exceedance    -1  
+656:   moment_n     tol_abs 146118       sample 0 1.686e-05  ungated max 4.973e-05  at    2  gated max 1.138      at  206  first gated exceedance   206
+656:   density      tol_abs 4.86202e-05  sample 0 0.03239    ungated max 0.0838     at   64  gated max 0.1097     at  225  first gated exceedance    -1
+656:   pressure     tol_abs 7.19967      sample 0 0.05141    ungated max 0.08444    at   64  gated max 0.08623    at  289  first gated exceedance    -1
+656:   temperature  tol_abs 0.00386877   sample 0 2.604e-08  ungated max 0.04504    at   64  gated max 0.1245     at  225  first gated exceedance    -1
 656: [       OK ] NescF16Variant.Case13p4LineAtOffsetFrame (90 ms)
 656: [----------] 1 test from NescF16Variant (90 ms total)
-656: 
+656:
 656: [----------] Global test environment tear-down
 656: [==========] 1 test from 1 test suite ran. (90 ms total)
 656: [  PASSED  ] 1 test.
-[HANDLER_OUTPUT] 
+[HANDLER_OUTPUT]
 11/11 Test #656: physics.NescF16Variant.Case13p4LineAtOffsetFrame ...
    Passed    0.09 sec
-[HANDLER_VERBOSE_OUTPUT] 
+[HANDLER_VERBOSE_OUTPUT]
 
 The following tests passed:
 
@@ -590,7 +590,7 @@ The following tests passed:
 	physics.NescF16Variant.Case13p4RhumbLine
 	physics.NescF16Variant.Case13p4GreatCircle
 	physics.NescF16Variant.Case13p4LineAtOffsetFrame
-[HANDLER_OUTPUT] 
+[HANDLER_OUTPUT]
 
 100% tests passed, 0 tests failed out of 11
 
