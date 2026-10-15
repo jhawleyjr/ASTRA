@@ -588,7 +588,7 @@ takes them as a prefix.
     and 13.2 pass all 21. The elevator's sign fails pitch in all four and the aileron's roll in 13.3 and 13.4;
     Izx's sign and the wrong divisor are reported (divisor 1 within every asserted band). Plan:
     [plan](docs/plans/m7-pr11a-control-peer.md). Packet: in the PR body.
-  - PR 16 (#NN): M7 closeout. It checks M7 off with evidence links, moves the envelope item to M8 and the
+  - PR 16 (#120): M7 closeout. It checks M7 off with evidence links, moves the envelope item to M8 and the
     rotation item to M9, adds the PR 6b review item, and rewrites architecture §16's M7 row and note. It also
     sets §18's tutorial marker to unscheduled and §7, §12 and §15's envelope markers to M8 (rev 14). Plans:
     [milestone](docs/plans/m7-f16-nesc-oracle.md), [PR](docs/plans/m7-pr16-closeout.md). Packet: in the PR body.

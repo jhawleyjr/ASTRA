@@ -5,7 +5,7 @@ for aircraft and atmospheric flight. Its purpose is to run an aircraft's real em
 the simulation over a lockstep transport: all-digital first, hardware in the loop later. The framework is the
 product ([ADR-0019](docs/decisions/0019-vehicle-agnostic-purpose.md)). You build a vehicle from plugins without
 editing the core. `aircraft/notional_transport` is the worked example: an example twin-jet, not a validated
-airliner. The F-16 joins in M7, checked against the NESC atmospheric check cases. The guidance, navigation and
+airliner. The F-16, built in M7, is checked against the NESC atmospheric check cases. The guidance, navigation and
 control software is the project's own; no third-party flight stack runs in the loop
 ([direction](docs/future-work.md#direction-joe-2026-09-29)).
 
@@ -81,7 +81,8 @@ Everything below is on `main` today.
   (`sim.health`). Transport and log failures always halt. The envelope, rate and real-time checks in
   [architecture §15](docs/architecture.md#15-health-monitoring) are not built yet.
 - **Verification.** NASA's NESC atmospheric check cases 1 to 10 (`tests/physics/nesc/`,
-  [ADR-0013](docs/decisions/0013-nesc-check-case-oracle.md)), ISA table points, the Dryden PSD, torque-free
+  [ADR-0013](docs/decisions/0013-nesc-check-case-oracle.md)) and the F-16's cases 11, 12 and 13.1 to 13.4
+  ([ADR-0028](docs/decisions/0028-f16-nesc-oracle.md)), ISA table points, the Dryden PSD, torque-free
   energy and momentum conservation, and RK4's convergence order against Euler.
 - **Frame-time benchmark.** `just benchmark <out.json>` times each `step()` of the notional transport's
   cruise configs and of `tests/configs/dummy_1000.yaml`, and logged runs end to end through `close_log()`, in a
@@ -417,13 +418,14 @@ save GitHub Actions minutes, so a green `check` on GitHub is not evidence that t
 
 ## Roadmap
 
-M0 to M6 are done: bootstrap, rigid body, environment, the notional transport, lockstep with the embedded
-autopilot, tooling, and analysis tooling. Next, in order:
+M0 to M7 are done: bootstrap, rigid body, environment, the notional transport, lockstep with the embedded
+autopilot, tooling, analysis tooling, and the F-16 with the NESC oracle (cases 11, 12 and 13.1 to 13.4, and
+the config-key reference). Cases 15 and 16, the embedded port and the tutorial left M7 unscheduled (Joe,
+2026-10-13). Next, in order:
 
-- **M7 F-16 and the NESC oracle:** `aircraft/f16` from the template; NESC cases 11, 12 and 13.1 to 13.4; a
-  config-key reference. Cases 15 and 16, the embedded port and the tutorial are unscheduled (Joe, 2026-10-13).
-- **M8 Actuators and controller tuning:** actuator models with rate and position limits, gains loaded at
-  startup, a tuning tool, frequency-domain and handling-qualities analysis.
+- **M8 Actuators and controller tuning:** the envelope monitors (ADR-0031) first, then actuator models with
+  rate and position limits, gains loaded at startup, a tuning tool, frequency-domain and handling-qualities
+  analysis.
 - **M9 Sensors and ICD v2:** IMU, GNSS, barometric, air-data and magnetometer models; nonstandard days, gusts,
   shear and microbursts.
 - **M10 Navigation, faults and closed-loop Monte Carlo:** an INS/GNSS EKF in `embedded/`, fault injection, and

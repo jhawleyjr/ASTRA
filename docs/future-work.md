@@ -21,13 +21,17 @@ In this order; Joe accepted it as proposed, with the decisions listed after it.
   correlation, Monte Carlo sizing, the run report, the frame-time benchmark, `astra run --strict`, and the
   superseding ADR to ADR-0025's Finalization.
 - **M7 F-16 and the NESC oracle:** `aircraft/f16`, NESC cases 11, 12 and 13.1 to 13.4, and the config-key
-  reference; cases 15 and 16, the embedded port and the tutorial are unscheduled (Joe, 2026-10-13). Takes the open items on Earth/gravity rotation consistency, the mass
-  product-of-inertia convention, trim's control names, §15 envelope monitors and ADR-0002's wording.
+  reference; cases 15 and 16, the embedded port and the tutorial are unscheduled (Joe, 2026-10-13). It closed
+  the open items on the mass product-of-inertia convention, trim's control names and ADR-0002's wording; at
+  its closeout the §15 envelope monitors moved to M8 and Earth/gravity rotation consistency to M9 (Joe,
+  2026-10-15).
 - **M8 Actuators and controller tuning:** the actuator models, gains loaded at startup, the tuning tool,
   frequency-domain and handling-qualities analysis. Takes the open items on deflection range, throttle
-  jitter, linearize's altitude state and the `kSideslip` cleanup.
+  jitter, linearize's altitude state and the `kSideslip` cleanup, and, first, the §15 envelope monitors (M7's
+  PR 13).
 - **M9 Sensors and ICD v2:** IMU levels, GNSS PVT, baro, air data, magnetometer and a field model;
-  non-standard days, gusts, shear and microbursts; ICD decode fuzzing.
+  non-standard days, gusts, shear and microbursts; ICD decode fuzzing. Takes the open items on Earth/gravity
+  rotation consistency (M7's PR 3) and the ICD v2 Earth rate.
 - **M10 Navigation, faults and closed-loop Monte Carlo:** the INS/GNSS EKF, NEES and NIS, fault injection,
   closed-loop scenarios and Monte Carlo. Takes the open items on wind events, closed-loop runs, retiring
   `ExchangeRecorder`, Follow-up C and lockstep replay.
@@ -161,7 +165,8 @@ loop-at-a-time margins for the gains that ship.
 ## Documentation
 
 - A tutorial path: add a model, add an aircraft, write a scenario, run a Monte Carlo. Architecture §18
-  promises this on-ramp; README.md's how-tos sketch each step, but no tutorial walks through it yet (M7).
+  promises this on-ramp; README.md's how-tos sketch each step, but no tutorial walks through it yet (M7's
+  PR 15, unscheduled by Joe, 2026-10-13).
 
 ## Workflow
 
