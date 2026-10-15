@@ -417,7 +417,8 @@ takes them as a prefix.
       - `aircraft/f16` from the template, its aero, mass and engine pinned to the DAVE-ML check data: PR 6b
         (R2: `F16Aero`'s 16 checkData shots and the byte-for-byte regeneration test). #113 merged at its commit
         4 on Joe's decision of 2026-10-10, the accepted exception to the Tier 3 review and gate, so it has no
-        gate or Codex code review of its own; its aero was first gated in PR 6c's summary (the review item
+        gate or Codex code review of its own; its aero was first gated in PR 3c's summary, whose base was
+        #113 ([summary](docs/reviews/evidence/beffa64-gate-summary.log)), then in PR 6c's (the review item
         below). PR 6c (R1, R3: `F16Mass` and `F16Engine`'s 9 checkData shots; CTest 738/739/740/741, pytest
         2079 passed — [summary](docs/reviews/evidence/991ee89-gate-summary.log));
       - cases 11 and 12: PR 9 (R5, R4's F-16 half, R9 for 11 and 12; all 21 channels gated; CTest
@@ -770,8 +771,8 @@ takes them as a prefix.
       loose maneuver bands; Joe, 2026-10-13.
 - [ ] (unscheduled) A Codex adversarial review of M7 PR 6b's `aircraft/f16` diff, `856fff0..c8f3128` (origin: M7
       closeout; Joe 2026-10-15, his call when). #113 merged at its commit 4 on Joe's decision of 2026-10-10, the
-      accepted exception to the Tier 3 review and gate. Its only Codex pass was the plan critique, and PR 6c's
-      adversarial review ran on a base that already held it. The review's evidence is `F16Aero`'s 16 checkData
+      accepted exception to the Tier 3 review and gate. Its only Codex pass was the plan critique, and PR 3c's
+      and PR 6c's adversarial reviews ran on bases that already held it. The review's evidence is `F16Aero`'s 16 checkData
       shots and the regeneration test (`tests/python/test_f16_generated.py`, also in that diff). Not started.
 - [ ] (M9) ICD v2 carries an Earth rate or an Earth-relative body rate, which removes `nesc_control`'s
       non-rotating-Earth limitation (origin: M7 PR 1b; Joe 2026-10-09;

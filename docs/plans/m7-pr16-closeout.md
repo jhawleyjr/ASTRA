@@ -12,7 +12,7 @@ Amendments (Joe, 2026-10-15):
    body under "Needs Joe's decision".
 2. D2: record it and add the item. The PLAN.md clause says #113 merged at its commit 4 on Joe's decision of
    2026-10-10, the accepted exception to the Tier 3 review and gate, and that its aero was first gated in PR
-   6c's `991ee89` summary. One `(unscheduled)` open item: a Codex adversarial review of PR 6b's `aircraft/f16`
+   6c's `991ee89` summary. (Corrected in review, R-001: first in PR 3c's `beffa64` summary, then in 6c's.) One `(unscheduled)` open item: a Codex adversarial review of PR 6b's `aircraft/f16`
    diff, `856fff0..c8f3128`, with the `F16Aero` shots and the regeneration test as its evidence; Joe's call
    when. STATE's items list names it.
 3. D3: yes. The five §7, §12 and §15 markers become "planned, M8 (M7's PR 13, moved at the M7 closeout)"; the
@@ -70,8 +70,11 @@ Further facts the edits rest on:
 - **PR 6b has no gate or code review of its own.** #113's body ends "Pending: the implementation, the full
   gate, Codex adversarial review". #113 merged at commit 4 (the aero) on Joe's Q1 decision of 2026-10-10. Its
   only Codex pass was the plan critique, thread `01a1277c-…`. The 6b squash `c8f3128` is an ancestor of
-  `991ee89`, so its aero was first full-gated in PR 6c's summary. 6c's adversarial review ran on
+  `991ee89`, so its aero was full-gated in PR 6c's summary. 6c's adversarial review ran on
   `--base origin/main` = `c87f202`, which already held 6b, so no Codex pass has read 6b's aero diff.
+  *Corrected in review (R-001, `docs/reviews/m7-pr16-closeout-review.md`):* `c8f3128` is also an ancestor of
+  PR 3c's `beffa64` (3c's base was #113), with no `aircraft/f16` change between them, so 6b's aero was first
+  gated in PR 3c's summary. PR 3c's adversarial review ran on `c8f3128..6ca17d5`, so it did not read 6b either.
 - The open items with an (M7) prefix are exactly two (PLAN.md l. 564, rotation consistency; l. 600, the
   envelope monitors). The three unscheduled M7 items (PR 11b, 12, 15) and the (M9) ICD v2 item exist already.
 - Requirements and their M7 status (the M7 plan's Acceptance table and PR lines):
@@ -96,7 +99,7 @@ Further facts the edits rest on:
   §16's M7 note (l. 655), which still says "planned, by PLAN.md M7 PRs 1a to 16", as M6 PR 10 rewrote M6's.
 - **D2. PR 6b's missing gate and review, recorded rather than repaired (recommended).** The PLAN.md clause
   says: "merged at its commit 4 on Joe's Q1 (2026-10-10), with no full gate or Codex code review of its own;
-  first gated in PR 6c's summary; its evidence is `F16Aero`'s 16 checkData shots and the byte-for-byte
+  first gated in PR 6c's summary [PR 3c's, per R-001]; its evidence is `F16Aero`'s 16 checkData shots and the byte-for-byte
   regeneration test". Alternative: an `(unscheduled)` open item for a Codex review of 6b's aero files. That
   is your call; I add it only if you say so. *Joe (amendment 2): record it and add the item.*
 - **D3. The other "M7 PR 13" markers (§7, §12, §15) become "*planned*, M8 (M7's PR 13, moved at the M7
