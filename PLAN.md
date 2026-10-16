@@ -593,6 +593,18 @@ takes them as a prefix.
     rotation item to M9, adds the PR 6b review item, and rewrites architecture §16's M7 row and note. It also
     sets §18's tutorial marker to unscheduled and §7, §12 and §15's envelope markers to M8 (rev 14). Plans:
     [milestone](docs/plans/m7-f16-nesc-oracle.md), [PR](docs/plans/m7-pr16-closeout.md). Packet: in the PR body.
+- [ ] **M7b Closed-loop oracles** — three in-house oracles, each gated in `just check`, in place of the
+      verification M7 PR 11b, 12 and 15 would have drawn from the NESC closed-loop ensemble (two members with
+      loose maneuver bands; Joe, 2026-10-13): an exact sampled-data closed-loop check on a linear plant
+      through the exchange stage; the port pattern, proven on M4's autopilot by a sim-side in-process peer
+      bitwise equal to `embedded/autopilot`; and mirror and heading symmetry of the F-16 under `F16_control`.
+      Each has an independent reference, a bound pre-registered before its first run, and negative controls
+      that fail. Spec and plan: [plan](docs/plans/m7b-closed-loop-oracles.md).
+  - Planning (#121): M7b spec, plan and PR decomposition (PR 0 to 5), docs only. Joe approved it on 2026-10-15 with
+    his answers to Q1 to Q12 and amendments 1 to 10. A Codex plan critique (C-01 to C-06) and its verification
+    pass (N-01 to N-03) followed, and all nine findings are folded in. Plans:
+    [milestone](docs/plans/m7b-closed-loop-oracles.md), [critique](docs/plans/m7b-plan-critique.md). Packet: in
+    the PR body.
 - [ ] **M8 Actuators and controller tuning** — a first-order lag and a nonlinear second-order actuator model
       with rate and position limits; autopilot gains loaded at startup; the tuning tool (spec-driven on the
       linear model, time-domain on the nonlinear sim, robustness across draws, gain schedules) with
