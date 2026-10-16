@@ -1,7 +1,10 @@
 # M7b plan critique: one fresh read-only Codex critique of the M7b spec and plan
 
-Status: **critique done; verification pass pending.** The verdict was rework. All six findings, C-01 to C-06,
-are accepted and folded into the spec. Five touch a decision of Joe's, and come to him for confirmation. The M7b spec and plan, [m7b-closed-loop-oracles.md](m7b-closed-loop-oracles.md), is the record of every
+Status: **critique and verification pass done.** Both verdicts were rework.
+- All nine findings are accepted and folded into the spec: the critique's C-01 to C-06, and the verification
+  pass's N-01 to N-03.
+- The resolutions that touch a decision of Joe's come to him for confirmation.
+- Codex has not verified N-01 to N-03's resolutions; a third pass is Joe's call. The M7b spec and plan, [m7b-closed-loop-oracles.md](m7b-closed-loop-oracles.md), is the record of every
 question, requirement and PR. This file records only the critique and its verification pass.
 
 ## Context
@@ -96,4 +99,34 @@ him for confirmation in the PR body.
 
 ## Verification pass
 
-*Pending.*
+**The run.**
+- Same companion, CLI, route and flags as above.
+- Job `task-mvam3o7m-wao2ug`, thread `01a1437d-4f34-7e23-9b92-04d55f3e0239`, 6 min 36 s.
+- `a02dafd..9278791` against base `8e525c5`. Exit 0, a final message, verdict **rework**.
+- The worktree stayed clean and unedited while the pass read it. It ran `git diff --check a02dafd..9278791`
+  (exit 0) and read-only Python arithmetic.
+
+**Status of the critique's findings.**
+- C-02, C-03, C-04 and C-06 are resolved.
+- C-05 is resolved at plan level; its numerical demonstration belongs to PR 4.
+- C-01 is partially resolved, and N-01 closes it.
+- The pass also found two things:
+  - The asymmetry plants need no shipped hook beyond Q10's and Q11's, because `BuildUp`'s fields are mutable
+    (`aero_math.hpp:127`).
+  - The projected IC breaks no trim rule. `trim_fragment` emits the solved rates unchanged (`_runkit.py:268`),
+    so oracle (c)'s round trips use the projected IC, and oracle (b)'s one-trim rule is separate.
+
+**Verification.** Claude Code re-read the cited lines. It also re-ran N-02's and N-03's arithmetic in a
+read-only scratch probe (`numpy`, not committed):
+- the defective loops' largest |λ|, with gains placing the nominal poles at z = 0.5: late command 1.58, 1.09 and
+  0.68 at N = 1, 3 and 10; wrong divisor 2.61, 0.56 and 0.59;
+- the float errors: `kPitchRate` (0.184) 3.576e-10; the elevator trim 4.80e-10;
+- half the elevator trim's ulp: 1.73e-18.
+
+| # | Sev. | New finding | Verdict | Where it is resolved |
+|---|---|---|---|---|
+| N-01 | medium | The zero-prefix check covered pairs that Ω must break before the step | accepted | Oracle (c)'s pre-step prefix, scoped to the Ω = 0 pairs and controls; R11 |
+| N-02 | medium | Nominal stability does not keep the late-command and wrong-divisor loops finite at N = 1 (and the late command at N = 3) | accepted | Oracle (a)'s runs: each control's divisor and horizon pre-registered, with finite, inside-limit ranges; both controls at N = 10; R3 (touches Q5 and Q6) |
+| N-03 | medium | `kPitchRate`'s float error is 3.58e-10, and a magnitude precondition does not guarantee a difference | accepted | Oracle (b)'s controls: an exact replay of both expressions on the recorded request; R8 (touches amendment 2's certainty rule) |
+
+None rejected. As at #104, there is no further Codex pass on the plan unless Joe asks for one.

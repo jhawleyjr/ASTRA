@@ -3,8 +3,9 @@
 Status: **approved by Joe, 2026-10-15, on his word**, with his answers to Q1 to Q12 and his amendments 1 to
 10. They are recorded under "Joe's decisions" and folded into the text.
 - The Codex plan critique ran: verdict rework, C-01 to C-06, all six accepted and folded in ("Plan critique").
-  Five of them touch a decided question or amendment and come to Joe for confirmation.
-- The verification pass follows. A finding that reopens a decision returns to Joe.
+- Its verification pass ran: verdict rework. C-02 to C-06 are resolved and C-01 partially. Three new findings,
+  N-01 to N-03, are accepted and folded in; Codex has not verified their resolutions.
+- The resolutions that touch a decided question or amendment come to Joe for confirmation.
 - Nothing is implemented, and approving this plan approves no later PR's diff.
 - Name: the plan-mode draft (main checkout, untracked) was moved (`mv`, before its first add) to
   `docs/plans/m7b-closed-loop-oracles.md`. Nothing is left in the main checkout.
@@ -270,7 +271,15 @@ no clock and no allocation.
   - The reference steps at frame 1007, a multiple of neither 10 nor 3. The first draft's 1005 is 335 × 3, so
     the divisor-3 run would not have rounded an off-boundary step up to the next exchange (critique C-06).
   - The gains place the sampled closed loop's poles at z = 0.5 for each N, in rationals, before the first run.
-    A stable, non-deadbeat loop keeps every negative-control run finite.
+  - **Nominal stability does not keep a defective loop finite** (verification N-02). With the gains designed
+    for N, a probe of the defective loops' largest eigenvalue magnitudes gave:
+    - the late-command loop: 1.58 at N = 1, 1.09 at N = 3, 0.68 at N = 10;
+    - the wrong-divisor loop (divisor N + 1): 2.61 at N = 1, 0.56 at N = 3, 0.59 at N = 10;
+    - at N = 1, a wrong-divisor run from x0 = e₄ would leave double's range by frame 2000.
+  - **So PR 2's plan pre-registers each control's divisor and horizon.** For each, before the first run, the exact
+    reference shows the state and input finite and inside the exchange limits over that horizon. The late-command
+    and wrong-divisor controls run at N = 10, where both loops are stable. A control is restricted to stable cases
+    (or to a horizon that stays inside the limits). Any gain change goes to Joe.
   - pytest drives `astra._core.Simulation` frame by frame and reads the plant's slice of the state vector.
   - A ctest smoke runs plant plus peer for 200 frames in all four presets (sanitizers, no allocation).
 
@@ -361,9 +370,9 @@ Joe's two example defects:
 
 | # | Planted defect (a porting slip) | First differing exchange, pre-registered | Why it is certain |
 |---|---|---|---|
-| 1 | The elevator trim stored in single precision (`static_cast<float>`) before it enters the offset | exchange 0 (frame 0), `elevator` | The trim literal is not representable in float (checked from the config text before the run). Its float error, about 1.6e-9 rad, enters the elevator additively, unsaturated, far above the output's ulp (about 3.5e-18 rad). |
-| 2 | The PID returns its output computed before its integral update (output, then integrate) | exchange 1 (frame 10), `throttle` | At exchange 0, dt = 0 and nothing integrates, so nothing differs. At exchange 1, the speed loop's increment kSpeedI·e·dt exceeds half the throttle's ulp whenever \|230 − tas\| > 1e-10 m/s. The test asserts that from the shm run's recorded frame-10 request before comparing. |
-| 3 | `kPitchRate` stored in single precision | exchange 1 (frame 10), `elevator` | At frame 0, q = 0 exactly (the IC's ω_b = 0), so k_q·q contributes nothing. At frame 10, the float error (about 2e-9) times q exceeds half the elevator's ulp whenever \|q\| > 1e-9 rad/s, which the test asserts from the shm run's recorded frame-10 request. |
+| 1 | The elevator trim stored in single precision (`static_cast<float>`) before it enters the offset | exchange 0 (frame 0), `elevator` | The trim literal is not representable in float (checked from the config text before the run). Its float error, 4.8e-10 rad (computed in plan mode), enters the elevator additively, unsaturated, far above half the elevator's ulp (1.7e-18 rad). The test also replays both expressions on the recorded frame-0 request and asserts that they differ. |
+| 2 | The PID returns its output computed before its integral update (output, then integrate) | exchange 1 (frame 10), `throttle` | At exchange 0, dt = 0 and nothing integrates, so nothing differs. At exchange 1, it differs whenever the integral's increment survives rounding into the command. **The precondition is exact** (verification N-03): before the comparison, the test replays the two command expressions as each implementation writes them, in double, on the shm run's recorded frame-10 request and recorded state, and asserts that they differ. |
+| 3 | `kPitchRate` stored in single precision | exchange 1 (frame 10), `elevator` | At frame 0, q = 0 exactly (the IC's ω_b = 0), so k_q·q contributes nothing. **The precondition is exact** (verification N-03). The float error is 3.58e-10, not the first draft's 2e-9, and a magnitude rule such as \|q\| > 1e-9 rad/s does not guarantee a difference: at q = 1.1e-9 the product, 3.9e-19, rounds away in the elevator. So the test replays both elevator expressions in double on the recorded frame-10 request and asserts that they differ, before the comparison. |
 | 4 | The mode word written 0 instead of `kModeFlags` = 1 | exchange 0 (frame 0), `mode_flags` (the reply stream only) | The field is constant and differs at every exchange. It has no physical effect, so the bands cannot see it at all. |
 
 ## Oracle (c): symmetry tests
@@ -384,8 +393,12 @@ position, with the initial course north.
     pitch, (0, −v_n/(R + h), 0) in NED, so the exact p and r are 0.
   - **What the test asserts:** the trim's own p and r lie within a pre-registered roundoff bound of 0 before
     they are replaced.
-  - **The pre-step prefix:** in both runs of every pair, every odd field of all three recorder streams is
-    exactly 0 (by value) at every frame before the step frame.
+  - **The pre-step prefix:** in both runs of every pair flown with Ω = 0 (the variant pairs, the tables-only
+    control and the sign-drop control), every odd field of all three recorder streams is exactly 0 (by value) at
+    every frame before the step frame. With Ω = 0 the lateral-zero subspace is invariant.
+  - The shipped pair and the Ω-only control are excluded from the prefix check (verification N-01). Ω makes
+    their frame-0 aileron and rudder replies nonzero. Their prefixes fall under the modeling bound (R12) and the
+    Ω-only control's required break respectively.
 - **The mirror map.** Under this reflection every quantity keeps or flips its sign: position (lat, −lon, h),
   v_b → (u, −v, w), q_nb → (w, −x, y, −z), and ω_b → (−p, q, −r). No component is permuted, so a sign-symmetric
   computation can be equal under it bit for bit.
@@ -476,15 +489,15 @@ configs are built in the test from committed text, so PR 11a's tracked-config gu
 |---|---|---|
 | R1 | (a) The order: the plan's derivation, and the five-state control fails F on x₁ at its pre-registered excited frames, by its stated margins (critique C-03) | pytest; PR 2's plan |
 | R2 | (a) F (on the recorded hold), L and C within their pre-registered bounds at N = 10, 3 and 1; the k-th request's `frame` = kN and `t` = frame·dt (critique C-02) | pytest against the `Fraction` reference |
-| R3 | (a) Each of the four negative controls and the order control fails on the objects its row names, by its pre-registered margin | pytest |
+| R3 | (a) Each of the four negative controls and the order control fails on the objects its row names, by its pre-registered margin, at its pre-registered divisor and horizon, over which the exact reference keeps it finite and inside the exchange limits (verification N-02) | pytest |
 | R4 | (a) The plant and peer under sanitizers, with zero allocations over their frames | ctest, four presets |
 | R5 | (b) Unit-level replies, `handled` and `held` bitwise equal on hand-built and seeded sequences | ctest, four presets |
 | R6 | (b) The shm and in-process runs bitwise equal on ADR-0029 Decision 8's objects, at both Dryden levels | pytest (Release) |
 | R7 | (b) Both builds' floating-point flags stated before the first comparison, and asserted equal from `compile_commands.json` | pytest; PR 3's plan and body |
-| R8 | (b) Each planted porting defect breaks bitwise equality first at its pre-registered exchange, with its precondition asserted from the shm run's recorder, and stays inside M4's bands at both levels (amendment 2) | pytest |
+| R8 | (b) Each planted porting defect breaks bitwise equality first at its pre-registered exchange, and stays inside M4's bands at both levels (amendment 2). Its precondition is an exact replay of both command expressions on the shm run's recorded request (verification N-03) | pytest |
 | R9 | (b) If it ships (Q7): the key block, the regenerated config-key reference, configs consuming its keys, and `astra run` exiting 65 on them | `config_keys.py --check`; pytest |
 | R10 | (c) The inventory evidence and libm's parity probe (seeded arguments over the flights' ranges, plus edges; every preset) before any flight. A failed item is reclassified to roundoff and goes to Joe before any flight | ctest |
-| R11 | (c) Both variant mirror pairs are equal under the parity mask by value, at every frame and exchange of all three recorder streams. The trim's own p and r lie within their roundoff bound of 0 before the config writes literal zeros, and every odd field is exactly 0 before the step in both runs (critique C-01) | ctest (release) |
+| R11 | (c) Both variant mirror pairs are equal under the parity mask by value, at every frame and exchange of all three recorder streams. The trim's own p and r lie within their roundoff bound of 0 before the config writes literal zeros, and every odd field is exactly 0 before the step in both runs of each Ω = 0 pair (critique C-01, verification N-01) | ctest (release) |
 | R12 | (c) Each shipped pair within its pre-registered per-channel modeling bound (amendment 1), with the derivation's envelope and assumptions stated; the doubled-asymmetry defect exceeds it by its stated margin (critique C-05); each pair's largest per-channel asymmetry reported against the inventory's estimate | ctest (release), PR body |
 | R13 | (c) Heading invariance within Q12's pre-registered yardstick bound at each heading | ctest (release) |
 | R14 | (c) Each negative control fails as its row says, with each asymmetry isolated against the symmetric baseline (critique C-04) | ctest (release) |
@@ -722,6 +735,28 @@ Claude Code re-read every cited line. **All six are accepted** and folded in abo
 | C-04 | medium | The shipped pair carries both asymmetries, so a post-step break cannot show the tables caused it | Each asymmetry isolated against the symmetric baseline: Ω only, the tables only; R14 | none |
 | C-05 | medium | No control had to exceed R12's modeling bound, so an over-conservative bound would pass unseen | A doubled-asymmetry defect must exceed it by a stated margin; the derivation's envelope and assumptions stated; R12 | amendment 1's acceptance |
 | C-06 | low | Frame 1005 = 335 × 3, so the divisor-3 run had no off-boundary step | The step moves to frame 1007 | Q6 |
+
+**The verification pass** ran on the same route and flags: job `task-mvam3o7m-wao2ug`, thread
+`01a1437d-4f34-7e23-9b92-04d55f3e0239`, `a02dafd..9278791`, 6 min 36 s. Exit 0, verdict **rework**.
+- C-02 to C-06 are resolved (C-05 at plan level; its numerical demonstration is PR 4's). C-01 is partially
+  resolved, and N-01 closes it.
+- It also found that the asymmetry plants need no shipped hook beyond Q10's and Q11's. `BuildUp`'s fields are
+  mutable (`aero_math.hpp:127`), so the aero variant can add the doubled odd part, or drop `absCl0`'s sign,
+  before `wrench()`.
+- It confirmed that the projected IC breaks no trim rule: oracle (c)'s round-trip checks use the projected IC,
+  and oracle (b)'s one-trim rule is separate.
+
+Claude Code re-ran N-02's and N-03's arithmetic in a read-only scratch probe, and both are confirmed. All three
+new findings are accepted and folded in; none is rejected.
+
+| # | Sev. | New finding (verified) | Resolution | Touches |
+|---|---|---|---|---|
+| N-01 | medium | The zero-prefix check covered every pair, but Ω makes the shipped pair's and the Ω-only control's frame-0 aileron and rudder nonzero | The prefix check is scoped to the Ω = 0 pairs and controls; R11 | none |
+| N-02 | medium | Nominal stability does not keep a defective loop finite: late-command 1.58 (N = 1) and 1.09 (N = 3), wrong divisor 2.61 (N = 1) | Each control's divisor and horizon are pre-registered, with finite, inside-limit ranges shown by the exact reference; the late-command and wrong-divisor controls run at N = 10 (0.68, 0.59); R3 | Q5 and Q6 (which N each control runs at) |
+| N-03 | medium | `kPitchRate`'s float error is 3.58e-10, not 2e-9, and \|q\| > 1e-9 does not guarantee a difference | Each precondition is an exact replay of both command expressions on the recorded request; the trim's float error is corrected to 4.8e-10; R8 | amendment 2's certainty rule |
+
+Codex has not verified N-01 to N-03's resolutions. As at #104, the critique and the verification pass are this
+plan's two passes; a third is Joe's call.
 
 The critique's focus:
 1. RK4 exactness and the order claim; the reference's exactness; whether F, L and C, and each control, can fail

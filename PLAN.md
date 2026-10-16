@@ -601,9 +601,10 @@ takes them as a prefix.
       Each has an independent reference, a bound pre-registered before its first run, and negative controls
       that fail. Spec and plan: [plan](docs/plans/m7b-closed-loop-oracles.md).
   - Planning (#121): M7b spec, plan and PR decomposition (PR 0 to 5), docs only. Joe approved it on 2026-10-15 with
-    his answers to Q1 to Q12 and amendments 1 to 10, before the Codex plan critique and its verification
-    pass. Plans: [milestone](docs/plans/m7b-closed-loop-oracles.md),
-    [critique](docs/plans/m7b-plan-critique.md). Packet: in the PR body.
+    his answers to Q1 to Q12 and amendments 1 to 10. A Codex plan critique (C-01 to C-06) and its verification
+    pass (N-01 to N-03) followed, and all nine findings are folded in. Plans:
+    [milestone](docs/plans/m7b-closed-loop-oracles.md), [critique](docs/plans/m7b-plan-critique.md). Packet: in
+    the PR body.
 - [ ] **M8 Actuators and controller tuning** — a first-order lag and a nonlinear second-order actuator model
       with rate and position limits; autopilot gains loaded at startup; the tuning tool (spec-driven on the
       linear model, time-domain on the nonlinear sim, robustness across draws, gain schedules) with
