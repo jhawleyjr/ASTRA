@@ -9,6 +9,11 @@ implemented: PR 1a and PRs 2, 3 and 4 wait for Joe's go.
   question became Q26.
 - The Q25 verification pass (verdict rework, N-01 to N-08) is folded in too: all 8 accepted.
 - See "Plan critique" below, and [the critique record](m7-plan-critique.md).
+- *Closed out 2026-10-15 ([M7 PR 16's plan](m7-pr16-closeout.md)).* Delivered: the F-16 from the template
+  (PR 6b, 6c); cases 11 and 12 (PR 9) and 13.1 to 13.4 (PR 11a), with R6 not met for 13.3's and 13.4's six aero
+  channels; trim at every flown case's initial condition (PR 5, 9, 11a); the planted defects (PR 9, 11a); the
+  config-key reference (PR 14); ADR-0028 to ADR-0033 (PR 1a, 1b, 3c). Left M7: PR 11b, 12 and 15, unscheduled
+  (Joe, 2026-10-13); PR 13 to M8 and PR 3 to M9 (Joe, 2026-10-15).
 Owner: Joe
 Risk: 3 overall: `aircraft/**/physical`, `aircraft/**/hardware`, goldens and tolerances, ADR-0013's
 oracle, `core/` interfaces (rotation consistency, envelope monitors), and the transport seam. This planning
@@ -959,3 +964,7 @@ findings are accepted and folded in; none is rejected.
 R1 to R23 pass on their PRs, each PR has its tier's review with results in its PR body, and PR 16 checks
 M7 off in PLAN.md with evidence links. Implementation completion is separate from Joe's approval and
 merges.
+
+*Closed out 2026-10-15 ([M7 PR 16's plan](m7-pr16-closeout.md)):* not every R passed. R6 is a recorded
+deviation, and R7, R10's and R11's port halves, R13, R14 and R20 left M7 unscheduled. R18 went to M8 and R15 to
+M9, and PR 6b merged without a gate of its own (PLAN.md's M7 row).

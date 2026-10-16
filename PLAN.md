@@ -401,14 +401,58 @@ takes them as a prefix.
     Honesty rules; no PR stage), and `scripts/docs_check.py` enforces that shape, the 40-line cap and the
     honesty rules text; `"attribution": false`, and `no-main.sh` refuses a commit message with a co-author
     trailer. Plan: [plan](docs/plans/state-and-attribution.md). Packet: in the PR body.
-- [ ] **M7 F-16 and the NESC oracle** — `aircraft/f16` built from the template; NESC atmospheric cases 11, 12,
+- [x] **M7 F-16 and the NESC oracle** — `aircraft/f16` built from the template; NESC atmospheric cases 11, 12,
       13.1 to 13.4, 15 and 16 against the participating simulations' trajectories in `docs/refs` (ADR-0013's
       ensemble as oracle); the tutorial and the generated config-key reference written from this path. The
       NESC F-16 control laws (`F16_control.dml` for 13.x, `F16_gnc.dml` for 15 and 16) run outside
       `embedded/` first and are shown to match the ensemble, then are ported to `embedded/` (Joe,
       2026-09-29). Plan questions: where the sim-side control law lives, the port's equivalence criterion, and
-      hand-porting the aero tables versus a generic DAVE-ML table plugin. PR 11b (15 and 16), PR 12 (the port)
-      and PR 15 (the tutorial) are unscheduled (Joe, 2026-10-13; the open items below).
+      hand-porting the aero tables versus a generic DAVE-ML table plugin. Cases 15 and 16 (PR 11b), the port
+      (PR 12) and the tutorial (PR 15) left M7 on Joe's decision of 2026-10-13 (the open items below). At the
+      closeout, the envelope monitors (PR 13, ADR-0031) moved to M8 and rotation consistency (PR 3) to M9 (Joe,
+      2026-10-15). Spec and plan: [plan](docs/plans/m7-f16-nesc-oracle.md). Evidence, clause by clause. Each
+      summary is its PR's last gated candidate (`check-full.sh` exit 0, `check: OK`; CTest counts are
+      debug/release/static-plugins/asan, pytest counts with 5 skipped), the acceptance runs are in each PR
+      body, and the R-IDs are the plan's:
+      - `aircraft/f16` from the template, its aero, mass and engine pinned to the DAVE-ML check data: PR 6b
+        (R2: `F16Aero`'s 16 checkData shots and the byte-for-byte regeneration test). #113 merged at its commit
+        4 on Joe's decision of 2026-10-10, the accepted exception to the Tier 3 review and gate, so it has no
+        gate or Codex code review of its own; its aero was first gated in PR 3c's summary, whose base was
+        #113 ([summary](docs/reviews/evidence/beffa64-gate-summary.log)), then in PR 6c's (the review item
+        below). PR 6c (R1, R3: `F16Mass` and `F16Engine`'s 9 checkData shots; CTest 738/739/740/741, pytest
+        2079 passed — [summary](docs/reviews/evidence/991ee89-gate-summary.log));
+      - cases 11 and 12: PR 9 (R5, R4's F-16 half, R9 for 11 and 12; all 21 channels gated; CTest
+        751/752/753/754, pytest 2110 passed — [summary](docs/reviews/evidence/4b19a49-gate-summary.log));
+      - cases 13.1 to 13.4: PR 11a (R6, R9 for 13.x, R10's and R11's peer halves, R12, R22, R23; CTest
+        800/801/802/803, pytest 2110 passed — [summary](docs/reviews/evidence/b01e083-gate-summary.log)). 13.1
+        and 13.2 gate all 21 channels. **R6 is recorded as not met for 13.3's and 13.4's six aero channels**,
+        which are reported, never counted as a pass
+        ([measurement](docs/reviews/evidence/m7-pr11a-r6/amended_decided_closed_loop.log));
+      - trim at every case's initial condition: PR 5 (R4; CTest 673/674/675/676, pytest 1912 passed —
+        [summary](docs/reviews/evidence/0750b65-gate-summary.log)), PR 9 (both configs rebuild their trim bit
+        for bit; `NescF16.Case1{1,2}TrimResiduals`) and PR 11a (the four 13.x configs carry case 11's trim;
+        R23);
+      - planted defects: PR 9 (the elevator's sign fails force_z, and SIM 2's zero-inertial trim fails rate_q
+        in 11 and 12; Izx's sign is reported) and PR 11a (the elevator's sign fails pitch in all four, the
+        aileron's roll in 13.3 and 13.4; Izx's sign and the wrong divisor are reported), in the same summaries;
+      - the generated config-key reference: PR 14 (R19, R17's reference half; CTest 742/743/744/745, pytest
+        2110 passed — [summary](docs/reviews/evidence/852d8a7-gate-summary.log));
+      - ADR-0028 to ADR-0033: PR 1a (ADR-0028, 0030, 0031; CTest 669/670/671/672, pytest 1863 passed —
+        [summary](docs/reviews/evidence/c236ade-gate-summary.log); Joe's acceptance commit after the gate),
+        PR 1b (ADR-0029, 0032; CTest 673/674/675/676, pytest 1912 passed —
+        [summary](docs/reviews/evidence/6a54518-gate-summary.log)) and PR 3c (ADR-0033; CTest
+        729/730/731/732, pytest 2079 passed — [summary](docs/reviews/evidence/beffa64-gate-summary.log)).
+
+      Beyond the row: PR 2 (R16; CTest 699/700/701/702, pytest 1940 passed —
+      [summary](docs/reviews/evidence/5bdb079-gate-summary.log)), PR 3b (ADR-0032 in the core; CTest
+      687/688/689/690, pytest 1912 passed — [summary](docs/reviews/evidence/0661f80-gate-summary.log)), PR 4
+      (R17; CTest 692/693/694/695, pytest 1912 passed — [summary](docs/reviews/evidence/1fb5d08-gate-summary.log)),
+      PR 7 (Q5's aero-only route; CTest 742/743/744/745, pytest 2079 passed —
+      [summary](docs/reviews/evidence/ce9dfa8-gate-summary.log)) and PR 8 (R8, the eight band headers; CTest
+      673/674/675/676, pytest 1863 passed — [summary](docs/reviews/evidence/6f19bd8-gate-summary.log)). R21 is
+      each summary above; PR 6a and PR 16 are Tier 0, and PR 6b is the exception above. ADR-0028's bands for
+      15 and 16 stay generated and unflown. R7, R13, R14, R20 and the port halves of R10 and R11 left with the
+      unscheduled items, R18 with the (M8) envelope item and R15 with the (M9) rotation item.
   - Planning (#104): M7 spec, plan and PR decomposition (PR 0 to 16, PR 1 split into 1a and 1b); approved
     by Joe with Q1 to Q27 and his amendments, after a Codex plan critique and a verification pass. The NESC
     DAVE-ML files (P1, P2) are still to be placed in `docs/refs`. Plans:
@@ -545,6 +589,10 @@ takes them as a prefix.
     and 13.2 pass all 21. The elevator's sign fails pitch in all four and the aileron's roll in 13.3 and 13.4;
     Izx's sign and the wrong divisor are reported (divisor 1 within every asserted band). Plan:
     [plan](docs/plans/m7-pr11a-control-peer.md). Packet: in the PR body.
+  - PR 16 (#120): M7 closeout. It checks M7 off with evidence links, moves the envelope item to M8 and the
+    rotation item to M9, adds the PR 6b review item, and rewrites architecture §16's M7 row and note. It also
+    sets §18's tutorial marker to unscheduled and §7, §12 and §15's envelope markers to M8 (rev 14). Plans:
+    [milestone](docs/plans/m7-f16-nesc-oracle.md), [PR](docs/plans/m7-pr16-closeout.md). Packet: in the PR body.
 - [ ] **M8 Actuators and controller tuning** — a first-order lag and a nonlinear second-order actuator model
       with rate and position limits; autopilot gains loaded at startup; the tuning tool (spec-driven on the
       linear model, time-domain on the nonlinear sim, robustness across draws, gain schedules) with
@@ -561,7 +609,8 @@ takes them as a prefix.
 
 ## Open items
 
-- [ ] (M7) Earth/gravity rotation-consistency check at init (origin: M2 case05 fix; deferred by Joe, 2026-09-19) —
+- [ ] (M9) Earth/gravity rotation-consistency check at init (origin: M2 case05 fix; deferred by Joe, 2026-09-19;
+      M7's PR 3, moved from M7 to M9 at its closeout, Joe 2026-10-15, still on his go) —
       `docs/plans/nesc-case05-gravity-centripetal.md`'s D2(b), deferred (D2(a), disclosed only, for that task).
       Two independently-configured plugins can each pass their own init-time validation while disagreeing about
       whether Earth rotates: `gravity/inverse_square`'s `rotating` config key must be set consistently with
@@ -572,8 +621,10 @@ takes them as a prefix.
       config does this, so it is latent, not manifest). Needs a new `core/` interface path (an
       `EarthModel`/`GravityModel` accessor pair, mirroring the existing
       `assumed_position_representation()`/`position_representation()` check already in `Simulation::from_config`)
-      — a real, if modest, interface change, not a `plugins/physical`-only fix; plan-review before code. Not
-      started.
+      — a real, if modest, interface change, not a `plugins/physical`-only fix; plan-review before code. It
+      takes `kCoreApiVersion` past 11 and carries R15 (the M7 plan's row 3). M7 PR 11a's Q4: `nesc_control`
+      cannot see the Earth model and refuses none (Joe); its configs pair it with `wgs84_rotating`, which
+      `F16Control.TrackedConfigsPairThePeerWithTheRotatingEarth` enforces. Not started.
 - [ ] (M8) Elevator/throttle deflection *range* has no declared home (origin: M3 PR 6 planning,
       `docs/plans/pr6-trim.md`, D10): the second control-surface property (after the positive-deflection sense,
       resolved by M3 PR 9) with no config key or ICD field to read it from. PR 6's own plausibility check
@@ -597,14 +648,17 @@ takes them as a prefix.
       `add_subdirectory(golden/dynamics)` as `tests/CMakeLists.txt`'s comment implies. Its script
       `capture_r1_golden.sh` also has no arming check of its own (unlike PR 8's); today it refuses at its
       clean-tree and baseline-drift (`26ad594`) steps, before its first commit. Not started.
-- [ ] (M7) §15 envelope monitors (α, β, Mach, dynamic pressure, load-factor limits declared by the aero model)
+- [ ] (M8) §15 envelope monitors (α, β, Mach, dynamic pressure, load-factor limits declared by the aero model)
       (origin: deferred from M3 PR 3, ADR-0018): no declaration hook exists yet on `AeroModel`, because no concrete
       plugin had real numbers to declare before M3 PR 4. A later PR adds
       the declaration virtual (a further `kCoreApiVersion` bump, precedented) and wires `HealthMonitor`'s own
       per-frame check against it. Not started. Unblocked (Joe, 2026-10-03, at M6 PR 7b): the notional transport
       can declare `alpha_max_rad = 0.23` from the source's CLalpha peak (`docs/refs/aircrafts/737.xml`, CL 1.20 at
       0.23 rad), and a halt there would turn R9's criterion into `status == halt` instead of a threshold. A Tier 3
-      PR of its own; scheduling it is Joe's call. Shape decided by ADR-0031 (M7 PR 1a); implemented by M7 PR 13.
+      PR of its own. Shape decided by ADR-0031 (M7 PR 1a). M8's first PR, moved at
+      the M7 closeout (Joe, 2026-10-15) because M8's tuning and M10's halts consume it: M7's PR 13 design
+      unchanged (the M7 plan's row 13, Q16 and R18), including case 12's explicit Mach action (the F-16 declares
+      Mach ≤ 1.0) and the NESC harness's warn-counter policy (N-07).
 - [ ] (M8) Moderate-turbulence throttle jitter (origin: M4 PR 6; Joe 2026-09-26, nonblocking): airspeed gusts pass
       through the autopilot's speed loop to the throttle, up to 0.019 per exchange at moderate (throttle 0.310 to
       0.633 around trim 0.4986), no limit reached (`docs/reviews/m4-pr6-lockstep-acceptance-human.md`). Revisit
@@ -652,7 +706,7 @@ takes them as a prefix.
       figure's only panel (with a shared x, matplotlib's `datalim` moves the y limits instead). Not started.
 - [ ] (unscheduled) The notional transport's aero (and `nesc_aero`) still damps the inertial ω_b. The template
       damps the body rate relative to the Earth that the core supplies (`air_data::omega_eb_b`, M7 PR 3b), and
-      the F-16 will (PR 6b) (origin: M7 PR 6a's D3, option (B2); Joe 2026-10-08,
+      the F-16 does (M7 PR 6b) (origin: M7 PR 6a's D3, option (B2); Joe 2026-10-08,
       [addendum §10](docs/plans/m7-f16-inventory.md#10-joes-decisions)).
       Migrating it moves every notional-transport value on `wgs84_rotating`: M3's frozen regression, the R1
       golden, M4's lockstep and M6's batch. Measure the change first; Joe decides. The same step migrates the
@@ -715,6 +769,11 @@ takes them as a prefix.
       members with loose maneuver bands; Joe, 2026-10-13.
 - [ ] (unscheduled) M7 PR 15, the tutorial from the F-16 path: the NESC closed-loop ensemble is two members with
       loose maneuver bands; Joe, 2026-10-13.
+- [ ] (unscheduled) A Codex adversarial review of M7 PR 6b's `aircraft/f16` diff, `856fff0..c8f3128` (origin: M7
+      closeout; Joe 2026-10-15, his call when). #113 merged at its commit 4 on Joe's decision of 2026-10-10, the
+      accepted exception to the Tier 3 review and gate. Its only Codex pass was the plan critique, and PR 3c's
+      and PR 6c's adversarial reviews ran on bases that already held it. The review's evidence is `F16Aero`'s 16 checkData
+      shots and the regeneration test (`tests/python/test_f16_generated.py`, also in that diff). Not started.
 - [ ] (M9) ICD v2 carries an Earth rate or an Earth-relative body rate, which removes `nesc_control`'s
       non-rotating-Earth limitation (origin: M7 PR 1b; Joe 2026-10-09;
       [ADR-0029](docs/decisions/0029-sim-side-flight-software-peer.md), Decision 7). ICD v1 carries no Earth rate,

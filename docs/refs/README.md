@@ -32,8 +32,8 @@ One line per document: what it is, where it came from, what in the tree cites it
   companion data: 17 scenarios, 4-6 CSV trajectories each, one per participating simulation tool,
   ~82 MB. Read only by `tests/golden/nesc/generate_nesc_band.py`, by hand, never by `just check`
   (ADR-0013); its `--refs` defaults to the main checkout's copy. Cases 11 to 16 (the F-16) are M7's
-  oracle (PLAN.md, ADR-0028), reduced to `tests/golden/nesc/case1*_band.hpp` in M7 PR 8; case 17 is
-  out of scope.
+  oracle (PLAN.md, ADR-0028), reduced to `tests/golden/nesc/case1*_band.hpp` in M7 PR 8; M7 flew 11, 12
+  and 13.1 to 13.4, and 15 and 16's bands stay unflown. Case 17 is out of scope.
 - **NESC initial conditions workbook** (`Initial_Conditions.xlsx`) — the same NESC Academy 2015 page,
   not NTRS (corrected in M7 PR 6a). A working spreadsheet;
   its constants are rounded back-conversions (Re = 20925646.99508 ft, omega = 7.292113023868e-5
