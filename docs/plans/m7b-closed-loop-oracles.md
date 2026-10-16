@@ -2,8 +2,9 @@
 
 Status: **approved by Joe, 2026-10-15, on his word**, with his answers to Q1 to Q12 and his amendments 1 to
 10. They are recorded under "Joe's decisions" and folded into the text.
-- The Codex plan critique and its verification pass follow (PR 0, at the end). A finding that reopens a
-  decision returns to Joe.
+- The Codex plan critique ran: verdict rework, C-01 to C-06, all six accepted and folded in ("Plan critique").
+  Five of them touch a decided question or amendment and come to Joe for confirmation.
+- The verification pass follows. A finding that reopens a decision returns to Joe.
 - Nothing is implemented, and approving this plan approves no later PR's diff.
 - Name: the plan-mode draft (main checkout, untracked) was moved (`mv`, before its first add) to
   `docs/plans/m7b-closed-loop-oracles.md`. Nothing is left in the main checkout.
@@ -228,9 +229,11 @@ no clock and no allocation.
     - its K places the sampled closed loop's five poles at z = 0.5, in rationals, as for n = 4;
     - its reference is the same exact solution with the sums run to i = 4 (A⁵ = 0), so it stays exact;
     - its F bound keeps the same derived form as the nominal one;
-    - its failure, at about (hM)⁵/120 ≈ 8.3e-8 of the input's contribution to x₁ per frame, therefore sits
-      about eight decades above that bound wherever the input and the states are of one order. PR 2's plan
-      states that margin as a number before the first run.
+    - its omitted term is h⁵A⁴Bu/120 ≈ 8.3e-8·u, in x₁ only, so it shrinks with u as the loop settles while x₁
+      stays finite. Its failure is therefore required at **pre-registered excited frames**, not at every frame
+      with nonzero u (critique C-03). PR 2's plan names them: the frames of the exchanges just after the
+      reference step, where |u| is largest. At each, it states the margin of |h⁵A⁴Bu/120| over F's bound on x₁,
+      both computed from the exact reference before the first run.
   - The ratio h/τ = 0.1 is what makes that residual visible. With τ = 1 s, it would be about 8e-18, below
     roundoff.
 - **The reference** (Python, `fractions.Fraction`; pytest in the gate). **It shares no code with core,
@@ -242,8 +245,10 @@ no clock and no allocation.
     Aⁿ = 0: they run to i = 3 for the chain of four, and to i = 4 for the order control's five. Either way they
     are exact rationals for a frame (j = 1) and for an exchange (j = N).
 - **The checks**, each against a bound pre-registered in PR 2's plan before the first run:
-  - **F, per frame.** x_sim(j+1) is checked against Φ₁·x_sim(j) + Γ₁·u_hold(j), where u_hold(j) is the reply of
-    the exchange at floor(j/N)·N. The bound is a running roundoff bound for this RK4 on this system: each
+  - **F, per frame.** x_sim(j+1) is checked against Φ₁·x_sim(j) + Γ₁·u_hold(j), where u_hold(j) is the
+    *recorded* reply of the last exchange at or before frame j (critique C-02). F checks the integration, and
+    that each reply acts from its own exchange frame. The divisor is checked separately, by "The request" and
+    by C. The bound is a running roundoff bound for this RK4 on this system: each
     rounding is charged at eps·|its own result| and carried to the output by the exact linear coefficients
     (lesson 2026-10-13). No fitted constant.
     - **The operation order it charges** (amendment 3) is read from core's RK4
@@ -258,10 +263,12 @@ no clock and no allocation.
   - **C, the closed loop.** x_sim(kN) is checked against the exact closed-loop recursion from x0,
     x[k+1] = (Φ_N − Γ_N K)·x[k] + Γ_N G r[k]. The bound accumulates F's and L's per-exchange bounds through
     Σ_j ‖(Φ_N − Γ_N K)^j‖, computed exactly before the run.
-  - **The request.** Every request's `frame` is kN, and its `t` is the double frame·dt.
+  - **The request.** The k-th request's `frame` is kN, for the reference's N, and its `t` is the double
+    frame·dt.
 - **Runs.**
   - 2,001 frames at each of N = 10 (the default), 3 and 1.
-  - The reference steps at frame 1005, a multiple of neither 10 nor 3.
+  - The reference steps at frame 1007, a multiple of neither 10 nor 3. The first draft's 1005 is 335 × 3, so
+    the divisor-3 run would not have rounded an off-boundary step up to the next exchange (critique C-06).
   - The gains place the sampled closed loop's poles at z = 0.5 for each N, in rationals, before the first run.
     A stable, non-deadbeat loop keeps every negative-control run finite.
   - pytest drives `astra._core.Simulation` frame by frame and reads the plant's slice of the state vector.
@@ -275,9 +282,9 @@ pre-registered in PR 2's plan.
 |---|---|---|---|
 | A command one frame late | The plant integrates frame j with the input latched at frame j − 1, recorded in its `step()` before the latch | F at every hold's first frame kN with u[k] ≠ u[k−1]; C from the first exchange | L |
 | A hold one frame long | Only at the step's exchange frame, the plant keeps the previous input for one more frame | F at that one frame; C after it | L; F at every other frame |
-| The wrong divisor | The config's `transport.divisor` is N + 1, with the gains designed for N | The requests' `frame` fields; F at the first hold boundary where N and N + 1 differ; C | L, evaluated at the actual exchange frames |
+| The wrong divisor | The config's `transport.divisor` and the peer's own N key are both N + 1, so its frame guard accepts each request, while its gains stay designed for N and the reference keeps N (critique C-02) | The requests' `frame` fields from the second exchange (N + 1 against N); C | F, which uses the recorded hold and integrates it correctly; L, evaluated at the actual exchange frames |
 | The command applied at a stage other than the latched one | At each exchange frame, RK4 stage 1 (t = the frame start) reads the previous input, and stages 2 to 4 read the new one | F at every exchange frame where u changes (residual about h/6·B·Δu, carried through the chain); C | L |
-| The order control | A five-state chain, A = S/τ (5×5), with its own pre-registered gains and its own exact reference (amendment 9) | F at every frame with nonzero u, at about (hM)⁵/120, about eight decades above F's bound | none |
+| The order control | A five-state chain, A = S/τ (5×5), with its own pre-registered gains and its own exact reference (amendment 9) | F on x₁ at each pre-registered excited frame, by its pre-registered margin (critique C-03) | none required elsewhere |
 
 "The stage a command is applied at" has two readings, and both are covered (Q5):
 - **The RK4-stage reading:** the command switches inside the step. This is the fourth control.
@@ -368,6 +375,17 @@ position, with the initial course north.
 - **The IC:** case 11's latitude (36.01916667°), longitude exactly 0, 10,013 ft, case 11's airspeed, and heading
   0. It is trimmed by `astra trim --rate-convention n_frame` on that Earth: one trim result, shared by every
   run.
+- **Exact lateral zeros** (critique C-01). `astra.trim`'s `n_frame` rates come from `np.linalg.lstsq`
+  (`python/astra/trim.py:212-225`), with no structural zeros. A reproduction of that sparse solve left lateral
+  rates of about 1e-22 rad/s, and a shared nonzero p or r breaks the mirror at frame 0.
+  - **What the config writes:** the trim's elevator, throttle and θ (α), with every lateral entry a literal
+    0.0: φ, ψ, v, p and r, and lon = 0. The pitch rate is the trim's own q.
+  - **Why that is exact:** at heading north on a non-rotating sphere, the n frame's rate in body axes is pure
+    pitch, (0, −v_n/(R + h), 0) in NED, so the exact p and r are 0.
+  - **What the test asserts:** the trim's own p and r lie within a pre-registered roundoff bound of 0 before
+    they are replaced.
+  - **The pre-step prefix:** in both runs of every pair, every odd field of all three recorder streams is
+    exactly 0 (by value) at every frame before the step frame.
 - **The mirror map.** Under this reflection every quantity keeps or flips its sign: position (lat, −lon, h),
   v_b → (u, −v, w), q_nb → (w, −x, y, −z), and ω_b → (−p, q, −r). No component is permuted, so a sign-symmetric
   computation can be equal under it bit for bit.
@@ -413,10 +431,15 @@ asymmetries: Ω subtracted, and the signed-β tables.
 - **The bound.** PR 4's plan pre-registers, for each shipped pair and each channel, a bound labeled a modeling
   bound. It is derived from the inventory's own figures (the four tables' β asymmetries and the Ω term),
   carried through a stated sensitivity estimate of the closed loop. It is fixed before the first flight.
+- **The derivation's scope.** PR 4's plan also states the sensitivity estimate's operating envelope and its
+  assumptions: the |β|, α and rate ranges it holds over, and the linearization it uses (critique C-05).
 - **A miss** stops the PR and goes to Joe. The bound is never widened.
 - **Reported as well:** each shipped pair's largest asymmetry, against the inventory's estimate.
-- The shipped pairs therefore check two things: that the model's known asymmetries account for its whole
-  mirror defect, and that each asymmetry breaks the bitwise mirror, as a negative control.
+- **The bound must discriminate** (critique C-05). A pre-registered physical defect must exceed it by a stated
+  margin, so an overly conservative estimate cannot pass unseen. The defect: the aero variant doubles the
+  four tables' β asymmetry, adding (T(β) − T(−β))/2 once more, under the shipped configuration.
+- The shipped pairs therefore check that the model's known asymmetries account for its whole mirror defect.
+  The isolated controls below show that each asymmetry breaks the bitwise mirror by itself.
 
 **Heading invariance** (Q12).
 - **The flight.** `earth/flat`, `gravity/constant` and ISA-1976. 13.3's shape is flown at ψ0 = 0, 0.6 rad and
@@ -435,10 +458,14 @@ asymmetries: Ω subtracted, and the signed-β tables.
 
 | Control | Fails |
 |---|---|
-| The shipped peer's Ω on the non-rotating Earth (the shipped pair) | the bitwise mirror, from engagement |
-| The shipped signed-β tables (the shipped pair) | the bitwise mirror, after the step |
-| Planted: the aero variant drops β's sign on `absCl0` (clt = absCl0 for every β) | the mirror, after the step |
+| Ω only: the peer's default Ω subtraction, with the \|β\| tables (13.3's shape) | the bitwise mirror, from engagement, before the step |
+| The tables only: Ω = 0, with the shipped signed-β tables (13.3's shape) | the bitwise mirror, after the step; the pre-step prefix still exactly lateral-zero |
+| Planted: the aero variant drops β's sign on `absCl0` (clt = absCl0 for every β), on the symmetric baseline | the bitwise mirror, after the step |
+| Planted: the four tables' β asymmetry doubled, under the shipped configuration | R12's modeling bound, by its pre-registered margin |
 | Planted: the peer variant omits chiErr's wrap | heading invariance at ψ0 = 172.5° |
+
+Each asymmetry is isolated against the symmetric baseline (critique C-04). In the shipped pair, Ω already breaks
+the mirror before the step, so a post-step break there cannot show that the tables caused it.
 
 The shipped peer on a non-rotating Earth flies only through the variant plugin with its default `Options`. The
 configs are built in the test from committed text, so PR 11a's tracked-config guard keeps holding.
@@ -447,8 +474,8 @@ configs are built in the test from committed text, so PR 11a's tracked-config gu
 
 | ID | Requirement | Check |
 |---|---|---|
-| R1 | (a) The order: the plan's derivation, and the five-state control fails F | pytest; PR 2's plan |
-| R2 | (a) F, L and C within their pre-registered bounds at N = 10, 3 and 1; each request's `frame` = kN and `t` = frame·dt | pytest against the `Fraction` reference |
+| R1 | (a) The order: the plan's derivation, and the five-state control fails F on x₁ at its pre-registered excited frames, by its stated margins (critique C-03) | pytest; PR 2's plan |
+| R2 | (a) F (on the recorded hold), L and C within their pre-registered bounds at N = 10, 3 and 1; the k-th request's `frame` = kN and `t` = frame·dt (critique C-02) | pytest against the `Fraction` reference |
 | R3 | (a) Each of the four negative controls and the order control fails on the objects its row names, by its pre-registered margin | pytest |
 | R4 | (a) The plant and peer under sanitizers, with zero allocations over their frames | ctest, four presets |
 | R5 | (b) Unit-level replies, `handled` and `held` bitwise equal on hand-built and seeded sequences | ctest, four presets |
@@ -457,10 +484,10 @@ configs are built in the test from committed text, so PR 11a's tracked-config gu
 | R8 | (b) Each planted porting defect breaks bitwise equality first at its pre-registered exchange, with its precondition asserted from the shm run's recorder, and stays inside M4's bands at both levels (amendment 2) | pytest |
 | R9 | (b) If it ships (Q7): the key block, the regenerated config-key reference, configs consuming its keys, and `astra run` exiting 65 on them | `config_keys.py --check`; pytest |
 | R10 | (c) The inventory evidence and libm's parity probe (seeded arguments over the flights' ranges, plus edges; every preset) before any flight. A failed item is reclassified to roundoff and goes to Joe before any flight | ctest |
-| R11 | (c) Both variant mirror pairs are equal under the parity mask by value, at every frame and exchange of all three recorder streams | ctest (release) |
-| R12 | (c) Each shipped pair within its pre-registered per-channel modeling bound (amendment 1); its largest per-channel asymmetry reported against the inventory's estimate | ctest (release), PR body |
+| R11 | (c) Both variant mirror pairs are equal under the parity mask by value, at every frame and exchange of all three recorder streams. The trim's own p and r lie within their roundoff bound of 0 before the config writes literal zeros, and every odd field is exactly 0 before the step in both runs (critique C-01) | ctest (release) |
+| R12 | (c) Each shipped pair within its pre-registered per-channel modeling bound (amendment 1), with the derivation's envelope and assumptions stated; the doubled-asymmetry defect exceeds it by its stated margin (critique C-05); each pair's largest per-channel asymmetry reported against the inventory's estimate | ctest (release), PR body |
 | R13 | (c) Heading invariance within Q12's pre-registered yardstick bound at each heading | ctest (release) |
-| R14 | (c) Each negative control fails as its row says | ctest (release) |
+| R14 | (c) Each negative control fails as its row says, with each asymmetry isolated against the symmetric baseline (critique C-04) | ctest (release) |
 | R15 | The hooks (Q10, Q11) leave shipped behavior bit-identical: before-and-after recorders of 13.3 and 13.4, and of case 11's open-loop run, byte-equal on one build; F16Aero's and F16Control's tests unchanged | evidence and ctest |
 | R16 | Records and gate: each code PR's full gate (`./scripts/check-full.sh`, exit 0 and `check: OK`); its added time per preset and its whole-gate wall time against 1001 s; review per tier | PR bodies |
 
@@ -547,7 +574,8 @@ reasoned.
   models stay within a pre-registered modeling bound"), so the row matches R12 after amendment 1.
 - **Q3. Tiers and gate time.**
   - *Recommended:* the PR table's tiers.
-  - (c)'s long flights (about 0.75 M F-16 frames) are registered in the release preset only, as M4's
+  - (c)'s long flights (about 0.75 M F-16 frames, about 0.93 M with critique C-04's and C-05's added controls)
+    are registered in the release preset only, as M4's
     Release-only and ASan-only lockstep tests are. The debug, asan and static-plugins presets get 1,000-frame
     smokes of each hook.
   - Every flight in all four presets would add an estimated 200 s each to asan and static-plugins, at PR 11a's
@@ -576,7 +604,7 @@ reasoned.
     accepted. The scheduler-stage defect, a command taking effect in the post-step, is control 1's reading, so
     both are covered.
 - **Q6. (a)'s plant and law** as specified (the chain of four, τ = 0.01 s, poles at z = 0.5, N = 10, 3 and 1, a
-  step at frame 1005, a `Fraction` reference in pytest). *Recommended as written.* PR 2's plan fixes the gains
+  step at frame 1007 after critique C-06, a `Fraction` reference in pytest). *Recommended as written.* PR 2's plan fixes the gains
   and the bounds' numbers before the first run.
   - **Decided (Joe): as written.** PR 2's plan fixes the gains and every bound's number before the first run.
 - **Q7. Does (b)'s peer ship, or stay test-only?** *Recommended: ships,* at the brief's path.
@@ -642,7 +670,7 @@ Codex review, and waits for Joe's merge.
 | 1 | ADR-0034, the in-house oracle rule (Q1): the reference's independence, the four allowed bound kinds, negative controls, constants kept in the tests with their derivations; extends ADR-0029 Decision 8 to any sim-side peer and its port; supersedes nothing. Architecture rev 16 (§16's row cites it) | 3 | 0013, 0029 | Q1 | `just docs-check`; adversarial Codex review of the ADR; Joe accepts it | none |
 | 2 | Oracle (a): `tests/plugins/linear_plant` and `state_feedback_peer`, the `Fraction` reference, F, L and C, the five controls, the sanitizer smoke; the base gate measured first | 3 | 0004, 0010, 0017, 0021, 0022, 0029, 0034 | PR 1 (ADR-0034 accepted by Joe) | `ctest --preset asan -R LinearPlant --no-tests=error`; `.venv/bin/pytest tests/python -k sampled_data` (R1 to R4) | pytest about 3 s; ctest under 2 s per preset |
 | 3 | Oracle (b): the notional transport's autopilot peer, its key block and configs (Q7), the unit-level and lockstep equivalence, the flags check, the four porting controls | 3 | 0007, 0008, 0022, 0024, 0029, 0034 | PR 1; PR 2 (order only); Q7, Q8 | `ctest --preset asan -R AutopilotPeer --no-tests=error`; `.venv/bin/pytest tests/python -k 'autopilot_peer or lockstep'`; `just embedded-standalone`; `python3 -I -B scripts/config_keys.py --check` (R5 to R9) | pytest about 10 s; ctest under 2 s per preset |
-| 4 | Oracle (c): the inventory evidence and the parity probe (stop for Joe if any item moves), the hooks (Q10, Q11) with R15's evidence, the variant plugins, the mirror pairs, the shipped pairs gated under their modeling bound (R12) and reported, heading invariance, the controls | 3 | 0001, 0004, 0020, 0021, 0028, 0029, 0034 | PR 1; PR 3 (order only); Q9 to Q12 | `ctest --preset release -R F16Symmetry --no-tests=error`; `ctest --preset asan -R 'F16Symmetry\|F16Aero\|F16Control' --no-tests=error` (R10 to R15) | release about 3 s; smokes under 10 s per preset (Q3) |
+| 4 | Oracle (c): the inventory evidence and the parity probe (stop for Joe if any item moves), the hooks (Q10, Q11) with R15's evidence, the variant plugins, the mirror pairs, the shipped pairs gated under their modeling bound (R12) and reported, heading invariance, the controls | 3 | 0001, 0004, 0020, 0021, 0028, 0029, 0034 | PR 1; PR 3 (order only); Q9 to Q12 | `ctest --preset release -R F16Symmetry --no-tests=error`; `ctest --preset asan -R 'F16Symmetry\|F16Aero\|F16Control' --no-tests=error` (R10 to R15) | release about 4 s; smokes under 10 s per preset (Q3) |
 | 5 | M7b closeout: PLAN.md check-off with evidence, §16's row status, the three unscheduled M7 items' text updated to point at the proven pattern, open items for held-out scope | 0 | none | all | `just docs-check`; `git diff --check`; one Codex pass | none |
 
 (In the table, `\|` keeps a pipe inside a cell; in a shell it is `|`, per lesson 2026-10-11. The selectors' test
@@ -676,9 +704,26 @@ names are the PR plans' to fix, and each PR takes a `-N` count before trusting o
 
 ## Plan critique
 
-*Pending.* One fresh, read-only Codex critique of this plan runs after Joe approves it. A verification pass
-follows once its findings are folded in and Joe's decisions are recorded, as #104 had. The record goes in
-`docs/plans/m7b-plan-critique.md`. The critique's focus:
+One fresh, read-only Codex critique ran on `a02dafd`, after Joe's approval.
+- Companion 1.0.6, Codex CLI 0.160.0, `task --fresh --effort high`, the companion's default model.
+- Job `task-mvalnsag-ggaasa`, thread `01a14371-fe1c-7511-84f7-9eddbb256223`.
+- Exit 0, verdict **rework**: 6 findings, 1 high, 4 medium and 1 low.
+
+Claude Code re-read every cited line. **All six are accepted** and folded in above; none is rejected.
+- Each resolution keeps Joe's decision and tightens its acceptance.
+- Five of them touch a decided question or amendment (the last column), and come to Joe for confirmation.
+- The verification pass is next. The full record is in [the critique record](m7b-plan-critique.md).
+
+| # | Sev. | Finding (verified) | Resolution in this plan | Touches |
+|---|---|---|---|---|
+| C-01 | high | `n_frame` trim rates come from `lstsq` (`trim.py:212-225`), so p and r are about 1e-22, not structural zeros, and the shared IC breaks the mirror at frame 0 | Oracle (c)'s exact lateral zeros: the config writes literal zeros, the trim's own p and r are asserted within a roundoff bound first, and the pre-step prefix is asserted exactly lateral-zero; R11 | Q9 (the IC's construction) |
+| C-02 | medium | Under the wrong divisor the peer's frame guard halts at the second request, and F had no reply at each nominal kN | F uses the recorded hold; the k-th request's frame is checked against the reference's kN; the control sets the peer's N key to N + 1 too, and fails on the request frames and C; R2 | Q5 (that row), R3 |
+| C-03 | medium | The order control's omitted term h⁵A⁴Bu/120 shrinks with u, so "every frame with nonzero u" cannot carry the margin | Failure required at pre-registered excited frames, with margins from their input magnitudes; R1 | Q5, amendment 9's wording |
+| C-04 | medium | The shipped pair carries both asymmetries, so a post-step break cannot show the tables caused it | Each asymmetry isolated against the symmetric baseline: Ω only, the tables only; R14 | none |
+| C-05 | medium | No control had to exceed R12's modeling bound, so an over-conservative bound would pass unseen | A doubled-asymmetry defect must exceed it by a stated margin; the derivation's envelope and assumptions stated; R12 | amendment 1's acceptance |
+| C-06 | low | Frame 1005 = 335 × 3, so the divisor-3 run had no off-boundary step | The step moves to frame 1007 | Q6 |
+
+The critique's focus:
 1. RK4 exactness and the order claim; the reference's exactness; whether F, L and C, and each control, can fail
    by a plausible bug; Q4's measurement leg.
 2. Whether (b)'s objects and flags check make bitwise equality meaningful, and whether the porting controls

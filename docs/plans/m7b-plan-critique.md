@@ -1,7 +1,7 @@
 # M7b plan critique: one fresh read-only Codex critique of the M7b spec and plan
 
-Status: **pending.** The critique has not run yet. Its verification pass follows once its findings are folded
-in. The M7b spec and plan, [m7b-closed-loop-oracles.md](m7b-closed-loop-oracles.md), is the record of every
+Status: **critique done; verification pass pending.** The verdict was rework. All six findings, C-01 to C-06,
+are accepted and folded into the spec. Five touch a decision of Joe's, and come to him for confirmation. The M7b spec and plan, [m7b-closed-loop-oracles.md](m7b-closed-loop-oracles.md), is the record of every
 question, requirement and PR. This file records only the critique and its verification pass.
 
 ## Context
@@ -58,7 +58,41 @@ Joe asked for one fresh, read-only Codex plan critique of the M7b spec and plan,
 
 ## Record
 
-*Pending.*
+**The run.**
+- Companion 1.0.6 (`openai-codex` plugin), Codex CLI 0.160.0.
+- `task --fresh --effort high --cwd .claude/worktrees/closed-loop-oracles`, read-only (no `--write`, no
+  `--model`).
+- The model is the companion's default. The status does not name it; `~/.codex/config.toml` sets `gpt-6.1-sol`
+  at reasoning effort high.
+- Job `task-mvalnsag-ggaasa`, thread `01a14371-fe1c-7511-84f7-9eddbb256223`, 8 min 44 s.
+- Candidate `a02dafd` against base `8e525c5`. Exit 0, a final message, verdict **rework**.
+- The worktree stayed clean, and the critique made no edits. Its own probes were read-only Python
+  computations.
+
+**Verification.** Claude Code re-read every cited line. These were confirmed:
+- `python/astra/trim.py:212-225`: `_n_frame_rate` returns `np.linalg.lstsq(jacobian, -at_rest)`, with no
+  structural zero. `_runkit.py:282` writes the solved rates into `omega_b` as they are (C-01).
+- The plan's own peer guard: the oracle (a) peer refuses a request whose frame is not the next kN. F's first
+  draft took the reply at floor(j/N)·N (C-02).
+- `integrator.hpp:106-124`: classical RK4. For the five-state chain, the term it omits is h⁵A⁴Bu/120, in x₁
+  only (C-03).
+- The plan's shipped pair carried both asymmetries, and its controls table cited that one pair for both
+  (C-04).
+- R12 and the controls: no control was required to exceed the modeling bound (C-05).
+- 1005 = 335 × 3 (C-06).
+
+| # | Sev. | Finding | Verdict | Where it is resolved |
+|---|---|---|---|---|
+| C-01 | high | The trim's `lstsq` rates leave p and r near 1e-22, not structural zeros, so the shared IC breaks the mirror at frame 0 | accepted | Oracle (c)'s exact lateral zeros, R11 (touches Q9's IC construction) |
+| C-02 | medium | The wrong-divisor control halts at the peer's frame guard, and F had no reply at each nominal kN | accepted | F on the recorded hold, the request check, the control's row, R2 (touches Q5's row and R3) |
+| C-03 | medium | The order control's omitted term shrinks with u, so "nonzero u" does not carry its margin | accepted | Pre-registered excited frames with stated margins, R1 (touches Q5 and amendment 9's wording) |
+| C-04 | medium | The shipped pair cannot attribute a break to the tables, because Ω breaks the mirror first | accepted | Ω-only and tables-only controls against the symmetric baseline, R14 |
+| C-05 | medium | No control had to exceed R12's modeling bound | accepted | The doubled-asymmetry defect, and the derivation's envelope and assumptions, R12 (touches amendment 1's acceptance) |
+| C-06 | low | Frame 1005 is an exchange frame for divisor 3 | accepted | The step moves to frame 1007 (touches Q6) |
+
+None is rejected. Each resolution keeps Joe's decision (the geometry, the control readings, the modeling-bound
+approach, the step's role) and tightens how its acceptance is stated. The five that touch a decision come to
+him for confirmation in the PR body.
 
 ## Verification pass
 
