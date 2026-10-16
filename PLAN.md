@@ -600,7 +600,7 @@ takes them as a prefix.
       bitwise equal to `embedded/autopilot`; and mirror and heading symmetry of the F-16 under `F16_control`.
       Each has an independent reference, a bound pre-registered before its first run, and negative controls
       that fail. Spec and plan: [plan](docs/plans/m7b-closed-loop-oracles.md).
-  - Planning: M7b spec, plan and PR decomposition (PR 0 to 5), docs only. Joe approved it on 2026-10-15 with
+  - Planning (#121): M7b spec, plan and PR decomposition (PR 0 to 5), docs only. Joe approved it on 2026-10-15 with
     his answers to Q1 to Q12 and amendments 1 to 10, before the Codex plan critique and its verification
     pass. Plans: [milestone](docs/plans/m7b-closed-loop-oracles.md),
     [critique](docs/plans/m7b-plan-critique.md). Packet: in the PR body.
