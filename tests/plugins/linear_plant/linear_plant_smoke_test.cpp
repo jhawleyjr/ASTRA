@@ -1,9 +1,10 @@
-// R4 of M7b's oracle (a) (docs/plans/m7b-pr2-sampled-data.md, §12): the plant and the state-feedback
-// peer under every preset's flags, the sanitizers included, with zero heap allocations over their
-// frames. 200 frames per run; the oracle itself is tests/python/test_sampled_data.py. The configs
-// are the plan's §2 nominal N = 10 config with its gains, cut to 200 frames, and its variants: N = 1,
-// the three plant defects (long_hold at frame 100), and a peer refusal. Its source sits beside the
-// plant to keep PR 2 inside its named paths (the plan's §11, item 2).
+// R4 of M7b's oracle (a) (docs/plans/m7b-pr2-sampled-data.md, §12): the plant and the
+// state-feedback peer under every preset's flags, the sanitizers included, with zero heap
+// allocations over their frames. 200 frames per run; the oracle itself is
+// tests/python/test_sampled_data.py. The configs are the plan's §2 nominal N = 10 config with its
+// gains, cut to 200 frames, and its variants: N = 1, the three plant defects (long_hold at frame
+// 100), and a peer refusal. Its source sits beside the plant to keep PR 2 inside its named paths
+// (the plan's §11, item 2).
 #include <gtest/gtest.h>
 
 #include <cstddef>
@@ -44,8 +45,9 @@ std::string config_text(const Smoke& smoke) {
   text += "vehicle:\n";
   text += "  models:\n";
   text += "    - plugin: tests/plugins/linear_plant\n";
-  text += "      a: [[0.0, 100.0, 0.0, 0.0], [0.0, 0.0, 100.0, 0.0], [0.0, 0.0, 0.0, 100.0], "
-          "[0.0, 0.0, 0.0, 0.0]]\n";
+  text +=
+      "      a: [[0.0, 100.0, 0.0, 0.0], [0.0, 0.0, 100.0, 0.0], [0.0, 0.0, 0.0, 100.0], "
+      "[0.0, 0.0, 0.0, 0.0]]\n";
   text += "      b: [[0.0], [0.0], [0.0], [100.0]]\n";
   text += "      x0: [0.0, 0.0, 0.0, 1.0]\n";
   text += "      inputs: [plant.u]\n";
@@ -56,16 +58,18 @@ std::string config_text(const Smoke& smoke) {
   text += "physical:\n";
   text += "  earth: plugins/physical/earth/flat\n";
   text += "  gravity: plugins/physical/gravity/constant\n";
-  text += "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, "
-          "izz: 1.0 }\n";
+  text +=
+      "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, "
+      "izz: 1.0 }\n";
   text += "initial:\n";
   text += "  state: { p_n: [0.0, 0.0, -100.0], v_b: [60.0, 0.0, 0.0] }\n";
   text += "transport:\n";
   text += "  plugin: tests/plugins/state_feedback_peer\n";
   text += "  divisor: " + std::to_string(smoke.transport_divisor) + "\n";
   text += "  commands: { elevator: plant.u }\n";
-  text += "  limits: { elevator: [-1000.0, 1000.0], aileron: [-1.0, 1.0], rudder: [-1.0, 1.0], "
-          "throttle: [0.0, 1.0] }\n";
+  text +=
+      "  limits: { elevator: [-1000.0, 1000.0], aileron: [-1.0, 1.0], rudder: [-1.0, 1.0], "
+      "throttle: [0.0, 1.0] }\n";
   text += "  peer:\n";
   text += "    state: v0.linear_plant.state\n";
   text += "    divisor: " + std::to_string(smoke.peer_divisor) + "\n";

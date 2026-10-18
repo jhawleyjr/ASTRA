@@ -1,15 +1,17 @@
 // A linear plant with model-owned state, the plant of M7b's oracle (a)
 // (docs/plans/m7b-pr2-sampled-data.md, §2; docs/plans/m7b-closed-loop-oracles.md, "Oracle (a)"):
-// x' = A x + B u, n continuous states owned through ADR-0021's hooks, m inputs bound by name through
-// ADR-0017's write seam. It is a WrenchSource only because WrenchSource::bind_inputs is the one route
-// to an input; its wrench is always zero, and it reads nothing of the rigid body or the environment.
+// x' = A x + B u, n continuous states owned through ADR-0021's hooks, m inputs bound by name
+// through ADR-0017's write seam. It is a WrenchSource only because WrenchSource::bind_inputs is the
+// one route to an input; its wrench is always zero, and it reads nothing of the rigid body or the
+// environment.
 //
-// The plan's §5 charges the operation order of integrate_state() below in its roundoff bound, so that
-// loop is part of the oracle: changing it changes the derivation (ADR-0034 Decision 4).
+// The plan's §5 charges the operation order of integrate_state() below in its roundoff bound, so
+// that loop is part of the oracle: changing it changes the derivation (ADR-0034 Decision 4).
 //
 // Negative controls (the plan's §9; ADR-0034 Decision 5) are planted only through test_defect. Each
 // emulates, at the plant's input, the observable effect of the core defect it names. step() runs
-// every frame before the latch (simulation.cpp), so it still sees the previous frame's latched value:
+// every frame before the latch (simulation.cpp), so it still sees the previous frame's latched
+// value:
 //   late_command:       every frame integrates with the value latched at the previous frame;
 //   long_hold:          only frame test_defect_frame does, so one hold lasts N + 1 frames;
 //   stage_one_previous: RK4 stage 1 (t equal to the frame's own t) reads the previous value and
@@ -175,8 +177,9 @@ class LinearPlant final : public astra::WrenchSource {
 
   [[nodiscard]] std::string_view name() const override { return "linear_plant"; }
 
-  [[nodiscard]] astra::Wrench wrench_b(const astra::VehicleState& /*vs*/,
-                                       const astra::EnvironmentSample& /*env*/) const noexcept override {
+  [[nodiscard]] astra::Wrench wrench_b(
+      const astra::VehicleState& /*vs*/,
+      const astra::EnvironmentSample& /*env*/) const noexcept override {
     return {};
   }
 

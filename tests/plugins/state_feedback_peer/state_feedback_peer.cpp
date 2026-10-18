@@ -1,8 +1,8 @@
 // Discrete state feedback as an in-process lockstep peer, the law of M7b's oracle (a)
 // (docs/plans/m7b-pr2-sampled-data.md, §2; docs/plans/m7b-closed-loop-oracles.md, "Oracle (a)").
 // It is a Transport in nesc_control's shape (ADR-0029 Decisions 1 to 3): in-process, its keys under
-// transport.peer, a schedule keyed to frames, a zeroed reply that echoes the frame, no clock, and no
-// allocation per frame.
+// transport.peer, a schedule keyed to frames, a zeroed reply that echoes the frame, no clock, and
+// no allocation per frame.
 //
 // At each exchange it replies u = G r - K x in ICD v1's elevator field, which reaches the plant
 // through the exchange's validation, its limits, the command map and the latch (ADR-0022). It reads
@@ -148,10 +148,9 @@ class StateFeedbackPeer final : public astra::Transport {
       reference_ = schedule_[next_change_].reference;
       ++next_change_;
     }
-    const bool accepted = request.magic == ASTRA_ICD_MAGIC &&
-                          request.version == ASTRA_ICD_VERSION &&
-                          request.frame == expected_frame_ &&
-                          request.t == static_cast<double>(request.frame) * dt_;
+    const bool accepted =
+        request.magic == ASTRA_ICD_MAGIC && request.version == ASTRA_ICD_VERSION &&
+        request.frame == expected_frame_ && request.t == static_cast<double>(request.frame) * dt_;
     double command = std::numeric_limits<double>::quiet_NaN();
     if (accepted) {
       // The plan's §5: L's bound charges this order.
@@ -202,8 +201,8 @@ class StateFeedbackPeer final : public astra::Transport {
 
 std::unique_ptr<astra::Model> create() { return std::make_unique<StateFeedbackPeer>(); }
 
-constexpr astra::PluginDescriptor kDescriptor{"test", "state_feedback_peer",
-                                              astra::kCoreApiVersion, astra::kBuiltWith, &create};
+constexpr astra::PluginDescriptor kDescriptor{"test", "state_feedback_peer", astra::kCoreApiVersion,
+                                              astra::kBuiltWith, &create};
 
 }  // namespace
 
