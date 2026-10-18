@@ -605,7 +605,7 @@ takes them as a prefix.
     pass (N-01 to N-03) followed, and all nine findings are folded in. Plans:
     [milestone](docs/plans/m7b-closed-loop-oracles.md), [critique](docs/plans/m7b-plan-critique.md). Packet: in
     the PR body.
-  - PR 1: ADR-0034, the in-house oracle rule, docs only. The reference shares no code with the path under test,
+  - PR 1 (#122): ADR-0034, the in-house oracle rule, docs only. The reference shares no code with the path under test,
     the bound is one of four kinds and is fixed in the PR's plan before the first run, and every oracle carries
     pre-registered negative controls; it extends ADR-0029 Decision 8 and supersedes nothing. It is written as a
     proposed candidate under `docs/plans/` until Joe accepts it. Architecture rev 16:
