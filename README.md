@@ -423,6 +423,8 @@ autopilot, tooling, analysis tooling, and the F-16 with the NESC oracle (cases 1
 the config-key reference). Cases 15 and 16, the embedded port and the tutorial left M7 unscheduled (Joe,
 2026-10-13). Next, in order:
 
+- **M7b Closed-loop oracles:** an exact sampled-data check, a sim-side peer bitwise equal to M4's embedded
+  autopilot, and F-16 symmetry tests, each with an independent reference and a pre-registered bound.
 - **M8 Actuators and controller tuning:** the envelope monitors (ADR-0031) first, then actuator models with
   rate and position limits, gains loaded at startup, a tuning tool, frequency-domain and handling-qualities
   analysis.
