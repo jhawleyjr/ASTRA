@@ -62,7 +62,9 @@ Governs PLAN.md's M7b PR 2 to 4, and every in-house oracle after them.
      rule by leaving it uncited. This is the counterpart of validation.md's step 6:
      - a new case with no independent reference either becomes an in-house oracle under this record, or goes
        to Joe;
-     - a tolerance is never derived from ASTRA's own output.
+     - a tolerance is never fitted to ASTRA's own output: no bound is set from the discrepancy it judges. The
+       measured sensitivity yardstick (Decision 4) is the one bound computed from runs of the path under
+       test, within the limits stated there.
    - **The border with unit tests.**
      - An expected value that a reviewer can verify by reading it is a unit test, under validation.md. That
        covers a closed form, a textbook value, ADR-0001's sign pins, and a checkData shot.
@@ -111,6 +113,12 @@ Governs PLAN.md's M7b PR 2 to 4, and every in-house oracle after them.
      - The factor and the set are fixed before any run, from a stated estimate, and never adjusted afterward.
      - Its perturbed runs are part of the oracle.
      - A planted defect must fail it by orders of magnitude.
+     - **Why it is not a fitted tolerance.** It is the one kind computed from ASTRA's own runs. Those runs
+       measure the path's sensitivity to the fixed perturbation set, and they never read the discrepancy the
+       oracle judges, so the bound is not fitted to it. validation.md's step 6 sends a case that no derivation
+       reaches to Joe, and the M7b plan's Q12 is his decision for heading invariance. Each later use is
+       pre-registered in a plan that Joe approves. ADR-0013's and ADR-0028's external bands keep their
+       prohibition unchanged.
 
    No other kind is allowed. A case that none of the four can bound goes to Joe, never to an ad hoc bound.
 5. **Negative controls.** Every oracle carries them.
