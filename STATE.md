@@ -2,12 +2,14 @@
 
 ## Next step
 1. M0 to M7 are done; PLAN.md's M7 row holds the evidence. M7b (PLAN.md's block; plan
-   `docs/plans/m7b-closed-loop-oracles.md`, Joe's decisions and the critique folded in) is planned, and none
-   of its code PRs has started. Each next task starts from a new worktree off `origin/main`.
-2. Next, on Joe's go: M7b PR 1, ADR-0034 (the in-house oracle rule: an independent reference, the four allowed
-   bound kinds, negative controls, the constants kept in the tests), docs only, Tier 3, with architecture rev 16.
-3. Then M7b PR 2 (oracle (a), which first measures the base gate against 1001 s), PR 3 (b), PR 4 (c) and PR 5
-   (closeout). Each has its own short plan citing the M7b plan and fixing its numbers before its first run.
+   `docs/plans/m7b-closed-loop-oracles.md`) is under way: PR 1's ADR-0034, the in-house oracle rule
+   (`docs/decisions/0034-in-house-oracle-rule.md`), is accepted, and none of M7b's code PRs has started. Each
+   next task starts from a new worktree off `origin/main`.
+2. Next, on Joe's go: M7b PR 2, oracle (a), Tier 3, eligible now that ADR-0034 is accepted. It first measures
+   the base gate against 1001 s. Its short plan pre-registers, before the first run, what ADR-0034's
+   Consequences list: the reference and its independence, shared inputs, each bound's kind and derivation,
+   the comparison set, and each negative control's named object.
+3. Then PR 3 (b), PR 4 (c) and PR 5 (closeout), each with its own short plan citing the M7b plan and ADR-0034.
 4. M8 planning (M7's PR 13, the envelope item: ADR-0031, the M7 plan's row 13, Q16, R18) and M7's PR 3, the (M9)
    rotation item: each on Joe's go; their order against M7b is his.
 5. Every new plugin under `plugins/` or `aircraft/` needs a key block before `just docs-check` passes, and a
@@ -22,8 +24,6 @@
   (`docs/plans/m7-pr9-open-loop.md`, Q2: the ellipsoid holds). The next PR to edit either file updates it.
 - The first PR that edits `tests/physics/nesc/independent_evaluator.hpp` fixes its wrap artifact, "is / still /
   that frame's" (#116's follow-up).
-- README.md's roadmap lists M8 as next; M7b now comes first. Not fixed in M7b's planning PR (its scope was
-  Joe's list); the next PR that may edit README.md fixes it.
 - PR 11b's `rate_frame.py` obligation on case 15 stays with its unscheduled item; no M7b oracle flies case 15.
 - PLAN.md's (unscheduled) notional-transport rate-frame item (M7 PR 6a's D3 (B2)): measure before Joe decides.
 - Trim: `zero_inertial` the default, the F-16 configs `n_frame`; `n_frame` rates come from `lstsq`, so exact
