@@ -1,6 +1,6 @@
 # ADR-0034: In-house oracles: an independent reference, a bound fixed before the first run, and negative controls
 
-Status: proposed
+Status: **accepted**, 2026-10-18
 Date: 2026-10-17
 Owner: Joe
 Related/supersedes: supersedes nothing; extends ADR-0029 Decision 8; elaborates ADR-0013 and validation.md's
@@ -190,4 +190,4 @@ Governs PLAN.md's M7b PR 2 to 4, and every in-house oracle after them.
 
 ## Approval
 
-Proposed. It remains proposed until Joe gives his explicit decision, with its date.
+Accepted by Joe, 2026-10-18.
