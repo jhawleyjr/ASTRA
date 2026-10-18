@@ -255,6 +255,12 @@ The `physical` section and its rigid body exist only because a transport require
   frame-start sampling is M4's R12b (`tests/python/test_lockstep.py::test_r12b_icd_matches_state`), and every
   transport packs with the same `icd_pack::pack_sim_to_sw` call (`lockstep_exchange.cpp:222`).
 - m > 1 inputs, n > 4 states under a nominal check, and the other three ICD command fields are not exercised.
+- **An omitted exchange at the last due frame** (P-01, closed 2026-10-18, Joe):
+  - F uses the recorded hold, which the sim also keeps;
+  - L runs only on recorded exchanges;
+  - C stops at frame 2000, so it never sees the omitted reply's effect.
+
+  None of the three could see such an omission. §7's full-sequence check is the only check that sees it.
 
 ## 5. The operation order the bounds charge (amendment 3)
 
@@ -396,10 +402,14 @@ A check passes iff residual ≤ bound, **compared exactly as rationals**.
   - x̃[0] = x0, and x̃[k+1] = round to the nearest multiple of 2⁻⁴⁰⁰ of (Φ_cl x̃[k] + Γ_N G r[k]). This is the
     exact recursion carried on a grid (§11, item 3), with Φ_cl = Φ_N − Γ_N K;
   - w_j = |Γ_N|·L(j) + Σ_{i=0}^{N−1} |Φ₁^{N−1−i}|·F(jN + i), where L(j) is the bound at the run's j-th
-    recorded exchange;
+    recorded exchange, and 0 for j past the run's last recorded exchange (2026-10-18, Joe: §16's L(j)
+    clarification);
   - w̄_{k−1} is the componentwise maximum of w_j over j ≤ k − 1, and w̄_{−1} = 0;
   - S̄ = (Σ_{m=0}^{I−1} |Φ_cl^m|)·(I − |Φ_cl^I|)⁻¹, computed exactly before the run. I is the smallest m with
-    ‖Φ_cl^m‖_∞ ≤ 1/2. S̄'s entries may be rounded upward to keep the test fast, and never downward.
+    ‖Φ_cl^m‖_∞ ≤ 1/2.
+  - **S̄'s rounding** (P-02, 2026-10-18, Joe). S̄ is computed exactly, and then each entry v is replaced by
+    ceil(v·2¹²⁸)/2¹²⁸. Every entry is then at least its exact value, so C's bound can only grow. The test
+    asserts S̄_rounded ≥ S̄_exact elementwise, and C uses S̄_rounded.
 - **The derivation.** The error obeys e_{k+1} = Φ_cl e_k + Γ_N l_k + d_k, with e₀ = 0, |l_k| ≤ L(k) and
   |d_k| ≤ Σ_i |Φ₁^{N−1−i}| F(kN + i).
   - So |e_k| ≤ Σ_{j<k} |Φ_cl^{k−1−j}| w_j ≤ S̄ w̄_{k−1}.
@@ -409,13 +419,23 @@ A check passes iff residual ≤ bound, **compared exactly as rationals**.
     per-exchange injections (§11, item 4).
 
 **The request, per exchange** (kind: bitwise).
-- The k-th request's magic, its version (1), `frame` = kN, and `t` = fl(float(kN)·h), each compared with `==`.
+- The k-th request's magic, its version (1), `frame` = kN, and `t` = fl(float(kN)·h).
 - The k-th reply's echoed frame equals the request's.
+
+**The full sequence** (kind: bitwise; P-01, 2026-10-18, Joe).
+- The recorder holds exactly ⌈2001/N⌉ requests and as many replies: 201, 667 and 2,001 for N = 10, 3 and 1.
+- Their frames are exactly 0, N, 2N, …, up to the last multiple of N at or below 2000.
+- Each reply echoes its request's frame.
 
 **Parse identity** (kind: bitwise).
 - Against `float(text)`: `sim.clock.dt`, the plant's published a and b, the peer's published k, g and dt, and
   x_sim(0) = x0.
 - Against `int(text)`: the peer's divisor.
+
+**How "bitwise" compares** (P-03, 2026-10-18, Joe). The request, full-sequence and parse-identity checks
+compare each double by its IEEE representation (`float.hex()` on both sides), and each integer by `==`. So
+they are bitwise as labeled, under ADR-0034 Decision 4. F, L and C stay rational comparisons of residual
+against bound.
 
 **Completion.**
 - No halt over 2,001 frames, so every reply stayed finite and inside its limits.
@@ -435,6 +455,8 @@ are evaluated on its recorded data.
 - **The runs:** nominal N = 10, 3 and 1; the four controls; the order control. Each runs 2,001 frames.
 - **F:** every frame from 0 to 2000, every component. For the order control, x₁ is the registered component.
 - **L and the request:** every recorded exchange.
+- **The full sequence** (P-01): the request and reply counts, every frame from 0 to the last due exchange, and
+  every echo.
 - **C:** every k with kN ≤ 2001, every component.
 - **Also:** parse identity and completion.
 - **Determinism** (an M7b invariant): two runs of nominal N = 10 give byte-identical recorder bytes and
@@ -482,6 +504,7 @@ reference, before any run.
 - A registered pass is a pass.
 - A control that misses any of these stops the PR and goes to Joe. That includes a failure earlier than its
   registered first failure on the same object.
+- Every control but the wrong divisor registers §7's full-sequence check as a pass (P-01, 2026-10-18).
 
 **Late command**
 - F fails first at frame 0 (predicted 10^14.9). It fails at every exchange frame kN for k in [0, 40] and
@@ -503,8 +526,13 @@ reference, before any run.
 
 **Wrong divisor**
 - The request fails first at exchange 1 (frame 11 against 10), and at every exchange from 1 on.
+- **A second failing object, the full sequence** (P-01, 2026-10-18, Joe): 182 requests against 201, at frames
+  0, 11, 22, … against 0, 10, 20, ….
 - C fails first at k = 2 (predicted 10^12.8). It fails at every k in [2, 45] and [102, 145] (predicted minimum
   10^5.28).
+- **Note, 2026-10-18 (Joe):** C's derivation premise, exchanges at kN, does not hold for this control. So C here
+  is the registered formula applied, with L(j) = 0 past the run's 182 recorded exchanges (§7). Its registered
+  windows [2, 45] and [102, 145] lie within the 182 recorded exchanges, and are unchanged.
 - Passes:
   - F, at every frame;
   - L, at every actual exchange;
@@ -621,7 +649,7 @@ addition's error is U·2^e, while the bound charges U·|z| with |z| barely above
   `test_sampled_data.py` carries a comment citing its section of this plan:
   - §6: the gains, G, x0, r and the step frame;
   - §9: each control's divisor, horizon, windows, thresholds and margins;
-  - §7: the 2⁻⁴⁰⁰ grid, I's rule, S̄'s upward rounding rule, U, η and |c6 − h/6|.
+  - §7: the 2⁻⁴⁰⁰ grid and, beside it, S̄'s 2⁻¹²⁸ upward rounding (P-02); I's rule; U, η and |c6 − h/6|.
 - **Review:** an adversarial Codex review of this plan before the first run, and of the diff after it, with at
   most two correction rounds.
 - **Before the merge:** `git fetch`, then merge `origin/main` in if it moved.
@@ -693,8 +721,19 @@ addition's error is U·2^e, while the bound charges U·|z| with |z| barely above
   checks, and those reproduced the four controls' first failures.
 
 Claude Code re-read every cited line, and **all three findings are accepted**. Each changes the comparison set or
-a bound's definition, so under §14 step 4 it **comes to Joe before the first run**. The resolutions below are
-proposed, not yet folded into §7 to §9.
+a bound's definition, so under §14 step 4 each came to Joe before the first run.
+
+**Joe's decision, 2026-10-18: P-01 to P-03 and the L(j) clarification, each as proposed, with his wording.**
+All four are folded in:
+- **P-01:** accepted and folded in. §7 gains the full-sequence check, §8 lists it, §9 registers it as the wrong
+  divisor's second failing object and as a pass for the other four controls, and §4 records why it closes P-01.
+- **P-02:** accepted and folded in. §7 fixes S̄'s rounding at ceil(v·2¹²⁸)/2¹²⁸ and requires the test to assert
+  S̄_rounded ≥ S̄_exact. §12 names 2⁻¹²⁸ beside the 2⁻⁴⁰⁰ grid.
+- **P-03:** accepted and folded in. §7 says how "bitwise" compares.
+- **L(j):** accepted and folded in. §7 gives L(j) = 0 past the last recorded exchange, and §9's wrong divisor
+  records that C's premise does not hold there.
+
+The table keeps each finding and its proposed resolution as Codex raised them.
 
 | # | Sev. | Finding (verified) | Proposed resolution | Touches |
 |---|---|---|---|---|
@@ -713,5 +752,5 @@ three findings.
 rise slightly: late command 10^5.18 (§9 says 10^5.17), long hold 10^5.89, wrong divisor 10^5.29 and stage switch
 10^5.40. No registered threshold changes.
 
-**Status: awaiting Joe's decision on P-01 to P-03 and the L(j) clarification.** The build continues, compiling
-only. Nothing executes the plant or the peer until he decides.
+**Status: closed, 2026-10-18.** Joe decided all four items, and they are folded in. The first run may proceed
+(§14, step 6).

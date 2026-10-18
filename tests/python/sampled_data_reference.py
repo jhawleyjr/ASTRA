@@ -286,12 +286,12 @@ def _round_up(value: Fraction, bits: int) -> Fraction:
     return Fraction(math.ceil(value * 2**bits), 2**bits)
 
 
-def s_bar(p: Params, round_bits: int) -> tuple[int, Matrix]:
-    """(I, S-bar) for C's bound (§7): S-bar >= sum_m |Phi_cl^m| elementwise.
+def s_bar(p: Params, round_bits: int) -> tuple[int, Matrix, Matrix]:
+    """(I, S-bar exact, S-bar rounded) for C's bound (§7): S-bar >= sum_m |Phi_cl^m| elementwise.
 
     I is the smallest m with ||Phi_cl^m||_inf <= 1/2, and
-    S-bar = (sum_{m<I} |Phi_cl^m|)(I - |Phi_cl^I|)^-1, exact, then each entry rounded upward to a
-    multiple of 2^-round_bits (never downward).
+    S-bar = (sum_{m<I} |Phi_cl^m|)(I - |Phi_cl^I|)^-1, exact. The rounded S-bar replaces each entry
+    v by ceil(v 2^round_bits) / 2^round_bits (§7, P-02), so C's bound can only grow; C uses it.
     """
     phi_cl, _ = closed_loop(p)
     n = p.n
@@ -305,7 +305,7 @@ def s_bar(p: Params, round_bits: int) -> tuple[int, Matrix]:
                 [[Fraction(int(i == j)) - abs(power[i][j]) for j in range(n)] for i in range(n)]
             )
             exact = matmul(total, tail)
-            return m, [[_round_up(v, round_bits) for v in row] for row in exact]
+            return m, exact, [[_round_up(v, round_bits) for v in row] for row in exact]
     raise ValueError("||Phi_cl^m|| did not reach 1/2 by m = 512")
 
 

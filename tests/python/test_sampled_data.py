@@ -75,6 +75,7 @@ WINDOW_MARGIN = 10**3
 ORDER_MARGIN = 10**8
 CONTROL_DIVISOR = 10  # every control's reference N, and the plant controls' divisor
 WRONG_DIVISOR = 11  # both divisor keys of the wrong-divisor control
+WRONG_EXCHANGES = 182  # §9 (P-01): its recorded exchanges, against the reference's 201
 LONG_HOLD_FRAME = 1010
 LATE_F_WINDOWS = ((0, 40), (101, 135))  # exchange indices k: F fails at frame k N
 LATE_C_FIRST = 1
@@ -246,7 +247,7 @@ def evaluate(p: ref.Params, run: Run) -> Checks:
 
     big_n = p.peer_divisor
     count = frames // big_n + 1  # every k with k N <= FRAMES
-    _, sbar = ref.s_bar(p, S_BAR_ROUND_BITS)
+    _, _, sbar = ref.s_bar(p, S_BAR_ROUND_BITS)  # §7: C uses the rounded S-bar (P-02)
     reference = ref.reference_states(p, count, GRID_BITS)
     c_bound = ref.c_bounds(p, count, f_bound, l_bound, sbar, GRID_BITS)
     c_residual = [
@@ -266,11 +267,17 @@ def evaluate(p: ref.Params, run: Run) -> Checks:
             and version == ICD_VERSION
             and echo == frame
         )
+    # §7's full sequence (P-01): ceil(2001/N) requests and replies, at frames 0, N, 2N, ... up to
+    # the last multiple of N at or below 2000, each reply echoing its request's frame.
     due = math.ceil(FRAMES / big_n)
     sequence_ok = (
         len(run.requests) == due
         and len(run.replies) == due
         and exchange_frames == [k * big_n for k in range(due)]
+        and all(
+            echo == frame
+            for (frame, _, _, _), (echo, _) in zip(run.requests, run.replies, strict=True)
+        )
     )
     return Checks(
         f_residual, f_bound, l_residual, l_bound, c_residual, c_bound, request_ok, sequence_ok
@@ -374,10 +381,15 @@ def test_sampled_data_reference_c6_gap_is_the_plans_value() -> None:
 
 @pytest.mark.parametrize("divisor", [10, 3, 1])
 def test_sampled_data_reference_s_bar_index_is_the_plans_value(divisor: int) -> None:
-    """§7: I, the smallest m with ||Phi_cl^m||_inf <= 1/2."""
-    i, sbar = ref.s_bar(ref.Params(nominal_text(divisor)), S_BAR_ROUND_BITS)
+    """§7: I, the smallest m with ||Phi_cl^m||_inf <= 1/2; S-bar rounded >= S-bar exact (P-02)."""
+    i, exact, rounded = ref.s_bar(ref.Params(nominal_text(divisor)), S_BAR_ROUND_BITS)
     assert i == EXPECTED_I[divisor]
-    assert all(v >= 0 for row in sbar for v in row)
+    assert all(v >= 0 for row in exact for v in row)
+    assert all(
+        r >= e
+        for row_r, row_e in zip(rounded, exact, strict=True)
+        for r, e in zip(row_r, row_e, strict=True)
+    )
 
 
 # --- The nominal runs (R2) ---
@@ -499,13 +511,19 @@ def test_sampled_data_stage_switch_control_fails_as_registered() -> None:
 
 
 def test_sampled_data_wrong_divisor_control_fails_as_registered() -> None:
-    """§9, wrong divisor: the requests from exchange 1, C from k = 2; F and L pass."""
+    """§9, wrong divisor: the requests from exchange 1, the sequence, C from k = 2; F, L pass."""
     run = simulate(config_text(divisor=WRONG_DIVISOR, gains=GAINS[CONTROL_DIVISOR][1]))
     assert_completed(run)
     checks = evaluate(ref.Params(nominal_text(CONTROL_DIVISOR)), run)
     assert checks.request_ok[0]
     assert not any(checks.request_ok[1:])
+    # The second failing object (P-01): 182 requests against 201, at frames 0, 11, 22, ...
     assert not checks.sequence_ok
+    assert len(run.requests) == WRONG_EXCHANGES
+    assert len(run.replies) == WRONG_EXCHANGES
+    assert [frame for frame, _, _, _ in run.requests] == [
+        k * WRONG_DIVISOR for k in range(WRONG_EXCHANGES)
+    ]
     assert all(f_ratio(checks, j) <= 1 for j in range(FRAMES))
     _assert_l_passes(checks)
     _assert_c_fails(checks, WRONG_C_FIRST, WRONG_C_WINDOWS)
