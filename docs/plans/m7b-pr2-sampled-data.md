@@ -680,3 +680,38 @@ addition's error is U·2^e, while the bound charges U·|z| with |z| barely above
   more over the registered thresholds, so a stop there would indicate a real departure.
 - **Gate cost** (§11, item 6).
 - **Rollback:** revert the PR. Every path is test-only.
+
+## 16. The Codex plan critique (§14, step 4)
+
+**The run.** One fresh, read-only critique, on the M7b critique's route.
+- Companion 1.0.6: `task --fresh --effort high --cwd <this worktree>`, with no `--write` and no `--model`, in the
+  background. Its focus was amendment 9's list, and it was given ADR-0034, the M7b plan's oracle (a) section and
+  this plan.
+- Candidate: `f31346d` against `origin/main` = `406c407`. Thread `01a150a7-1530-7aa3-9b5a-e17cbc545447`.
+- Exit 0, **verdict rework**: 3 findings, 2 medium and 1 low.
+- Codex reported that it edited no file, ran no build and executed no ASTRA code. It ran standalone `Fraction`
+  checks, and those reproduced the four controls' first failures.
+
+Claude Code re-read every cited line, and **all three findings are accepted**. Each changes the comparison set or
+a bound's definition, so under §14 step 4 it **comes to Joe before the first run**. The resolutions below are
+proposed, not yet folded into §7 to §9.
+
+| # | Sev. | Finding (verified) | Proposed resolution | Touches |
+|---|---|---|---|---|
+| P-01 | medium | The checks cover only the exchanges that were recorded. An omitted final due exchange (frame 2000 at N = 10) passes F, because it uses the previous recorded hold, which the sim also keeps. It also passes L and the request check, which have no row to reject, and C, because the effect on x(2000) is nil. An ADR-0022 timing defect at the end of a run would pass. | §7's request check gains: the run records exactly ⌈2001/N⌉ requests and as many replies, at frames 0, N, 2N, and so on, the last due exchange included (201, 667 and 2,001 at N = 10, 3 and 1). Under the wrong divisor, the 182 recorded against 201 is part of that control's registered request failure. §8's request item covers the count. | the comparison set (§8), the wrong divisor's request registration (§9) |
+| P-02 | medium | "S̄'s entries may be rounded upward" names no precision or function, so part of C's bound is unfixed (ADR-0034 Decision 3). | Fix it: each entry of the exact S̄ is rounded up to the next multiple of 2⁻¹²⁸, as `ceil(v·2¹²⁸)/2¹²⁸`. Recomputed from the reference alone, every control's C margins are identical to four decimals under exact and rounded S̄. Rounding up only raises C, so every registered pass stays a pass. | C's bound (§7) |
+| P-03 | low | The request check and the parse identity are labeled bitwise, but specified by `==`, under which +0.0 equals −0.0. | Make them bitwise: compare each double's IEEE representation (`float.hex()`), and each integer by `==`. Every value involved is +0.0 or nonzero, and the sim and the reference form t with the same IEEE product, so no expected outcome changes. | the request and parse-identity comparisons (§7) |
+
+**A clarification found while writing the reference.** It also touches C's bound, so it goes to Joe with the
+three findings.
+- §7's w_j uses L(j), "the bound at the run's j-th recorded exchange". The wrong-divisor run records 182
+  exchanges, while C runs to k = 200.
+- The proposed reading: L(j) = 0 past the run's last recorded exchange. That makes C stricter only at
+  k ≥ 183 of the wrong-divisor run, where nothing is registered.
+
+**What amendment 6 changed in §9's predictions.** With the exact |c6 − h/6| term, the predicted C window minima
+rise slightly: late command 10^5.18 (§9 says 10^5.17), long hold 10^5.89, wrong divisor 10^5.29 and stage switch
+10^5.40. No registered threshold changes.
+
+**Status: awaiting Joe's decision on P-01 to P-03 and the L(j) clarification.** The build continues, compiling
+only. Nothing executes the plant or the peer until he decides.
