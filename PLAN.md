@@ -808,7 +808,11 @@ takes them as a prefix.
       compaction, and an armed oracle guard does not survive an auto-compact (origin: M7 PR 1b; Joe 2026-10-09;
       `docs/lessons.md` 2026-10-09). Joe decides whether it matches only `startup`, `resume` and `clear`, or keeps
       firing on compaction as a fail-closed default. It is a Tier 2 workflow PR of its own. Until then the
-      lesson's rule holds: arm right before the guarded writes, in a turn that finishes them. Not started.
+      lesson's rule holds: arm right before the guarded writes, in a turn that finishes them. More evidence
+      from M7b PR 1 (#122's body): in a session started in the main checkout, a marker in the worktree did not
+      arm the guard, while the main checkout's marker did. The guard reads `$CLAUDE_PROJECT_DIR`'s marker and the
+      main checkout's, and that session's project dir was presumably the main checkout, which is an inference.
+      Not started.
 - [ ] (unscheduled) A non-scalar map key reaches `Config::unknown_keys()` as a raw yaml-cpp exception, not a
       `ConfigError` (origin: M7 PR 2; Joe 2026-10-10, out of PR 2's scope; Joe's call when). `collect_leaf_paths`
       reads each key with `as<std::string>()`, which throws on a sequence or map key. Probed on M7 PR 2's build:
