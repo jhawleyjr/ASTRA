@@ -467,8 +467,11 @@ def _assert_l_passes(checks: Checks) -> None:
 
 
 def _plant_control(lines: tuple[str, ...]) -> tuple[Run, Checks]:
-    run = simulate(config_text(divisor=CONTROL_DIVISOR, plant_lines=lines))
+    text = config_text(divisor=CONTROL_DIVISOR, plant_lines=lines)
+    run = simulate(text)
     assert_completed(run)
+    # §8: parse identity and completion for every run, against the run's own config text (R-002).
+    _assert_parse_identity(ref.Params(text), run)
     return run, evaluate(ref.Params(nominal_text(CONTROL_DIVISOR)), run)
 
 
@@ -512,8 +515,11 @@ def test_sampled_data_stage_switch_control_fails_as_registered() -> None:
 
 def test_sampled_data_wrong_divisor_control_fails_as_registered() -> None:
     """§9, wrong divisor: the requests from exchange 1, the sequence, C from k = 2; F, L pass."""
-    run = simulate(config_text(divisor=WRONG_DIVISOR, gains=GAINS[CONTROL_DIVISOR][1]))
+    text = config_text(divisor=WRONG_DIVISOR, gains=GAINS[CONTROL_DIVISOR][1])
+    run = simulate(text)
     assert_completed(run)
+    # §8: parse identity against this run's own text (R-002); the reference stays nominal N = 10's.
+    _assert_parse_identity(ref.Params(text), run)
     checks = evaluate(ref.Params(nominal_text(CONTROL_DIVISOR)), run)
     assert checks.request_ok[0]
     assert not any(checks.request_ok[1:])
@@ -534,7 +540,9 @@ def test_sampled_data_order_control_fails_as_registered() -> None:
     text = order_text()
     run = simulate(text)
     assert_completed(run)
+    _assert_parse_identity(ref.Params(text), run)  # §8 (R-002)
     checks = evaluate(ref.Params(text), run)
+    assert checks.sequence_ok  # §9 (P-01): every control but the wrong divisor passes it (R-001)
     x1 = range(1)
     early = [j for j in range(ORDER_FIRST_FRAME) if f_ratio(checks, j, x1) > 1]
     assert not early, f"F on x_1 failed before frame {ORDER_FIRST_FRAME}: {early[:10]}"
