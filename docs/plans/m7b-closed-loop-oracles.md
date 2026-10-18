@@ -541,6 +541,10 @@ Joe's second approval (2026-10-15) adds three more, folded in before PR 0's firs
 He also accepted the replacement of the four (b) controls, and the rejection of the clamp example, as
 reasoned.
 
+11. **2026-10-17 (Joe):** §16's M7b row names heading invariance's bound as the measured sensitivity
+    yardstick of Q12 and R13, where rev 15, under amendment 10, said "stated roundoff"; Q2's quote stays as
+    the rev 15 text it records.
+
 ## Questions, each with its recommendation and Joe's answer
 
 - **Q1. An ADR for the in-house oracle rule?** *Recommended: yes, ADR-0034, in its own docs-only PR 1 (Tier 3),
@@ -725,7 +729,7 @@ One fresh, read-only Codex critique ran on `a02dafd`, after Joe's approval.
 Claude Code re-read every cited line. **All six are accepted** and folded in above; none is rejected.
 - Each resolution keeps Joe's decision and tightens its acceptance.
 - Five of them touch a decided question or amendment (the last column), and come to Joe for confirmation.
-- The verification pass is next. The full record is in [the critique record](m7b-plan-critique.md).
+- The full record is in [the critique record](m7b-plan-critique.md).
 
 | # | Sev. | Finding (verified) | Resolution in this plan | Touches |
 |---|---|---|---|---|

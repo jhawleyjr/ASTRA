@@ -605,6 +605,12 @@ takes them as a prefix.
     pass (N-01 to N-03) followed, and all nine findings are folded in. Plans:
     [milestone](docs/plans/m7b-closed-loop-oracles.md), [critique](docs/plans/m7b-plan-critique.md). Packet: in
     the PR body.
+  - PR 1 (#122): ADR-0034, the in-house oracle rule, docs only. The reference shares no code with the path under test,
+    the bound is one of four kinds and is fixed in the PR's plan before the first run, and every oracle carries
+    pre-registered negative controls; it extends ADR-0029 Decision 8 and supersedes nothing. Record: ADR-0034.
+    Architecture rev 16:
+    §16's M7b row cites it and names heading invariance's bound as Q12's yardstick (the plan's amendment 11).
+    Plan: [plan](docs/plans/m7b-pr1-oracle-adr.md). Packet: in the PR body.
 - [ ] **M8 Actuators and controller tuning** — a first-order lag and a nonlinear second-order actuator model
       with rate and position limits; autopilot gains loaded at startup; the tuning tool (spec-driven on the
       linear model, time-domain on the nonlinear sim, robustness across draws, gain schedules) with

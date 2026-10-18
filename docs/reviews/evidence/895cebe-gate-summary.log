@@ -1,0 +1,28 @@
+date: 2026-10-18T00:05:02Z to 2026-10-18T00:24:58Z (about 20 min)
+command: ./scripts/check-full.sh
+base: 7a9211528cd6c7fea6c1f2c5a20dbe511032315c
+head: 895cebe02cf6b74a6a5938ac11ba5bd57c38e9fc
+exit: 0
+working tree: clean at start. Markdown-only edits to docs/plans/m7b-pr1-adr-0034-candidate.md and
+docs/reviews/m7b-pr1-oracle-adr-review.md were made during the run, after its docs-check step, and committed as
+6e61178 and 26da332 (Codex fix rounds 1 and 2); no other file changed.
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 195 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7b-pr1-oracle-adr/build/debug
+100% tests passed, 0 tests failed out of 800
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7b-pr1-oracle-adr/build/release
+100% tests passed, 0 tests failed out of 801
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7b-pr1-oracle-adr/build/static-plugins
+100% tests passed, 0 tests failed out of 802
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7b-pr1-oracle-adr/build/asan
+100% tests passed, 0 tests failed out of 803
+wallclock-scan: OK (66 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (66 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (66 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (66 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+0 errors, 0 warnings, 0 informations
+2110 passed, 5 skipped in 128.48s (0:02:08)
+check: OK
