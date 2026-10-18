@@ -75,7 +75,7 @@ Governs PLAN.md's M7b PR 2 to 4, and every in-house oracle after them.
      PR 8's 300 s trajectory and the R1 golden, which stay under the goldens boundary.
    - **Not retroactive.** No existing test gains an obligation. The prior art above is cited, not governed.
 2. **The reference shares no code with the path under test.** No header, library, function or generated
-   table on the compared path is common to both.
+   table on the compared path is common to both, other than the shared inputs named below.
    - **Shared inputs are named, not hidden.** These may be common to both sides:
      - the config text;
      - ICD v1's structs (ADR-0006);
@@ -90,11 +90,10 @@ Governs PLAN.md's M7b PR 2 to 4, and every in-house oracle after them.
      - The plan states the relation's blind spot. For example, a defect that is itself sign-symmetric passes a
        mirror.
 3. **The bound is derived and fixed in the PR's plan before the first run.**
-   - **The first run** is the first run that produces the compared output of the path under test. Only three
-     things may be measured before it:
-     - the model's own data and constants, such as a table's asymmetry or a fixed Earth rate;
-     - the platform's libm, through a parity probe;
-     - the reference alone.
+   - **The first run** is the first run that produces the compared output of the path under test. Before the
+     first run, nothing of the compared output of the path under test is measured. What may be measured is the
+     model's own data and constants, the platform's libm through a parity probe, the reference alone, and facts
+     about the build or the gate that are not that output.
    - **After the first run,** the bound, its derivation and the comparison set never move without Joe. A miss
      stops the PR and goes to him.
    - **A change Joe makes** is recorded as a dated deviation beside the original text in the plan, never
@@ -113,7 +112,8 @@ Governs PLAN.md's M7b PR 2 to 4, and every in-house oracle after them.
        pass unseen.
    - **A measured sensitivity yardstick,** only where a derivation cannot reach.
      - The bound is a factor times the divergence measured under a perturbation set.
-     - The factor and the set are fixed before any run, from a stated estimate, and never adjusted afterward.
+     - The factor and the set are fixed before any run, from a stated estimate, and never adjusted afterward,
+       except by Joe under Decision 3.
      - Its perturbed runs are part of the oracle.
      - A planted defect must fail it by orders of magnitude.
      - **Why it is not a fitted tolerance.** It is the one kind whose scale is measured from extra runs, the
