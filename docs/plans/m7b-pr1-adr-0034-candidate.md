@@ -62,9 +62,10 @@ Governs PLAN.md's M7b PR 2 to 4, and every in-house oracle after them.
      rule by leaving it uncited. This is the counterpart of validation.md's step 6:
      - a new case with no independent reference either becomes an in-house oracle under this record, or goes
        to Joe;
-     - a tolerance is never fitted to ASTRA's own output: no bound is set from the discrepancy it judges. The
-       measured sensitivity yardstick (Decision 4) is the one bound computed from runs of the path under
-       test, within the limits stated there.
+     - a tolerance is never fitted to ASTRA's own output: no bound is set from the discrepancy it judges. A
+       bound may still be evaluated on a run's values by a formula fixed in advance, as a running roundoff
+       bound is on the recorded operands and results (Decision 4). The measured sensitivity yardstick is the
+       one kind whose scale comes from extra runs rather than from a formula, within Decision 4's limits.
    - **The border with unit tests.**
      - An expected value that a reviewer can verify by reading it is a unit test, under validation.md. That
        covers a closed form, a textbook value, ADR-0001's sign pins, and a checkData shot.
@@ -103,6 +104,8 @@ Governs PLAN.md's M7b PR 2 to 4, and every in-house oracle after them.
    - **Roundoff, by derivation.** A running bound charges each rounding at eps·|its own result|:
      - through the operation order read from the code, with the lines cited;
      - carried to the output by the computation's own coefficients;
+     - evaluated on the run's recorded operands and results by the formula fixed in the plan, which is not
+       fitting;
      - with no fitted constant (lesson 2026-10-13).
    - **A modeling bound.** It is derived from a stated, measured asymmetry of the model.
      - It is carried through a stated sensitivity estimate, whose envelope and assumptions are stated.
@@ -113,9 +116,10 @@ Governs PLAN.md's M7b PR 2 to 4, and every in-house oracle after them.
      - The factor and the set are fixed before any run, from a stated estimate, and never adjusted afterward.
      - Its perturbed runs are part of the oracle.
      - A planted defect must fail it by orders of magnitude.
-     - **Why it is not a fitted tolerance.** It is the one kind computed from ASTRA's own runs. Those runs
-       measure the path's sensitivity to the fixed perturbation set, and they never read the discrepancy the
-       oracle judges, so the bound is not fitted to it. validation.md's step 6 sends a case that no derivation
+     - **Why it is not a fitted tolerance.** It is the one kind whose scale is measured from extra runs, the
+       perturbed ones, rather than given by a formula fixed in advance. Those runs measure the path's
+       sensitivity to the fixed perturbation set, and they never read the discrepancy the oracle judges, so
+       the bound is not fitted to it. validation.md's step 6 sends a case that no derivation
        reaches to Joe, and the M7b plan's Q12 is his decision for heading invariance. Each later use is
        pre-registered in a plan that Joe approves. ADR-0013's and ADR-0028's external bands keep their
        prohibition unchanged.
