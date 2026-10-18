@@ -1,0 +1,23 @@
+date: 2026-10-18
+purpose: M7b PR 2's first run of oracle (a) (docs/plans/m7b-pr2-sampled-data.md, section 14 step 6), after the
+  Codex plan critique closed (section 16); the observed ratios behind the pass, for the PR body
+head: 1d7fb2c (the code run); base: 406c407
+build: build/asan for ctest; build/python (Release, -O3) for pytest; flags in 489c158-fp-flags.log
+
+ctest --preset asan -R LinearPlant -N: Total Tests: 6
+ctest --preset asan -R LinearPlant --no-tests=error: exit 0; 100% tests passed, 0 tests failed out of 6
+.venv/bin/pytest tests/python -k sampled_data --collect-only -q: 25/2135 tests collected (2110 deselected)
+.venv/bin/pytest tests/python -k sampled_data -q --durations=0: exit 0; 25 passed, 2110 deselected in 15.06s
+  slowest: nominal N=1 2.12 s, N=3 1.92 s, order 1.78 s, stage 1.72 s, long 1.71 s, N=10 1.70 s,
+  late 1.70 s, wrong divisor 1.69 s
+
+The observed ratios (residual over bound; a pass is <= 1), from report_margins.py re-running the same
+configs on the same build. The section 9 thresholds are 10^10 (first failure), 10^3 (window), 10^8 (order):
+nominal N=10: F max ratio 0.9999999999999993 (frame 1044); L max 0.1219; C max 0.02207; requests 201/201; sequence True
+nominal N=3: F max ratio 0.9237993080182222 (frame 1385); L max 0.1523; C max 0.03815; requests 667/667; sequence True
+nominal N=1: F max ratio 0.9990009989564618 (frame 1786); L max 0.1776; C max 0.05242; requests 2001/2001; sequence True
+late command: F first (frame 0) 10^14.91, window min 10^12.97; C first (k=1) 10^13.16, window min 10^5.18; L max 0.202
+long hold: F at 1010 10^15.19; C first (k=102) 10^11.83, window min 10^5.89; L max 0.1219
+wrong divisor: C first (k=2) 10^12.79, window min 10^5.29; L max 0.1143
+stage switch: F first (frame 0) 10^14.14, window min 10^12.48; C first (k=1) 10^12.40, window min 10^5.40; L max 0.1131
+order: F on x_1 first (1010) 10^315.0, frames 1010-1029 min 10^9.31; max ratio before 1010 0
