@@ -1,0 +1,40 @@
+date: 2026-10-18T16:09:56-07:00 (start 2026-10-18T15:50:07-07:00)
+command: rm -rf build && ./scripts/check-full.sh
+base: 406c407fa13f86cd294e9b962bff1fa44211f1b6
+head: 6eb01f7c62be39fb78e39ba6f293f66e47afccfc
+exit: 0
+duration: 1189 s
+purpose: M7b PR 2's candidate full gate (docs/plans/m7b-pr2-sampled-data.md, section 12)
+checkout: worktree m7b-pr2-sampled-data at 6eb01f7, clean tree (0 uncommitted paths); `rm -rf build` first
+venv: present (created before the base gate); not rebuilt by hand
+against the base on 406c407 (406c407-gate-summary.log, 1162 s): +27 s; against 1001 s: +188 s
+per preset against the base: CTest debug 109.07 s (-1.49), release 12.37 s (+0.30), static-plugins
+  226.41 s (+1.11), asan 419.46 s (-9.46); 6 tests added per preset (the LinearPlant smoke);
+  pytest 142.63 s (+14.07), 25 tests added (test_sampled_data.py)
+previous attempt: 729efa5 failed at format-check (exit 123, 2 s); its full log is 729efa5-full-gate.log
+load check before the timed run: loadavg 0.42 0.40 0.22; nproc 32; no build process, no pytest, no clangd
+load check after the timed run: loadavg 6.88 10.88 8.18 (the gate's own load decaying); no other process
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 195 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7b-pr2-sampled-data/build/debug
+100% tests passed, 0 tests failed out of 806
+Total Test time (real) = 109.07 sec
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7b-pr2-sampled-data/build/release
+100% tests passed, 0 tests failed out of 807
+Total Test time (real) =  12.37 sec
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7b-pr2-sampled-data/build/static-plugins
+100% tests passed, 0 tests failed out of 808
+Total Test time (real) = 226.41 sec
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7b-pr2-sampled-data/build/asan
+100% tests passed, 0 tests failed out of 809
+Total Test time (real) = 419.46 sec
+wallclock-scan: OK (66 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (66 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (66 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (66 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+0 errors, 0 warnings, 0 informations
+2135 passed, 5 skipped in 142.63s (0:02:22)
+check: OK
