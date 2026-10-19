@@ -863,5 +863,29 @@ check, so it goes to Joe with the four findings.
   preprocesses that one-line source with the unit's own arguments (P-01 (iii), P-03), which must give `0`. Check 3
   then also sees `-ffp-eval-method`.
 
-**Status: awaiting Joe's decision on P-01 to P-04 and C-01.** Until then nothing of the peer or the variant
-executes. The build compiles only (§14, step 5).
+**A deviation, 2026-10-18 (Claude Code), awaiting Joe.** R5 ran before the critique closed.
+- **What ran.** The session's stop hook (`.claude/hooks/stop-check.sh`) runs `just test-unit` at the end of a
+  turn. That is the asan preset's `unit` label, which includes `AutopilotPeerEquivalence`. So R5's 13 tests
+  executed the peer's law against the port at `dd2e001`, before §14 step 4 closed.
+- **What did not run:** no `AutopilotPeerTransport` or `AutopilotPeerSmoke` test (label `physics`), no other
+  preset, and no pytest. Neither the shm reference nor the in-process peer flew.
+- **The result, from `build/asan/Testing/Temporary/LastTest.log`:**
+  - 12 of 13 passed: the pins, the ten hand-built sequences and the allocation check;
+  - `SeededSequences` failed on two coverage counts only: `taken_at_limit` was 0 for loop 1 (speed) and
+    loop 2 (heading);
+  - no reply-mismatch failure appears in the log, so the replies, `handled` and `held` were byte-equal on every
+    frame of all eight seeds. The other coverage counts held: both kinds of hold, every channel limit, both
+    bank limits, refused steps for all three loops, and every Δt kind.
+- **The cause** is the test's implementation, not the law. §8 registers "at least one refused integral step
+  and one unwinding step" per PID. The test counted an accepted step on a frame whose output sits at its
+  limit. Under per-frame random errors, the current error drives that saturation, so the step moves outward and
+  is refused. Such a frame is rare, and none occurred for the speed and heading loops.
+- **Proposed fix (not applied):** count an unwinding step as §8 names it: an accepted integral step on a frame
+  whose previous frame had that loop's output (the throttle, or the bank command) at its limit. That is
+  `pid.hpp`'s "unwinds as soon as the error changes sign". No sequence, seed, count or other assertion
+  changes.
+- **The hook will run R5 again at every turn's end** until the fix is in, so R5 cannot be held back to step
+  7b.
+
+**Status: awaiting Joe's decision on P-01 to P-04, C-01 and the deviation above.** Until then nothing more of the
+peer or the variant is run on purpose. The build compiles only (§14, step 5).
