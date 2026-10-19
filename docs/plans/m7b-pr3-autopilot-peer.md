@@ -639,6 +639,19 @@ Suite `AutopilotPeerEquivalence`:
        limit.
      - The distance-decrease branch for those two loops is exercised by the hand-built
        `AntiWindupAtAndAcrossEachLimit`, not by the seeded sequences.
+     - **Correction, 2026-10-18 (review R-001, Claude Code; for Joe at human review).** Up to `3ce60e1` the
+       hand-built test did not exercise that branch, for any loop. Its ramp's proportional term always
+       dominates, and its trim-at-limit block never put a nonzero step exactly on a limit.
+       - For the speed and heading loops the branch is unreachable through the law. Their offset is constant and
+         `kd` = 0, so a step that raises the integral is taken only if its command stays at or below hi. The
+         integral therefore stays below hi − offset, and the loop is never outside a limit while its error
+         pulls back. The same holds at lo.
+       - The fix adds the coverage inside the same test, so the count stays 13.
+         - Direct `Pid` fixtures, port against peer, for each loop's gains, sign and range at each limit:
+           beyond and winding further (held); outside but nearer (taken); exactly on the limit with a nonzero
+           step (taken, since inside is inclusive); and wound up, then reversed (unwinds at once). Each
+           case is asserted.
+         - A law-level witness for the altitude loop, whose pitch offset can sit past a limit, at both limits.
      - The test prints both counts for each loop. Only the new definition is asserted.
      - No sequence, seed, count or other assertion changes.
    - The constants carry a comment citing this section (ADR-0034 Decision 6).

@@ -309,6 +309,59 @@ TEST(AutopilotPeerEquivalence, SaturationOfEachOutput) {
   }
 }
 
+namespace {
+
+// Review R-001: the PIDs themselves, port against peer, for the branches the law's own offsets
+// cannot reach. The speed and heading loops have a constant offset and kd = 0, so a step that
+// raises the integral is taken only if its command stays at or below hi; the integral then stays
+// below hi - offset, the loop can never be outside a limit while its error pulls back, and the
+// distance-decrease branch is unreachable through the law. Each fixture uses one loop's gains, sign
+// and range, with offsets chosen to reach the case.
+struct LoopSpec {
+  const char* name;
+  ap::PidGains gains;
+  double sign;
+  ap::Range range;
+};
+
+const std::array<LoopSpec, 3> kLoopSpecs = {{
+    {"altitude", ap::PidGains{ap::kAltP, ap::kAltI, ap::kAltD}, -1.0, ap::kElevatorLimit},
+    {"speed", ap::PidGains{ap::kSpeedP, ap::kSpeedI, 0.0}, 1.0, ap::kThrottleLimit},
+    {"heading", ap::PidGains{ap::kHeadingP, ap::kHeadingI, 0.0}, 1.0, ap::kBankCommandLimit},
+}};
+
+class PidPair {
+ public:
+  explicit PidPair(const LoopSpec& spec)
+      : spec_(spec),
+        port_(spec.gains),
+        peer_(peer::PidGains{spec.gains.kp, spec.gains.ki, spec.gains.kd}) {}
+
+  // One update of both, at error_rate 0 and dt 0.01 s; the outputs and integrals must be
+  // bit-identical. Returns the output.
+  double step(double error, double offset) {
+    constexpr double kDt = 0.01;
+    const double port_out = port_.update(error, 0.0, kDt, offset, spec_.sign, spec_.range);
+    const double peer_out = peer_.update(error, 0.0, kDt, offset, spec_.sign,
+                                         peer::Range{spec_.range.lo, spec_.range.hi});
+    EXPECT_EQ(bits(port_out), bits(peer_out)) << spec_.name;
+    EXPECT_EQ(bits(port_.integral()), bits(peer_.integral())) << spec_.name;
+    return peer_out;
+  }
+  [[nodiscard]] double integral() const { return peer_.integral(); }
+  // pid.hpp:40's unclamped command after a step, at error_rate 0.
+  [[nodiscard]] double command(double error, double offset) const {
+    return offset + spec_.sign * (spec_.gains.kp * error + spec_.gains.kd * 0.0 + peer_.integral());
+  }
+
+ private:
+  LoopSpec spec_;
+  ap::Pid port_;
+  peer::Pid peer_;
+};
+
+}  // namespace
+
 TEST(AutopilotPeerEquivalence, AntiWindupAtAndAcrossEachLimit) {
   // Each PID's channel and the measurement that drives its error: altitude (elevator), tas
   // (throttle), psi (the bank command).
@@ -347,6 +400,104 @@ TEST(AutopilotPeerEquivalence, AntiWindupAtAndAcrossEachLimit) {
         in.altitude = kAltitude - error;
         in.tas = kTas - error * 0.01;
         pair.step(in);
+      }
+    }
+  }
+  // Review R-001 (docs/reviews/m7b-pr3-autopilot-peer-review.md): the ramp above never takes a step
+  // that stays outside a limit but moves nearer, because the proportional term dominates. The
+  // altitude loop reaches one through its pitch offset: theta one radian off the trim's moves the
+  // offset 0.389 rad past a limit, and a small error pulls back. The integral moves while the
+  // elevator stays at the limit, at both limits.
+  for (const double side : {1.0, -1.0}) {
+    Pair pair;
+    std::uint64_t k = 0;
+    std::uint64_t taken_at_limit = 0;
+    for (int i = 0; i < 300; ++i, ++k) {
+      astra_sim_to_sw_v1 in = at_step(k);
+      in.theta = kThetaTrim + side;
+      in.altitude = kAltitude - side * 10.0;  // e_h = side * 10 m pulls the command back
+      const double before = pair.law().altitude_integral();
+      const astra_sw_to_sim_v1 out = pair.step(in);
+      if (out.elevator == side * 0.3 && pair.law().altitude_integral() != before) {
+        ++taken_at_limit;
+      }
+    }
+    EXPECT_GT(taken_at_limit, 0U) << "altitude loop, side " << side;
+  }
+  // Review R-001, the PIDs themselves: each loop's gains, sign and range, port against peer, at
+  // each limit: beyond and winding further (held), outside but nearer (taken), exactly on the limit
+  // with a nonzero step (taken: inside is inclusive), and wound up then reversed (unwinds at once).
+  constexpr double kDt = 0.01;
+  for (const LoopSpec& spec : kLoopSpecs) {
+    for (const double side : {1.0, -1.0}) {  // +1: the hi limit; -1: the lo limit
+      const double limit = side > 0.0 ? spec.range.hi : spec.range.lo;
+      const double outward = side * spec.sign;  // the error sign that drives toward the limit
+      const std::string where = std::string{spec.name} + (side > 0.0 ? " hi" : " lo");
+
+      // 1. Beyond the limit, winding further: the step is refused and the integral holds.
+      {
+        PidPair pair(spec);
+        const double offset = limit + side * 0.1;
+        const double out = pair.step(outward * 0.01 / spec.gains.kp, offset);
+        EXPECT_EQ(pair.integral(), 0.0) << where << ": a step farther out was taken";
+        EXPECT_EQ(out, limit) << where;
+      }
+      // 2. Outside but nearer: the step is taken while the command stays outside.
+      {
+        PidPair pair(spec);
+        const double offset = limit + side * 0.1;
+        const double error = -outward * 0.01 / spec.gains.kp;
+        const double out = pair.step(error, offset);
+        EXPECT_NE(pair.integral(), 0.0) << where << ": a nearer step was refused";
+        EXPECT_GT(side * (pair.command(error, offset) - limit), 0.0) << where << ": not outside";
+        EXPECT_EQ(out, limit) << where;
+      }
+      // 3. Exactly on the limit with a nonzero step: inside is inclusive, so it is taken. The
+      // offset is chosen so that pid.hpp:34's command lands on the limit exactly.
+      {
+        const double error = outward * 0.05 / spec.gains.kp;
+        const double proportional = spec.gains.kp * error + spec.gains.kd * 0.0;
+        const double candidate = 0.0 + spec.gains.ki * error * kDt;
+        const double inner = proportional + candidate;
+        // Widen one ulp each way from limit - sign * inner until the command lands on the limit.
+        double up = limit - spec.sign * inner;
+        double down = up;
+        double offset = 0.0;
+        bool found = false;
+        for (int n = 0; n < 512 && !found; ++n) {
+          for (const double probe : {up, down}) {
+            if (!found && probe + spec.sign * inner == limit) {
+              offset = probe;
+              found = true;
+            }
+          }
+          up = std::nextafter(up, up + 1.0);
+          down = std::nextafter(down, down - 1.0);
+        }
+        ASSERT_TRUE(found) << where << ": no offset lands the command on the limit";
+        PidPair pair(spec);
+        const double before = offset + spec.sign * (proportional + 0.0);
+        EXPECT_LT(side * (before - limit), 0.0) << where << ": the command was not inside before";
+        const double out = pair.step(error, offset);
+        EXPECT_EQ(pair.integral(), candidate) << where << ": the step onto the limit was refused";
+        EXPECT_EQ(pair.command(error, offset), limit) << where;
+        EXPECT_EQ(out, limit) << where;
+      }
+      // 4. Wound up against the limit and held, then the error changes sign: it unwinds at once.
+      {
+        PidPair pair(spec);
+        const double offset = limit - side * 0.05;
+        const double error = outward * 0.04 / spec.gains.kp;
+        std::uint64_t refused = 0;
+        for (int i = 0; i < 100000 && refused == 0; ++i) {
+          const double before = pair.integral();
+          pair.step(error, offset);
+          refused += pair.integral() == before ? 1U : 0U;
+        }
+        ASSERT_GT(refused, 0U) << where << ": the windup never reached the limit";
+        const double held = pair.integral();
+        pair.step(-error, offset);
+        EXPECT_NE(pair.integral(), held) << where << ": the reversed error did not unwind";
       }
     }
   }
