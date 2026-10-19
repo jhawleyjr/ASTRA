@@ -1,0 +1,1 @@
+astra_add_plugin(SOURCES autopilot_peer_variant.cpp)

@@ -1,0 +1,80 @@
+date: 2026-10-18
+purpose: M7b PR 3's flag statement before the first comparison (docs/plans/m7b-pr3-autopilot-peer.md
+  section 5, with Joe's 2026-10-18 deviations P-01, P-03 and C-01; section 14 step 6). R5's first run,
+  by the stop hook at dd2e001, preceded this step (section 16); it still precedes steps 7a and 7b.
+head: 6da7622 (the code under check); base: 106c0cb
+command: ASTRA_AUTOPILOT_PEER_REPORT_DIR=<dir> .venv/bin/pytest tests/python
+  -k "autopilot_peer and (flags or shares_no_include)" -q --durations=0
+exit: 0; 3 passed, 2157 deselected in 1.92 s (flags_every_preset 0.61 s, flags_embedded_standalone
+  0.24 s, shares_no_include_or_symbol_with_embedded 0.10 s)
+checked: build/{debug,release,static-plugins,asan} and build/python, for the units peer
+  (aircraft/notional_transport/sim/transport/autopilot/autopilot.cpp), port (embedded/autopilot/autopilot.cpp),
+  variant (tests/plugins/autopilot_peer_variant/autopilot_peer_variant.cpp), r5
+  (tests/autopilot_peer/autopilot_peer_equivalence_test.cpp) and transport
+  (tests/autopilot_peer/autopilot_peer_test.cpp); and the port's unit in the embedded-standalone configure
+  (the justfile recipe's arguments plus -DCMAKE_EXPORT_COMPILE_COMMANDS=ON) for clang++-18 and g++
+asserted: section 5's token set equal to {} (debug, asan, static-plugins) or {-O3} (release, python,
+  standalone); no response or configuration file; the peer's and the variant's residuals against the
+  port's within -std=c++17/-std=c++23, -fvisibility=hidden, -fvisibility-inlines-hidden; the effective
+  cc1 set (-###) equal to {-ffp-contract=on, -fmath-errno, -fno-rounding-math, -target-cpu x86-64,
+  -tune-cpu generic} (+ -O3) for clang and {-march=x86-64, -mtune=generic, -O3} for g++; no __FMA__ or
+  __FMA4__, __SSE2_MATH__ defined, __FLT_EVAL_METHOD__ preprocessed to 0; and (section 3) no -MM
+  dependency of the peer's or the variant's unit under embedded/, no astra_autopilot:: symbol in either
+  .so, and no defect type in the shipped .so
+listed: each unit's compiler and flags, with -I, -isystem, -D, -o, -c and the source left out
+
+debug peer: clang++-18 -g -std=c++23 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror
+  tokens []; cc1 ['-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+debug port: clang++-18 -g -std=c++17 -fPIC -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror
+  tokens []; cc1 ['-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+debug variant: clang++-18 -g -std=c++23 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror
+  tokens []; cc1 ['-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+debug r5: clang++-18 -g -std=c++23 -fPIE -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror
+  tokens []; cc1 ['-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+debug transport: clang++-18 -g -std=c++23 -fPIE -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror
+  tokens []; cc1 ['-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+release peer: clang++-18 -O3 -std=c++23 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror
+  tokens ['-O3']; cc1 ['-O3', '-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+release port: clang++-18 -O3 -std=c++17 -fPIC -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror
+  tokens ['-O3']; cc1 ['-O3', '-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+release variant: clang++-18 -O3 -std=c++23 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror
+  tokens ['-O3']; cc1 ['-O3', '-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+release r5: clang++-18 -O3 -std=c++23 -fPIE -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror
+  tokens ['-O3']; cc1 ['-O3', '-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+release transport: clang++-18 -O3 -std=c++23 -fPIE -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror
+  tokens ['-O3']; cc1 ['-O3', '-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+static-plugins peer: clang++-18 -g -std=c++23 -fPIC -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer
+  tokens []; cc1 ['-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+static-plugins port: clang++-18 -g -std=c++17 -fPIC -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer
+  tokens []; cc1 ['-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+static-plugins variant: clang++-18 -g -std=c++23 -fPIC -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer
+  tokens []; cc1 ['-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+static-plugins r5: clang++-18 -g -std=c++23 -fPIE -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer
+  tokens []; cc1 ['-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+static-plugins transport: clang++-18 -g -std=c++23 -fPIE -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer
+  tokens []; cc1 ['-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+asan peer: clang++-18 -g -std=c++23 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer
+  tokens []; cc1 ['-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+asan port: clang++-18 -g -std=c++17 -fPIC -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer
+  tokens []; cc1 ['-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+asan variant: clang++-18 -g -std=c++23 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer
+  tokens []; cc1 ['-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+asan r5: clang++-18 -g -std=c++23 -fPIE -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer
+  tokens []; cc1 ['-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+asan transport: clang++-18 -g -std=c++23 -fPIE -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer
+  tokens []; cc1 ['-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+python peer: clang++-18 -O3 -std=c++23 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror
+  tokens ['-O3']; cc1 ['-O3', '-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+python port: clang++-18 -O3 -std=c++17 -fPIC -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror
+  tokens ['-O3']; cc1 ['-O3', '-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+python variant: clang++-18 -O3 -std=c++23 -fPIC -fvisibility=hidden -fvisibility-inlines-hidden -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror
+  tokens ['-O3']; cc1 ['-O3', '-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+python r5: clang++-18 -O3 -std=c++23 -fPIE -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror
+  tokens ['-O3']; cc1 ['-O3', '-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+python transport: clang++-18 -O3 -std=c++23 -fPIE -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror
+  tokens ['-O3']; cc1 ['-O3', '-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+standalone clang++-18 port (configure 0.14 s): clang++-18 -O3 -std=c++17 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror
+  tokens ['-O3']; cc1 ['-O3', '-ffp-contract=on', '-fmath-errno', '-fno-rounding-math', '-target-cpu x86-64', '-tune-cpu generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+standalone g++ port (configure 0.08 s): g++ -O3 -std=c++17 -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wold-style-cast -Wnon-virtual-dtor -Woverloaded-virtual -Wnull-dereference -Wdouble-promotion -Wimplicit-fallthrough -Wformat=2 -Werror
+  tokens ['-O3']; cc1 ['-O3', '-march=x86-64', '-mtune=generic']; target {'fma': [], 'sse2_math': True, 'eval_method': '0'}
+flag check: OK

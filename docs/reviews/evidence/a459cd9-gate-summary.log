@@ -1,0 +1,40 @@
+date: 2026-10-18T23:46:34-07:00 (start 2026-10-18T23:26:47-07:00)
+command: rm -rf build && ./scripts/check-full.sh
+base: 106c0cbc7418e5ce007e9b8a8bcb6166f5de72ba
+head: a459cd9c3b268af4b6030a6765c1e826171aa15a
+exit: 0
+duration: 1187 s
+purpose: M7b PR 3's full gate after review fix 1 (R-001; docs/reviews/m7b-pr3-autopilot-peer-review.md)
+checkout: worktree m7b-pr3-autopilot-peer at a459cd9, clean tree (0 uncommitted paths); `rm -rf build` first;
+  .venv existed (made by `just venv` earlier in this session, untimed; not rerun before the gate)
+against the base on 406c407 (1162 s): +25 s; against PR 2's gate on 0bbc4fa (1178 s): +9 s; against 1001 s: +186 s;
+  against this PR's first gate on ca514b9 (1188 s): -1 s
+per preset: CTest debug 111.01 s (824 tests), release 11.96 s (825), static-plugins 228.97 s (826),
+  asan 427.26 s (827); pytest 151.80 s (2160 passed, 5 skipped)
+load check before the timed run: loadavg 0.35 2.11 5.33 (the earlier gate's load decaying); no build process,
+  no pytest, no clangd; nproc 32
+load check after the timed run: loadavg 6.72 10.85 9.50 (the gate's own load decaying); no other process
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 195 passed, 0 failed
+All checks passed!
+Test project <worktree>/build/debug
+100% tests passed, 0 tests failed out of 824
+Total Test time (real) = 111.01 sec
+Test project <worktree>/build/release
+100% tests passed, 0 tests failed out of 825
+Total Test time (real) =  11.96 sec
+Test project <worktree>/build/static-plugins
+100% tests passed, 0 tests failed out of 826
+Total Test time (real) = 228.97 sec
+Test project <worktree>/build/asan
+100% tests passed, 0 tests failed out of 827
+Total Test time (real) = 427.26 sec
+wallclock-scan: OK (67 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (67 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (67 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (67 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+0 errors, 0 warnings, 0 informations
+2160 passed, 5 skipped in 151.80s (0:02:31)
+check: OK

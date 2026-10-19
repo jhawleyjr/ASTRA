@@ -35,6 +35,8 @@ endforeach()
 add_subdirectory(lockstep)
 # M4 PR 5's autopilot tests: unit, process, and ADR-0008 boundary.
 add_subdirectory(embedded)
+# M7b PR 3's oracle (b): the notional transport's sim-side autopilot peer against embedded/autopilot.
+add_subdirectory(autopilot_peer)
 # M6 PR 9's frame-time benchmark and its smoke (docs/plans/m6-pr9-benchmark.md).
 add_subdirectory(benchmark)
 

@@ -11,11 +11,18 @@ Protocol on stdout, one line each, flushed: ``PID <role> <pid>`` as soon as a pr
 (so the subreaping pytest process can reap it if this host dies), ``SEGMENT <name>``, ``READY``, and
 a
 final ``RESULT <json>``.
+
+M7b PR 3 (docs/plans/m7b-pr3-autopilot-peer.md §6) also hosts tests/python/test_autopilot_peer.py's
+runs here: ``run --trim config --log`` (M4's config flown by the real autopilot, the trim from the
+config's literals, a run log added) and ``inprocess`` (the sim-side peer, or its variant, with no
+peer process), so both sides of the comparison start the same way, in fresh processes.
 """
 
 from __future__ import annotations
 
 import argparse
+import ctypes
+import hashlib
 import json
 import os
 import resource
@@ -30,7 +37,7 @@ from typing import Any
 
 import numpy as np
 
-from astra import _core
+from astra import _core, _yaml_route
 from astra import lockstep as ls
 
 SETPOINTS = ls.Setpoints(altitude_m=10000.0, airspeed_mps=230.0, heading_rad=0.0)
@@ -61,9 +68,44 @@ def read_notify(fd: int, timeout_s: float) -> bytes:
     return os.read(fd, 1) if ready else b"timeout"
 
 
+def config_trim(config: dict[str, Any]) -> ls.AutopilotTrim:
+    """M7b PR 3 (docs/plans/m7b-pr3-autopilot-peer.md §6, the M7b plan's Q8): the trim from the
+    config's own committed literals, ``vehicle.initial_controls.controls.{elevator, throttle}`` and
+    ``initial.state.euler_nb[1]``, read as the core reads them, in place of ``trim_for``'s solve."""
+    controls = config["vehicle"]["initial_controls"]["controls"]
+    theta = config["initial"]["state"]["euler_nb"][1]
+    return ls.AutopilotTrim(float(controls["elevator"]), float(controls["throttle"]), float(theta))
+
+
+def fp_environment() -> dict[str, bool]:
+    """M7b PR 3 §6's guard: this process rounds to nearest and neither flushes subnormal results
+    to zero (FTZ) nor treats subnormal inputs as zero (DAZ). The operands come from text at run
+    time, so nothing is folded at compile time."""
+    libm = ctypes.CDLL("libm.so.6")
+    fe_tonearest = 0  # <fenv.h> on x86-64
+    smallest_normal = float.fromhex("0x1p-1022")
+    denorm_min = float.fromhex("0x0.0000000000001p-1022")
+    return {
+        "round_to_nearest": libm.fegetround() == fe_tonearest,
+        "subnormal_product_kept": (smallest_normal * 0.5).hex() == "0x0.8000000000000p-1022",
+        "subnormal_sum_kept": (denorm_min + denorm_min).hex() == "0x0.0000000000002p-1022",
+    }
+
+
+def check_fp_environment() -> dict[str, bool]:
+    facts = fp_environment()
+    if not all(facts.values()):
+        raise RuntimeError(f"floating-point environment: {facts}")
+    return facts
+
+
+def sha256_of(path: str | os.PathLike[str]) -> str:
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
 def peer_argv(args: argparse.Namespace, config: dict[str, Any], **notify: int) -> list[str]:
     if args.peer == "autopilot":
-        trim = ls.trim_for(args.config, SETPOINTS)
+        trim = config_trim(config) if args.trim == "config" else ls.trim_for(args.config, SETPOINTS)
         return ls.autopilot_argv(args.autopilot, config, SETPOINTS, trim, **notify)
     if args.peer == "hold":
         trim = ls.trim_for(args.config, SETPOINTS)
@@ -97,7 +139,26 @@ def scenario_run(args: argparse.Namespace) -> None:
     argv = peer_argv(args, config)
     out = Path(args.out)
     payload: dict[str, Any] = {"argv": argv[1:]}
-    if args.jitter_seed is None:
+    if args.log:  # M7b PR 3 §6: the added log block, published by the session's normal close
+        config["log"] = {"path": str(out / "run.h5")}
+    if args.trim == "config":
+        # M7b PR 3 §6: the guard, and what the run is built from (O15); transport.fault (O13).
+        payload["fp_environment"] = check_fp_environment()
+        payload["plugin_dir"] = _core.default_plugin_dir()
+        payload["autopilot"] = os.path.realpath(args.autopilot)
+        payload["autopilot_sha256"] = sha256_of(args.autopilot)
+        with ls.lockstep_session(config, argv, on_peer_launched=on_launch) as session:
+            halt = session.run()
+            frame = session.frame
+            exchanges = session.signal("transport.exchanges")
+            missed = session.signal("transport.missed")
+            payload["fault"] = session.signal("transport.fault")
+            recorder = session.recorder_bytes()
+            peer = session.peer
+        run = ls.RunResult(
+            halt, frame, exchanges, missed, recorder, peer.returncode, peer.summary(), peer.stderr
+        )
+    elif args.jitter_seed is None:
         run = ls.run_closed_loop(config, argv, on_peer_launched=on_launch)
     else:
         jitter_out = ""
@@ -152,6 +213,67 @@ def scenario_run(args: argparse.Namespace) -> None:
             "peer_returncode": run.peer_returncode,
             "peer_summary": None if summary is None else summary.__dict__,
             "peer_stderr": run.peer_stderr,
+        }
+    )
+    result(payload)
+
+
+INPROCESS_SIGNALS = (
+    "transport.exchanges",
+    "transport.missed",
+    "transport.fault",
+    "transport.peer.handled",
+    "transport.peer.held",
+    "transport.peer.altitude_setpoint",
+    "transport.peer.airspeed_setpoint",
+    "transport.peer.heading_setpoint",
+    "transport.peer.elevator_trim",
+    "transport.peer.throttle_trim",
+    "transport.peer.theta_trim",
+)
+VARIANT_PLUGIN = "tests/plugins/autopilot_peer_variant"
+
+
+def scenario_inprocess(args: argparse.Namespace) -> None:
+    """M7b PR 3 (docs/plans/m7b-pr3-autopilot-peer.md §6, §9): one in-process run of the
+    notional transport's sim-side autopilot peer, or of the variant with ``--defect``, its config
+    built as ``lockstep_session`` builds one (``_yaml_route.load``, then ``Config.from_dict``):
+    recorder bytes to --out, the sim-owned and peer signals as RESULT."""
+    path = Path(args.config)
+    config = _yaml_route.load(path.read_text(encoding="utf-8"), str(path), error=ls.LockstepError)
+    if args.defect is not None:
+        config["transport"]["plugin"] = VARIANT_PLUGIN
+        config["transport"]["peer"]["test_defect"] = args.defect
+    out = Path(args.out)
+    if args.log:
+        config["log"] = {"path": str(out / "run.h5")}
+    payload: dict[str, Any] = {
+        "fp_environment": check_fp_environment(),
+        "plugin_dir": _core.default_plugin_dir(),
+    }
+    sim = _core.Simulation.from_config(
+        _core.Config.from_dict(config, origin=str(path)), _core.default_plugin_dir()
+    )
+    halt = sim.run()
+    drained = sim.flush_log()
+    if args.log:
+        sim.close_log()
+    recorder = sim.exchange_recorder_bytes()
+    if recorder is None:
+        raise RuntimeError("the Simulation has no transport")
+    (out / "recorder.bin").write_bytes(recorder)
+    signals: dict[str, float | None] = {}
+    for name in INPROCESS_SIGNALS:
+        signals[name] = sim.registry.find(name)
+    fired = halt if halt else drained
+    payload.update(
+        {
+            "halt": None
+            if not fired
+            else {"check": fired.check.name, "source": fired.source, "frame": fired.frame},
+            "frame": sim.clock.frame,
+            "signals": signals,
+            "sha256": hashlib.sha256(recorder).hexdigest(),
         }
     )
     result(payload)
@@ -520,6 +642,11 @@ def main() -> int:
     parser.add_argument("--segment")
     parser.add_argument("--case")
     parser.add_argument("--stall-s", type=float, default=0.0)
+    # M7b PR 3 (docs/plans/m7b-pr3-autopilot-peer.md §6): the trim from the config's literals, the
+    # added log block, and the in-process variant's defect.
+    parser.add_argument("--trim", choices=("solve", "config"), default="solve")
+    parser.add_argument("--log", action="store_true")
+    parser.add_argument("--defect")
     args = parser.parse_args()
     scenarios = {
         "run": scenario_run,
@@ -529,6 +656,7 @@ def main() -> int:
         "driver-death": scenario_driver_death,
         "pre-handshake": scenario_pre_handshake,
         "lifecycle": scenario_lifecycle,
+        "inprocess": scenario_inprocess,
     }
     scenarios[args.scenario](args)
     return 0
