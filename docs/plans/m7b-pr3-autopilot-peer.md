@@ -818,5 +818,39 @@ allowed residuals (§5).
 
 ## 16. The Codex plan critique (§14, step 4)
 
-To be filled in after the run: the route, the candidate and base, the thread id, the exit status and verdict, each
-finding as verified, and its resolution or Joe's decision.
+**The run.** One fresh, read-only critique, on PR 2's route.
+- Companion 1.0.6, Codex CLI 0.160.0: `task --fresh --effort high --cwd <this worktree>`, with no `--write` and
+  no `--model`, in the background. It was given ADR-0034, ADR-0029, the M7b plan's oracle (b) section and this
+  plan, with §14 step 4's focus.
+- Candidate: `8b738f6` against `origin/main` = `106c0cb`. Job `task-mvepva8r-3a3qxt`, thread
+  `01a15248-689b-7152-afbc-c72654aeadad`, 4 min 22 s.
+- Exit 0, **verdict rework**: 4 findings, 3 medium and 1 low.
+- Codex reported that it edited no file, ran no build and executed no ASTRA code. Untracked implementation files
+  that appeared in the worktree while it ran were excluded.
+
+**Found sound** (Codex):
+- O1 to O14 include Decision 8's objects and keep only its exclusions;
+- §2's transcription keeps every operand, association, sign, branch and `std::remainder`;
+- §9's earlier-equality arguments hold, given the preconditions, and the reference-only registration complies
+  with Decision 3;
+- §5's expected optimization sets, the hooks against Decision 5, and Q8's two Config routes.
+
+Claude Code re-read every cited line, and **all four findings are accepted**.
+- P-01's options were confirmed in clang-18 by a read-only `-###` probe on a scratch file: each exists, and each
+  shows in the driver's effective cc1 command.
+- P-02 was confirmed from the code: `build_info.hpp:8-10` and `cmake/astra_build_info.cmake` fix
+  `git_describe` when libastra_core is built.
+
+P-01 and P-02 change §5's registered checks, O11 and amendment 5's wording, and add two objects, so they come to
+Joe before the first comparison (§14, step 4). P-03 and P-04 change only a procedure and an acceptance command.
+They go to Joe with the other two.
+
+| # | Sev. | Finding (verified) | Proposed resolution | Touches |
+|---|---|---|---|---|
+| P-01 | medium | §5's token set omits clang-18's `-ffp-eval-method=*`, `-ffp-exception-behavior=*` and the `[no-]honor-nans` and `[no-]honor-infinities` options. A token-only check cannot see options a driver configuration file adds. The `-dM -E` probe, run on a reconstructed command, drops any flag it was not given | (i) The token set gains those six, and an `@file` or `--config` argument is a hit. (ii) **The effective arguments:** each unit's own compile command is rerun with `-###`, which prints the driver's cc1 command and runs nothing. It must show no "Configuration file:" line. Its cc1 floating-point set must be equal across the units of one build, and equal to {`-ffp-contract=on`, `-fmath-errno`, `-fno-rounding-math`, `-target-cpu x86-64`, `-tune-cpu generic`}, plus `-O3` in release and `build/python`, with no `-target-feature`. That set was measured by the probe for all four preset shapes. The set is every cc1 argument among `-ffp-*`, `-fdenormal-fp-math*`, `-f[no-]rounding-math`, `-f[no-]math-errno`, `-menable-no-infs`, `-menable-no-nans`, `-fapprox-func`, `-funsafe-math-optimizations`, `-fno-signed-zeros`, `-mreassociate`, `-freciprocal-math`, `-ffast-math`, `-ffinite-math-only`, `-fveclib=*`, `-mrecip*`, `-complex-range=*`, `-mlimit-float-precision`, `-O*`, `-target-cpu`, `-tune-cpu` and `-target-feature`. The standalone g++ configure's cc1plus set must be {`-march=x86-64`, `-mtune=generic`}. (iii) **The target probe** runs each unit's own command, with only the compile and output arguments replaced (P-03), so every other argument is kept | §5 (amendment 3's set, the checks) |
+| P-02 | medium | `git_describe` is core-build provenance: the tree at the last libastra_core build (`build_info.hpp:8-10`). It is neither the autopilot's identity nor the tree at run time, and `ASTRA_AUTOPILOT` can select another binary | O11 states `git_describe` as core-build provenance. Amendment 5's message becomes: "a `git_describe` mismatch means libastra_core was rebuilt between the two runs; a `-dirty` suffix means that build saw uncommitted edits (lessons 2026-10-04, 2026-10-08); read a whole-log difference first as this attribute, not as the port". **New O15, the binary identity:** the autopilot the shm run launches resolves inside `build/python` (its realpath, with `ASTRA_AUTOPILOT` unset or naming that path), and its SHA-256 is recorded. Both children report the same `_core.default_plugin_dir()`, and O9's SHA-256s cover the plugins. **New O16, the worktree state:** `git rev-parse HEAD` and `git status --porcelain` read before the session's first run and after its last are equal, and the evidence says whether the tree was clean. Joe's 7a and 7b note is recorded in the PR body as follows: the two sessions' shm logs carry different `git_describe` values exactly when libastra_core was rebuilt between them, and that compares nothing | O11, amendment 5's wording, §6's objects (O15, O16), §4's last row |
+| P-03 | medium | §3's `-MM` rerun keeps the compile command's `-o <obj>`, so the dependency output would overwrite the object file | §3's rerun, and §5's probe, remove `-c <src>`, `-o <obj>` and any `-MD`, `-MMD`, `-MF`, `-MT` or `-MQ` with its argument. The rerun appends `-MM <src>` (or `-dM -E -x c++ /dev/null`) and reads stdout. `-###` writes nothing. No build artifact is touched | §3, §5 (procedure only) |
+| P-04 | low | §12's R9 row says `test_config_keys.py` runs "in the same pytest", but `-k 'autopilot_peer or lockstep'` selects none of its tests | §12's R9 row gains `.venv/bin/pytest tests/python/test_config_keys.py` | §12 (acceptance only) |
+
+**Status: awaiting Joe's decision on P-01 to P-04.** Until then nothing of the peer or the variant executes. The
+build compiles only (§14, step 5).
