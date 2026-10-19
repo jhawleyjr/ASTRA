@@ -8,6 +8,8 @@ built or run.
 - Nothing of the peer or the variant executes before the Codex plan critique closes (§14, step 4).
 - No control run starts before §9's registered S and precondition results are written in as literals (amendment
   1).
+- The Codex plan critique closed on 2026-10-18 with Joe's decisions on P-01 to P-04, C-01 and the early R5 run
+  ("Joe's decisions on the critique", below; §16). Each change is a dated deviation beside the text it changes.
 
 Owner: Joe. Builder: Claude, one builder.
 Tier 3: the second in-house oracle under ADR-0034; a new shipped transport plugin under `aircraft/`; a bitwise port
@@ -74,6 +76,11 @@ amendments, each folded into the section named:
 5. **§6, O11.** `git_describe` equality stays the one-build check. The test's failure message says that a
    `-dirty` mismatch means the tree changed between runs (lesson 2026-10-08). So a whole-log difference is read
    first as that attribute, not as the port.
+   - **Deviation, 2026-10-18 (Joe, P-02).** `git_describe` records the tree at the last libastra_core build
+     (`build_info.hpp:8-10`), not the tree at run time. The failure message therefore reads: "a `git_describe`
+     mismatch means libastra_core was rebuilt between the two runs; a `-dirty` suffix means that build saw
+     uncommitted edits (lessons 2026-10-04, 2026-10-08); read a whole-log difference first as this attribute,
+     not as the port".
 6. **Decision 7 is accepted** (§1). The PR body states the two configures' wall time as part of the pytest cost,
    so the M7b table's "about 10 s" is corrected with its cause named.
 7. **Everything else stands as written:**
@@ -84,6 +91,32 @@ amendments, each folded into the section named:
 
    Nothing of the peer or the variant executes before the Codex critique closes. Joe confirmed that the PR 2
    worktree and branch are already gone, so §14's step 1 is confirm-only.
+
+## Joe's decisions on the critique (2026-10-18)
+
+Joe accepted P-01 to P-04 and C-01 as proposed in §16. He accepted the early-run record and the coverage-count
+fix as a dated deviation, and said to treat R5 as already run. His amendments to that decision:
+1. **P-01 to P-04 and C-01** are folded into their sections as dated deviations beside the original text, not
+   absorbed into it (ADR-0034 Decision 3).
+   - O15 and O16 join §6's objects.
+   - §12's R9 row gains the `test_config_keys.py` command.
+2. **The coverage fix,** with its definition stated exactly (§8, item 3).
+3. **The early run is recorded, not counted as the acceptance run** (§16). The R5 run of record is step 7b's,
+   on the fixed test: all 18 tests, in every preset, with the `-N` count first.
+4. **The hook is unchanged** (§14). This PR changes no line of `.claude/hooks/stop-check.sh`, no justfile line
+   and no ctest label.
+   - R5 counts as run, and the hook's later runs are not recorded one by one.
+   - The `AutopilotPeerTransport` and `AutopilotPeerSmoke` tests carry the `physics` label and stay held to
+     step 7b. So do the shm, in-process and control runs.
+5. **A lesson,** appended to `docs/lessons.md` (§13).
+6. **The order from here** (§14):
+   - fold in items 1 to 5, and commit;
+   - apply the test fix, and commit;
+   - step 6;
+   - step 7a, with its literals in §9, committed and pushed;
+   - then step 7b.
+
+   Nothing else of the peer or the variant runs on purpose before step 7b.
 
 ## Decisions (accepted by Joe, 2026-10-18, as recommended)
 
@@ -325,6 +358,9 @@ Each defect law is one change, written only in the variant:
     - pytest reruns the peer's and the variant's compile lines from `build/python/compile_commands.json` with
       `-MM`.
     - It asserts that no dependency's real path lies under `<root>/embedded/`.
+    - **Deviation, 2026-10-18 (Joe, P-03).** The rerun first removes `-c <src>`, `-o <obj>` and any `-MD`,
+      `-MMD`, `-MF`, `-MT` or `-MQ` with its argument. It then appends `-MM <src>` and reads stdout, so no build
+      artifact is touched.
   - **Link.** `nm -C` of the built peer `.so` and of the variant `.so` shows no `astra_autopilot::` symbol. The
     shipped `.so` also names none of the four defect types (amendment 2).
   - **Constants.** They are the peer's own, pinned bitwise to `gains.hpp`'s and `limits.hpp`'s by a test (§8),
@@ -342,7 +378,7 @@ Each defect law is one change, written only in the variant:
 | ICD v1's structs (`icd/astra_icd.h`), compiled into both | A layout defect common to both | ADR-0006's static asserts; `test_lockstep.py`'s hand-counted offsets |
 | The sim side: core, the physics plugins, the exchange stage, the recorder and the logger, which run in both runs | Any sim-side defect, which is common to both runs | Out of this oracle's scope: M4's R1 to R12b, oracle (a) and the existing suites |
 | The platform: clang-18, libstdc++, glibc's libm (`std::remainder`), SSE2 doubles, the floating-point environment | A defect common to both sides, such as a miscompile both share | `std::remainder` is exact by IEEE definition. §5's flag and target checks. A guard in each sim process asserts round-to-nearest and no FTZ or DAZ (§6). The autopilot process keeps the ABI's initial MXCSR, since nothing in `embedded/` changes it. |
-| `build/python`: one autopilot binary and one plugin directory | A stale binary | One build and one worktree state, with `git_describe` equal in both logs (lessons 2026-10-04 and 2026-10-08) |
+| `build/python`: one autopilot binary and one plugin directory | A stale binary | One build and one worktree state, with `git_describe` equal in both logs (lessons 2026-10-04 and 2026-10-08). **Deviation, 2026-10-18 (Joe, P-02):** `git_describe` is core-build provenance only. O15 asserts the autopilot's identity and the plugin directory, and O16 asserts the worktree state (§6) |
 
 **Blind spots, disclosed rather than claimed:**
 - A defect in M4's law itself is shared by construction, since the peer is its port. This oracle proves
@@ -378,6 +414,10 @@ The builds:
 
 That is the M7b plan's list, plus the clang-18 spellings that also govern it.
 
+**Deviation, 2026-10-18 (Joe, P-01 (i)).** The set also gains `-ffp-eval-method=*`, `-ffp-exception-behavior=*`,
+`-fhonor-nans`, `-fno-honor-nans`, `-fhonor-infinities` and `-fno-honor-infinities`. An `@file` (response file)
+or `--config` argument on a unit's command is a hit.
+
 **What the test asserts:**
 1. Within each build, every listed unit has the same set, and that set is the expected one:
    - {} in debug, asan and static-plugins (CMake Debug's `-g`, no optimization flag);
@@ -393,6 +433,22 @@ That is the M7b plan's list, plus the clang-18 spellings that also govern it.
    /dev/null` shows `__FMA__` and `__FMA4__` undefined, `__SSE2_MATH__` defined and `__FLT_EVAL_METHOD__` 0. So
    `-ffp-contract=on` (clang's default) has no fused instruction to form, and doubles are not evaluated in
    extended precision.
+   - **Deviation, 2026-10-18 (Joe, P-01 (iii) and P-03).** The probe runs each unit's own command, so every
+     argument but the compile and output ones is kept. Only `-c <src>`, `-o <obj>` and any `-MD`, `-MMD`, `-MF`,
+     `-MT` or `-MQ` with its argument are replaced, and the output is read from stdout.
+   - **Deviation, 2026-10-18 (Joe, C-01).** clang-18 does not list `__FLT_EVAL_METHOD__` under `-dM`: it is a
+     builtin. `-dM -E` keeps the FMA and `__SSE2_MATH__` half. The evaluation-method half preprocesses the
+     one-line source `__FLT_EVAL_METHOD__` with the unit's own arguments (`-E -P`), which must give `0`. That
+     half also sees `-ffp-eval-method`: the probe gave `2` under `-ffp-eval-method=extended`.
+4. **Deviation, 2026-10-18 (Joe, P-01 (ii)): the effective arguments.** Every listed unit's own compile command is
+   rerun with `-###`, which prints the driver's cc1 (or cc1plus) command and runs nothing.
+   - It must show no "Configuration file:" line.
+   - Its cc1 floating-point set must be equal across the units of one build, and equal to {`-ffp-contract=on`,
+     `-fmath-errno`, `-fno-rounding-math`, `-target-cpu x86-64`, `-tune-cpu generic`}, plus `-O3` in release
+     and `build/python`, with no `-target-feature`.
+   - The standalone g++ configure's cc1plus set must be {`-march=x86-64`, `-mtune=generic`, `-O3`}.
+   - The set is every cc1 argument among those §16's P-01 row lists. The expected sets were measured by plan
+     mode's `-###` probe for all four preset shapes and for g++ 13.
 
 **Expected, from the M7b plan's reading at `8e525c5` and this plan-mode read of the main checkout's stale
 `build/{asan,python}`:**
@@ -405,7 +461,8 @@ The test writes the per-unit table to its report directory. A trimmed copy is co
 `docs/reviews/evidence/<head>-fp-flags.log` and stated in the PR body before the first comparison (§14, step 6).
 
 **A hit stops the first comparison and goes to Joe.** A hit is any unexpected flag, any residual outside the
-list, or any FMA macro.
+list, or any FMA macro. Under the 2026-10-18 deviations it also includes a response or configuration file, an
+effective cc1 set other than the expected one, and an evaluation method other than `0`.
 
 ## 6. The equivalence (R6): runs, objects and exclusions
 
@@ -454,6 +511,13 @@ list, or any FMA macro.
 | O12 | `/summary` (this plan) | Every attribute (`halt_*`, `health.*`), and the `min` and `max` of every non-`transport.*` signal, as bits |
 | O13 | `/writes`, and `transport.fault` (this plan) | `/writes` empty in both; `transport.fault` = 0 in both |
 | O14 | Determinism (this plan) | The light in-process repeat's recorder equals the first |
+| O15 | **Deviation, 2026-10-18 (Joe, P-02): the binaries' identity** | The autopilot the shm run launches resolves inside `build/python` (its realpath, with `ASTRA_AUTOPILOT` unset or naming that path), and its SHA-256 is recorded. Both children report the same `_core.default_plugin_dir()`, the pytest process's. O9's SHA-256s cover the plugins |
+| O16 | **Deviation, 2026-10-18 (Joe, P-02): the worktree state** | `git rev-parse HEAD` and `git status --porcelain`, read before the session's first run and after its last, are equal. The evidence says whether the tree was clean |
+
+**Deviation, 2026-10-18 (Joe, P-02), to O11.** `git_describe` is core-build provenance: the tree at the last
+libastra_core build (`build_info.hpp:8-10`). Its equality shows that both runs used one libastra_core build. It
+does not show the autopilot's identity or the tree at run time; O15 and O16 cover those. The failure message is
+amendment 5's, as corrected there.
 
 **Excluded, and only these** (Decision 8):
 - the `transport` config block;
@@ -461,6 +525,12 @@ list, or any FMA macro.
 - every `transport.*` signal: its column, its unit, and its `min` and `max`.
 
 O3, O10 and O13 compare the sim-owned and the peer's counts directly.
+
+**Joe's 7a and 7b note (2026-10-18), with P-02's reading.** The shm runs of step 7a and those of step 7b's pytest
+session run on different worktree states, with the 7a commit between them. Their logs' `git_describe` values
+differ exactly when libastra_core is rebuilt between the sessions. That compares nothing: §9's literals come from
+the recorded replies, which do not depend on it. The 7b test's check that the replay reproduces the literals, on
+7b's own shm run, shows that the two shm runs agreed. The PR body's first-run record says so.
 
 **A difference on any object is a porting defect until shown otherwise.**
 - The test reports the first differing record: stream, index and field. For logs, it reports the column and row.
@@ -502,6 +572,8 @@ GoogleTest, and includes `autopilot_law.hpp`. It does not link `astra_core`.
   identical `now` (the frame's `t`).
 - **What it asserts after every frame:** the replies are byte-equal (`memcmp` of the 64-byte struct), and
   `handled()` and `held()` are equal.
+  - **As built, 2026-10-18:** the bytes are compared through `std::as_bytes`, as `autopilot_test.cpp`'s
+    `same_bytes` does, because clang-tidy refuses `memcmp` on this struct. It is the same byte comparison.
 - **Optimization levels.** The debug, asan and static-plugins presets are -O0, and release is -O3, so both levels
   are covered.
 
@@ -548,6 +620,18 @@ Suite `AutopilotPeerEquivalence`:
    - **Coverage, asserted over the eight seeds:** at least one hold of each kind; each of the four reply
      channels exactly at each of its limits; the bank command at ±0.35; for each PID, at least one refused
      integral step and one unwinding step (from the peer law's test accessors); and every Δt kind.
+   - **Deviation, 2026-10-18 (Joe): the unwinding step, defined exactly.** It is an accepted integral step on a
+     frame whose previous frame had that loop's output at its limit. The output is the elevator (±0.3), the
+     throttle (0 or 1) or the bank command (±0.35).
+     - The original wording was read, as built at `dd2e001`, as "an accepted step while the output is
+       saturated".
+     - That reading cannot occur for the speed and heading loops under the registered distributions. The
+       proportional term dominates, so the current error drives the saturation, and the integral cannot reach a
+       limit.
+     - The distance-decrease branch for those two loops is exercised by the hand-built
+       `AntiWindupAtAndAcrossEachLimit`, not by the seeded sequences.
+     - The test prints both counts for each loop. Only the new definition is asserted.
+     - No sequence, seed, count or other assertion changes.
    - The constants carry a comment citing this section (ADR-0034 Decision 6).
 4. `LawUpdateAllocatesNothing`: `alloc_counter` over 10,000 updates.
 
@@ -729,11 +813,11 @@ control run.
 
 | R | Check | Command |
 |---|---|---|
-| R5 | §8's 18 tests, every preset | `ctest --preset asan -R AutopilotPeer -N` (18), then `ctest --preset asan -R AutopilotPeer --no-tests=error`; the gate runs all four presets |
+| R5 | §8's 18 tests, every preset | `ctest --preset asan -R AutopilotPeer -N` (18), then `ctest --preset asan -R AutopilotPeer --no-tests=error`; the gate runs all four presets. **Joe, 2026-10-18:** the run of record is step 7b's, on the fixed test, all 18 tests, in every preset (`ctest --preset <p> -R AutopilotPeer`, the `-N` count first). The stop hook's earlier runs (§16) are not it |
 | R6 | §6's objects at both levels, and the determinism repeat | `.venv/bin/pytest tests/python -k 'autopilot_peer or lockstep'` (`--collect-only -q` count first) |
 | R7 | §5, stated before the first comparison | the same pytest; `<head>-fp-flags.log`; the PR body |
 | R8 | §9 at both levels, with the preconditions and the bands | the same pytest |
-| R9 | §10 | `python3 -I -B scripts/config_keys.py --check`; `test_config_keys.py` and the 65 test, in the same pytest and in the gate |
+| R9 | §10 | `python3 -I -B scripts/config_keys.py --check`; `test_config_keys.py` and the 65 test, in the same pytest and in the gate. **Deviation, 2026-10-18 (Joe, P-04):** `-k 'autopilot_peer or lockstep'` selects none of `test_config_keys.py`'s tests, so R9 also runs `.venv/bin/pytest tests/python/test_config_keys.py` |
 | — | The embedded boundary unchanged | `just embedded-standalone` |
 | R16 | The full gate | `./scripts/check-full.sh`: exit 0 and `check: OK`, with §1's record and the gate's delta against 1162 s, 1178 s and 1001 s in the PR body |
 | — | Review | An adversarial Codex review of this plan before the first comparison, and of the diff after it, with at most two correction rounds |
@@ -750,6 +834,8 @@ allowed residuals (§5).
 - This plan, the review record (`docs/reviews/m7b-pr3-autopilot-peer-review.md`), and the evidence: the gate
   summary, the flags log, and a first-run log with §9's report.
 - At `/wrap`: `STATE.md`.
+- `docs/lessons.md`: one entry dated 2026-10-18, on the stop hook's `just test-unit` and a plan's registered
+  first run (Joe, 2026-10-18).
 - Not touched:
   - `docs/architecture.md`: §16's row stays planned, and §18 is PR 5's;
   - the ADRs and the M7b plan;
@@ -783,10 +869,23 @@ allowed residuals (§5).
      ctest, no pytest that runs them, and no `test_config_keys.py`.
    - What may run: `config_keys.py` (text only), `just embedded-standalone`, and the pytest flag, target and
      independence tests, which are facts about the build.
-6. **State the flags** (§5) in `<head>-fp-flags.log` and the PR body, before the first comparison.
+   - **Deviation, 2026-10-18 (Joe).** The session's stop hook runs `just test-unit` at every turn's end. That
+     is the asan preset's `unit` label, R5's `AutopilotPeerEquivalence` included. So R5 first ran at
+     `dd2e001`, before step 4 closed and before step 6 (§16).
+     - R5 counts as run. The hook, the justfile and the ctest labels are unchanged in this PR, and the hook's
+       later runs are not recorded one by one.
+     - The `physics`-label `AutopilotPeerTransport` and `AutopilotPeerSmoke` tests stay held to step 7b. So do
+       the shm, in-process and control runs.
+6. **State the flags** (§5) in `<head>-fp-flags.log` and the PR body, before the first comparison. (Joe,
+   2026-10-18: R5's first run preceded this step, so the flags were not stated before it. This step still
+   precedes 7a and 7b.)
 7. **The reference alone, then the first comparison.**
    - **7a, the reference** (amendment 1). Run `.venv/bin/pytest tests/python -k 'autopilot_peer and precondition'`.
      It runs the two shm runs and §9's replay, and executes neither the peer nor the variant.
+     - **As built, 2026-10-18.** The precondition is two tests. `..._preconditions_hold` asserts the
+       structural preconditions and writes the replay's results. `..._preconditions_equal_the_registered_literals`
+       compares them with §9's literals, so it can pass only once they are recorded. Step 7a's command is
+       therefore `-k 'autopilot_peer and preconditions_hold'`.
      - A failed structural precondition stops the PR and goes to Joe. The structural preconditions are: usable;
        the replay reproduces the reference; S contains `throttle`; request 0's q = 0.0; and the elevator
        inequalities.
@@ -887,5 +986,17 @@ check, so it goes to Joe with the four findings.
 - **The hook will run R5 again at every turn's end** until the fix is in, so R5 cannot be held back to step
   7b.
 
-**Status: awaiting Joe's decision on P-01 to P-04, C-01 and the deviation above.** Until then nothing more of the
-peer or the variant is run on purpose. The build compiles only (§14, step 5).
+**Joe's decision, 2026-10-18.** He accepted P-01 to P-04 and C-01 as proposed, each folded into its section as a
+dated deviation beside the original text: §3, §4, §5, §6 (O11, O15 and O16), §12 and amendment 5. He accepted
+the early-run record and the coverage-count fix (§8, item 3) as a dated deviation, and said to treat R5 as
+already run.
+- **The early run is recorded, not counted as the acceptance run.** This record keeps it at `dd2e001`, with
+  `LastTest.log`'s facts: 12 of 13 passed, no reply mismatch on any frame of the eight seeds, and the two zero
+  counts.
+- **The R5 run of record is step 7b's,** on the fixed test: all 18 tests, in every preset, with the `-N` count
+  first.
+- **R5's first run preceded step 6,** so the flags were not stated before it. Step 6 still precedes 7a and 7b.
+- **The hook is unchanged** (§14, step 5). The `physics`-label tests and every run of the shm reference, the
+  in-process peer and the controls stay held to step 7b.
+
+**Status: closed, 2026-10-18.** The sequence resumes at Joe's order: the test fix, then step 6, then 7a and 7b.
