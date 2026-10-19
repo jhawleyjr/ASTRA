@@ -611,6 +611,13 @@ takes them as a prefix.
     Architecture rev 16:
     §16's M7b row cites it and names heading invariance's bound as Q12's yardstick (the plan's amendment 11).
     Plan: [plan](docs/plans/m7b-pr1-oracle-adr.md). Packet: in the PR body.
+  - PR 2 (#123): oracle (a), the exact sampled-data closed-loop check. A test-only linear plant with model-owned
+    state (`tests/plugins/linear_plant`) runs under discrete state feedback from an in-process peer
+    (`tests/plugins/state_feedback_peer`) through the exchange stage. pytest checks it against an exact `Fraction`
+    reference at N = 10, 3 and 1, with F per frame, L per exchange, C on the closed loop, and the full request
+    sequence, each within bounds fixed before the first run. The four controls and the order control fail as
+    registered. A ctest smoke runs the plant and the peer in every preset with zero allocations. The base gate on
+    `406c407` took 1162 s. Plan: [plan](docs/plans/m7b-pr2-sampled-data.md). Packet: in the PR body.
 - [ ] **M8 Actuators and controller tuning** — a first-order lag and a nonlinear second-order actuator model
       with rate and position limits; autopilot gains loaded at startup; the tuning tool (spec-driven on the
       linear model, time-domain on the nonlinear sim, robustness across draws, gain schedules) with
@@ -801,7 +808,11 @@ takes them as a prefix.
       compaction, and an armed oracle guard does not survive an auto-compact (origin: M7 PR 1b; Joe 2026-10-09;
       `docs/lessons.md` 2026-10-09). Joe decides whether it matches only `startup`, `resume` and `clear`, or keeps
       firing on compaction as a fail-closed default. It is a Tier 2 workflow PR of its own. Until then the
-      lesson's rule holds: arm right before the guarded writes, in a turn that finishes them. Not started.
+      lesson's rule holds: arm right before the guarded writes, in a turn that finishes them. More evidence
+      from M7b PR 1 (#122's body): in a session started in the main checkout, a marker in the worktree did not
+      arm the guard, while the main checkout's marker did. The guard reads `$CLAUDE_PROJECT_DIR`'s marker and the
+      main checkout's, and that session's project dir was presumably the main checkout, which is an inference.
+      Not started.
 - [ ] (unscheduled) A non-scalar map key reaches `Config::unknown_keys()` as a raw yaml-cpp exception, not a
       `ConfigError` (origin: M7 PR 2; Joe 2026-10-10, out of PR 2's scope; Joe's call when). `collect_leaf_paths`
       reads each key with `as<std::string>()`, which throws on a sequence or map key. Probed on M7 PR 2's build:

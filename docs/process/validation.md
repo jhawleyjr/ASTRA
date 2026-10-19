@@ -136,8 +136,8 @@ Applies to any change to `core/kernel/`, numerical `core/util/`, `plugins/physic
 models, the ICD, or a test/golden under `tests/physics/`, `tests/unit/`, `tests/golden/`. Required
 inputs: the assigned spec/plan's acceptance criteria, the binding ADRs for the changed behavior (at
 minimum ADR-0001 frames, ADR-0002 units, ADR-0003 state layout, ADR-0004 RK4, ADR-0010 time,
-ADR-0012 domain validity, ADR-0013 oracle construction, as applicable), and AGENTS.md's
-Non-standard conventions.
+ADR-0012 domain validity, ADR-0013 oracle construction, ADR-0034 in-house oracles, as applicable),
+and AGENTS.md's Non-standard conventions.
 
 1. Search `tests/physics/`, `tests/unit/`, `tests/golden/**` and `tests/configs/` for an existing
    case covering the changed behavior, frame, unit, or domain boundary before adding one. Trace any

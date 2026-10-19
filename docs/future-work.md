@@ -160,7 +160,8 @@ loop-at-a-time margins for the gains that ship.
 - Coverage measurement (llvm-cov), to find untested paths before a reviewer does.
 - Fuzzing YAML config parsing and ICD decode (libFuzzer ships with clang-18).
 - A whole-tree gcc build: compiler-specific undefined behavior, and determinism across compilers.
-- Gate time: the full gate took 1001 s from a fresh configure on the PR #75 candidate.
+- Gate time: the full gate took 1001 s from a fresh configure on the PR #75 candidate, and 1162 s on
+  `406c407`, M7b PR 2's base (2026-10-18). Oracle (a) added 16 to 27 s, most of it pytest.
 
 ## Documentation
 

@@ -1,0 +1,125 @@
+find . \( -path ./build -o -path ./.git -o -path ./.claude -o -path ./.venv \) -prune -o -type f \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.c' \) -print0 | xargs -0 clang-format-18 --dry-run --Werror
+./tests/plugins/state_feedback_peer/state_feedback_peer.cpp:4:99: error: code should be clang-formatted [-Wclang-format-violations]
+// transport.peer, a schedule keyed to frames, a zeroed reply that echoes the frame, no clock, and no
+                                                                                                  ^
+./tests/plugins/state_feedback_peer/state_feedback_peer.cpp:4:102: error: code should be clang-formatted [-Wclang-format-violations]
+// transport.peer, a schedule keyed to frames, a zeroed reply that echoes the frame, no clock, and no
+                                                                                                     ^
+./tests/plugins/state_feedback_peer/state_feedback_peer.cpp:5:1: error: code should be clang-formatted [-Wclang-format-violations]
+// allocation per frame.
+^
+./tests/plugins/state_feedback_peer/state_feedback_peer.cpp:151:26: error: code should be clang-formatted [-Wclang-format-violations]
+    const bool accepted = request.magic == ASTRA_ICD_MAGIC &&
+                         ^
+./tests/plugins/state_feedback_peer/state_feedback_peer.cpp:151:62: error: code should be clang-formatted [-Wclang-format-violations]
+    const bool accepted = request.magic == ASTRA_ICD_MAGIC &&
+                                                             ^
+./tests/plugins/state_feedback_peer/state_feedback_peer.cpp:152:66: error: code should be clang-formatted [-Wclang-format-violations]
+                          request.version == ASTRA_ICD_VERSION &&
+                                                                 ^
+./tests/plugins/state_feedback_peer/state_feedback_peer.cpp:153:62: error: code should be clang-formatted [-Wclang-format-violations]
+                          request.frame == expected_frame_ &&
+                                                             ^
+./tests/plugins/state_feedback_peer/state_feedback_peer.cpp:205:77: error: code should be clang-formatted [-Wclang-format-violations]
+constexpr astra::PluginDescriptor kDescriptor{"test", "state_feedback_peer",
+                                                                            ^
+./tests/plugins/state_feedback_peer/state_feedback_peer.cpp:206:70: error: code should be clang-formatted [-Wclang-format-violations]
+                                              astra::kCoreApiVersion, astra::kBuiltWith, &create};
+                                                                     ^
+./tests/plugins/linear_plant/linear_plant_smoke_test.cpp:1:88: error: code should be clang-formatted [-Wclang-format-violations]
+// R4 of M7b's oracle (a) (docs/plans/m7b-pr2-sampled-data.md, §12): the plant and the state-feedback
+./tests/plugins/linear_plant/linear_plant_smoke_test.cpp:1:103: error: code should be clang-formatted [-Wclang-format-violations]
+// R4 of M7b's oracle (a) (docs/plans/m7b-pr2-sampled-data.md, §12): the plant and the state-feedback
+./tests/plugins/linear_plant/linear_plant_smoke_test.cpp:2:1: error: code should be clang-formatted [-Wclang-format-violations]
+// peer under every preset's flags, the sanitizers included, with zero heap allocations over their
+^
+./tests/plugins/linear_plant/linear_plant_smoke_test.cpp:2:76: error: code should be clang-formatted [-Wclang-format-violations]
+// peer under every preset's flags, the sanitizers included, with zero heap allocations over their
+                                                                           ^
+./tests/plugins/linear_plant/linear_plant_smoke_test.cpp:2:99: error: code should be clang-formatted [-Wclang-format-violations]
+// peer under every preset's flags, the sanitizers included, with zero heap allocations over their
+                                                                                                  ^
+./tests/plugins/linear_plant/linear_plant_smoke_test.cpp:3:1: error: code should be clang-formatted [-Wclang-format-violations]
+// frames. 200 frames per run; the oracle itself is tests/python/test_sampled_data.py. The configs
+^
+./tests/plugins/linear_plant/linear_plant_smoke_test.cpp:3:52: error: code should be clang-formatted [-Wclang-format-violations]
+// frames. 200 frames per run; the oracle itself is tests/python/test_sampled_data.py. The configs
+                                                   ^
+./tests/plugins/linear_plant/linear_plant_smoke_test.cpp:3:99: error: code should be clang-formatted [-Wclang-format-violations]
+// frames. 200 frames per run; the oracle itself is tests/python/test_sampled_data.py. The configs
+                                                                                                  ^
+./tests/plugins/linear_plant/linear_plant_smoke_test.cpp:4:1: error: code should be clang-formatted [-Wclang-format-violations]
+// are the plan's §2 nominal N = 10 config with its gains, cut to 200 frames, and its variants: N = 1,
+./tests/plugins/linear_plant/linear_plant_smoke_test.cpp:4:53: error: code should be clang-formatted [-Wclang-format-violations]
+// are the plan's §2 nominal N = 10 config with its gains, cut to 200 frames, and its variants: N = 1,
+./tests/plugins/linear_plant/linear_plant_smoke_test.cpp:4:104: error: code should be clang-formatted [-Wclang-format-violations]
+// are the plan's §2 nominal N = 10 config with its gains, cut to 200 frames, and its variants: N = 1,
+./tests/plugins/linear_plant/linear_plant_smoke_test.cpp:5:1: error: code should be clang-formatted [-Wclang-format-violations]
+// the three plant defects (long_hold at frame 100), and a peer refusal. Its source sits beside the
+^
+./tests/plugins/linear_plant/linear_plant_smoke_test.cpp:5:47: error: code should be clang-formatted [-Wclang-format-violations]
+// the three plant defects (long_hold at frame 100), and a peer refusal. Its source sits beside the
+                                              ^
+./tests/plugins/linear_plant/linear_plant_smoke_test.cpp:5:100: error: code should be clang-formatted [-Wclang-format-violations]
+// the three plant defects (long_hold at frame 100), and a peer refusal. Its source sits beside the
+                                                                                                   ^
+./tests/plugins/linear_plant/linear_plant_smoke_test.cpp:6:1: error: code should be clang-formatted [-Wclang-format-violations]
+// plant to keep PR 2 inside its named paths (the plan's §11, item 2).
+./tests/plugins/linear_plant/linear_plant_smoke_test.cpp:6:45: error: code should be clang-formatted [-Wclang-format-violations]
+// plant to keep PR 2 inside its named paths (the plan's §11, item 2).
+./tests/plugins/linear_plant/linear_plant_smoke_test.cpp:47:10: error: code should be clang-formatted [-Wclang-format-violations]
+  text += "      a: [[0.0, 100.0, 0.0, 0.0], [0.0, 0.0, 100.0, 0.0], [0.0, 0.0, 0.0, 100.0], "
+         ^
+./tests/plugins/linear_plant/linear_plant_smoke_test.cpp:47:95: error: code should be clang-formatted [-Wclang-format-violations]
+  text += "      a: [[0.0, 100.0, 0.0, 0.0], [0.0, 0.0, 100.0, 0.0], [0.0, 0.0, 0.0, 100.0], "
+                                                                                              ^
+./tests/plugins/linear_plant/linear_plant_smoke_test.cpp:59:10: error: code should be clang-formatted [-Wclang-format-violations]
+  text += "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, "
+         ^
+./tests/plugins/linear_plant/linear_plant_smoke_test.cpp:59:95: error: code should be clang-formatted [-Wclang-format-violations]
+  text += "  mass: { plugin: plugins/physical/mass/constant, mass: 10.0, ixx: 1.0, iyy: 1.0, "
+                                                                                              ^
+./tests/plugins/linear_plant/linear_plant_smoke_test.cpp:67:10: error: code should be clang-formatted [-Wclang-format-violations]
+  text += "  limits: { elevator: [-1000.0, 1000.0], aileron: [-1.0, 1.0], rudder: [-1.0, 1.0], "
+         ^
+./tests/plugins/linear_plant/linear_plant_smoke_test.cpp:67:97: error: code should be clang-formatted [-Wclang-format-violations]
+  text += "  limits: { elevator: [-1000.0, 1000.0], aileron: [-1.0, 1.0], rudder: [-1.0, 1.0], "
+                                                                                                ^
+./tests/plugins/linear_plant/linear_plant.cpp:3:94: error: code should be clang-formatted [-Wclang-format-violations]
+// x' = A x + B u, n continuous states owned through ADR-0021's hooks, m inputs bound by name through
+                                                                                             ^
+./tests/plugins/linear_plant/linear_plant.cpp:3:102: error: code should be clang-formatted [-Wclang-format-violations]
+// x' = A x + B u, n continuous states owned through ADR-0021's hooks, m inputs bound by name through
+                                                                                                     ^
+./tests/plugins/linear_plant/linear_plant.cpp:4:1: error: code should be clang-formatted [-Wclang-format-violations]
+// ADR-0017's write seam. It is a WrenchSource only because WrenchSource::bind_inputs is the one route
+^
+./tests/plugins/linear_plant/linear_plant.cpp:4:93: error: code should be clang-formatted [-Wclang-format-violations]
+// ADR-0017's write seam. It is a WrenchSource only because WrenchSource::bind_inputs is the one route
+                                                                                            ^
+./tests/plugins/linear_plant/linear_plant.cpp:4:103: error: code should be clang-formatted [-Wclang-format-violations]
+// ADR-0017's write seam. It is a WrenchSource only because WrenchSource::bind_inputs is the one route
+                                                                                                      ^
+./tests/plugins/linear_plant/linear_plant.cpp:5:1: error: code should be clang-formatted [-Wclang-format-violations]
+// to an input; its wrench is always zero, and it reads nothing of the rigid body or the environment.
+^
+./tests/plugins/linear_plant/linear_plant.cpp:5:89: error: code should be clang-formatted [-Wclang-format-violations]
+// to an input; its wrench is always zero, and it reads nothing of the rigid body or the environment.
+                                                                                        ^
+./tests/plugins/linear_plant/linear_plant.cpp:7:99: error: code should be clang-formatted [-Wclang-format-violations]
+// The plan's §5 charges the operation order of integrate_state() below in its roundoff bound, so that
+./tests/plugins/linear_plant/linear_plant.cpp:7:104: error: code should be clang-formatted [-Wclang-format-violations]
+// The plan's §5 charges the operation order of integrate_state() below in its roundoff bound, so that
+./tests/plugins/linear_plant/linear_plant.cpp:8:1: error: code should be clang-formatted [-Wclang-format-violations]
+// loop is part of the oracle: changing it changes the derivation (ADR-0034 Decision 4).
+^
+./tests/plugins/linear_plant/linear_plant.cpp:12:96: error: code should be clang-formatted [-Wclang-format-violations]
+// every frame before the latch (simulation.cpp), so it still sees the previous frame's latched value:
+                                                                                               ^
+./tests/plugins/linear_plant/linear_plant.cpp:178:40: error: code should be clang-formatted [-Wclang-format-violations]
+  [[nodiscard]] astra::Wrench wrench_b(const astra::VehicleState& /*vs*/,
+                                       ^
+./tests/plugins/linear_plant/linear_plant.cpp:178:74: error: code should be clang-formatted [-Wclang-format-violations]
+  [[nodiscard]] astra::Wrench wrench_b(const astra::VehicleState& /*vs*/,
+                                                                         ^
+error: Recipe `format-check` failed on line 78 with exit code 123

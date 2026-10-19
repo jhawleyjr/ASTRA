@@ -1,0 +1,37 @@
+date: 2026-10-18T16:36:25-07:00 (start 2026-10-18T16:16:47-07:00)
+command: rm -rf build && ./scripts/check-full.sh
+base: 406c407fa13f86cd294e9b962bff1fa44211f1b6
+head: 0bbc4fa3bc47867b2e1f052b61ecefbf11afbb61
+exit: 0
+duration: 1178 s
+purpose: M7b PR 2's full gate after review fix 1 (R-001, R-002; docs/reviews/m7b-pr2-sampled-data-review.md)
+checkout: worktree m7b-pr2-sampled-data at 0bbc4fa, clean tree (0 uncommitted paths); `rm -rf build` first
+against the base on 406c407 (1162 s): +16 s; against 1001 s: +177 s; against 6eb01f7 (1189 s): -11 s
+per preset: CTest debug 109.75 s, release 11.94 s, static-plugins 241.50 s, asan 422.39 s; pytest 141.99 s
+load check before the timed run: loadavg 0.35 3.58 5.72 (the earlier gate's load decaying); no build
+  process, no pytest, no clangd; nproc 32
+load check after the timed run: loadavg 5.45 10.31 9.31 (the gate's own load decaying); no other process
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 195 passed, 0 failed
+All checks passed!
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7b-pr2-sampled-data/build/debug
+100% tests passed, 0 tests failed out of 806
+Total Test time (real) = 109.75 sec
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7b-pr2-sampled-data/build/release
+100% tests passed, 0 tests failed out of 807
+Total Test time (real) =  11.94 sec
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7b-pr2-sampled-data/build/static-plugins
+100% tests passed, 0 tests failed out of 808
+Total Test time (real) = 241.50 sec
+Test project /home/joe/repos/ASTRA/.claude/worktrees/m7b-pr2-sampled-data/build/asan
+100% tests passed, 0 tests failed out of 809
+Total Test time (real) = 422.39 sec
+wallclock-scan: OK (66 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (66 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (66 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (66 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+0 errors, 0 warnings, 0 informations
+2135 passed, 5 skipped in 141.99s (0:02:21)
+check: OK
