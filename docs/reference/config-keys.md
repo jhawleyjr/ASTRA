@@ -166,6 +166,19 @@ Source: `aircraft/notional_transport/physical/mass/mass.cpp`.
 | `ixz` | number | `kg*m^2` | `0` | no | S&L product of inertia, Ixz = integral(x\*z\*dm), body FRD axes about the CG, entered as published; negated into the tensor's xz entry. |
 | `iyz` | number | `kg*m^2` | `0` | no | S&L product of inertia, Iyz = integral(y\*z\*dm), body FRD axes about the CG, entered as published; negated into the tensor's yz entry. |
 
+## `aircraft/notional_transport/sim/transport/autopilot`
+
+Source: `aircraft/notional_transport/sim/transport/autopilot/autopilot.cpp`.
+
+| Key | Type | Unit | Default | Required | Meaning |
+|---|---|---|---|---|---|
+| `peer.setpoints.altitude` | number | `m` |  | yes | The altitude to hold (astra\_autopilot's --altitude-m). Finite. |
+| `peer.setpoints.airspeed` | number | `m/s` |  | yes | The true airspeed (tas) to hold (--airspeed-mps). Finite and above 0. |
+| `peer.setpoints.heading` | number | `rad` |  | yes | The heading to hold (--heading-rad); the error is wrapped to [-pi, pi] by remainder. Finite. |
+| `peer.trim.elevator` | number | `rad` |  | yes | The trim's elevator (--elevator-trim), the same text as vehicle.initial\_controls.controls.elevator: the elevator offset's bias, and the reply until the first usable frame. Within the elevator limit, +-0.3. |
+| `peer.trim.throttle` | number | `1` |  | yes | The trim's throttle (--throttle-trim), the same text as vehicle.initial\_controls.controls.throttle. In [0, 1]. |
+| `peer.trim.theta` | number | `rad` |  | yes | The trim's pitch (--theta-trim), the same text as initial.state.euler\_nb[1] (theta = alpha at gamma = 0). Finite. |
+
 ## `plugins/physical/atmosphere/isa1976`
 
 Source: `plugins/physical/atmosphere/isa1976/isa1976.cpp`.
