@@ -16,12 +16,9 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <iostream>
 #include <limits>
 #include <numbers>
-#include <random>
-#include <span>
-#include <string>
-#include <vector>
 
 #include "aircraft/notional_transport/sim/transport/autopilot/autopilot_law.hpp"
 #include "embedded/autopilot/autopilot.hpp"
@@ -441,7 +438,13 @@ struct Coverage {
   std::array<std::uint64_t, 8> at_limit{};  // elevator, aileron, rudder, throttle: lo and hi
   std::array<std::uint64_t, 2> bank_at_limit{};
   std::array<std::uint64_t, 3> refused{};  // altitude, speed, heading
-  std::array<std::uint64_t, 3> taken_at_limit{};
+  // §8 item 3 (Joe, 2026-10-18): an unwinding step is an accepted integral step on a frame whose
+  // previous frame had that loop's output (the elevator, the throttle, or the bank command) at its
+  // limit. Asserted.
+  std::array<std::uint64_t, 3> unwinding{};
+  // The reading as built at dd2e001, "an accepted step while the output is saturated": printed, not
+  // asserted (it cannot occur for the speed and heading loops under these distributions).
+  std::array<std::uint64_t, 3> taken_while_saturated{};
   std::array<std::uint64_t, kDtKinds> dt_kinds{};
 };
 
@@ -452,6 +455,7 @@ void run_seed(std::uint64_t seed, Coverage& coverage) {
                        sp.theta_trim});
   double previous_now = 0.0;
   bool have_previous = false;
+  std::array<bool, 3> previous_at_limit{};  // the previous frame's loop outputs at a limit
   for (std::size_t i = 0; i < autopilot_peer_test::kFramesPerSeed; ++i) {
     const astra_sim_to_sw_v1 in = frames.next();
     if (frames.has_dt_kind()) {
@@ -486,6 +490,9 @@ void run_seed(std::uint64_t seed, Coverage& coverage) {
     }
     coverage.bank_at_limit[0] += law.bank_command() == -0.35 ? 1U : 0U;
     coverage.bank_at_limit[1] += law.bank_command() == 0.35 ? 1U : 0U;
+    const std::array<bool, 3> at_limit = {std::abs(out.elevator) == 0.3,
+                                          out.throttle[0] == 0.0 || out.throttle[0] == 1.0,
+                                          std::abs(law.bank_command()) == 0.35};
     if (usable && dt > 0.0) {
       const std::array<double, 3> increments = {
           peer::kAltI * (sp.altitude - in.altitude) * dt,
@@ -493,20 +500,19 @@ void run_seed(std::uint64_t seed, Coverage& coverage) {
           peer::kHeadingI * peer::wrap_pi(sp.heading - in.psi) * dt};
       const std::array<double, 3> integral_after = {law.altitude_integral(), law.speed_integral(),
                                                     law.heading_integral()};
-      const std::array<bool, 3> saturated = {std::abs(out.elevator) == 0.3,
-                                             out.throttle[0] == 0.0 || out.throttle[0] == 1.0,
-                                             std::abs(law.bank_command()) == 0.35};
       for (std::size_t l = 0; l < 3; ++l) {
         if (increments[l] == 0.0) {
           continue;
         }
         if (integral_after[l] == integral_before[l]) {
           ++coverage.refused[l];
-        } else if (saturated[l]) {
-          ++coverage.taken_at_limit[l];
+          continue;
         }
+        coverage.unwinding[l] += previous_at_limit[l] ? 1U : 0U;
+        coverage.taken_while_saturated[l] += at_limit[l] ? 1U : 0U;
       }
     }
+    previous_at_limit = at_limit;
   }
 }
 
@@ -528,9 +534,13 @@ TEST(AutopilotPeerEquivalence, SeededSequences) {
   }
   EXPECT_GT(coverage.bank_at_limit[0], 0U);
   EXPECT_GT(coverage.bank_at_limit[1], 0U);
+  constexpr std::array<const char*, 3> kLoops = {"altitude", "speed", "heading"};
   for (std::size_t l = 0; l < 3; ++l) {
-    EXPECT_GT(coverage.refused[l], 0U) << "loop " << l << ": no refused integral step";
-    EXPECT_GT(coverage.taken_at_limit[l], 0U) << "loop " << l << ": no step taken at its limit";
+    std::cout << "loop " << kLoops[l] << ": refused " << coverage.refused[l] << ", unwinding "
+              << coverage.unwinding[l] << ", taken while saturated (not asserted) "
+              << coverage.taken_while_saturated[l] << "\n";
+    EXPECT_GT(coverage.refused[l], 0U) << kLoops[l] << ": no refused integral step";
+    EXPECT_GT(coverage.unwinding[l], 0U) << kLoops[l] << ": no unwinding step";
   }
   for (std::size_t d = 0; d < kDtKinds; ++d) {
     EXPECT_GT(coverage.dt_kinds[d], 0U) << "dt kind " << d;
