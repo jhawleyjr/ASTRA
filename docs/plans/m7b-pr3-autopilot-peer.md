@@ -676,6 +676,11 @@ state 10k. Reply k first acts on state 10k + 1.
 - every reply before k\* is equal;
 - reply k\* differs in exactly the fields S, and every other reply field there is equal.
 
+**Deviation, 2026-10-18 (Joe), to the test, not to the registration.** S is a set, as registered above. At
+`704c339` the test compared the differing fields, listed in record order, with S sorted, so control 2's equal
+sets {elevator, aileron, throttle} failed on order alone (§17). The test now compares both sides sorted,
+`sorted(differ) == sorted(fields)`. Nothing registered changes.
+
 Nothing after k\* is registered, apart from the bands and control 4's whole-run registration.
 
 **The precondition, N-03's exact replay,** runs in pytest before each control's comparison, per level, on the shm
@@ -1075,3 +1080,9 @@ The evidence is `docs/reviews/evidence/704c339-autopilot-peer-first-run.log`.
 - That compares nothing. The light shm recorders of 7a and 7b are byte-equal, and 7b's literal test passed.
 
 **Status: stopped, awaiting Joe's decision on control 2's test.** No full gate, review or further run has started.
+
+**Joe's decision, 2026-10-18:** fix the test as proposed, as a dated deviation in §9. Nothing registered changes.
+- `704c339-autopilot-peer-first-run.log` stays as the first-run record, with its two failures and their cause:
+  the first run stopped on the test's order comparison, not on a registered object.
+- The rerun of §12's commands writes its own `<head>-autopilot-peer-first-run.log`, and it is the acceptance
+  run.

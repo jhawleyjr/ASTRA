@@ -1253,7 +1253,10 @@ def test_autopilot_peer_control_breaks_first_where_registered(
         assert first_request is None or first_request > k_star, first_request
         assert first_state is None or first_state > 10 * k_star, first_state
         differ = reply_field_differences(reference.replies[k_star], rec.replies[k_star])
-        assert differ == sorted(fields), f"reply {k_star} differs in {differ}, registered {fields}"
+        # S is a set (§9) and differ is in record order: compared sorted (Joe, 2026-10-18).
+        assert sorted(differ) == sorted(fields), (
+            f"reply {k_star} differs in {differ}, registered {fields}"
+        )
     # The bands, registered as a pass (amendment 2); the nominal's are context (amendment 4).
     assert report["bands"]["altitude_m"] <= ALTITUDE_BAND_M, report["bands"]
     assert report["bands"]["heading_deg"] <= HEADING_BAND_DEG, report["bands"]
