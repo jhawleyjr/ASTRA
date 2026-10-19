@@ -618,6 +618,15 @@ takes them as a prefix.
     sequence, each within bounds fixed before the first run. The four controls and the order control fail as
     registered. A ctest smoke runs the plant and the peer in every preset with zero allocations. The base gate on
     `406c407` took 1162 s. Plan: [plan](docs/plans/m7b-pr2-sampled-data.md). Packet: in the PR body.
+  - PR 3 (#124): oracle (b), the port pattern, proven on M4's autopilot. A shipped C++23 in-process peer of M4's
+    law (`aircraft/notional_transport/sim/transport/autopilot`, with its key block and two tracked configs)
+    is bitwise equal to `embedded/autopilot` flown over shm. The comparison runs over M4's scenario at both
+    Dryden levels, on ADR-0029 Decision 8's objects and this PR's additions. Both builds' floating-point flags,
+    effective compiler arguments and target were stated before the first comparison. A unit-level equivalence
+    covers what the scenario never reaches, in every preset. Four ulp-sized porting controls
+    (`tests/plugins/autopilot_peer_variant`) each break equality first at their registered record, from the
+    shm reference's exact replay, and stay inside M4's bands. Plan: [plan](docs/plans/m7b-pr3-autopilot-peer.md).
+    Packet: in the PR body.
 - [ ] **M8 Actuators and controller tuning** — a first-order lag and a nonlinear second-order actuator model
       with rate and position limits; autopilot gains loaded at startup; the tuning tool (spec-driven on the
       linear model, time-domain on the nonlinear sim, robustness across draws, gain schedules) with

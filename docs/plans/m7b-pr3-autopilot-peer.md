@@ -1086,3 +1086,13 @@ The evidence is `docs/reviews/evidence/704c339-autopilot-peer-first-run.log`.
   the first run stopped on the test's order comparison, not on a registered object.
 - The rerun of §12's commands writes its own `<head>-autopilot-peer-first-run.log`, and it is the acceptance
   run.
+
+**The acceptance run, 2026-10-18, at `eab4adf`** (`docs/reviews/evidence/eab4adf-autopilot-peer-first-run.log`).
+§12's commands were rerun after the test fix, with the counts first:
+- R5: 18 of 18 passed in each of the four presets, with the same coverage counts;
+- `pytest -k "autopilot_peer or lockstep"`: 77 passed, exit 0;
+- `test_config_keys.py`: 31 passed;
+- `config_keys.py --check` and `just embedded-standalone`: OK.
+
+R6's and R8's facts are the first run's, line for line. **Status: accepted.** The full gate and the diff review
+follow (§14, steps 8 and 9).
