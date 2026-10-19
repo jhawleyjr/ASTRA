@@ -59,10 +59,30 @@ Builder response: accepted and fixed in fix 1.
 - **The plan.** §8 item 3's deviation gains a dated correction beside it, for Joe.
 - **Validation.** `ctest --preset <p> -R AutopilotPeer`, with `-N` 18 first: 18 of 18 in asan, debug, release
   and static-plugins, exit 0. clang-tidy and clang-format are clean.
-Verification: pending the Codex verification pass on the fix delta.
-History: round 1, found by the adversarial review and fixed in the same round.
-Human exception if needed: none. The correction to Joe's §8 wording goes to Joe at human review.
+Verification: **verified** by Codex on `3ce60e1..a459cd9`. The pass was `adversarial-review --base origin/main`
+with a verification focus, thread `01a152e9-f16f-7f20-9776-604f2aa55ce8`, exit 0, verdict approve.
+- Inspection and an exact-order arithmetic replay confirm all four cases for all three PIDs at both limits.
+- Each exact-limit candidate is nonzero, starts inside, and needs inclusive acceptance.
+- The speed and heading unreachability argument holds. The altitude witness reaches distance-decrease
+  acceptance 299 times per limit.
+- No existing check is weakened, and the counts remain 13 and 18.
+- Codex reported no new material defect. It edited no file, reran no build and executed no test binary.
+
+The full gate on `a459cd9` passed: exit 0 and `check: OK`, 1187 s
+([summary](evidence/a459cd9-gate-summary.log)).
+History: round 1, found by the adversarial review, fixed in the same round, and verified.
+Human exception if needed: none. The correction beside Joe's §8 deviation note goes to Joe at human review.
 
 ## Completion
 
-To be completed after the verification pass.
+- Critical and major findings open: none. R-001 is verified. No finding was rejected or deferred.
+- Correction rounds used: 1 of 2.
+- **The scope reviewed:** the branch diff `106c0cb..3ce60e1` by the general and adversarial passes, and the fix
+  delta `3ce60e1..a459cd9` by the verification pass. Commits after `a459cd9` are Markdown and evidence only.
+- **Validation:**
+  - the full gate on `a459cd9`, exit 0, 1187 s;
+  - `ctest -R AutopilotPeer`: 18 of 18 in every preset, at `a459cd9`;
+  - the pytest acceptance run at `eab4adf`. The fix changes no Python, and the gate's pytest on `a459cd9`
+    passed 2160.
+- **New findings from the verification pass:** none.
+- Codex's approval is not Joe's. The merge is his.

@@ -198,6 +198,15 @@ and the first run, in this form:
 Decision 8's estimate of about 25 s did not hold; the runs were faster than estimated. The trimmed summary is
 `docs/reviews/evidence/ca514b9-gate-summary.log`.
 
+**After review fix 1 (R-001), the gate of record: `a459cd9`, 2026-10-18 23:26:47 to 23:46:34 −07:00.**
+- `rm -rf build` then `./scripts/check-full.sh`, on a clean tree: exit 0, one `check: OK`, **1187 s**. That is
+  +25 s against 1162 s, +9 s against 1178 s, +186 s against 1001 s, and −1 s against `ca514b9`.
+- Per preset: debug 111.01 s, release 11.96 s, static-plugins 228.97 s and asan 427.26 s; pytest 151.80 s
+  (2160 passed, 5 skipped).
+- Load: before, 0.35 2.11 5.33 (the earlier gate decaying); after, 6.72 10.85 9.50; no other process.
+- The summary is `docs/reviews/evidence/a459cd9-gate-summary.log`. Commits after `a459cd9` are Markdown and
+  evidence only.
+
 The PR body states the pytest cost against the M7b table's "about 10 s" and names its causes (amendment 6):
 - the twelve lockstep-length runs;
 - the four logs;
