@@ -180,14 +180,23 @@ and the first run, in this form:
 
 | Measured | Value |
 |---|---|
-| Timed command, and the checkout it ran in | (after the run) |
-| Whether `just venv` ran first (untimed) | |
-| Exit status and `check: OK` | |
-| Wall time; delta against 1162 s (`406c407`), 1178 s (`0bbc4fa`) and 1001 s | |
-| Load before and after; `nproc`; other builds | |
-| Per-preset CTest and pytest times, against PR 2's gate (debug 109.75 s, release 11.94 s, static-plugins 241.50 s, asan 422.39 s; pytest 141.99 s) | |
-| PR 3's own tests: `ctest -R AutopilotPeer` per preset, and `pytest -k autopilot_peer --durations=0` | |
-| The two standalone configures' wall time inside pytest (§5; amendment 6) | |
+| Timed command, and the checkout it ran in | `rm -rf build` then `./scripts/check-full.sh`, in the worktree `m7b-pr3-autopilot-peer` at `ca514b9`, clean tree, 2026-10-18 22:55:46 to 23:15:34 −07:00 |
+| Whether `just venv` ran first (untimed) | **No.** `.venv` already existed: `just venv` made it earlier in this session (§14, step 5), untimed |
+| Exit status and `check: OK` | exit 0; one `check: OK` line |
+| Wall time; delta against 1162 s (`406c407`), 1178 s (`0bbc4fa`) and 1001 s | **1188 s**: +26 s, +10 s and +187 s |
+| Load before and after; `nproc`; other builds | Before: 0.38 0.35 0.20, with no build, no pytest and no clangd. After: 15.97 17.33 10.69 (the gate's own load decaying), with no other process. `nproc` 32 |
+| Per-preset CTest and pytest times, against PR 2's gate (debug 109.75 s, release 11.94 s, static-plugins 241.50 s, asan 422.39 s; pytest 141.99 s) | debug 110.08 s (824 tests), release 12.08 s (825), static-plugins 227.91 s (826), asan 426.24 s (827); pytest 151.22 s (2160 passed, 5 skipped). Deltas: +0.33, +0.14, −13.59 and +3.85 s; pytest +9.23 s |
+| PR 3's own tests: `ctest -R AutopilotPeer` per preset, and `pytest -k autopilot_peer --durations=0` | 18 tests per preset: asan 7.48 s, debug 2.02 s, release 0.11 s, static-plugins 4.46 s (`eab4adf-autopilot-peer-first-run.log`). `test_autopilot_peer.py`: 25 tests, about 8.5 s |
+| The two standalone configures' wall time inside pytest (§5; amendment 6) | 0.14 s (clang++-18) and 0.08 s (g++) |
+
+**The pytest cost against the M7b table's "about 10 s"** (amendment 6):
+- `test_autopilot_peer.py` took about 8.5 s, inside that estimate;
+- the gate's whole pytest grew by 9.23 s against PR 2's gate;
+- the causes, as named: twelve lockstep-length runs at about 0.5 s each (four of them logged, 1.1 s for each
+  R6 pair), and the two standalone configures (0.22 s in all).
+
+Decision 8's estimate of about 25 s did not hold; the runs were faster than estimated. The trimmed summary is
+`docs/reviews/evidence/ca514b9-gate-summary.log`.
 
 The PR body states the pytest cost against the M7b table's "about 10 s" and names its causes (amendment 6):
 - the twelve lockstep-length runs;
