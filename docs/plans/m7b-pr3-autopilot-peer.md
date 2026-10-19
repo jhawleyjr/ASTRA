@@ -1018,3 +1018,60 @@ already run.
   in-process peer and the controls stay held to step 7b.
 
 **Status: closed, 2026-10-18.** The sequence resumes at Joe's order: the test fix, then step 6, then 7a and 7b.
+
+## 17. The first comparison (§14, step 7b), 2026-10-18
+
+**Where it ran:** head `704c339`, a clean tree. Every preset was built, and `build/python` rebuilt, at that head.
+The evidence is `docs/reviews/evidence/704c339-autopilot-peer-first-run.log`.
+
+**R5, the run of record.** `ctest --preset <p> -R AutopilotPeer`, with the `-N` count first (18 in each):
+- 18 of 18 passed in each of asan, debug, release and static-plugins, exit 0 each;
+- `SeededSequences`' coverage counts are identical in every preset, and the new definition is met for every
+  loop:
+  - altitude: 103,518 refused, 94,204 unwinding;
+  - speed: 248,093 refused, 58,410 unwinding;
+  - heading: 310,261 refused, 13,774 unwinding.
+
+  The as-built reading, which is printed but not asserted, gives 44,697, 0 and 0.
+
+**R6: bitwise equal at both levels.**
+- **Recorders.** The shm and in-process recorders are byte-equal: SHA-256 `da98ae4c…c2bd` (light) and
+  `93765abf…5e29` (moderate) on both sides.
+- **Logs.** Every log object O1 to O13 is equal, and O14 (the determinism repeat), O15 and O16 pass.
+- **Counts.** Both sides have 100,000 frames, 10,000 exchanges, 0 missed and fault 0. The autopilot reports
+  `handled 10000 held 0` and exited 0. The peer reports 10,000 and 0.
+- **The environment** guard held in every child.
+
+**R7, Q8 and R9:**
+- §5's checks and §3's independence pass, as stated in step 6;
+- Q8's parse equality passes at both levels;
+- the drift test and the exit-65 test pass at both levels;
+- `test_config_keys.py`: 31 passed;
+- `config_keys.py --check`: OK;
+- `just embedded-standalone`: OK.
+
+**R8:**
+- Both precondition tests pass at both levels, so the replay reproduced §9's literals on step 7b's own shm runs.
+- Every control broke first at its registered record, with the field values the replay predicted, bit for bit,
+  and every control stayed inside the bands at both levels.
+- **Controls 1, 3 and 4** passed their tests.
+- **Control 2's test failed at both levels, and that is a stop (§9).** The run itself met the registration:
+  - the first differing reply is at exchange 1;
+  - requests first differ at 2 and states at 11, so nothing differs before k\* = 1;
+  - reply 1 differs in exactly {elevator, aileron, throttle}, the registered S;
+  - its values equal the 7a replay's: for light, elevator 0.02667608988872205, aileron −4.090727931716418e-06
+    and throttle 0.4931594890387656;
+  - the bands were 1.325299 m and 0.082744° (light), and 10.413143 m and 0.828171° (moderate).
+- **The defect is in the test.** It compares `reply_field_differences`, which lists the fields in record order
+  (elevator, aileron, throttle), with `sorted(fields)`, the registered set sorted (aileron, elevator,
+  throttle). Equal sets therefore fail on order. Controls 1 and 3 have a one-field S, so they could not show
+  it.
+- **Proposed fix (not applied):** compare both sides sorted, `sorted(differ) == sorted(fields)`. S is a set, and
+  §9 registers it as one. No sequence, record, value or other assertion changes.
+
+**Joe's 7a and 7b note.**
+- 7a's shm logs carry `git_describe` `6da7622`, and 7b's carry `704c339`, because `build/python` was rebuilt
+  at `704c339` before 7b.
+- That compares nothing. The light shm recorders of 7a and 7b are byte-equal, and 7b's literal test passed.
+
+**Status: stopped, awaiting Joe's decision on control 2's test.** No full gate, review or further run has started.
