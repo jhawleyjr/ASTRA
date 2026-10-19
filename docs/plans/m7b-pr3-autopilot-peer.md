@@ -700,10 +700,28 @@ Decision 3 allows before the first run.
   reproduces them. A mismatch is a failed precondition.
 - The variant's control runs, the first run of that path, start only after that commit (§14, step 7b).
 
-| Level | Control 1: elevator at frame 0, shipped against defect | Control 2: S at frame 10 | Control 3: request 0's q; elevator at frame 0 equal; elevator at frame 10, shipped against defect | Control 4: the shm `mode_flags` |
+**Recorded 2026-10-18, step 7a, at `52e2e65`.**
+- The command was `.venv/bin/pytest tests/python -k "autopilot_peer and preconditions_hold"`: exit 0, 2 passed.
+- It ran the two shm runs (light and moderate, each with its log) and the replay. Neither the peer nor the variant
+  executed.
+- Both requests 0 and 1 were usable at both levels, and the replay reproduced the reference's replies 0 and 1
+  bitwise.
+- Each pair below is shipped, then defect. The table gives each value's hex as the test holds it, with its
+  decimal.
+
+| Level | Control 1: elevator at frame 0 | Control 2: S at frame 10 | Control 3: q; elevator at frame 0; elevator at frame 10 | Control 4: the shm `mode_flags` |
 |---|---|---|---|---|
-| light | (written at step 7a, dated) | | | |
-| moderate | | | | |
+| light | `0x1.b508da83e1eddp-6` (0.026674474137989946) against `0x1.b508da0000000p-6` (0.02667447365820408): differ by −4.79785867285587e-10 | {aileron, elevator, throttle} | q = `0x0.0p+0` (+0.0). Frame 0: equal, both `0x1.b508da83e1eddp-6`. Frame 10: `0x1.b50fa169dda99p-6` (0.026676089888008823) against `0x1.b50fa169ddeaap-6` (0.026676089888012434), differ by 3.61e-15 | 1 at all 10,000 exchanges |
+| moderate | the same two values as light: frame 0 precedes any turbulence-dependent term | {aileron, elevator, throttle} | q = `0x0.0p+0` (+0.0). Frame 0: equal, both `0x1.b508da83e1eddp-6`. Frame 10: `0x1.b541db1eabccep-6` (0.026688064560116236) against `0x1.b541db1eae318p-6` (0.026688064560150243), differ by 3.40e-14 | 1 at all 10,000 exchanges |
+
+The registered first differing records are therefore:
+- control 1: k\* = 0, S = {elevator}, at both levels;
+- control 2: k\* = 1, S = {aileron, elevator, throttle}, at both levels;
+- control 3: k\* = 1, S = {elevator}, at both levels;
+- control 4: k\* = 0, S = {mode_flags}, at every exchange.
+
+Control 2's elevator at frame 10 differs by 7.13e-13 (light) and 7.47e-12 (moderate). The test's `REGISTERED`
+literal holds every value the replay computes, so these hexes included, from `preconditions_<level>.json`.
 
 | # | Planted (variant) | k\*, S | Why it is certain | The replay's precondition |
 |---|---|---|---|---|

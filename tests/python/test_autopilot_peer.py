@@ -1076,8 +1076,82 @@ def replay_preconditions(shm: ChildRun, level: str) -> dict[str, Any]:
 
 
 # §9's table: each control's registered first differing record and its precondition results, from
-# the shm reference alone, recorded before any control run (amendment 1). None until §14 step 7a.
-REGISTERED: dict[str, dict[str, Any]] | None = None
+# the shm reference alone, recorded before any control run (amendment 1): §14 step 7a, 2026-10-18,
+# at 52e2e65 (preconditions_<level>.json, copied verbatim).
+REGISTERED: dict[str, dict[str, Any]] | None = {
+    "light": {
+        "request0_q": "0x0.0p+0",
+        "float_elevator_trim": {
+            "exchange0": ["elevator"],
+            "exchange1": ["elevator"],
+            "elevator": [
+                ["0x1.b508da83e1eddp-6", "0x1.b508da0000000p-6"],
+                ["0x1.b50fa169dda99p-6", "0x1.b50fa0e5fbbbcp-6"],
+            ],
+        },
+        "output_before_integral": {
+            "exchange0": [],
+            "exchange1": ["aileron", "elevator", "throttle"],
+            "elevator": [
+                ["0x1.b508da83e1eddp-6", "0x1.b508da83e1eddp-6"],
+                ["0x1.b50fa169dda99p-6", "0x1.b50fa16a0fd9fp-6"],
+            ],
+        },
+        "float_pitch_rate": {
+            "exchange0": [],
+            "exchange1": ["elevator"],
+            "elevator": [
+                ["0x1.b508da83e1eddp-6", "0x1.b508da83e1eddp-6"],
+                ["0x1.b50fa169dda99p-6", "0x1.b50fa169ddeaap-6"],
+            ],
+        },
+        "mode_word_zero": {
+            "exchange0": ["mode_flags"],
+            "exchange1": ["mode_flags"],
+            "elevator": [
+                ["0x1.b508da83e1eddp-6", "0x1.b508da83e1eddp-6"],
+                ["0x1.b50fa169dda99p-6", "0x1.b50fa169dda99p-6"],
+            ],
+        },
+        "shm_mode_flags_all_one": True,
+    },
+    "moderate": {
+        "request0_q": "0x0.0p+0",
+        "float_elevator_trim": {
+            "exchange0": ["elevator"],
+            "exchange1": ["elevator"],
+            "elevator": [
+                ["0x1.b508da83e1eddp-6", "0x1.b508da0000000p-6"],
+                ["0x1.b541db1eabccep-6", "0x1.b541da9ac9df1p-6"],
+            ],
+        },
+        "output_before_integral": {
+            "exchange0": [],
+            "exchange1": ["aileron", "elevator", "throttle"],
+            "elevator": [
+                ["0x1.b508da83e1eddp-6", "0x1.b508da83e1eddp-6"],
+                ["0x1.b541db1eabccep-6", "0x1.b541db20b97f2p-6"],
+            ],
+        },
+        "float_pitch_rate": {
+            "exchange0": [],
+            "exchange1": ["elevator"],
+            "elevator": [
+                ["0x1.b508da83e1eddp-6", "0x1.b508da83e1eddp-6"],
+                ["0x1.b541db1eabccep-6", "0x1.b541db1eae318p-6"],
+            ],
+        },
+        "mode_word_zero": {
+            "exchange0": ["mode_flags"],
+            "exchange1": ["mode_flags"],
+            "elevator": [
+                ["0x1.b508da83e1eddp-6", "0x1.b508da83e1eddp-6"],
+                ["0x1.b541db1eabccep-6", "0x1.b541db1eabccep-6"],
+            ],
+        },
+        "shm_mode_flags_all_one": True,
+    },
+}
 
 
 @pytest.mark.parametrize("level", LEVELS)
