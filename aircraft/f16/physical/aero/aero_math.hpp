@@ -27,6 +27,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 
 #include "../../common/f16_interp.hpp"
@@ -83,8 +84,8 @@ inline constexpr double kCmForwardOfMrc =
     units::feet_to_meters(0.01 * 11.32 * (kMrcPercentMac - kCmPercentMac));
 
 // D6 (docs/plans/m7-f16-inventory.md section 10, item 6): the aero's Mach limit, read from P1's
-// "Subsonic" under ADR-0031's data-domain rule. M7 PR 13 declares it through the envelope hook;
-// nothing in this PR declares or reads it.
+// "Subsonic" under ADR-0031's data-domain rule. M8's envelope item (ADR-0031; the M7 plan's row 13,
+// moved to M8) declares it through the envelope hook; nothing declares or reads it yet.
 inline constexpr double kMachLimit = 1.0;
 
 // NOLINTEND(readability-magic-numbers)
@@ -182,8 +183,17 @@ struct BuildUp {
       {in.vt, in.alpha, in.beta, in.p, in.q, in.r, in.el, in.ail, in.rdr});
 }
 
+// The sign of beta at which the four control-derivative tables (dclda, dcldr, dcnda, dcndr) are
+// read (the M7b plan's Q11, docs/plans/m7b-pr4-f16-symmetry.md section 2). The shipped plugin uses
+// only kSigned.
+enum class BetaTables : std::uint8_t {
+  kSigned,    // at beta, as F16_aero.dml reads them
+  kAbsolute,  // at |beta|: tests/plugins/f16_aero_variant only (M7b PR 4's symmetric baseline)
+};
+
 // Addendum section 2's build-up, term for term.
-[[nodiscard]] inline BuildUp build_up(const Inputs& in) noexcept {
+[[nodiscard]] inline BuildUp build_up(const Inputs& in,
+                                      BetaTables beta_tables = BetaTables::kSigned) noexcept {
   BuildUp b;
   // The floor (minValue, :292); a NaN stays NaN rather than becoming the floor.
   b.vt = std::isnan(in.vt) || in.vt > kVtMin ? in.vt : kVtMin;
@@ -232,10 +242,11 @@ struct BuildUp {
   b.cnr = interp::lookup(kAlpha1, tables::kCnr, in.alpha);
   b.cnp = interp::lookup(kAlpha1, tables::kCnp, in.alpha);
 
-  b.dclda = interp::lookup(kBeta2, kAlpha1, tables::kDclda, in.beta, in.alpha);
-  b.dcldr = interp::lookup(kBeta2, kAlpha1, tables::kDcldr, in.beta, in.alpha);
-  b.dcnda = interp::lookup(kBeta2, kAlpha1, tables::kDcnda, in.beta, in.alpha);
-  b.dcndr = interp::lookup(kBeta2, kAlpha1, tables::kDcndr, in.beta, in.alpha);
+  const double table_beta = beta_tables == BetaTables::kSigned ? in.beta : b.absbeta;
+  b.dclda = interp::lookup(kBeta2, kAlpha1, tables::kDclda, table_beta, in.alpha);
+  b.dcldr = interp::lookup(kBeta2, kAlpha1, tables::kDcldr, table_beta, in.alpha);
+  b.dcnda = interp::lookup(kBeta2, kAlpha1, tables::kDcnda, table_beta, in.alpha);
+  b.dcndr = interp::lookup(kBeta2, kAlpha1, tables::kDcndr, table_beta, in.alpha);
 
   b.cl1 = b.clt + b.dclda * b.dail + b.dcldr * b.drdr;
   b.cn1 = b.cnt + b.dcnda * b.dail + b.dcndr * b.drdr;

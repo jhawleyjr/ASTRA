@@ -1,0 +1,417 @@
+M7b PR 4: the first flight (docs/plans/m7b-pr4-f16-symmetry.md, section 16, step 7)
+Recorded 2026-10-20 at a1c86ed (C2b), clean tree, one build per preset, in this worktree.
+
+1. ctest --preset release -R F16Symmetry -N: 24 tests (14 every-preset, 10 flights).
+   ctest --preset release -R F16Symmetry --no-tests=error -V: exit 8, 23 of 24 passed.
+
+ 1/24 Test #681: physics.F16SymmetryParity.Atan2IsOddInY .........................................   Passed    0.06 sec
+ 2/24 Test #682: physics.F16SymmetryParity.AsinIsOdd .............................................   Passed    0.02 sec
+ 3/24 Test #683: physics.F16SymmetryParity.SinIsOddAndCosIsEven ..................................   Passed    0.03 sec
+ 4/24 Test #684: physics.F16SymmetryParity.HypotIsEvenInEachArgument .............................   Passed    0.03 sec
+ 5/24 Test #685: physics.F16SymmetryParity.RemainderIsOddInXAndEvenInY ...........................   Passed    0.12 sec
+ 6/24 Test #686: physics.F16SymmetryTrim.TheTrimsLateralRatesAreRoundoff .........................   Passed    0.01 sec
+ 7/24 Test #687: physics.F16SymmetryTrim.TheConfigRoutesQuaternionIsTheTrims .....................   Passed    0.01 sec
+ 8/24 Test #688: physics.F16SymmetryTrim.TheIcIsLateralZero ......................................   Passed    0.01 sec
+ 9/24 Test #689: physics.F16SymmetrySmoke.DefaultOptionsEqualsTheShippedPeer .....................   Passed    0.02 sec
+10/24 Test #690: physics.F16SymmetrySmoke.SignedTablesEqualTheShippedAero ........................   Passed    0.03 sec
+11/24 Test #691: physics.F16SymmetrySmoke.RecomposeIsBuildUpBitwise ..............................   Passed    0.02 sec
+12/24 Test #692: physics.F16SymmetrySmoke.EachHookAndDefectFliesWithoutAllocating ................   Passed    0.07 sec
+13/24 Test #693: physics.F16SymmetrySmoke.EarthRateNoneRefusesAFlatEarthOnlyWithALateralOffset ...   Passed    0.02 sec
+14/24 Test #694: physics.F16SymmetrySmoke.UnknownVariantsAreConfigErrorsNamingTheKey .............   Passed    0.02 sec
+15/24 Test #695: physics.F16SymmetryMirror.Case13p3VariantPair ...................................   Passed    0.12 sec
+16/24 Test #696: physics.F16SymmetryMirror.Case13p4VariantPair ...................................   Passed    0.29 sec
+17/24 Test #697: physics.F16SymmetryShipped.Case13p3Pair .........................................   Passed    0.53 sec
+18/24 Test #698: physics.F16SymmetryShipped.Case13p4Pair .........................................   Passed    1.36 sec
+19/24 Test #699: physics.F16SymmetryControl.OmegaOnly ............................................   Passed    0.12 sec
+20/24 Test #700: physics.F16SymmetryControl.TablesOnly ...........................................   Passed    0.12 sec
+21/24 Test #701: physics.F16SymmetryControl.Cl0SignDropped .......................................   Passed    0.14 sec
+22/24 Test #702: physics.F16SymmetryControl.DoubledAsymmetryCase13p3 .............................   Passed    0.14 sec
+23/24 Test #703: physics.F16SymmetryControl.DoubledAsymmetryCase13p4 .............................   Passed    0.27 sec
+24/24 Test #704: physics.F16SymmetryHeading.ThreeHeadingsAndTheUnwrappedControl ..................***Failed    0.61 sec
+Total Test time (real) =   4.21 sec
+
+   Each flight test's own output, in order (gtest's framing left out):
+
+   Running main() from ./googletest/src/gtest_main.cc
+   13.3 variant pair: first differing record under the mask: none
+   13.3 variant pair: 30002 states, 3001 exchanges per run
+   Running main() from ./googletest/src/gtest_main.cc
+   13.4 variant pair: first differing record under the mask: none
+   13.4 variant pair: 60002 states, 6001 exchanges per run
+   Running main() from ./googletest/src/gtest_main.cc
+   13.3 shipped pair R: 120005 operands and 3001 exchanges read; 0 part failures
+   13.3 shipped pair L: 120005 operands and 3001 exchanges read; 0 part failures
+   13.3 shipped pair: first differing record under the mask: reply 0 (frame 0): aileron R 1.8fa66f1f88363p-14 L 1.8fa66f1f88363p-14; rudder R 1.a9a136ecf4e4bp-15 L 1.a9a136ecf4e4bp-15;
+   13.3 shipped pair: state lat: max |e| 5.581e-09 at record 30001 (R +6.294566e-01, L +6.294566e-01)
+   13.3 shipped pair: state lon: max |e| 5.656e-08 at record 30001 (R +8.908765e-05, L -8.914421e-05)
+   13.3 shipped pair: state h: max |e| 2.797e-02 at record 17465 (R +3.050192e+03, L +3.050220e+03)
+   13.3 shipped pair: state u: max |e| 2.431e-02 at record 15887 (R +1.720564e+02, L +1.720321e+02)
+   13.3 shipped pair: state v: max |e| 6.860e-01 at record 15777 (R +1.493869e+00, L -8.078441e-01)
+   13.3 shipped pair: state w: max |e| 3.272e-01 at record 15828 (R +9.668692e+00, L +9.995872e+00)
+   13.3 shipped pair: state q_w: max |e| 1.335e-03 at record 15628 (R +9.690327e-01, L +9.676975e-01)
+   13.3 shipped pair: state q_x: max |e| 5.234e-03 at record 15627 (R +2.456545e-01, L -2.508889e-01)
+   13.3 shipped pair: state q_y: max |e| 6.135e-04 at record 15907 (R +2.704085e-02, L +2.765433e-02)
+   13.3 shipped pair: state q_z: max |e| 2.269e-03 at record 15800 (R +9.553265e-03, L -1.182261e-02)
+   13.3 shipped pair: state p: max |e| 2.998e-01 at record 15640 (R +8.385947e-01, L -5.387878e-01)
+   13.3 shipped pair: state q: max |e| 1.049e-02 at record 15710 (R +9.514355e-02, L +1.056362e-01)
+   13.3 shipped pair: state r: max |e| 2.705e-02 at record 15630 (R +1.519859e-01, L -1.790311e-01)
+   13.3 shipped pair: request t: max |e| 0.000e+00 at record 0 (R +0.000000e+00, L +0.000000e+00)
+   13.3 shipped pair: request phi: max |e| 1.079e-02 at record 1563 (R +4.986415e-01, L -5.094358e-01)
+   13.3 shipped pair: request theta: max |e| 6.672e-04 at record 1568 (R +4.210979e-02, L +4.144257e-02)
+   13.3 shipped pair: request psi: max |e| 4.641e-03 at record 1581 (R +3.299700e-02, L -3.763773e-02)
+   13.3 shipped pair: request p: max |e| 2.998e-01 at record 1564 (R +8.385947e-01, L -5.387878e-01)
+   13.3 shipped pair: request q: max |e| 1.049e-02 at record 1571 (R +9.514355e-02, L +1.056362e-01)
+   13.3 shipped pair: request r: max |e| 2.705e-02 at record 1563 (R +1.519859e-01, L -1.790311e-01)
+   13.3 shipped pair: request u: max |e| 2.430e-02 at record 1589 (R +1.720535e+02, L +1.720292e+02)
+   13.3 shipped pair: request v: max |e| 6.859e-01 at record 1578 (R +1.403959e+00, L -7.180730e-01)
+   13.3 shipped pair: request w: max |e| 3.271e-01 at record 1583 (R +9.700456e+00, L +1.002760e+01)
+   13.3 shipped pair: request alpha: max |e| 1.902e-03 at record 1583 (R +5.630208e-02, L +5.820381e-02)
+   13.3 shipped pair: request beta: max |e| 3.979e-03 at record 1578 (R +8.144466e-03, L -4.165602e-03)
+   13.3 shipped pair: request tas: max |e| 3.438e-03 at record 1615 (R +1.724129e+02, L +1.724164e+02)
+   13.3 shipped pair: request cas: max |e| 2.946e-03 at record 1614 (R +1.496621e+02, L +1.496650e+02)
+   13.3 shipped pair: request mach: max |e| 1.055e-05 at record 1615 (R +5.250392e-01, L +5.250497e-01)
+   13.3 shipped pair: request altitude: max |e| 2.797e-02 at record 1747 (R +3.050191e+03, L +3.050219e+03)
+   13.3 shipped pair: request vertical_speed: max |e| 5.054e-02 at record 1607 (R -1.040676e+00, L -9.901361e-01)
+   13.3 shipped pair: request lat: max |e| 5.581e-09 at record 3000 (R +6.294566e-01, L +6.294566e-01)
+   13.3 shipped pair: request lon: max |e| 5.656e-08 at record 3000 (R +8.907906e-05, L -8.913562e-05)
+   13.3 shipped pair: request ax: max |e| 7.364e-02 at record 1587 (R +7.270747e-01, L +8.007148e-01)
+   13.3 shipped pair: request ay: max |e| 1.494e+00 at record 1562 (R -2.421795e-01, L +1.736548e+00)
+   13.3 shipped pair: request az: max |e| 4.557e-01 at record 1579 (R -1.148210e+01, L -1.193780e+01)
+   13.3 shipped pair: reply elevator: max |e| 1.218e-02 at record 1565 (R -4.247603e-02, L -5.465279e-02)
+   13.3 shipped pair: reply aileron: max |e| 6.583e-01 at record 1563 (R +2.844960e-01, L +3.738078e-01)
+   13.3 shipped pair: reply rudder: max |e| 2.405e-01 at record 1562 (R +1.225332e-01, L +1.179686e-01)
+   13.3 shipped pair: reply throttle[0]: max |e| 3.842e-03 at record 1590 (R +1.601468e-01, L +1.639886e-01)
+   13.3 shipped pair: reply throttle[1]: max |e| 3.842e-03 at record 1590 (R +1.601468e-01, L +1.639886e-01)
+   13.3 shipped pair: aileron reversals: R 21, L 22
+   13.3 shipped pair:   pairs (R, L, L - R): (2, 2, +0) (6, 6, +0) (10, 10, +0) (16, 16, +0) (78, 78, +0) (113, 113, +0) (1526, 1500, -26) (1549, 1526, -23)
+   13.3 shipped pair:   pairs (R, L, L - R): (1564, 1548, -16) (1570, 1563, -7) (1577, 1569, -8) (1629, 1575, -54) (1682, 1626, -56) (1732, 1679, -53) (1788, 1729, -59) (1832, 1785, -47)
+   13.3 shipped pair:   pairs (R, L, L - R): (1904, 1829, -75) (1918, 1901, -17) (2090, 1917, -173) (2095, 2089, -6) (2098, 2094, -4)
+   13.3 shipped pair:   unpaired (L): 2098
+   Running main() from ./googletest/src/gtest_main.cc
+   13.4 shipped pair R: 240005 operands and 6001 exchanges read; 0 part failures
+   13.4 shipped pair L: 240005 operands and 6001 exchanges read; 0 part failures
+   13.4 shipped pair: first differing record under the mask: reply 0 (frame 0): aileron R 1.8fa66f1f88363p-14 L 1.8fa66f1f88363p-14; rudder R 1.a9a136ecf4e4bp-15 L 1.a9a136ecf4e4bp-15;
+   13.4 shipped pair: state lat: max |e| 4.565e-09 at record 28852 (R +6.294308e-01, L +6.294308e-01)
+   13.4 shipped pair: state lon: max |e| 5.174e-08 at record 28864 (R +3.817983e-05, L -3.823156e-05)
+   13.4 shipped pair: state h: max |e| 2.797e-02 at record 22465 (R +3.050192e+03, L +3.050220e+03)
+   13.4 shipped pair: state u: max |e| 2.431e-02 at record 20887 (R +1.720564e+02, L +1.720321e+02)
+   13.4 shipped pair: state v: max |e| 6.860e-01 at record 20777 (R +1.493865e+00, L -8.078475e-01)
+   13.4 shipped pair: state w: max |e| 3.272e-01 at record 20828 (R +9.668694e+00, L +9.995871e+00)
+   13.4 shipped pair: state q_w: max |e| 1.335e-03 at record 20628 (R +9.690327e-01, L +9.676975e-01)
+   13.4 shipped pair: state q_x: max |e| 5.234e-03 at record 20627 (R +2.456546e-01, L -2.508888e-01)
+   13.4 shipped pair: state q_y: max |e| 6.135e-04 at record 20907 (R +2.704085e-02, L +2.765433e-02)
+   13.4 shipped pair: state q_z: max |e| 2.269e-03 at record 20800 (R +9.553278e-03, L -1.182260e-02)
+   13.4 shipped pair: state p: max |e| 2.998e-01 at record 20640 (R +8.385926e-01, L -5.387902e-01)
+   13.4 shipped pair: state q: max |e| 1.049e-02 at record 20710 (R +9.514362e-02, L +1.056362e-01)
+   13.4 shipped pair: state r: max |e| 2.704e-02 at record 20630 (R +1.519861e-01, L -1.790310e-01)
+   13.4 shipped pair: request t: max |e| 0.000e+00 at record 0 (R +0.000000e+00, L +0.000000e+00)
+   13.4 shipped pair: request phi: max |e| 1.079e-02 at record 2063 (R +4.986416e-01, L -5.094357e-01)
+   13.4 shipped pair: request theta: max |e| 6.672e-04 at record 2068 (R +4.210978e-02, L +4.144257e-02)
+   13.4 shipped pair: request psi: max |e| 4.641e-03 at record 2081 (R +3.299703e-02, L -3.763771e-02)
+   13.4 shipped pair: request p: max |e| 2.998e-01 at record 2064 (R +8.385926e-01, L -5.387902e-01)
+   13.4 shipped pair: request q: max |e| 1.049e-02 at record 2071 (R +9.514362e-02, L +1.056362e-01)
+   13.4 shipped pair: request r: max |e| 2.704e-02 at record 2063 (R +1.519861e-01, L -1.790310e-01)
+   13.4 shipped pair: request u: max |e| 2.430e-02 at record 2089 (R +1.720535e+02, L +1.720292e+02)
+   13.4 shipped pair: request v: max |e| 6.859e-01 at record 2078 (R +1.403955e+00, L -7.180764e-01)
+   13.4 shipped pair: request w: max |e| 3.271e-01 at record 2083 (R +9.700458e+00, L +1.002760e+01)
+   13.4 shipped pair: request alpha: max |e| 1.902e-03 at record 2083 (R +5.630210e-02, L +5.820380e-02)
+   13.4 shipped pair: request beta: max |e| 3.979e-03 at record 2078 (R +8.144443e-03, L -4.165621e-03)
+   13.4 shipped pair: request tas: max |e| 3.438e-03 at record 2115 (R +1.724129e+02, L +1.724164e+02)
+   13.4 shipped pair: request cas: max |e| 2.946e-03 at record 2114 (R +1.496621e+02, L +1.496650e+02)
+   13.4 shipped pair: request mach: max |e| 1.055e-05 at record 2115 (R +5.250392e-01, L +5.250497e-01)
+   13.4 shipped pair: request altitude: max |e| 2.797e-02 at record 2247 (R +3.050191e+03, L +3.050219e+03)
+   13.4 shipped pair: request vertical_speed: max |e| 5.054e-02 at record 2107 (R -1.040676e+00, L -9.901373e-01)
+   13.4 shipped pair: request lat: max |e| 4.565e-09 at record 2885 (R +6.294307e-01, L +6.294307e-01)
+   13.4 shipped pair: request lon: max |e| 5.174e-08 at record 2886 (R +3.814843e-05, L -3.820017e-05)
+   13.4 shipped pair: request ax: max |e| 7.364e-02 at record 2087 (R +7.270751e-01, L +8.007144e-01)
+   13.4 shipped pair: request ay: max |e| 1.494e+00 at record 2062 (R -2.421915e-01, L +1.736537e+00)
+   13.4 shipped pair: request az: max |e| 4.557e-01 at record 2079 (R -1.148211e+01, L -1.193780e+01)
+   13.4 shipped pair: reply elevator: max |e| 1.218e-02 at record 2065 (R -4.247613e-02, L -5.465269e-02)
+   13.4 shipped pair: reply aileron: max |e| 6.583e-01 at record 2063 (R +2.844899e-01, L +3.738066e-01)
+   13.4 shipped pair: reply rudder: max |e| 2.405e-01 at record 2062 (R +1.225313e-01, L +1.179669e-01)
+   13.4 shipped pair: reply throttle[0]: max |e| 3.842e-03 at record 2090 (R +1.601468e-01, L +1.639886e-01)
+   13.4 shipped pair: reply throttle[1]: max |e| 3.842e-03 at record 2090 (R +1.601468e-01, L +1.639886e-01)
+   13.4 shipped pair: aileron reversals: R 22, L 23
+   13.4 shipped pair:   pairs (R, L, L - R): (2, 2, +0) (6, 6, +0) (10, 10, +0) (16, 16, +0) (78, 78, +0) (113, 113, +0) (2026, 2000, -26) (2049, 2026, -23)
+   13.4 shipped pair:   pairs (R, L, L - R): (2064, 2048, -16) (2070, 2063, -7) (2077, 2069, -8) (2129, 2075, -54) (2182, 2126, -56) (2232, 2179, -53) (2288, 2229, -59) (2332, 2285, -47)
+   13.4 shipped pair:   pairs (R, L, L - R): (2404, 2329, -75) (2418, 2401, -17) (2664, 2417, -247) (2669, 2664, -5) (2672, 2668, -4) (3383, 2672, -711)
+   13.4 shipped pair:   unpaired (L): 3383
+   Running main() from ./googletest/src/gtest_main.cc
+   Omega-only control: first differing record under the mask: reply 0 (frame 0): aileron R 1.8fa66f1f88363p-14 L 1.8fa66f1f88363p-14; rudder R 1.a9a136ecf4e4bp-15 L 1.a9a136ecf4e4bp-15;
+   Running main() from ./googletest/src/gtest_main.cc
+   tables-only control: first differing record under the mask: state 15001 (frame 15001): lon R 1.14e3c643df5c4p-42 L -1.14e3c640fa7a2p-42; u R 1.5879384b6587cp+7 L 1.5879384b6587bp+7; v R 1.634a794493dedp-9 L -1.634a7e48c548ep-9; w R 1.fde71f301c5eep+2 L 1.fde71f301c5dbp+2; q_x R 1.349c3c169593fp-18 L -1.349c49a6eab25p-18; q_y R 1.7aa329cf375fbp-6 L 1.7aa329cf375fap-6; q_z R -1.b236cd6c18381p-22 L 1.b2374046f3cf4p-22; p R 1.2dc0b1c2a9b66p-6 L -1.2dc0c6158bc08p-6; q R -1.c607ac811abd9p-16 L -1.c607ac8f3e9d9p-16; r R -1.387a1d37d0129p-10 L 1.387abfd9d044bp-10;
+   Running main() from ./googletest/src/gtest_main.cc
+   sign-drop control: first differing record under the mask: state 15001 (frame 15001): lon R 1.14e3c643df5c4p-42 L -1.14e3c64185cabp-42; v R 1.634a794493dedp-9 L -1.634a805c16177p-9; w R 1.fde71f301c5eep+2 L 1.fde71f301c47ap+2; q_w R 1.ffdcfe6995655p-1 L 1.ffdcfe6995651p-1; q_x R 1.349c3c169593fp-18 L -1.349d948862ea8p-18; q_y R 1.7aa329cf375fbp-6 L 1.7aa329cf375f1p-6; q_z R -1.b236cd6c18381p-22 L 1.b236f704d6261p-22; p R 1.2dc0b1c2a9b66p-6 L -1.2dc2afbc55267p-6; q R -1.c607ac811abd9p-16 L -1.c607acb3d5dd7p-16; r R -1.387a1d37d0129p-10 L 1.38799e3257d06p-10;
+   Running main() from ./googletest/src/gtest_main.cc
+   13.3 doubled control R: 5 operands and 1 exchanges read; 4 part failures
+     frame 0's operand 2: part (c) in p_dot r_dot
+       p_dot +4.108804e-03 (1.0d464b50e2a4cp-8) vs +4.108804e-03 (1.0d464b510c0aap-8); r_dot -1.104707e-05 (-1.72ad941d70f7p-17) vs -1.104707e-05 (-1.72ad943da7c6p-17);
+     frame 0's operand 3: part (c) in p_dot r_dot
+       p_dot +4.108812e-03 (1.0d466dd3db9bcp-8) vs +4.108812e-03 (1.0d466dd40bd24p-8); r_dot -1.104648e-05 (-1.72a88fb26f63p-17) vs -1.104648e-05 (-1.72a88fd7f3a3p-17);
+     frame 0's operand 4: part (c) in p_dot r_dot
+       p_dot +4.102547e-03 (1.0cdd5297a6bf9p-8) vs +4.102547e-03 (1.0cdd52980729dp-8); r_dot -1.109591e-05 (-1.74511c55ed238p-17) vs -1.109591e-05 (-1.74511ca0f39dp-17);
+     state 1: part (c) in p_dot r_dot
+       p_dot +4.102547e-03 (1.0cdd529faf6dfp-8) vs +4.102547e-03 (1.0cdd52a00fd9p-8); r_dot -1.109591e-05 (-1.74511b7558ce8p-17) vs -1.109591e-05 (-1.74511bc05ff6p-17);
+   13.3 doubled control L: 5 operands and 1 exchanges read; 4 part failures
+     frame 0's operand 2: part (c) in p_dot r_dot
+       p_dot +4.108804e-03 (1.0d464b50e2a4cp-8) vs +4.108804e-03 (1.0d464b510c0aap-8); r_dot -1.104707e-05 (-1.72ad941d70f7p-17) vs -1.104707e-05 (-1.72ad943da7c6p-17);
+     frame 0's operand 3: part (c) in p_dot r_dot
+       p_dot +4.108812e-03 (1.0d466dd3db9bcp-8) vs +4.108812e-03 (1.0d466dd40bd24p-8); r_dot -1.104648e-05 (-1.72a88fb26f63p-17) vs -1.104648e-05 (-1.72a88fd7f3a3p-17);
+     frame 0's operand 4: part (c) in p_dot r_dot
+       p_dot +4.102547e-03 (1.0cdd5297a6bf9p-8) vs +4.102547e-03 (1.0cdd52980729dp-8); r_dot -1.109591e-05 (-1.74511c55ed238p-17) vs -1.109591e-05 (-1.74511ca0f39dp-17);
+     state 1: part (c) in p_dot r_dot
+       p_dot +4.102547e-03 (1.0cdd529faf6dfp-8) vs +4.102547e-03 (1.0cdd52a00fd9p-8); r_dot -1.109591e-05 (-1.74511b7558ce8p-17) vs -1.109591e-05 (-1.74511bc05ff6p-17);
+   13.3 doubled control: state lat: max |e| 9.182e-09 at record 30001 (R +6.294566e-01, L +6.294566e-01)
+   13.3 doubled control: state lon: max |e| 9.250e-08 at record 30001 (R +8.907793e-05, L -8.917043e-05)
+   13.3 doubled control: state h: max |e| 4.522e-02 at record 17464 (R +3.050191e+03, L +3.050236e+03)
+   13.3 doubled control: state u: max |e| 4.203e-02 at record 15885 (R +1.720623e+02, L +1.720203e+02)
+   13.3 doubled control: state v: max |e| 1.159e+00 at record 15777 (R +1.611991e+00, L -4.528410e-01)
+   13.3 doubled control: state w: max |e| 5.541e-01 at record 15828 (R +9.609614e+00, L +1.016376e+01)
+   13.3 doubled control: state q_w: max |e| 2.234e-03 at record 15626 (R +9.695210e-01, L +9.672867e-01)
+   13.3 doubled control: state q_x: max |e| 8.764e-03 at record 15625 (R +2.437427e-01, L -2.525063e-01)
+   13.3 doubled control: state q_y: max |e| 1.038e-03 at record 15908 (R +2.696387e-02, L +2.800155e-02)
+   13.3 doubled control: state q_z: max |e| 3.835e-03 at record 15801 (R +9.268378e-03, L -1.310315e-02)
+   13.3 doubled control: state p: max |e| 4.838e-01 at record 15650 (R +7.181181e-01, L -2.343531e-01)
+   13.3 doubled control: state q: max |e| 1.751e-02 at record 15710 (R +9.369366e-02, L +1.112016e-01)
+   13.3 doubled control: state r: max |e| 4.172e-02 at record 15630 (R +1.480737e-01, L -1.897901e-01)
+   13.3 doubled control: request t: max |e| 0.000e+00 at record 0 (R +0.000000e+00, L +0.000000e+00)
+   13.3 doubled control: request phi: max |e| 1.783e-02 at record 1562 (R +4.891513e-01, L -5.069850e-01)
+   13.3 doubled control: request theta: max |e| 1.114e-03 at record 1568 (R +4.220716e-02, L +4.109323e-02)
+   13.3 doubled control: request psi: max |e| 7.843e-03 at record 1581 (R +3.218835e-02, L -4.003099e-02)
+   13.3 doubled control: request p: max |e| 4.838e-01 at record 1565 (R +7.181181e-01, L -2.343531e-01)
+   13.3 doubled control: request q: max |e| 1.751e-02 at record 1571 (R +9.369366e-02, L +1.112016e-01)
+   13.3 doubled control: request r: max |e| 4.172e-02 at record 1563 (R +1.480737e-01, L -1.897901e-01)
+   13.3 doubled control: request u: max |e| 4.199e-02 at record 1589 (R +1.720574e+02, L +1.720154e+02)
+   13.3 doubled control: request v: max |e| 1.159e+00 at record 1578 (R +1.521900e+00, L -3.629117e-01)
+   13.3 doubled control: request w: max |e| 5.541e-01 at record 1583 (R +9.641440e+00, L +1.019556e+01)
+   13.3 doubled control: request alpha: max |e| 3.221e-03 at record 1583 (R +5.595917e-02, L +5.918064e-02)
+   13.3 doubled control: request beta: max |e| 6.723e-03 at record 1578 (R +8.828653e-03, L -2.105290e-03)
+   13.3 doubled control: request tas: max |e| 5.822e-03 at record 1615 (R +1.724123e+02, L +1.724181e+02)
+   13.3 doubled control: request cas: max |e| 4.999e-03 at record 1614 (R +1.496616e+02, L +1.496666e+02)
+   13.3 doubled control: request mach: max |e| 1.786e-05 at record 1615 (R +5.250373e-01, L +5.250552e-01)
+   13.3 doubled control: request altitude: max |e| 4.522e-02 at record 1746 (R +3.050192e+03, L +3.050237e+03)
+   13.3 doubled control: request vertical_speed: max |e| 8.477e-02 at record 1607 (R -1.048008e+00, L -9.632399e-01)
+   13.3 doubled control: request lat: max |e| 9.182e-09 at record 3000 (R +6.294566e-01, L +6.294566e-01)
+   13.3 doubled control: request lon: max |e| 9.250e-08 at record 3000 (R +8.906934e-05, L -8.916184e-05)
+   13.3 doubled control: request ax: max |e| 1.258e-01 at record 1588 (R +7.435209e-01, L +8.692877e-01)
+   13.3 doubled control: request ay: max |e| 2.537e+00 at record 1562 (R +1.428552e-01, L +2.393703e+00)
+   13.3 doubled control: request az: max |e| 7.699e-01 at record 1579 (R -1.140192e+01, L -1.217177e+01)
+   13.3 doubled control: reply elevator: max |e| 2.090e-02 at record 1565 (R -4.032995e-02, L -6.122997e-02)
+   13.3 doubled control: reply aileron: max |e| 7.505e-01 at record 1548 (R -3.752458e-01, L -3.752458e-01)
+   13.3 doubled control: reply rudder: max |e| 4.087e-01 at record 1562 (R +1.861770e-01, L +2.225598e-01)
+   13.3 doubled control: reply throttle[0]: max |e| 6.612e-03 at record 1590 (R +1.595489e-01, L +1.661609e-01)
+   13.3 doubled control: reply throttle[1]: max |e| 6.612e-03 at record 1590 (R +1.595489e-01, L +1.661609e-01)
+   13.3 doubled control: aileron reversals: R 21, L 22
+   13.3 doubled control:   pairs (R, L, L - R): (2, 2, +0) (6, 6, +0) (10, 10, +0) (16, 16, +0) (78, 78, +0) (113, 113, +0) (1526, 1500, -26) (1549, 1526, -23)
+   13.3 doubled control:   pairs (R, L, L - R): (1564, 1548, -16) (1571, 1562, -9) (1578, 1568, -10) (1629, 1574, -55) (1682, 1625, -57) (1732, 1678, -54) (1788, 1728, -60) (1832, 1784, -48)
+   13.3 doubled control:   pairs (R, L, L - R): (1905, 1828, -77) (1918, 1899, -19) (2090, 1917, -173) (2095, 2089, -6) (2098, 2094, -4)
+   13.3 doubled control:   unpaired (L): 2097
+   Running main() from ./googletest/src/gtest_main.cc
+   13.4 doubled control R: 5 operands and 1 exchanges read; 4 part failures
+     frame 0's operand 2: part (c) in p_dot r_dot
+       p_dot +4.108804e-03 (1.0d464b50e2a4cp-8) vs +4.108804e-03 (1.0d464b510c0aap-8); r_dot -1.104707e-05 (-1.72ad941d70f7p-17) vs -1.104707e-05 (-1.72ad943da7c6p-17);
+     frame 0's operand 3: part (c) in p_dot r_dot
+       p_dot +4.108812e-03 (1.0d466dd3db9bcp-8) vs +4.108812e-03 (1.0d466dd40bd24p-8); r_dot -1.104648e-05 (-1.72a88fb26f63p-17) vs -1.104648e-05 (-1.72a88fd7f3a3p-17);
+     frame 0's operand 4: part (c) in p_dot r_dot
+       p_dot +4.102547e-03 (1.0cdd5297a6bf9p-8) vs +4.102547e-03 (1.0cdd52980729dp-8); r_dot -1.109591e-05 (-1.74511c55ed238p-17) vs -1.109591e-05 (-1.74511ca0f39dp-17);
+     state 1: part (c) in p_dot r_dot
+       p_dot +4.102547e-03 (1.0cdd529faf6dfp-8) vs +4.102547e-03 (1.0cdd52a00fd9p-8); r_dot -1.109591e-05 (-1.74511b7558ce8p-17) vs -1.109591e-05 (-1.74511bc05ff6p-17);
+   13.4 doubled control L: 5 operands and 1 exchanges read; 4 part failures
+     frame 0's operand 2: part (c) in p_dot r_dot
+       p_dot +4.108804e-03 (1.0d464b50e2a4cp-8) vs +4.108804e-03 (1.0d464b510c0aap-8); r_dot -1.104707e-05 (-1.72ad941d70f7p-17) vs -1.104707e-05 (-1.72ad943da7c6p-17);
+     frame 0's operand 3: part (c) in p_dot r_dot
+       p_dot +4.108812e-03 (1.0d466dd3db9bcp-8) vs +4.108812e-03 (1.0d466dd40bd24p-8); r_dot -1.104648e-05 (-1.72a88fb26f63p-17) vs -1.104648e-05 (-1.72a88fd7f3a3p-17);
+     frame 0's operand 4: part (c) in p_dot r_dot
+       p_dot +4.102547e-03 (1.0cdd5297a6bf9p-8) vs +4.102547e-03 (1.0cdd52980729dp-8); r_dot -1.109591e-05 (-1.74511c55ed238p-17) vs -1.109591e-05 (-1.74511ca0f39dp-17);
+     state 1: part (c) in p_dot r_dot
+       p_dot +4.102547e-03 (1.0cdd529faf6dfp-8) vs +4.102547e-03 (1.0cdd52a00fd9p-8); r_dot -1.109591e-05 (-1.74511b7558ce8p-17) vs -1.109591e-05 (-1.74511bc05ff6p-17);
+   13.4 doubled control: state lat: max |e| 7.526e-09 at record 28855 (R +6.294308e-01, L +6.294308e-01)
+   13.4 doubled control: state lon: max |e| 8.454e-08 at record 28862 (R +3.815528e-05, L -3.823982e-05)
+   13.4 doubled control: state h: max |e| 4.522e-02 at record 22464 (R +3.050191e+03, L +3.050236e+03)
+   13.4 doubled control: state u: max |e| 4.203e-02 at record 20885 (R +1.720623e+02, L +1.720203e+02)
+   13.4 doubled control: state v: max |e| 1.159e+00 at record 20777 (R +1.611996e+00, L -4.528358e-01)
+   13.4 doubled control: state w: max |e| 5.541e-01 at record 20828 (R +9.609612e+00, L +1.016376e+01)
+   13.4 doubled control: state q_w: max |e| 2.234e-03 at record 20626 (R +9.695210e-01, L +9.672867e-01)
+   13.4 doubled control: state q_x: max |e| 8.764e-03 at record 20625 (R +2.437427e-01, L -2.525063e-01)
+   13.4 doubled control: state q_y: max |e| 1.038e-03 at record 20908 (R +2.696387e-02, L +2.800155e-02)
+   13.4 doubled control: state q_z: max |e| 3.835e-03 at record 20801 (R +9.268362e-03, L -1.310317e-02)
+   13.4 doubled control: state p: max |e| 4.838e-01 at record 20650 (R +7.181191e-01, L -2.343522e-01)
+   13.4 doubled control: state q: max |e| 1.751e-02 at record 20710 (R +9.369359e-02, L +1.112016e-01)
+   13.4 doubled control: state r: max |e| 4.172e-02 at record 20630 (R +1.480736e-01, L -1.897903e-01)
+   13.4 doubled control: request t: max |e| 0.000e+00 at record 0 (R +0.000000e+00, L +0.000000e+00)
+   13.4 doubled control: request phi: max |e| 1.783e-02 at record 2062 (R +4.891512e-01, L -5.069850e-01)
+   13.4 doubled control: request theta: max |e| 1.114e-03 at record 2068 (R +4.220716e-02, L +4.109322e-02)
+   13.4 doubled control: request psi: max |e| 7.843e-03 at record 2081 (R +3.218832e-02, L -4.003103e-02)
+   13.4 doubled control: request p: max |e| 4.838e-01 at record 2065 (R +7.181191e-01, L -2.343522e-01)
+   13.4 doubled control: request q: max |e| 1.751e-02 at record 2071 (R +9.369359e-02, L +1.112016e-01)
+   13.4 doubled control: request r: max |e| 4.172e-02 at record 2063 (R +1.480736e-01, L -1.897903e-01)
+   13.4 doubled control: request u: max |e| 4.199e-02 at record 2089 (R +1.720574e+02, L +1.720154e+02)
+   13.4 doubled control: request v: max |e| 1.159e+00 at record 2078 (R +1.521905e+00, L -3.629065e-01)
+   13.4 doubled control: request w: max |e| 5.541e-01 at record 2083 (R +9.641438e+00, L +1.019556e+01)
+   13.4 doubled control: request alpha: max |e| 3.222e-03 at record 2083 (R +5.595916e-02, L +5.918066e-02)
+   13.4 doubled control: request beta: max |e| 6.723e-03 at record 2078 (R +8.828681e-03, L -2.105260e-03)
+   13.4 doubled control: request tas: max |e| 5.822e-03 at record 2115 (R +1.724123e+02, L +1.724181e+02)
+   13.4 doubled control: request cas: max |e| 4.999e-03 at record 2114 (R +1.496616e+02, L +1.496666e+02)
+   13.4 doubled control: request mach: max |e| 1.786e-05 at record 2115 (R +5.250373e-01, L +5.250552e-01)
+   13.4 doubled control: request altitude: max |e| 4.522e-02 at record 2246 (R +3.050192e+03, L +3.050237e+03)
+   13.4 doubled control: request vertical_speed: max |e| 8.477e-02 at record 2107 (R -1.048009e+00, L -9.632404e-01)
+   13.4 doubled control: request lat: max |e| 7.526e-09 at record 2885 (R +6.294307e-01, L +6.294307e-01)
+   13.4 doubled control: request lon: max |e| 8.454e-08 at record 2886 (R +3.813958e-05, L -3.822412e-05)
+   13.4 doubled control: request ax: max |e| 1.258e-01 at record 2088 (R +7.435204e-01, L +8.692882e-01)
+   13.4 doubled control: request ay: max |e| 2.537e+00 at record 2062 (R +1.428586e-01, L +2.393705e+00)
+   13.4 doubled control: request az: max |e| 7.699e-01 at record 2079 (R -1.140192e+01, L -1.217177e+01)
+   13.4 doubled control: reply elevator: max |e| 2.090e-02 at record 2065 (R -4.032992e-02, L -6.123002e-02)
+   13.4 doubled control: reply aileron: max |e| 7.505e-01 at record 2048 (R -3.752458e-01, L -3.752458e-01)
+   13.4 doubled control: reply rudder: max |e| 4.087e-01 at record 2062 (R +1.861775e-01, L +2.225602e-01)
+   13.4 doubled control: reply throttle[0]: max |e| 6.612e-03 at record 2090 (R +1.595489e-01, L +1.661610e-01)
+   13.4 doubled control: reply throttle[1]: max |e| 6.612e-03 at record 2090 (R +1.595489e-01, L +1.661610e-01)
+   13.4 doubled control: aileron reversals: R 22, L 23
+   13.4 doubled control:   pairs (R, L, L - R): (2, 2, +0) (6, 6, +0) (10, 10, +0) (16, 16, +0) (78, 78, +0) (113, 113, +0) (2026, 2000, -26) (2049, 2026, -23)
+   13.4 doubled control:   pairs (R, L, L - R): (2064, 2048, -16) (2071, 2062, -9) (2078, 2068, -10) (2129, 2074, -55) (2182, 2125, -57) (2232, 2178, -54) (2288, 2228, -60) (2332, 2284, -48)
+   13.4 doubled control:   pairs (R, L, L - R): (2405, 2328, -77) (2418, 2399, -19) (2664, 2417, -247) (2669, 2663, -6) (2673, 2668, -5) (3383, 2672, -711)
+   13.4 doubled control:   unpaired (L): 3382
+   Running main() from ./googletest/src/gtest_main.cc
+   psi0 = 0: psi0 0.0, course 0 deg, step 15 deg; course - psi0 +0.000e+00 rad, step - (psi0 + 15 deg) +0.000e+00 rad
+   psi0 = 0.6 rad: psi0 0.6, course 34.377467707849391 deg, step 49.377467707849391 deg; course - psi0 +0.000e+00 rad, step - (psi0 + 15 deg) +5.551e-17 rad
+   psi0 = 172.5 deg: psi0 3.0106929596902186, course 172.5 deg, step 187.5 deg; course - psi0 +0.000e+00 rad, step - (psi0 + 15 deg) -2.776e-16 rad
+   psi0 = 0.6 rad: state u: max |d|/(F Y) inf at record 3125 (d -2.842e-14, Y 0.000e+00); largest Y 0.000e+00
+   psi0 = 0.6 rad: state v: max |d|/(F Y) 8.466e-05 at record 15806 (d +2.588e-11, Y 1.822e-14); largest Y 1.822e-14
+   psi0 = 0.6 rad: state w: max |d|/(F Y) 6.370e-05 at record 15852 (d -1.139e-11, Y 1.066e-14); largest Y 1.066e-14
+   psi0 = 0.6 rad: state p: max |d|/(F Y) 6.291e-06 at record 15640 (d +1.379e-11, Y 1.307e-13); largest Y 1.307e-13
+   psi0 = 0.6 rad: state q: max |d|/(F Y) 1.122e-04 at record 15710 (d -4.612e-13, Y 2.451e-16); largest Y 2.451e-16
+   psi0 = 0.6 rad: state r: max |d|/(F Y) 3.650e-05 at record 15630 (d -1.336e-12, Y 2.181e-15); largest Y 2.181e-15
+   psi0 = 0.6 rad: state N rotated back: max |d|/(F Y) 2.579e-04 at record 23292 (d +3.074e-11, Y 7.105e-15); largest Y 7.105e-15
+   psi0 = 0.6 rad: state E rotated back: max |d|/(F Y) 1.202e-05 at record 22639 (d +4.011e-11, Y 1.990e-13); largest Y 2.274e-13
+   psi0 = 0.6 rad: state altitude (-D): max |d|/(F Y) inf at record 11468 (d +4.547e-13, Y 0.000e+00); largest Y 0.000e+00
+   psi0 = 0.6 rad: request phi: max |d|/(F Y) 8.995e-06 at record 1563 (d -5.380e-13, Y 3.565e-15); largest Y 3.565e-15
+   psi0 = 0.6 rad: request theta: max |d|/(F Y) 1.239e-04 at record 1568 (d +2.884e-14, Y 1.388e-17); largest Y 1.388e-17
+   psi0 = 0.6 rad: request alpha: max |d|/(F Y) 6.320e-05 at record 1585 (d -6.622e-14, Y 6.245e-17); largest Y 6.245e-17
+   psi0 = 0.6 rad: request beta: max |d|/(F Y) 8.481e-05 at record 1581 (d +1.501e-13, Y 1.055e-16); largest Y 1.055e-16
+   psi0 = 0.6 rad: request altitude: max |d|/(F Y) inf at record 1147 (d +4.547e-13, Y 0.000e+00); largest Y 0.000e+00
+   psi0 = 0.6 rad: request psi - psi0 wrapped: max |d|/(F Y) 2.110e-05 at record 1583 (d -1.573e-13, Y 4.444e-16); largest Y 4.444e-16
+   psi0 = 0.6 rad: reply elevator: max |d|/(F Y) 2.712e-05 at record 1565 (d +6.945e-13, Y 1.527e-15); largest Y 1.527e-15
+   psi0 = 0.6 rad: reply aileron: max |d|/(F Y) 8.080e-06 at record 1563 (d +3.996e-11, Y 2.948e-13); largest Y 2.948e-13
+   psi0 = 0.6 rad: reply rudder: max |d|/(F Y) 7.835e-06 at record 1562 (d +1.209e-11, Y 9.197e-14); largest Y 9.197e-14
+   psi0 = 0.6 rad: reply throttle[0]: max |d|/(F Y) 1.061e-06 at record 1712 (d -9.801e-13, Y 5.507e-14); largest Y 5.507e-14
+   psi0 = 0.6 rad: reply throttle[1]: max |d|/(F Y) 1.061e-06 at record 1712 (d -9.801e-13, Y 5.507e-14); largest Y 5.507e-14
+   tests/physics/nesc/f16_symmetry_heading_test.cpp:367: Failure
+   Value of: within(states) && within(requests) && within(replies)
+     Actual: false
+   Expected: true
+   psi0 = 0.6 rad: |d| must stay within F Y at every record (section 9)
+   psi0 = 172.5 deg: state u: max |d|/(F Y) inf at record 2817 (d -2.842e-14, Y 0.000e+00); largest Y 0.000e+00
+   psi0 = 172.5 deg: state v: max |d|/(F Y) 1.334e-05 at record 15806 (d -4.079e-12, Y 1.822e-14); largest Y 1.822e-14
+   psi0 = 172.5 deg: state w: max |d|/(F Y) inf at record 40 (d -8.882e-16, Y 0.000e+00); largest Y 1.066e-14
+   psi0 = 172.5 deg: state p: max |d|/(F Y) 9.997e-07 at record 15640 (d -2.192e-12, Y 1.307e-13); largest Y 1.307e-13
+   psi0 = 172.5 deg: state q: max |d|/(F Y) 1.805e-05 at record 15720 (d +7.425e-14, Y 2.451e-16); largest Y 2.451e-16
+   psi0 = 172.5 deg: state r: max |d|/(F Y) 5.760e-06 at record 15630 (d +2.108e-13, Y 2.181e-15); largest Y 2.181e-15
+   psi0 = 172.5 deg: state N rotated back: max |d|/(F Y) 2.852e-04 at record 29839 (d +3.399e-11, Y 7.105e-15); largest Y 7.105e-15
+   psi0 = 172.5 deg: state E rotated back: max |d|/(F Y) 3.785e-06 at record 22509 (d -1.263e-11, Y 1.990e-13); largest Y 2.274e-13
+   psi0 = 172.5 deg: state altitude (-D): max |d|/(F Y) inf at record 13743 (d -4.547e-13, Y 0.000e+00); largest Y 0.000e+00
+   psi0 = 172.5 deg: request phi: max |d|/(F Y) 1.430e-06 at record 1563 (d +8.554e-14, Y 3.565e-15); largest Y 3.565e-15
+   psi0 = 172.5 deg: request theta: max |d|/(F Y) 1.994e-05 at record 1611 (d +4.642e-15, Y 1.388e-17); largest Y 1.388e-17
+   psi0 = 172.5 deg: request alpha: max |d|/(F Y) inf at record 4 (d -6.939e-18, Y 0.000e+00); largest Y 6.245e-17
+   psi0 = 172.5 deg: request beta: max |d|/(F Y) 1.337e-05 at record 1581 (d -2.365e-14, Y 1.055e-16); largest Y 1.055e-16
+   psi0 = 172.5 deg: request altitude: max |d|/(F Y) inf at record 1375 (d -4.547e-13, Y 0.000e+00); largest Y 0.000e+00
+   psi0 = 172.5 deg: request psi - psi0 wrapped: max |d|/(F Y) 3.318e-06 at record 1585 (d +2.474e-14, Y 4.444e-16); largest Y 4.444e-16
+   psi0 = 172.5 deg: reply elevator: max |d|/(F Y) 4.396e-06 at record 1566 (d -1.126e-13, Y 1.527e-15); largest Y 1.527e-15
+   psi0 = 172.5 deg: reply aileron: max |d|/(F Y) 1.286e-06 at record 1563 (d -6.360e-12, Y 2.948e-13); largest Y 2.948e-13
+   psi0 = 172.5 deg: reply rudder: max |d|/(F Y) 1.244e-06 at record 1562 (d -1.920e-12, Y 9.197e-14); largest Y 9.197e-14
+   psi0 = 172.5 deg: reply throttle[0]: max |d|/(F Y) 1.013e-06 at record 1491 (d -9.358e-13, Y 5.507e-14); largest Y 5.507e-14
+   psi0 = 172.5 deg: reply throttle[1]: max |d|/(F Y) 1.013e-06 at record 1491 (d -9.358e-13, Y 5.507e-14); largest Y 5.507e-14
+   tests/physics/nesc/f16_symmetry_heading_test.cpp:367: Failure
+   Value of: within(states) && within(requests) && within(replies)
+     Actual: false
+   Expected: true
+   psi0 = 172.5 deg: |d| must stay within F Y at every record (section 9)
+   the unwrapped track error: k* = exchange 2089 (frame 20890), k-dagger = exchange 2089 (frame 20890), the replay's fields: aileron rudder
+   the unwrapped track error: first record differing bitwise from the nominal 172.5 deg run: reply 2089 (frame 20890): aileron R 1.19c09fbebf5b3p-11 L -1.c28c56468aa1cp-4; rudder R 1.84a799c0d3ac7p-10 L -1.0e564998f916bp-5;
+   the unwrapped track error: state u: max |d|/(F Y) inf at record 20891 (d +1.039e-08, Y 0.000e+00); largest Y 0.000e+00
+   the unwrapped track error: state v: max |d|/(F Y) 9.382e+05 at record 30001 (d +2.868e-01, Y 1.822e-14); largest Y 1.822e-14
+   the unwrapped track error: state w: max |d|/(F Y) 9.831e+06 at record 26675 (d +1.758e+00, Y 1.066e-14); largest Y 1.066e-14
+   the unwrapped track error: state p: max |d|/(F Y) 1.133e+05 at record 20940 (d +2.483e-01, Y 1.307e-13); largest Y 1.307e-13
+   the unwrapped track error: state q: max |d|/(F Y) 4.057e+06 at record 25605 (d +1.669e-02, Y 2.451e-16); largest Y 2.451e-16
+   the unwrapped track error: state r: max |d|/(F Y) 7.514e+05 at record 30001 (d +2.750e-02, Y 2.181e-15); largest Y 2.181e-15
+   the unwrapped track error: state N rotated back: max |d|/(F Y) 3.722e+08 at record 30001 (d -4.437e+01, Y 7.105e-15); largest Y 7.105e-15
+   the unwrapped track error: state E rotated back: max |d|/(F Y) 3.465e+07 at record 30001 (d +1.322e+02, Y 2.274e-13); largest Y 2.274e-13
+   the unwrapped track error: state altitude (-D): max |d|/(F Y) inf at record 20891 (d +9.911e-09, Y 0.000e+00); largest Y 0.000e+00
+   the unwrapped track error: request phi: max |d|/(F Y) 8.492e+06 at record 3000 (d +5.079e-01, Y 3.565e-15); largest Y 3.565e-15
+   the unwrapped track error: request theta: max |d|/(F Y) 1.392e+07 at record 2948 (d +3.240e-03, Y 1.388e-17); largest Y 1.388e-17
+   the unwrapped track error: request alpha: max |d|/(F Y) 9.748e+06 at record 2668 (d +1.021e-02, Y 6.245e-17); largest Y 6.245e-17
+   the unwrapped track error: request beta: max |d|/(F Y) 9.401e+05 at record 3000 (d +1.663e-03, Y 1.055e-16); largest Y 1.055e-16
+   the unwrapped track error: request altitude: max |d|/(F Y) inf at record 2090 (d +9.750e-07, Y 0.000e+00); largest Y 0.000e+00
+   the unwrapped track error: request psi - psi0 wrapped: max |d|/(F Y) 3.264e+07 at record 3000 (d +2.433e-01, Y 4.444e-16); largest Y 4.444e-16
+   [  FAILED  ] F16SymmetryHeading.ThreeHeadingsAndTheUnwrappedControl (604 ms)
+   [  FAILED  ] 1 test, listed below:
+   [  FAILED  ] F16SymmetryHeading.ThreeHeadingsAndTheUnwrappedControl
+    1 FAILED TEST
+
+2. ctest --preset debug -R F16Symmetry --no-tests=error (14 by -N): exit 0
+   100% tests passed, 0 tests failed out of 14
+   Total Test time (real) =   2.24 sec
+
+2. ctest --preset static-plugins -R F16Symmetry --no-tests=error (14 by -N): exit 0
+   100% tests passed, 0 tests failed out of 14
+   Total Test time (real) =   5.06 sec
+
+3. ctest --preset asan -R 'F16Symmetry|F16Aero|F16Control' --no-tests=error (62 by -N): exit 0
+   100% tests passed, 0 tests failed out of 62
+   physics    = 222.94 sec*proc (30 tests)
+   unit       =  52.84 sec*proc (32 tests)
+   Total Test time (real) = 275.80 sec
+
+4. Post-flight diagnostic of the heading miss (reporting only; not a registered object).
+   A temporary, uncommitted edit of f16_symmetry_heading_test.cpp added two reports to
+   ratios(), and changed no assertion: for each channel, the records where Y == 0 and d != 0,
+   with the largest |d| there in ulps of the base run's value; and the counterfactual ratio
+   |d| / (F max(Y, ulp(x_base))). The same build's flights, rerun with that edit, gave the same
+   failure. The file was then restored from git and the flight tests rebuilt from a1c86ed's
+   source; git status --porcelain is empty.
+
+   run | channel | records with Y = 0, d != 0 (first, last) | largest d there | max |d|/(F Y) where Y > 0 | floored ratio
+   psi0 = 0.6 rad | state u | 10470 (3125, 26494) | 30 ulps | 0.000e+00 | 1.788e-06 at 15874
+   psi0 = 0.6 rad | state v | 0 (0, 0) | 0 ulps | 8.466e-05 | 8.466e-05 at 15806
+   psi0 = 0.6 rad | state w | 0 (0, 0) | 0 ulps | 6.370e-05 | 6.370e-05 at 15852
+   psi0 = 0.6 rad | state p | 0 (0, 0) | 0 ulps | 6.291e-06 | 6.291e-06 at 15640
+   psi0 = 0.6 rad | state q | 0 (0, 0) | 0 ulps | 1.122e-04 | 1.122e-04 at 15710
+   psi0 = 0.6 rad | state r | 0 (0, 0) | 0 ulps | 3.650e-05 | 3.650e-05 at 15630
+   psi0 = 0.6 rad | state N rotated back | 0 (0, 0) | 0 ulps | 2.579e-04 | 5.571e-06 at 11025
+   psi0 = 0.6 rad | state E rotated back | 0 (0, 0) | 0 ulps | 1.202e-05 | 1.202e-05 at 22639
+   psi0 = 0.6 rad | state altitude (-D) | 11547 (11468, 26451) | 7 ulps | 0.000e+00 | 4.172e-07 at 17098
+   psi0 = 0.6 rad | request phi | 0 (0, 0) | 0 ulps | 8.995e-06 | 8.995e-06 at 1563
+   psi0 = 0.6 rad | request theta | 0 (0, 0) | 0 ulps | 1.239e-04 | 1.239e-04 at 1568
+   psi0 = 0.6 rad | request alpha | 0 (0, 0) | 0 ulps | 6.320e-05 | 6.320e-05 at 1585
+   psi0 = 0.6 rad | request beta | 0 (0, 0) | 0 ulps | 8.481e-05 | 8.481e-05 at 1581
+   psi0 = 0.6 rad | request altitude | 1156 (1147, 2645) | 7 ulps | 0.000e+00 | 4.172e-07 at 1710
+   psi0 = 0.6 rad | request psi - psi0 wrapped | 0 (0, 0) | 0 ulps | 2.110e-05 | 2.110e-05 at 1583
+   psi0 = 0.6 rad | reply elevator | 0 (0, 0) | 0 ulps | 2.712e-05 | 2.712e-05 at 1565
+   psi0 = 0.6 rad | reply aileron | 0 (0, 0) | 0 ulps | 8.080e-06 | 8.080e-06 at 1563
+   psi0 = 0.6 rad | reply rudder | 0 (0, 0) | 0 ulps | 7.835e-06 | 7.835e-06 at 1562
+   psi0 = 0.6 rad | reply throttle[0] | 0 (0, 0) | 0 ulps | 1.061e-06 | 1.061e-06 at 1712
+   psi0 = 0.6 rad | reply throttle[1] | 0 (0, 0) | 0 ulps | 1.061e-06 | 1.061e-06 at 1712
+   psi0 = 172.5 deg | state u | 4181 (2817, 26302) | 8 ulps | 0.000e+00 | 4.768e-07 at 15850
+   psi0 = 172.5 deg | state v | 0 (0, 0) | 0 ulps | 1.334e-05 | 1.334e-05 at 15806
+   psi0 = 172.5 deg | state w | 5 (40, 44) | 1 ulps | 1.059e-05 | 1.059e-05 at 15850
+   psi0 = 172.5 deg | state p | 0 (0, 0) | 0 ulps | 9.997e-07 | 9.997e-07 at 15640
+   psi0 = 172.5 deg | state q | 0 (0, 0) | 0 ulps | 1.805e-05 | 1.805e-05 at 15720
+   psi0 = 172.5 deg | state r | 0 (0, 0) | 0 ulps | 5.760e-06 | 5.760e-06 at 15630
+   psi0 = 172.5 deg | state N rotated back | 0 (0, 0) | 0 ulps | 2.852e-04 | 3.051e-06 at 10782
+   psi0 = 172.5 deg | state E rotated back | 0 (0, 0) | 0 ulps | 3.785e-06 | 3.785e-06 at 22509
+   psi0 = 172.5 deg | state altitude (-D) | 5206 (13743, 19963) | 1 ulps | 0.000e+00 | 5.960e-08 at 13743
+   psi0 = 172.5 deg | request phi | 0 (0, 0) | 0 ulps | 1.430e-06 | 1.430e-06 at 1563
+   psi0 = 172.5 deg | request theta | 0 (0, 0) | 0 ulps | 1.994e-05 | 1.994e-05 at 1611
+   psi0 = 172.5 deg | request alpha | 1 (4, 4) | 1 ulps | 1.054e-05 | 1.054e-05 at 1585
+   psi0 = 172.5 deg | request beta | 0 (0, 0) | 0 ulps | 1.337e-05 | 1.337e-05 at 1581
+   psi0 = 172.5 deg | request altitude | 521 (1375, 1996) | 1 ulps | 0.000e+00 | 5.960e-08 at 1375
+   psi0 = 172.5 deg | request psi - psi0 wrapped | 0 (0, 0) | 0 ulps | 3.318e-06 | 3.318e-06 at 1585
+   psi0 = 172.5 deg | reply elevator | 0 (0, 0) | 0 ulps | 4.396e-06 | 4.396e-06 at 1566
+   psi0 = 172.5 deg | reply aileron | 0 (0, 0) | 0 ulps | 1.286e-06 | 1.286e-06 at 1563
+   psi0 = 172.5 deg | reply rudder | 0 (0, 0) | 0 ulps | 1.244e-06 | 1.244e-06 at 1562
+   psi0 = 172.5 deg | reply throttle[0] | 0 (0, 0) | 0 ulps | 1.013e-06 | 1.013e-06 at 1491
+   psi0 = 172.5 deg | reply throttle[1] | 0 (0, 0) | 0 ulps | 1.013e-06 | 1.013e-06 at 1491
+   the unwrapped track error | state u | 9111 (20891, 30001) | 3639406232125 ulps | 0.000e+00 | 2.169e+05 at 27680
+   the unwrapped track error | state N rotated back | 0 (0, 0) | 0 ulps | 3.722e+08 | 2.908e+06 at 30001
+   the unwrapped track error | state E rotated back | 0 (0, 0) | 0 ulps | 3.465e+07 | 3.465e+07 at 30001
+   the unwrapped track error | state altitude (-D) | 9111 (20891, 30001) | 3531542746102 ulps | 0.000e+00 | 2.105e+05 at 29351
+   the unwrapped track error | request altitude | 911 (2090, 3000) | 3531542706841 ulps | 0.000e+00 | 2.105e+05 at 2935
+   the unwrapped track error | request psi - psi0 wrapped | 0 (0, 0) | 0 ulps | 3.264e+07 | 3.264e+07 at 3000

@@ -627,6 +627,15 @@ takes them as a prefix.
     (`tests/plugins/autopilot_peer_variant`) each break equality first at their registered record, from the
     shm reference's exact replay, and stay inside M4's bands. Plan: [plan](docs/plans/m7b-pr3-autopilot-peer.md).
     Packet: in the PR body.
+  - PR 4 (#125): oracle (c), the F-16's mirror and heading symmetry under `F16_control`. Two header-only hooks keep
+    shipped behavior bit-identical (R15): `Options::earth_rate`, and `build_up`'s |β| table reading. On a
+    non-rotating sphere, the variant pairs (13.3's and 13.4's shapes, flown right and left of a meridian with Ω
+    and the signed-β tables removed) are mirror-equal by value on every record. The shipped pairs are gated by
+    the evaluation-level decomposition, by value, at every RK4 stage operand and exchange, after a stage-rebuild
+    replay precondition. Heading invariance holds on a flat Earth at 0.6 rad and 172.5° within Q12's yardstick,
+    floored at its own resolution by a dated deviation after the first flight. Five controls fail as registered,
+    and R10's libm parity probe passes in every preset. Plan: [plan](docs/plans/m7b-pr4-f16-symmetry.md). Packet:
+    in the PR body.
 - [ ] **M8 Actuators and controller tuning** — a first-order lag and a nonlinear second-order actuator model
       with rate and position limits; autopilot gains loaded at startup; the tuning tool (spec-driven on the
       linear model, time-domain on the nonlinear sim, robustness across draws, gain schedules) with

@@ -1,0 +1,32 @@
+M7b PR 4: R15, the hooks' before-and-after
+  (docs/plans/m7b-pr4-f16-symmetry.md, section 11)
+  HEAD 12d1b1e2023c2017c0d836a2668faa320d8f3399; worktree clean
+  git diff eb8a167..HEAD -- core icd: empty
+  git diff eb8a167..HEAD -- aircraft plugins:
+    aircraft/f16/physical/aero/aero_math.hpp
+    aircraft/f16/sim/transport/nesc_control/control_law.hpp
+    aircraft/f16/sim/transport/nesc_control/nesc_control_peer.hpp
+  libastra_aircraft_f16_physical_aero.so: before 9297c9ea930d2aa7deb8514e378b2ecf6fba967d86ad952c5e80b97bc0227f68
+                                          after  85e84ece107696bdef2da6c3db4027db04d41fc9a16212a35927562a3fe4a4fe
+  libastra_aircraft_f16_sim_transport_nesc_control.so: before 44db178ddb89f8e59edf752182d7027dad2ba3aaa04e30d8ac32609a5c8e6d49
+                                                       after  5a1fc6e0b7a24f0ff9f67db960c916cfd7f6bf282f313dacc57472bd94ba8c28
+  13.3 (aircraft/f16/configs/case13p3_subsonic_heading_change.yaml): recorder 4152536 bytes, byte-equal, sha256 d7c15d27c076bb9910f4dfa30c4cec2fa2983bf6b8005b20a3a22bf110d629ff
+    log: 31 objects, 0 differing []; git_describe '2000d74' and '2000d74'
+    /plugins aircraft/f16/physical/aero: sha256 before 9297c9ea930d2aa7deb8514e378b2ecf6fba967d86ad952c5e80b97bc0227f68
+                                         after  85e84ece107696bdef2da6c3db4027db04d41fc9a16212a35927562a3fe4a4fe
+    /plugins aircraft/f16/sim/transport/nesc_control: sha256 before 44db178ddb89f8e59edf752182d7027dad2ba3aaa04e30d8ac32609a5c8e6d49
+                                                      after  5a1fc6e0b7a24f0ff9f67db960c916cfd7f6bf282f313dacc57472bd94ba8c28
+  13.4 (aircraft/f16/configs/case13p4_subsonic_lateral_side_step.yaml): recorder 8304536 bytes, byte-equal, sha256 6bbcc697c0e028be2c149d093990efbaaed5dc3ccfb4112a89f48d461c36263c
+    log: 31 objects, 0 differing []; git_describe '2000d74' and '2000d74'
+    /plugins aircraft/f16/physical/aero: sha256 before 9297c9ea930d2aa7deb8514e378b2ecf6fba967d86ad952c5e80b97bc0227f68
+                                         after  85e84ece107696bdef2da6c3db4027db04d41fc9a16212a35927562a3fe4a4fe
+    /plugins aircraft/f16/sim/transport/nesc_control: sha256 before 44db178ddb89f8e59edf752182d7027dad2ba3aaa04e30d8ac32609a5c8e6d49
+                                                      after  5a1fc6e0b7a24f0ff9f67db960c916cfd7f6bf282f313dacc57472bd94ba8c28
+  case 11 (aircraft/f16/configs/case11_trim_check_subsonic.yaml): states 25920144 bytes, byte-equal, sha256 724ffd60ccfc6cbaa24688ce1ec90205464de6dda4274def0300940c0ff0f5a8
+    log: 31 objects, 0 differing []; git_describe '2000d74' and '2000d74'
+    /plugins aircraft/f16/physical/aero: sha256 before 9297c9ea930d2aa7deb8514e378b2ecf6fba967d86ad952c5e80b97bc0227f68
+                                         after  85e84ece107696bdef2da6c3db4027db04d41fc9a16212a35927562a3fe4a4fe
+    /plugins aircraft/f16/sim/transport/nesc_control: sha256 before None
+                                                      after  None
+  HEAD and status after the last run equal those before the first: True
+OK: every recorder, state stream and log object is byte-equal

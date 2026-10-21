@@ -1,0 +1,56 @@
+M7b PR 4: the asymmetry inventory
+  (docs/plans/m7b-pr4-f16-symmetry.md, sections 6, 8 and 10)
+  header aircraft/f16/physical/aero/aero_tables.hpp; trim docs/reviews/evidence/m7b-pr4-trim/trim_n_frame.out
+  trim alpha 0.04622449703844172 rad (2.648469 deg), |v_b| 172.42091752452774 m/s
+  altitude 3051.9624000000003 m; rho 0.904403585 kg/m^3 (derive_residual.isa)
+  qbar 13443.4948 Pa
+
+1. The four signed-beta tables (finding 2) and their odd slopes
+  Dclda: max |T(-b) - T(b)| 0.079 at beta +-30 deg, alpha 20 deg
+    |T(10) - T(-10)| at alpha 0 and 5 deg: 0.004, 0.002; T(0) at alpha 0: -0.051
+    at the trim's alpha: T(0) -0.051530; odd slope (T(10) - T(-10))/(2*10 deg) +0.008424 per rad
+  Dcldr: max |T(-b) - T(b)| 0.031 at beta +-30 deg, alpha 40 deg
+    |T(10) - T(-10)| at alpha 0 and 5 deg: 0.002, 0.001; T(0) at alpha 0: 0.015
+    at the trim's alpha: T(0) +0.014470; odd slope (T(10) - T(-10))/(2*10 deg) +0.004212 per rad
+  Dcnda: max |T(-b) - T(b)| 0.035 at beta +-20 deg, alpha 20 deg
+    |T(10) - T(-10)| at alpha 0 and 5 deg: 0.008, 0.006; T(0) at alpha 0: -0.010
+    at the trim's alpha: T(0) -0.009470; odd slope (T(10) - T(-10))/(2*10 deg) -0.019883 per rad
+  Dcndr: max |T(-b) - T(b)| 0.044 at beta +-30 deg, alpha -10 deg
+    |T(10) - T(-10)| at alpha 0 and 5 deg: 0.003, 0.001; T(0) at alpha 0: -0.045
+    at the trim's alpha: T(0) -0.045000; odd slope (T(10) - T(-10))/(2*10 deg) -0.005559 per rad
+
+2. The Omega term at the trim, and the law's frame-0 lateral replies
+  b = C_nb Omega_n = (+6.0899e-05, +0.0000e+00, -4.0111e-05) rad/s
+  the law's frame-0 p and r: -6.0899e-05, +4.0111e-05 rad/s
+  frame-0 reply: aileron +0.005459 deg (ICD +RWD),
+  rudder +0.002907 deg
+  the Omega-only control's precondition (both nonzero): True
+
+3. The doubled control's four registered numbers at frame 0's stage-2 operand
+  (section 10; Joe's P-01 condition 2, 2026-10-20)
+  frame 0's dail -2.7297e-04, drdr +9.6904e-05; cy0 +2.6014e-06; Fy +9.7471e-01 N
+  stage 1 (state 0): p_dot +4.1151e-03, r_dot -1.0997e-05 rad/s^2;
+  v_dot +1.0482e-04 m/s^2
+  stage 2's operand: v +5.2412e-08 m/s, p +2.0575e-06, r -5.4985e-09 rad/s;
+  beta +3.0397e-10 rad (state 1's, to first order: +6.0795e-10 rad)
+  intermediate: Dclda odd part at stage 2's beta +2.5608e-12 against ulp(T) 6.939e-18 (3.69e+05)
+  intermediate: Dcldr odd part at stage 2's beta +1.2804e-12 against ulp(T) 1.735e-18 (7.38e+05)
+  intermediate: Dcnda odd part at stage 2's beta -6.0440e-12 against ulp(T) 1.735e-18 (3.48e+06)
+  intermediate: Dcndr odd part at stage 2's beta -1.6899e-12 against ulp(T) 6.939e-18 (2.44e+05)
+  extra cl1 -5.7493e-16 against ulp(+1.5445e-05) = 3.388e-21: 1.7e+05
+  extra cn1 +1.4861e-15 against ulp(-1.7745e-06) = 2.118e-22: 7.02e+06
+  delta p_dot -1.4708e-13 against ulp(+4.1088e-03) = 8.674e-19: 1.7e+05
+  delta r_dot +5.7224e-14 against ulp(-1.1050e-05) = 1.694e-21: 3.38e+07
+
+4. The shipped pairs' static estimate (section 8's report; amendment 4)
+  at |beta| = 1.5 deg and |dail| = 1: |dCl| 4.411e-04, |dCn| 1.041e-03
+  p: |dCl| / (|Clp| b/2V) = 3.861e-02 rad/s (Clp -0.4308, b/2V 0.02652)
+  phi: 3.86e-03 to 1.16e-02 rad over 0.1 to 0.3 s of the roll-in
+  beta: |dCn| / Cn_beta = 4.903e-03 rad (Cn_beta 0.2123 per rad),
+  about half that over a partial dutch roll
+  the lateral stick: 176.36 dphi + 4.558 dp, about 0.86 units
+  at 0.1 s
+  pre-step (Omega): reply aileron asymmetry +0.01092 deg,
+  rudder +0.00581 deg
+
+no registered figure moved

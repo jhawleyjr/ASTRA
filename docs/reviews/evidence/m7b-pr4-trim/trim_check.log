@@ -1,0 +1,27 @@
+M7b PR 4: the one trim result (docs/plans/m7b-pr4-f16-symmetry.md, section 5)
+  astra.trim on base.yaml.in: airspeed 172.42091752452774 m/s, altitude 3051.9624000000003 m,
+  heading 0, rate convention n_frame
+  elevator -0.056511560909856456, throttle 0.13890766076656494,
+  alpha 0.04622449703844172
+  solved residual [-3.746731657566782e-16, -6.765421556309548e-17, 1.4422378621763564e-16]
+  lateral residual [0.0, 0.0, 0.0]
+  trim_n_frame.out elevator: equal
+  trim_n_frame.out throttle: equal
+  trim_n_frame.out alpha: equal
+  trim_n_frame.out v_b: equal
+  trim_n_frame.out omega_b: equal
+  v 0.0
+  q_nb.x 0.0
+  q_nb.z 0.0
+  lstsq on the rebuilt J_c reproduces the trim's rates bit for bit: True
+  kappa(J_c) 1.0, |omega| 2.7050441154484522e-05 rad/s
+  B = 64 u kappa |omega| = 1.9220494461425035e-19 rad/s
+  p 0.0 rad/s (0 B)
+  r 0.0 rad/s (0 B)
+  the IC literals (section 5):
+    elevator -0.056511560909856456
+    throttle 0.13890766076656494
+    theta 0.04622449703844172
+    u 172.23674407873062  w 7.967232214379726  q -2.7050441154484522e-05
+    replaced by 0.0: p 0.0, r 0.0
+OK

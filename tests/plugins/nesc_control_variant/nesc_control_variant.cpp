@@ -16,6 +16,17 @@
 //     through the base point at the course command (Q27);
 //   - line_at_offset_frame: the decided initial-plane line, its base point latched from the lateral
 //     offset's frame instead of frame 0 (Q27).
+// - M7b PR 4's oracle (c) (docs/plans/m7b-pr4-f16-symmetry.md, section 2; the M7b plan's Q10):
+//   - default_options: the shipped peer's Options{}, unchanged: the shipped peer on a non-rotating
+//     Earth, which flies only through this plugin;
+//   - earth_rate_none: Options::earth_rate = kNone, which subtracts no Earth rate;
+//   - earth_rate_none_unwrapped_track_error: kNone, with chiErr's wrap omitted (the wrap control).
+//     It is planted with the law's public functions only. Where |chi_est - chi_cmd| > a half turn,
+//     the unwrapped law's phiCmd would be -sign(x) kPhiLimit exactly (10 pi > kPhiLimit). The
+//     reply's aileron and rudder, the two outputs that read phiCmd, are re-evaluated with the same
+//     Inputs, Modes, Trim and References the shipped publish used, and a course command of chi_est
+//     - sign(x) * 1 rad with no lateral deviation. That chiErr, about +-1 rad, saturates phiCmd to
+//     the same -sign(x) kPhiLimit.
 // tests/plugins is skipped by scripts/config_keys.py, so its keys are not documented there.
 //
 // Test code: the great circle's polyline is allocated when the base point latches, inside a
@@ -23,6 +34,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <numbers>
 #include <string>
@@ -50,7 +62,10 @@ enum class Variant : std::uint8_t {
   kDmlReferences,
   kRhumbLine,
   kGreatCircle,
-  kLineAtOffsetFrame
+  kLineAtOffsetFrame,
+  kDefaultOptions,
+  kEarthRateNone,
+  kEarthRateNoneUnwrappedTrackError
 };
 
 Variant variant_of(const astra::Config& peer_block) {
@@ -76,6 +91,15 @@ Variant variant_of(const astra::Config& peer_block) {
   if (name == "line_at_offset_frame") {
     return Variant::kLineAtOffsetFrame;
   }
+  if (name == "default_options") {
+    return Variant::kDefaultOptions;
+  }
+  if (name == "earth_rate_none") {
+    return Variant::kEarthRateNone;
+  }
+  if (name == "earth_rate_none_unwrapped_track_error") {
+    return Variant::kEarthRateNoneUnwrappedTrackError;
+  }
   throw astra::ConfigError(peer_block.origin(), peer_block.path() + ".test_variant",
                            "unknown test variant: " + name);
 }
@@ -96,12 +120,25 @@ class VariantPeer final : public peer::NescControlPeer {
     peer::Options options;
     options.dml_references = variant_ == Variant::kDmlReferences;
     options.latch_at_offset_frame = variant_ == Variant::kLineAtOffsetFrame;
+    if (variant_ == Variant::kEarthRateNone ||
+        variant_ == Variant::kEarthRateNoneUnwrappedTrackError) {
+      options.earth_rate = law::EarthRate::kNone;
+    }
     set_options(options);
     NescControlPeer::init(config, registry);
   }
 
+  void publish(const astra_sim_to_sw_v1& request, std::uint32_t seq) noexcept override {
+    request_ = request;
+    NescControlPeer::publish(request, seq);
+  }
+
   void read_reply(astra_sw_to_sim_v1& reply) noexcept override {
     NescControlPeer::read_reply(reply);
+    if (variant_ == Variant::kEarthRateNoneUnwrappedTrackError) {
+      unwrap_track_error(reply);
+      return;
+    }
     switch (variant_) {
       case Variant::kElevatorSign:
         reply.elevator = -reply.elevator;
@@ -185,6 +222,33 @@ class VariantPeer final : public peer::NescControlPeer {
     double azimuth;
   };
 
+  // The wrap control (the file's header comment): chi_est and chi_cmd in control_law.hpp:241-244's
+  // own expressions, from the same Inputs (inputs_from(request, kNone), the call the peer makes)
+  // and the commands in force after the shipped publish.
+  void unwrap_track_error(astra_sw_to_sim_v1& reply) const noexcept {
+    if (!std::isfinite(reply.aileron)) {
+      return;  // a refused frame: the reply stays the shipped NaN
+    }
+    const law::Inputs in = law::inputs_from(request_, law::EarthRate::kNone);
+    const law::Commands& cmd = commands();
+    const double chi_est = in.beta + in.psi;
+    const double delta_chi_cmd =
+        law::saturate(law::kLateralOffsetGain * cmd.lateral_deviation_error, -law::kDeltaChiLimit,
+                      law::kDeltaChiLimit);
+    const double chi_cmd = delta_chi_cmd + cmd.course;
+    const double unwrapped = chi_est - chi_cmd;
+    if (!(std::abs(unwrapped) > law::kHalfTurn)) {
+      return;
+    }
+    law::Commands substitute = cmd;
+    substitute.course = chi_est - (unwrapped > 0.0 ? 1.0 : -1.0);
+    substitute.lateral_deviation_error = 0.0;
+    const law::IcdCommands icd =
+        law::to_icd(law::evaluate(in, substitute, trim(), law::Modes{}, references()));
+    reply.aileron = icd.aileron;
+    reply.rudder = icd.rudder;
+  }
+
   // The local offset from the polyline's nearest point, positive to the right of the azimuth.
   [[nodiscard]] double geodesic_cross_track(const law::BasePoint& base, double lat,
                                             double lon) const noexcept {
@@ -216,6 +280,7 @@ class VariantPeer final : public peer::NescControlPeer {
   }
 
   Variant variant_ = Variant::kElevatorSign;
+  astra_sim_to_sw_v1 request_{};
   astra_sw_to_sim_v1 previous_{};
   bool have_previous_ = false;
   std::vector<Point> polyline_;
