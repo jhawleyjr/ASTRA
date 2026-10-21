@@ -14,7 +14,8 @@ It prints, in order:
    (section 6);
 2. the Omega term at the trim and a plain replay of the law's lateral rows at the frame-0
    request: the Omega-only control's precondition (section 10);
-3. the doubled control's four registered numbers at state 1 (section 10, amendment 9);
+3. the doubled control's four registered numbers at frame 0's stage-2 operand, where part (c) first
+   fails (section 10, amendment 9, and Joe's P-01 condition 2);
 4. the shipped pairs' static estimate, which section 8's report is read against (amendment 4).
 
 It exits 1 when a registered figure moves (section 6's stop rule), or when one of the doubled
@@ -135,8 +136,9 @@ def main() -> int:
     print("\n1. The four signed-beta tables (finding 2) and their odd slopes")
     slope: dict[str, float] = {}
     center: dict[str, float] = {}
+    tables: dict[str, list[list[float]]] = {}
     for name in ("Dclda", "Dcldr", "Dcnda", "Dcndr"):
-        t = matrix(src, "k" + name)
+        t = tables[name] = matrix(src, "k" + name)
         worst = max(
             (abs(t[6 - i][j] - t[i][j]), beta2[6 - i], alpha_bp[j])
             for i in range(3)
@@ -191,33 +193,78 @@ def main() -> int:
     if not precondition:
         moved.append("the Omega-only control's precondition: a zero frame-0 aileron or rudder")
 
-    print("\n3. The doubled control's four registered numbers at state 1 (section 10)")
+    print("\n3. The doubled control's four registered numbers at frame 0's stage-2 operand")
+    print("  (section 10; Joe's P-01 condition 2, 2026-10-20)")
     dail = aileron_lwd / AILERON_SCALE  # aero.cpp:71 flips ICD +RWD to the DML's +LWD
     drdr = rudder / RUDDER_SCALE
     cy0 = CY0_DAIL * dail + CY0_DRDR * drdr  # aero_math.hpp:208 at beta = 0, p = r = 0
     fy = qbar * S_REF * cy0
-    v1 = H * fy / MASS  # stage 1's v_dot = Fy/m at frame 0: g_b,y = 0 and (omega x v)_y = 0
-    beta1 = math.atan2(v1, math.hypot(v_b[0], v_b[2]))
-    odd = {name: slope[name] * beta1 for name in slope}
-    dcl1 = odd["Dclda"] * dail + odd["Dcldr"] * drdr
-    dcn1 = odd["Dcnda"] * dail + odd["Dcndr"] * drdr
-    # clt and the damping terms are near 0 at state 1.
-    cl = center["Dclda"] * dail + center["Dcldr"] * drdr
-    cn = center["Dcnda"] * dail + center["Dcndr"] * drdr
     qsb = qbar * S_REF * B_SPAN
+    b2v = B_SPAN / (2.0 * tas)
     det = IXX * IZZ - IXZ * IXZ
     inv = ((IZZ / det, IXZ / det), (IXZ / det, IXX / det))  # I^-1's roll-yaw block, tensor -Ixz
-    roll, yaw = qsb * cl, qsb * cn - CM_FWD_OF_MRC * fy
-    p_dot = inv[0][0] * roll + inv[0][1] * yaw
-    r_dot = inv[1][0] * roll + inv[1][1] * yaw
+
+    def at_alpha(row: list[float]) -> float:
+        return (1 - f_a) * row[i_a] + f_a * row[i_a + 1]
+
+    def rates(cl: float, cn: float) -> tuple[float, float]:
+        roll, yaw = qsb * cl, qsb * cn - CM_FWD_OF_MRC * fy
+        return inv[0][0] * roll + inv[0][1] * yaw, inv[1][0] * roll + inv[1][1] * yaw
+
+    # Stage 1's operand is state 0: beta = p = r = 0, so clt = cnt = 0 and no damping term.
+    p_dot1, r_dot1 = rates(
+        center["Dclda"] * dail + center["Dcldr"] * drdr,
+        center["Dcnda"] * dail + center["Dcndr"] * drdr,
+    )
+    v_dot1 = fy / MASS  # g_b,y = 0 and (omega x v)_y = r u - p w = 0 at state 0
+    # Stage 2's operand, y + (h/2) k1 (integrator.hpp:110-112): v, p and r are (h/2) times
+    # stage 1's rates. u and w move by about 1e-6 relative, which is left out.
+    v2, p2, r2 = 0.5 * H * v_dot1, 0.5 * H * p_dot1, 0.5 * H * r_dot1
+    vuw = math.hypot(v_b[0], v_b[2])
+    beta_s2 = math.atan2(v2, vuw)  # air_data.hpp:43
+    beta_state1 = math.atan2(H * v_dot1, vuw)  # state 1's, to first order: v = h Fy/m
+
+    def at_beta(name: str, beta: float) -> float:  # 0 <= beta < 10 deg, at the trim's alpha
+        t, frac = tables[name], beta / (10.0 * DEG)
+        return (1 - frac) * at_alpha(t[3]) + frac * at_alpha(t[4])
+
+    f_b = beta_s2 / (beta1[1] * DEG)  # kBeta1's first interval, 0 to 5 deg
+    clt = (1 - f_b) * at_alpha(matrix(src, "kAbsCl0")[0]) + f_b * at_alpha(
+        matrix(src, "kAbsCl0")[1]
+    )
+    cnt = (1 - f_b) * at_alpha(matrix(src, "kAbsCn0")[0]) + f_b * at_alpha(
+        matrix(src, "kAbsCn0")[1]
+    )
+    damping = {k: at_alpha(vector(src, "k" + k)) for k in ("Clp", "Clr", "Cnp", "Cnr")}
+    # The |beta| model's cl and cn at the operand (aero_math.hpp:240-249). Fy stays stage 1's:
+    # its beta and damping terms move the yaw moment by under 1e-3 relative.
+    cl = (
+        clt
+        + at_beta("Dclda", beta_s2) * dail
+        + at_beta("Dcldr", beta_s2) * drdr
+        + b2v * (damping["Clp"] * p2 + damping["Clr"] * r2)
+    )
+    cn = (
+        cnt
+        + at_beta("Dcnda", beta_s2) * dail
+        + at_beta("Dcndr", beta_s2) * drdr
+        + b2v * (damping["Cnp"] * p2 + damping["Cnr"] * r2)
+    )
+    p_dot, r_dot = rates(cl, cn)  # omega x I omega is below 1e-6 of the moments there
+    odd = {name: slope[name] * beta_s2 for name in slope}
+    dcl1 = odd["Dclda"] * dail + odd["Dcldr"] * drdr
+    dcn1 = odd["Dcnda"] * dail + odd["Dcndr"] * drdr
     dp_dot = inv[0][0] * qsb * dcl1 + inv[0][1] * qsb * dcn1
     dr_dot = inv[1][0] * qsb * dcl1 + inv[1][1] * qsb * dcn1
     print(f"  frame 0's dail {dail:+.4e}, drdr {drdr:+.4e}; cy0 {cy0:+.4e}; Fy {fy:+.4e} N")
-    print(f"  beta(1) ~ h Fy/(m V) = {beta1:+.4e} rad")
+    print(f"  stage 1 (state 0): p_dot {p_dot1:+.4e}, r_dot {r_dot1:+.4e} rad/s^2;")
+    print(f"  v_dot {v_dot1:+.4e} m/s^2")
+    print(f"  stage 2's operand: v {v2:+.4e} m/s, p {p2:+.4e}, r {r2:+.4e} rad/s;")
+    print(f"  beta {beta_s2:+.4e} rad (state 1's, to first order: {beta_state1:+.4e} rad)")
     for name, value in odd.items():
         tab = abs(center[name])
         print(
-            f"  intermediate: {name} odd part at beta(1) {value:+.4e}"
+            f"  intermediate: {name} odd part at stage 2's beta {value:+.4e}"
             f" against ulp(T) {math.ulp(tab):.3e} ({abs(value) / math.ulp(tab):.3g})"
         )
     numbers = [

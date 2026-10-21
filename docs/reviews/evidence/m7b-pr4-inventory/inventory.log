@@ -26,17 +26,21 @@ M7b PR 4: the asymmetry inventory
   rudder +0.002907 deg
   the Omega-only control's precondition (both nonzero): True
 
-3. The doubled control's four registered numbers at state 1 (section 10)
+3. The doubled control's four registered numbers at frame 0's stage-2 operand
+  (section 10; Joe's P-01 condition 2, 2026-10-20)
   frame 0's dail -2.7297e-04, drdr +9.6904e-05; cy0 +2.6014e-06; Fy +9.7471e-01 N
-  beta(1) ~ h Fy/(m V) = +6.0795e-10 rad
-  intermediate: Dclda odd part at beta(1) +5.1215e-12 against ulp(T) 6.939e-18 (7.38e+05)
-  intermediate: Dcldr odd part at beta(1) +2.5608e-12 against ulp(T) 1.735e-18 (1.48e+06)
-  intermediate: Dcnda odd part at beta(1) -1.2088e-11 against ulp(T) 1.735e-18 (6.97e+06)
-  intermediate: Dcndr odd part at beta(1) -3.3799e-12 against ulp(T) 6.939e-18 (4.87e+05)
-  extra cl1 -1.1499e-15 against ulp(+1.5468e-05) = 3.388e-21: 3.39e+05
-  extra cn1 +2.9721e-15 against ulp(-1.7756e-06) = 2.118e-22: 1.4e+07
-  delta p_dot -2.9415e-13 against ulp(+4.1151e-03) = 8.674e-19: 3.39e+05
-  delta r_dot +1.1445e-13 against ulp(-1.0997e-05) = 1.694e-21: 6.76e+07
+  stage 1 (state 0): p_dot +4.1151e-03, r_dot -1.0997e-05 rad/s^2;
+  v_dot +1.0482e-04 m/s^2
+  stage 2's operand: v +5.2412e-08 m/s, p +2.0575e-06, r -5.4985e-09 rad/s;
+  beta +3.0397e-10 rad (state 1's, to first order: +6.0795e-10 rad)
+  intermediate: Dclda odd part at stage 2's beta +2.5608e-12 against ulp(T) 6.939e-18 (3.69e+05)
+  intermediate: Dcldr odd part at stage 2's beta +1.2804e-12 against ulp(T) 1.735e-18 (7.38e+05)
+  intermediate: Dcnda odd part at stage 2's beta -6.0440e-12 against ulp(T) 1.735e-18 (3.48e+06)
+  intermediate: Dcndr odd part at stage 2's beta -1.6899e-12 against ulp(T) 6.939e-18 (2.44e+05)
+  extra cl1 -5.7493e-16 against ulp(+1.5445e-05) = 3.388e-21: 1.7e+05
+  extra cn1 +1.4861e-15 against ulp(-1.7745e-06) = 2.118e-22: 7.02e+06
+  delta p_dot -1.4708e-13 against ulp(+4.1088e-03) = 8.674e-19: 1.7e+05
+  delta r_dot +5.7224e-14 against ulp(-1.1050e-05) = 1.694e-21: 3.38e+07
 
 4. The shipped pairs' static estimate (section 8's report; amendment 4)
   at |beta| = 1.5 deg and |dail| = 1: |dCl| 4.411e-04, |dCn| 1.041e-03
