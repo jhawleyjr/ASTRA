@@ -336,6 +336,22 @@ At the default, each lookup receives `in.beta`, the same double as today. `aero.
 These literals are written into this plan, dated, and into the test with a comment citing this section, before the
 first flight.
 
+**Recorded 2026-10-20, C1** (`trim_n_frame.out`; `trim_check.py`, exit 0, `trim_check.log`). `astra trim` on
+`base.yaml.in` at the registered setpoint, rate convention `n_frame`, gave:
+- elevator `-0.056511560909856456` rad, throttle `0.13890766076656494`, and θ = α `0.04622449703844172` rad;
+- v_b = (`172.23674407873062`, `0.0`, `7.967232214379726`) m/s;
+- ω_b = (`0.0`, `-2.7050441154484522e-05`, `0.0`) rad/s;
+- the solved residuals −3.7e-16, −6.8e-17 and 1.4e-16, and the lateral residuals exactly 0.0.
+
+`trim_check.py` re-solved it through `astra.trim` and found:
+- `trim_n_frame.out` equal value for value;
+- v = 0.0, q_x = 0.0 and q_z = 0.0;
+- lstsq on the rebuilt J_c reproduces the trim's rates bit for bit;
+- κ̂ = 1.0, ‖ω̂‖ = 2.7050441154484522e-05 rad/s, and B = 1.9220494461425035e-19 rad/s.
+
+The trim's own p and r are exactly 0.0, so they lie within B, and writing 0.0 for them changes no bit. C-01's
+reproduction left about 1e-22 at the 13.x configs' 45° heading; at this IC the solve kept the structural zeros.
+
 **Why the lateral zeros are exact.** At heading north on a non-rotating sphere, v_E = 0.
 - So ω_en^n = (v_E/r, −v_N/r, −v_E tan(lat)/r) = (0, −v_N/r, 0) (`round.cpp:115-121`).
 - C_nb at (ψ, θ, φ) = (0, θ, 0) maps that vector to (0, −v_N/r, 0). The exact p and r are therefore 0.
@@ -399,6 +415,17 @@ nothing from `astra`, and reads only the generated header's text and `trim_n_fra
 - **What stops for Joe:** any figure that moves from finding 2, or from the M7b inventory's Ω row (−6e-5, +4e-5;
   0.005° to 0.007°; 0.003°), at its printed precision.
 
+**Recorded 2026-10-20, C1** (`inventory.py`, exit 0, `inventory.log`: "no registered figure moved"), at the trim's
+α = 2.648469°, with ρ = 0.904403585 kg/m³ and q̄ = 13443.4948 Pa:
+- **Finding 2's figures,** all reproduced: 0.079 (`dclda`, β ±30°, α 20°), 0.031 (`dcldr`, ±30°, 40°), 0.035
+  (`dcnda`, ±20°, 20°) and 0.044 (`dcndr`, ±30°, −10°), with every near-condition figure unchanged.
+- **The odd slopes at the trim's α:** +0.008424, +0.004212, −0.019883 and −0.005559 per rad.
+- **The Ω term:** b = (+6.0899e-05, 0, −4.0111e-05) rad/s, so the law's frame-0 p and r are −6.0899e-05 and
+  +4.0111e-05 rad/s.
+- **The frame-0 replay:** aileron +0.005459° and rudder +0.002907°, both nonzero. The Ω-only control's
+  precondition holds.
+- The doubled control's four numbers are in §10, and the static estimate in §8's report.
+
 **The bitwise rows**, argued from the code, which the variant pairs then test:
 - **The EOM** (`rigid_body_6dof_dynamics.cpp:23-59`): every term of each component carries that component's
   parity. C_nb's C₁₂, C₂₁, C₂₃ and C₃₂ entries are odd, and the rest even.
@@ -445,6 +472,30 @@ nothing from `astra`, and reads only the generated header's text and `trim_n_fra
     target feature.
   - A difference stops for Joe.
 - **A probe failure stops the PR before any flight.** The item becomes roundoff, and that goes to Joe.
+
+**Recorded 2026-10-20, C1** (`docs/reviews/evidence/m7b-pr4-inventory/probe.log`, `build_facts_c1.log`).
+- Every preset was built fresh in this worktree, on `eb8a167` plus C1's tree.
+- `ctest --preset <p> -R F16Symmetry -N` gave 7 tests in each of debug, release, asan and static-plugins, and
+  the run exited 0 in each: 7 of 7 passed.
+- **The probe:** 0 failures in every preset, over:
+
+  | Check | Comparisons per preset |
+  |---|---|
+  | atan2 odd in y | 786,576 |
+  | asin odd | 524,294 |
+  | sin odd | 524,294 |
+  | cos even | 524,294 |
+  | hypot even | 1,048,864 |
+  | remainder | 1,048,583 |
+  | remainderl | 262,144 |
+
+  No item is reclassified.
+- **The trim checks** pass: p = r = 0 within B, and the config route's q_nb equals (cos(θ/2), +0, sin(θ/2), +0)
+  bitwise.
+- **The build facts,** `build_facts.py`, exit 0. Each of C1's 15 translation units, in each of the four presets
+  and in `build/python` (the tests left out there), has PR 3's expected token set, effective cc1 set and target:
+  no FMA, `__SSE2_MATH__` defined and `__FLT_EVAL_METHOD__` 0. C2's units are added by `--c2` before the first
+  flight.
 
 ## 7. The mirror pairs (Q9, R11): geometry, map, comparison set and objects
 
@@ -574,6 +625,12 @@ and rate envelope, κ, F_f and the difference steps are dropped with the predict
   the inventory's static estimate (§6, from the formulas above).
   - Pre-step: the Ω term's offsets, starting with an aileron asymmetry of about 2 × 0.0055°.
   - Post-step: Δp ≈ 0.038 rad/s, Δφ ≈ 0.4e-2 to 1.1e-2 rad and Δβ ≈ 2.5e-3 to 5e-3 rad.
+  - **Recorded 2026-10-20, C1** (`inventory.log`'s part 4), at |β| = 1.5° and |dail| = 1:
+    - |ΔCl| = 4.411e-04 and |ΔCn| = 1.041e-03;
+    - Δp = 3.861e-02 rad/s (Clp −0.4308, b/2V 0.02652), and Δφ = 3.86e-03 to 1.16e-02 rad;
+    - Δβ = 4.903e-03 rad (Cn_β 0.2123 per rad), or about half that over a partial dutch roll;
+    - the lateral stick's asymmetry, about 0.86 units at 0.1 s;
+    - pre-step, the reply aileron asymmetry is +0.01092° and the rudder's +0.00581°.
 - **The aileron reversals** of R and L (amendment 11), since that is where the asymmetry is amplified.
   - **A reversal** is an exchange at which the reply aileron's sign differs from the previous exchange's. The sign
     is taken by value, as −1, 0 or +1, so ±0 both count as 0.
@@ -692,6 +749,21 @@ fails elsewhere, stops the PR.
     3e5, and Δṙ ≈ 1.2e-13 against ṙ ≈ −7.6e-5 (ulp ≈ 1.4e-20), about 8e6.
 
   So the per-axis sums do not cancel, and both differences sit well above roundoff at state 1.
+- **Recorded 2026-10-20, C1** (`inventory.log`). Frame 0's dail is −2.7297e-04 and drdr +9.6904e-05, giving cy0
+  +2.6014e-06, Fy +0.97471 N and β(1) = +6.0795e-10 rad. The four registered numbers:
+
+  | Number | Value | Against | Ratio |
+  |---|---|---|---|
+  | Extra cl1 | −1.1499e-15 | ulp(cl = +1.5468e-05) = 3.388e-21 | 3.39e5 |
+  | Extra cn1 | +2.9721e-15 | ulp(cn = −1.7756e-06) = 2.118e-22 | 1.40e7 |
+  | Δṗ | −2.9415e-13 rad/s² | ulp(ṗ = +4.1151e-03) = 8.674e-19 | 3.39e5 |
+  | Δṙ | +1.1445e-13 rad/s² | ulp(ṙ = −1.0997e-05) = 1.694e-21 | 6.76e7 |
+
+  The intermediates: the odd parts at β(1) are 5.1e-12, 2.6e-12, −1.2e-11 and −3.4e-12, at 4.9e5 to 7.0e6 ulps of
+  their table entries.
+- **The confirmation rule** (added at C1, flagged for Joe): the margin is confirmed when each of the four numbers
+  is at least 2¹⁰. That is the threshold `inventory.py` applies, and below it the script stops for Joe. All four
+  clear it by more than 2⁸.
 - 13.4's shape has the same prefix as 13.3's through frame 20,000. It is flown too, for the trajectory report
   beside its shipped pair.
 

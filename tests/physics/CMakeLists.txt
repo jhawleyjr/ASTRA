@@ -72,6 +72,23 @@ add_dependencies(astra_physics_tests astra_echo_peer)
 gtest_discover_tests(astra_physics_tests TEST_PREFIX "physics." DISCOVERY_MODE PRE_TEST
                      PROPERTIES LABELS physics)
 
+# M7b PR 4's oracle (c), the F-16's mirror and heading symmetry under F16_control
+# (docs/plans/m7b-pr4-f16-symmetry.md, section 12). astra_f16_symmetry_tests runs in every preset: the
+# parity probe and the trim checks (sections 5 and 6), then the smokes and the variant pins. Its configs are
+# built in nesc/f16_symmetry.hpp from committed text, never from a tracked config. Labeled physics, never
+# unit, so the Stop hook's `just test-unit` runs none of it (docs/lessons.md, 2026-10-18).
+# ../support/alloc_counter.cpp, for the smokes' zero-allocation counts, as in astra_physics_tests.
+add_executable(astra_f16_symmetry_tests
+  ../support/alloc_counter.cpp
+  nesc/f16_symmetry_probe_test.cpp)
+target_link_libraries(astra_f16_symmetry_tests PRIVATE astra::core GTest::gtest_main)
+astra_add_plugin_test(astra_f16_symmetry_tests)
+target_compile_definitions(astra_f16_symmetry_tests PRIVATE
+  "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\""
+  "ASTRA_AIRCRAFT_DIR=\"${ASTRA_SOURCE_DIR}/aircraft\"")
+gtest_discover_tests(astra_f16_symmetry_tests TEST_PREFIX "physics." DISCOVERY_MODE PRE_TEST
+                     PROPERTIES LABELS physics)
+
 # docs/plans/pr4-notional-aero-turbofan.md, R2/R5: PLAN.md's own PR 4 acceptance line names
 # tests/physics/notional_transport/ for the hand-picked-condition tests that "exercise the rebuilt
 # aero/propulsion wrench_b() overrides directly" -- own executables, same TEST_PREFIX shape as

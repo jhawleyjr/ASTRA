@@ -1,0 +1,50 @@
+M7b PR 4: R10's parity probe and the trim checks, every preset (docs/plans/m7b-pr4-f16-symmetry.md, sections 5 and 6)
+built fresh in this worktree on eb8a167 plus C1's working tree (committed with this log), 2026-10-20
+
+== ctest --preset debug -R F16Symmetry -N: 7 tests; ctest --preset debug -R F16Symmetry --no-tests=error: exit 0
+F16SymmetryParity atan2 odd in y: 786576 comparisons, 0 failed
+F16SymmetryParity asin odd: 524294 comparisons, 0 failed
+F16SymmetryParity sin odd: 524294 comparisons, 0 failed
+F16SymmetryParity cos even: 524294 comparisons, 0 failed
+F16SymmetryParity hypot even in each argument: 1048864 comparisons, 0 failed
+F16SymmetryParity remainder odd in x, even in y: 1048583 comparisons, 0 failed
+F16SymmetryParity remainderl odd in x, even in y: 262144 comparisons, 0 failed
+F16SymmetryTrim: p 0, r 0, B 1.9220494461425035e-19 rad/s
+100% tests passed, 0 tests failed out of 7
+Total Test time (real) =   0.41 sec
+
+== ctest --preset release -R F16Symmetry -N: 7 tests; ctest --preset release -R F16Symmetry --no-tests=error: exit 0
+F16SymmetryParity atan2 odd in y: 786576 comparisons, 0 failed
+F16SymmetryParity asin odd: 524294 comparisons, 0 failed
+F16SymmetryParity sin odd: 524294 comparisons, 0 failed
+F16SymmetryParity cos even: 524294 comparisons, 0 failed
+F16SymmetryParity hypot even in each argument: 1048864 comparisons, 0 failed
+F16SymmetryParity remainder odd in x, even in y: 1048583 comparisons, 0 failed
+F16SymmetryParity remainderl odd in x, even in y: 262144 comparisons, 0 failed
+F16SymmetryTrim: p 0, r 0, B 1.9220494461425035e-19 rad/s
+100% tests passed, 0 tests failed out of 7
+Total Test time (real) =   0.17 sec
+
+== ctest --preset asan -R F16Symmetry -N: 7 tests; ctest --preset asan -R F16Symmetry --no-tests=error: exit 0
+F16SymmetryParity atan2 odd in y: 786576 comparisons, 0 failed
+F16SymmetryParity asin odd: 524294 comparisons, 0 failed
+F16SymmetryParity sin odd: 524294 comparisons, 0 failed
+F16SymmetryParity cos even: 524294 comparisons, 0 failed
+F16SymmetryParity hypot even in each argument: 1048864 comparisons, 0 failed
+F16SymmetryParity remainder odd in x, even in y: 1048583 comparisons, 0 failed
+F16SymmetryParity remainderl odd in x, even in y: 262144 comparisons, 0 failed
+F16SymmetryTrim: p 0, r 0, B 1.9220494461425035e-19 rad/s
+100% tests passed, 0 tests failed out of 7
+Total Test time (real) =   0.71 sec
+
+== ctest --preset static-plugins -R F16Symmetry -N: 7 tests; ctest --preset static-plugins -R F16Symmetry --no-tests=error: exit 0
+F16SymmetryParity atan2 odd in y: 786576 comparisons, 0 failed
+F16SymmetryParity asin odd: 524294 comparisons, 0 failed
+F16SymmetryParity sin odd: 524294 comparisons, 0 failed
+F16SymmetryParity cos even: 524294 comparisons, 0 failed
+F16SymmetryParity hypot even in each argument: 1048864 comparisons, 0 failed
+F16SymmetryParity remainder odd in x, even in y: 1048583 comparisons, 0 failed
+F16SymmetryParity remainderl odd in x, even in y: 262144 comparisons, 0 failed
+F16SymmetryTrim: p 0, r 0, B 1.9220494461425035e-19 rad/s
+100% tests passed, 0 tests failed out of 7
+Total Test time (real) =   0.73 sec

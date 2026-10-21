@@ -1,0 +1,35 @@
+# M7b PR 4's trim base (docs/plans/m7b-pr4-f16-symmetry.md, section 5; Q9, C-01). Case 11's F-16 at case
+# 11's latitude, longitude exactly 0, 10,013 ft and heading 0, on a non-rotating sphere with
+# inverse-square gravity, ISA-1976 and still air. astra trim solves it under the n_frame rate convention
+# (trim_n_frame.out beside this file); the oracle's configs, built in tests/physics/nesc/f16_symmetry.hpp,
+# carry its elevator, throttle, theta, u, w and q, with literal zeros for every lateral entry. The .in
+# suffix keeps it out of tests/python/test_config_keys.py's tracked configs (M7 PR 9's precedent).
+sim:
+  dt: 0.001
+  frames: 30001
+vehicle:
+  models:
+    - plugin: aircraft/f16/physical/aero
+    - plugin: aircraft/f16/hardware/propulsion/engine
+  initial_controls:
+    controls:
+      elevator: 0.0
+      aileron: 0.0
+      rudder: 0.0
+      throttle: 0.5
+physical:
+  earth:
+    plugin: plugins/physical/earth/round
+    rotating: false
+  gravity:
+    plugin: plugins/physical/gravity/inverse_square
+    rotating: false
+  atmosphere: plugins/physical/atmosphere/isa1976
+  mass:
+    plugin: aircraft/f16/physical/mass
+initial:
+  state:
+    p_n: [0.6286530522161018, 0.0, 3051.9624000000003]
+    v_b: [172.42091752452774, 0.0, 0.0]
+    euler_nb: [0.0, 0.0, 0.0]
+    omega_b: [0.0, 0.0, 0.0]
