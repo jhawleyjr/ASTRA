@@ -9,6 +9,7 @@ Status: **approved by Joe, 2026-10-15, on his word**, with his answers to Q1 to 
 - Nothing is implemented, and approving this plan approves no later PR's diff.
 - Name: the plan-mode draft (main checkout, untracked) was moved (`mv`, before its first add) to
   `docs/plans/m7b-closed-loop-oracles.md`. Nothing is left in the main checkout.
+- *Closed out 2026-10-21 (PLAN.md M7b PR 5).*
 Owner: Joe. Builder: Claude, one builder.
 Risk: Tier 3 overall. It adds a new class of oracle with pre-registered bounds, a test transport at the
 exchange seam, a new transport plugin, and edits under `aircraft/f16/physical` and `aircraft/f16/sim`. This
@@ -779,6 +780,10 @@ The critique's focus:
 
 R1 to R16 pass on their PRs, and each PR has its tier's review with results in its PR body. PR 5 then checks
 M7b off in PLAN.md with evidence links. Joe's approvals and merges are separate.
+
+*Closed out 2026-10-21:* every R passed on its PR. The row's words changed in two of Joe's dated deviations: PR 2's
+C reference carried on a 2⁻⁴⁰⁰ grid (R2), and PR 4's R12 evaluation-level decomposition by value with R13's
+yardstick floored per channel (PLAN.md's M7b line).
 
 ## PR 0: this planning PR, after Joe's approval
 
