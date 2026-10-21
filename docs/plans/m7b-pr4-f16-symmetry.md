@@ -7,6 +7,8 @@ Status: **approved by Joe, 2026-10-20, on his word.**
 - His second approval (2026-10-20) accepted the plan as revised, including the state-1 correction and §8's
   deviation as recorded, and added amendments 9 to 11, also folded in before the first commit.
 - Nothing of PR 4 is built or run.
+- The Codex plan critique ran on 2026-10-20, with verdict rework. Its four findings, P-01 to P-04, are accepted,
+  and their proposed resolutions await Joe's decision before the first flight (§18).
 - This file was moved (`mv`, before its first add) from the main checkout's plan-mode draft into the worktree as
   `docs/plans/m7b-pr4-f16-symmetry.md`. Nothing stays in the main checkout.
 
@@ -895,3 +897,48 @@ Every pre-registered constant in the tests carries a comment citing this plan's 
 - **Gate time** (§1). About 3.2 s of release test time is estimated. The derivative-call cost is an assumption,
   measured at the first flight. A large increase goes to Joe (Q3).
 - **Rollback:** revert the PR. The hooks revert with their tests and variants, and nothing else ships.
+
+## 18. The Codex plan critique (§16, step 4)
+
+**The run.** One fresh, read-only critique, on PR 3's route.
+- Companion 1.0.6 and Codex CLI 0.160.0: `task --fresh --effort high --cwd <this worktree>`, with no `--write` and
+  no `--model`, in the background. The model is the companion's default (`~/.codex/config.toml`: `gpt-6.1-sol`
+  at reasoning effort high).
+- Its focus was §16 step 4's, told that R12's gate is the evaluation-level decomposition.
+- Candidate: `0ee2c70` against `origin/main` = `fe922b0`, a clean tree. Job `task-mvhltdcf-g68uuk`, thread
+  `01a15cb0-73a5-77a0-bfee-576f49749c51`, 5 min 33 s.
+- Exit 0, **verdict rework**: 4 findings, 1 high and 3 medium. Codex reported that it edited no file, ran no build
+  and executed no ASTRA code.
+
+**Found sound** (Codex):
+- At fixed state and controls, the four tables reach only ṗ and ṙ.
+- The masks cover every ICD, state-record and recorder-header field; the counts are P-02.
+- Part (c)'s choice by the sign of v is valid in still air, and ±0 does not break its by-value equality.
+- The Ω-only reply-0 registration, the prefix exclusions, the tables-only and sign-drop window, and the doubled
+  control's state-1 mechanism are consistent with the code. The doubled control's margin is still a pre-flight
+  estimate.
+- The projected IC, the quaternion route, and C-01's bound under the accepted constant assumption.
+- The header-only hooks, the refused-mask rule, the wrap variant's accessors, the aero boundary copy and its
+  recompose pin, and R15's C1 plugins under C2's unchanged core.
+- P, the running maximum and the base run's route; F remains an estimate.
+- The labels against the stop hook, the Release-only registration, and §1's estimate of about 1.08 M frames and
+  3.2 s.
+
+Claude Code re-read every cited line, and **all four findings are accepted**:
+- P-02 was confirmed at `lockstep_exchange.cpp:164` and `:198`.
+- P-01's stage evaluations were confirmed at `vehicle.cpp:504-515` and `integrator.hpp:109-121`.
+- P-03's saturations were confirmed at `control_law.hpp:268-270`.
+
+Each proposed resolution changes a registered object, a control or a guard, so all four come to Joe before the
+first flight. None is folded into the sections above until he decides.
+
+| # | Sev. | Finding (verified) | Proposed resolution | Touches |
+|---|---|---|---|---|
+| P-01 | high | §8 claims the parts account for the whole mirror defect, but §3's two disclosed gaps leave evaluations unchecked. (d) mirrors an already packed request, so an asymmetry in `icd_pack` (Euler angles, air data, vertical speed, the previous frame's specific force; `icd_pack.hpp:83`, `:133`) would pass it. The frame-start probes leave RK4's other three evaluations per frame unchecked (`vehicle.cpp:510`) | **Cover both gaps; keep the criterion.** (e) At every exchange of both runs, `icd_pack::pack_sim_to_sw` at (M·x, M·F) equals M·`pack_sim_to_sw` at (x, F) by value, under §7's request mask. Here x is the recorded state, F = m·(ax, ay, az) from the recorded request, and the environment is rebuilt at the state (still air; a second ISA-1976 instance at the Earth model's altitude). **Parts (a) to (c) at all four RK4 stage operands of every frame.** The stage operands are rebuilt from the recorded state, its latched controls and the evaluator's f in `integrator.hpp:109-121`'s order, and the rebuilt next state, renormalized as `frames.hpp:123-130` does, must equal the recorded next state bit for bit, so the operands are the flight's own. A miss of that rebuild stops the PR. The attribution then covers every evaluation of f, the packer and the law the flight makes. The exchange's copies, limits and latch, and RK4's combination and renormalization, are linear or even by construction, and the variant pairs exercise them | §8, §3's blind spots, §1's estimate (about 16 derivative calls per recorded state, 2.9 M in all, about 2.9 s at 1 µs) |
+| P-02 | medium | §7 registers 30,001 and 60,001 states. The recorder stores the state at `open` and after every step (`lockstep_exchange.cpp:164`, `:198`), so the runs record 30,002 and 60,002 | The header counts become 3,001 and 30,002 (13.3), and 6,001 and 60,002 (13.4). §8's parts include the terminal state, with the last exchange's reply latched, over 180,008 states in the two shipped pairs | §7, §8, §1 |
+| P-03 | medium | §10's wrap control registers its first difference at k\*, where the wrapped φ_cmd first unsaturates. But φ_cmd then passes through the lateral stick's and the pedal's own saturations (`control_law.hpp:268-270`), which can hide the difference at k\* | **Register the exchange where the outputs actually differ.** The first differing record from the nominal 172.5° run is the reply at k†: the first exchange at or after k\* at which an exact replay of the two laws on the nominal run's recorded request gives different replies. The shipped law runs through `inputs_from(·, kNone)`, `evaluate` and `to_icd`. The unwrapped law runs through the variant's own substitution, written again in the test. The differing fields are exactly those the replay finds, a nonempty subset of {aileron, rudder}, and every record before is bitwise equal. The replay is exact because the control run equals the nominal bitwise until its first differing reply. If no such exchange occurs before the run ends, the control has not failed as registered, and the PR stops. The orders-of-magnitude failure after it is unchanged | §10, §9's one test |
+| P-04 | medium | §7's envelope guard (\|ψ\| < 90°) applies to "every pair and control", which includes the wrap control at 172.5° | Scope the signed-zero guard (\|ψ\| < 90°, \|φ\| < 90°, u > 0) to the meridian-mirror runs: the variant and shipped pairs, and the Ω-only, tables-only, sign-drop and doubled controls. The heading runs (the base, P, the two rotated runs, and the wrap control) get their own guards: no halt, u > 0, and \|θ\| < 80°, away from the 3-2-1 singularity. They need no signed-zero argument, because the yardstick is not by value | §7, §9 |
+
+**Status: awaiting Joe's decision on P-01 to P-04, before the first flight.**
+- §16 continues meanwhile with C1, the pre-flight facts, which none of the four touches.
+- C2's tests are written to the resolutions only after Joe decides.
