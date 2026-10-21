@@ -670,7 +670,7 @@ takes them as a prefix.
     floored at its own resolution by a dated deviation after the first flight. Five controls fail as registered,
     and R10's libm parity probe passes in every preset. Plan: [plan](docs/plans/m7b-pr4-f16-symmetry.md). Packet:
     in the PR body.
-  - PR 5 (#NN): M7b closeout, docs only. It checks M7b off with its evidence by requirement and the two dated
+  - PR 5 (#126): M7b closeout, docs only. It checks M7b off with its evidence by requirement and the two dated
     deviations, takes architecture §16's M7b row from planned to built with a note (rev 17), names the
     autopilot peer and the test peers in §4 and §10, the F-16 in §4, and ADR-0029 Decision 8's order in §18's
     step 5, points the three unscheduled M7 items at the proven pattern, and adds the per-step gate-timing

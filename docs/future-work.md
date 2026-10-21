@@ -25,6 +25,10 @@ In this order; Joe accepted it as proposed, with the decisions listed after it.
   the open items on the mass product-of-inertia convention, trim's control names and ADR-0002's wording; at
   its closeout the §15 envelope monitors moved to M8 and Earth/gravity rotation consistency to M9 (Joe,
   2026-10-15).
+- **M7b Closed-loop oracles** (added by Joe, 2026-10-15): three in-house oracles under
+  ADR-0034, in place of the verification M7's PR 11b, 12 and 15 would have drawn from the NESC closed-loop
+  ensemble: an exact sampled-data check, the autopilot's sim-side peer bitwise equal to `embedded/autopilot`,
+  and the F-16's mirror and heading symmetry. Closed out 2026-10-21.
 - **M8 Actuators and controller tuning:** the actuator models, gains loaded at startup, the tuning tool,
   frequency-domain and handling-qualities analysis. Takes the open items on deflection range, throttle
   jitter, linearize's altitude state and the `kSideslip` cleanup, and, first, the §15 envelope monitors (M7's
@@ -99,6 +103,8 @@ loop-at-a-time margins for the gains that ship.
   without a rebuild. This touches `embedded/` (ADR-0008's boundary) and possibly `icd/` (Tier 3).
 - **Close the loop with the real control law,** not a Python copy of it: through the existing lockstep
   `Session`, or an in-process binding of `astra_autopilot_lib`. Tuning a replica drifts from what flies.
+  M7b's in-process peer (`aircraft/notional_transport/sim/transport/autopilot`) is a replica the gate holds
+  bitwise equal to the program, so it serves only while a gain change reaches both sides.
 - **Levels:** spec-driven on the linear model (targets such as short-period damping, CAP, bandwidth and
   margins, solved for gains); time-domain on the nonlinear sim (rise time, overshoot and settling through
   the scenario harness); robustness (worst-case margins across Monte Carlo draws, and gain schedules over
@@ -117,7 +123,8 @@ loop-at-a-time margins for the gains that ship.
   (ADR-0013). The maneuver cases fly the NESC's own control laws, defined in DAVE-ML (Vol II): 13.x use
   `F16_control.dml` (stability augmentation and a three-axis autopilot) and 15 and 16 use `F16_gnc.dml`.
   Case 17 (two-stage rocket to orbit) is out of scope by Joe's call. Cases 15 and 16 are unscheduled (Joe,
-  2026-10-13: the NESC closed-loop ensemble is two members with loose maneuver bands).
+  2026-10-13: the NESC closed-loop ensemble is two members with loose maneuver bands); M7b's in-house oracles
+  (ADR-0034) took the place of the closed-loop verification it would have given.
 
 ## Model fidelity
 
@@ -161,7 +168,10 @@ loop-at-a-time margins for the gains that ship.
 - Fuzzing YAML config parsing and ICD decode (libFuzzer ships with clang-18).
 - A whole-tree gcc build: compiler-specific undefined behavior, and determinism across compilers.
 - Gate time: the full gate took 1001 s from a fresh configure on the PR #75 candidate, and 1162 s on
-  `406c407`, M7b PR 2's base (2026-10-18). Oracle (a) added 16 to 27 s, most of it pytest.
+  `406c407`, M7b PR 2's base (2026-10-18). Oracle (a) added 16 to 27 s, most of it pytest (1178 s on
+  `0bbc4fa`); oracle (b) took it to 1187 s (`a459cd9`); oracle (c) to 1294 s (`def7d91`), +107 s against
+  `a459cd9`, of which CTest was −3.2 s, pytest +16.0 s, and 94 s fell in steps the gate does not time.
+  PLAN.md's unscheduled per-step timing item would attribute such a delta.
 
 ## Documentation
 

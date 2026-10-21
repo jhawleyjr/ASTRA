@@ -34,7 +34,9 @@ Everything below is on `main` today.
   new-aircraft` start a new aircraft whose own tests build and run with no framework edit.
 - **The notional transport** ([aircraft/notional_transport/](aircraft/notional_transport/)). Linear-coefficient
   aero, constant mass, and a thrust-lapse turbofan, with parameters from JSBSim's example 737. Cruise configs
-  for still air and for light and moderate Dryden turbulence.
+  for still air and for light and moderate Dryden turbulence. Two more replace the shm transport with M4's
+  autopilot law as an in-process peer, bitwise equal to `embedded/autopilot`; `astra run` refuses both, as it
+  refuses any `transport` block.
 - **Trim and linearization.** `astra.trim` solves level trim on `Simulation.derivative` at any heading and
   under any shipped Earth model, with ω_b zero (the default) or the n frame's own rate (`rate_convention`).
   `astra.linearize` builds central-difference A and B matrices and reports the short-period, phugoid,
@@ -83,7 +85,10 @@ Everything below is on `main` today.
 - **Verification.** NASA's NESC atmospheric check cases 1 to 10 (`tests/physics/nesc/`,
   [ADR-0013](docs/decisions/0013-nesc-check-case-oracle.md)) and the F-16's cases 11, 12 and 13.1 to 13.4
   ([ADR-0028](docs/decisions/0028-f16-nesc-oracle.md)), ISA table points, the Dryden PSD, torque-free
-  energy and momentum conservation, and RK4's convergence order against Euler.
+  energy and momentum conservation, and RK4's convergence order against Euler. Three in-house closed-loop
+  oracles ([ADR-0034](docs/decisions/0034-in-house-oracle-rule.md)): a linear plant through the exchange stage
+  against its exact sampled-data solution, the autopilot's sim-side peer bitwise equal to `embedded/autopilot`,
+  and the F-16's mirror and heading symmetry under its control law.
 - **Frame-time benchmark.** `just benchmark <out.json>` times each `step()` of the notional transport's
   cruise configs and of `tests/configs/dummy_1000.yaml`, and logged runs end to end through `close_log()`, in a
   Release build. It writes JSON with the
@@ -407,7 +412,10 @@ made before code existed and the open questions deliberately deferred.
 
 Oracles are independent of the code under test, and they are human-owned. Goldens, tolerances and accepted ADRs
 change only with Joe's explicit authorization. The NESC cases are scored against the spread of the participating
-simulations ([ADR-0013](docs/decisions/0013-nesc-check-case-oracle.md)).
+simulations ([ADR-0013](docs/decisions/0013-nesc-check-case-oracle.md)). An in-house oracle's reference shares no
+code with the path under test beyond its named shared inputs, its bound is fixed before its first run, and its
+negative controls must fail
+([ADR-0034](docs/decisions/0034-in-house-oracle-rule.md)).
 
 `./scripts/check-fast.sh` wraps `just test-unit`, for iterating. `./scripts/check-full.sh` wraps `just check`,
 the definition of done. It builds and tests the debug, release, static-plugins and asan presets, then runs the
@@ -418,13 +426,12 @@ save GitHub Actions minutes, so a green `check` on GitHub is not evidence that t
 
 ## Roadmap
 
-M0 to M7 are done: bootstrap, rigid body, environment, the notional transport, lockstep with the embedded
-autopilot, tooling, analysis tooling, and the F-16 with the NESC oracle (cases 11, 12 and 13.1 to 13.4, and
-the config-key reference). Cases 15 and 16, the embedded port and the tutorial left M7 unscheduled (Joe,
-2026-10-13). Next, in order:
+M0 to M7b are done: bootstrap, rigid body, environment, the notional transport, lockstep with the embedded
+autopilot, tooling, analysis tooling, the F-16 with the NESC oracle (cases 11, 12 and 13.1 to 13.4, and the
+config-key reference), and three in-house closed-loop oracles (an exact sampled-data check, a sim-side peer
+bitwise equal to M4's embedded autopilot, and the F-16's mirror and heading symmetry). Cases 15 and 16, the
+embedded port and the tutorial left M7 unscheduled (Joe, 2026-10-13). Next, in order:
 
-- **M7b Closed-loop oracles:** an exact sampled-data check, a sim-side peer bitwise equal to M4's embedded
-  autopilot, and F-16 symmetry tests, each with an independent reference and a pre-registered bound.
 - **M8 Actuators and controller tuning:** the envelope monitors (ADR-0031) first, then actuator models with
   rate and position limits, gains loaded at startup, a tuning tool, frequency-domain and handling-qualities
   analysis.
