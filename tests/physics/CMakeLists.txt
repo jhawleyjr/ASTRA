@@ -80,7 +80,8 @@ gtest_discover_tests(astra_physics_tests TEST_PREFIX "physics." DISCOVERY_MODE P
 # ../support/alloc_counter.cpp, for the smokes' zero-allocation counts, as in astra_physics_tests.
 add_executable(astra_f16_symmetry_tests
   ../support/alloc_counter.cpp
-  nesc/f16_symmetry_probe_test.cpp)
+  nesc/f16_symmetry_probe_test.cpp
+  nesc/f16_symmetry_smoke_test.cpp)
 target_link_libraries(astra_f16_symmetry_tests PRIVATE astra::core GTest::gtest_main)
 astra_add_plugin_test(astra_f16_symmetry_tests)
 target_compile_definitions(astra_f16_symmetry_tests PRIVATE
@@ -88,6 +89,22 @@ target_compile_definitions(astra_f16_symmetry_tests PRIVATE
   "ASTRA_AIRCRAFT_DIR=\"${ASTRA_SOURCE_DIR}/aircraft\"")
 gtest_discover_tests(astra_f16_symmetry_tests TEST_PREFIX "physics." DISCOVERY_MODE PRE_TEST
                      PROPERTIES LABELS physics)
+
+# The oracle's flights (section 12): the variant and shipped pairs, the five controls and heading
+# invariance, registered ONLY in a Release build, the release preset (tests/lockstep's stress-test
+# precedent): about 1.08 M frames and 2.9 M derivative calls, about 6 s there (section 1). Labeled
+# physics, never unit.
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+  add_executable(astra_f16_symmetry_flight_tests
+    nesc/f16_symmetry_mirror_test.cpp
+    nesc/f16_symmetry_heading_test.cpp)
+  target_link_libraries(astra_f16_symmetry_flight_tests PRIVATE astra::core GTest::gtest_main)
+  astra_add_plugin_test(astra_f16_symmetry_flight_tests)
+  target_compile_definitions(astra_f16_symmetry_flight_tests PRIVATE
+    "ASTRA_TEST_PLUGIN_DIR=\"${ASTRA_PLUGIN_OUTPUT_DIR}\"")
+  gtest_discover_tests(astra_f16_symmetry_flight_tests TEST_PREFIX "physics." DISCOVERY_MODE PRE_TEST
+                       PROPERTIES LABELS physics)
+endif()
 
 # docs/plans/pr4-notional-aero-turbofan.md, R2/R5: PLAN.md's own PR 4 acceptance line names
 # tests/physics/notional_transport/ for the hand-picked-condition tests that "exercise the rebuilt
