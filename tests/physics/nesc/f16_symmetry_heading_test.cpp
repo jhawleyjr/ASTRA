@@ -9,6 +9,9 @@
 // record k, |d_c(k)| <= F Y_c(k), with d_c the rotated run's value minus the base run's, and Y_c(k)
 // the largest |x_p,c(s) - x_base,c(s)| over p in P and every record s <= k (decision 2's running
 // maximum). F = 2^24 and P are section 9's, fixed before any run and never adjusted after one.
+// Section 9's deviation (2026-10-20, Joe, under ADR-0034 Decision 3) floors Y per channel at the
+// yardstick's own resolution, ulp(max over the whole base run of |x_base,c(s)|), after the first
+// flight found Y exactly 0 where P never moves a channel by one ulp of itself.
 //
 // The relation is the reference (section 3): the horizontal position rotated back by -psi0, and the
 // wrap of psi - psi0, both in long double with cosl, sinl and remainderl. It never calls frames::,
@@ -138,6 +141,31 @@ void running_max(Rows<C>& y) {
     for (std::size_t c = 0; c < C; ++c) {
       y[k][c] = std::max(y[k][c], y[k - 1][c]);
     }
+  }
+}
+
+// Section 9's deviation (2026-10-20, Joe, under ADR-0034 Decision 3): the yardstick's own
+// resolution. P perturbs by one ulp, so a channel whose measured divergence is below one ulp of
+// itself reads 0. Y_c(k) is floored, per channel and never per record, at ulp(max over the whole
+// base run of |x_base,c(s)|), the spacing above it as P's delta is, in every compared channel
+// alike. The base run's channels are its own doubles (psi0 = 0 rotates and wraps nothing), so the
+// cast is exact.
+template <std::size_t C>
+void floor_at_resolution(Rows<C>& y, const Rows<C>& base, std::string_view stream,
+                         const std::array<std::string_view, C>& names) {
+  for (std::size_t c = 0; c < C; ++c) {
+    double largest = 0.0;
+    for (const auto& row : base) {
+      largest = std::max(largest, std::abs(static_cast<double>(row[c])));
+    }
+    const double resolution =
+        std::nextafter(largest, std::numeric_limits<double>::infinity()) - largest;
+    for (auto& row : y) {
+      row[c] = std::max(row[c], static_cast<Real>(resolution));
+    }
+    std::cout << std::format("floor: {} {}: max |x_base| {:.6e}, ulp {:.3e}, F times it {:.3e}\n",
+                             stream, names[c], largest, resolution,
+                             static_cast<double>(kF) * resolution);
   }
 }
 
@@ -346,6 +374,10 @@ TEST(F16SymmetryHeading, ThreeHeadingsAndTheUnwrappedControl) {
   running_max(y_states);
   running_max(y_requests);
   running_max(y_replies);
+  // Section 9's deviation: Y floored per channel at the yardstick's resolution.
+  floor_at_resolution(y_states, base_channels.states, "state", kStateChannelNames);
+  floor_at_resolution(y_requests, base_channels.requests, "request", kRequestChannelNames);
+  floor_at_resolution(y_replies, base_channels.replies, "reply", sym::kReplyNames);
 
   // The two rotated runs, q0 from the config (euler_nb [psi0, theta, 0]): the route by which only
   // the initial quaternion's heading changed.

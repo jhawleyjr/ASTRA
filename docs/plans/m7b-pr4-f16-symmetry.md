@@ -13,7 +13,10 @@ Status: **approved by Joe, 2026-10-20, on his word.**
   F16Symmetry tests, is written to this revision (`a1c86ed`).
 - **The first flight ran on 2026-10-20 at `a1c86ed` (§19).** Every mirror pair and every control met its
   registration. Heading invariance missed: both rotated runs exceed F·Y only where P's yardstick is exactly 0.
-  That is a nominal miss, and the PR stops for Joe's decision (§19). F, P and the bound are unchanged.
+  That is a nominal miss, and the PR stopped for Joe's decision (§19).
+- **Joe's fourth decision (2026-10-20): option 1,** recorded as §9's deviation under ADR-0034 Decision 3. Y is
+  floored per channel at the yardstick's own resolution; F and P are unchanged. The rerun is the second flight
+  (§20).
 - This file was moved (`mv`, before its first add) from the main checkout's plan-mode draft into the worktree as
   `docs/plans/m7b-pr4-f16-symmetry.md`. Nothing stays in the main checkout.
 
@@ -835,6 +838,48 @@ inside F's estimate.
 
 F and P are never adjusted after any run.
 
+**Deviation, 2026-10-20 (Joe), under ADR-0034 Decision 3: Y is floored at the yardstick's own resolution.** The
+registration above stays as written. F = 2²⁴ and P are unchanged.
+- **The original registration:** |d_c(k)| ≤ F·Y_c(k), with Y_c(k) the running maximum over P and over records s ≤ k
+  of |x_p,c(s) − x_base,c(s)|, and no floor.
+- **The miss, at the first flight** (`a1c86ed`; §19; `a1c86ed-f16-symmetry-first-flight.log`). Both rotated runs
+  exceeded F·Y only at records where Y was exactly 0:
+
+  | Run | Channel | Records with Y = 0 and d ≠ 0 | Largest d there |
+  |---|---|---|---|
+  | 0.6 rad | state u | 10,470 (Y is 0 all run) | 30 ulps |
+  | 0.6 rad | altitude, state and request | 11,547 and 1,156 (Y is 0 all run) | 7 ulps |
+  | 172.5° | state u | 4,181 (Y is 0 all run) | 8 ulps |
+  | 172.5° | altitude, state and request | 5,206 and 521 (Y is 0 all run) | 1 ulp |
+  | 172.5° | state w, request α | 5 (records 40 to 44) and 1 (request 4) | 1 ulp |
+
+  Where Y > 0, the worst ratio in either rotated run was 2.9e-4.
+- **The cause.** A one-ulp attitude perturbation moves u and the altitude by less than half an ulp of themselves
+  per frame, so the increment rounds away and Y is exactly 0. The rotated runs' attitude arithmetic rounds
+  differently every frame. In w and α, the rotated runs' rounding reached them a few records before P's divergence
+  did.
+- **The floor is the yardstick's own resolution, not a fitted number.** P perturbs by one ulp, so a channel whose
+  measured divergence is below one ulp of itself reads as zero. The bound there is F times that resolution.
+  - **Defined per channel, never per record,** so the zero case never arises:
+
+    Y_c(k) = max(the running maximum over P and s ≤ k, ulp(max over the whole base run of |x_base,c(s)|)).
+  - It applies uniformly to every compared channel, never only to the channels that missed.
+  - ulp(x) is the spacing above x, as P's own δ is.
+  - The bound stays |d_c(k)| ≤ F·Y_c(k).
+- **The floors in SI** are about 2.8e-14 m/s for u and about 4.5e-13 m for the altitude. The test prints every
+  channel's floor, from the base run, and F times it. The base run is bitwise the first flight's, and §20 records
+  the printed values.
+- **The counterfactual,** computed after the first flight with a per-record floor ulp(x_base,c(k)) (the
+  first-flight log's part 4):
+  - the rotated runs' worst ratio would be 1.24e-4;
+  - the wrap control would still fail by at least 2.9e6 (N), 3.3e7 (ψ − ψ0) and 3.5e7 (E), against 10³.
+- **The options rejected:**
+  - extending P with ±1 ulp of u and of the altitude, which leaves the early w and α records unexcited, and
+    changes the brief's set;
+  - recording R13 as not met in u and the altitude, which narrows the comparison.
+- **The record.** The first-flight log stands as the record of the miss. The rerun is the second flight, recorded
+  as such in §20, with every other registration still required, on one build and one worktree state.
+
 **The heading runs' guards** (P-04, 2026-10-20, Joe). These are asserted on every record of the base run, the
 eight perturbed runs, the two rotated runs and the wrap control, in place of §7's signed-zero guard:
 - no halt;
@@ -1324,3 +1369,8 @@ revision.
 
 **Recommended: option 1.** It is the smallest change, it follows F's own derivation, it covers the early-record
 misses as well, and it leaves the wrap control's failure three to four orders of magnitude above its 10³.
+
+**Decided, 2026-10-20 (Joe): option 1,** with the floor defined per channel, not per record, and applied to every
+compared channel. It is recorded as §9's deviation, beside the original registration. The test's only change is
+that floor (`floor_at_resolution`, with comments citing §9's deviation). This log stands as the record of the miss,
+and the rerun is the second flight (§20).
