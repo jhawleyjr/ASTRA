@@ -39,6 +39,8 @@
 //   with C_nb from the frame's 3-2-1 Euler angles through core/util/frames and Omega =
 //   geodesy::kOmegaIe. The peer cannot see the configured Earth model, so it assumes a rotating
 //   WGS-84 Earth (the plan's Q4): under a non-rotating geodetic Earth it still subtracts Omega.
+//   EarthRate::kNone subtracts nothing; only tests/plugins/nesc_control_variant selects it (the M7b
+//   plan's Q10).
 //
 // Pure functions of their arguments: no Config, no allocation, no exceptions, no clock.
 #pragma once
@@ -311,6 +313,13 @@ struct IcdCommands {
   return a0 * mach * std::sqrt(p_over_p0);
 }
 
+// What the law subtracts from ICD v1's inertial body rate (ADR-0029 Decision 7; the M7b plan's Q10,
+// docs/plans/m7b-pr4-f16-symmetry.md section 2). The shipped peer uses only kWgs84Rotating.
+enum class EarthRate : std::uint8_t {
+  kWgs84Rotating,  // geodesy::kOmegaIe, under any Earth model (the M7 plan's Q4)
+  kNone,           // nothing: tests/plugins/nesc_control_variant only (M7b PR 4)
+};
+
 // The body rate relative to the Earth from the frame alone (ADR-0029 Decision 7).
 [[nodiscard]] inline Eigen::Vector3d earth_relative_rate(const astra_sim_to_sw_v1& frame) noexcept {
   const Eigen::Matrix3d c_nb =
@@ -320,19 +329,24 @@ struct IcdCommands {
   return Eigen::Vector3d{frame.p, frame.q, frame.r} - c_nb * omega_ie_n;
 }
 
-// The refusal bits for a frame: the refused ICD status bits it carries, plus
-// kRefusalMachNotPositive when Mach is not above zero. 0 means the law may run.
-[[nodiscard]] inline std::uint32_t refusal_bits(const astra_sim_to_sw_v1& frame) noexcept {
-  std::uint32_t bits = frame.status_flags & kRefusedStatusBits;
+// The refusal bits for a frame: the refused ICD status bits it carries (`refused`, by default
+// kRefusedStatusBits), plus kRefusalMachNotPositive when Mach is not above zero. 0 means the law
+// may run.
+[[nodiscard]] inline std::uint32_t refusal_bits(
+    const astra_sim_to_sw_v1& frame, std::uint32_t refused = kRefusedStatusBits) noexcept {
+  std::uint32_t bits = frame.status_flags & refused;
   if (!(frame.mach > 0.0)) {
     bits |= kRefusalMachNotPositive;
   }
   return bits;
 }
 
-// The law's inputs from an unrefused frame.
-[[nodiscard]] inline Inputs inputs_from(const astra_sim_to_sw_v1& frame) noexcept {
-  const Eigen::Vector3d omega_eb = earth_relative_rate(frame);
+// The law's inputs from an unrefused frame. kNone reads neither lat nor lon.
+[[nodiscard]] inline Inputs inputs_from(const astra_sim_to_sw_v1& frame,
+                                        EarthRate earth_rate = EarthRate::kWgs84Rotating) noexcept {
+  const Eigen::Vector3d omega_eb = earth_rate == EarthRate::kWgs84Rotating
+                                       ? earth_relative_rate(frame)
+                                       : Eigen::Vector3d{frame.p, frame.q, frame.r};
   Inputs in;
   in.altitude = frame.altitude;
   in.eas = equivalent_airspeed(frame.cas, frame.mach);

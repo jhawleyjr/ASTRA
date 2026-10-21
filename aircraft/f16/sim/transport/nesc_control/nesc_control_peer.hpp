@@ -33,6 +33,9 @@
 // Earth's rate, geodesy::kOmegaIe, from ICD v1's inertial body rates. The peer sees only the ICD
 // frame and its own config block, so it cannot see the configured Earth model. A flat Earth is
 // refused at every frame (LATLON_NOT_MODELED); a geodetic non-rotating Earth is not detected.
+// Options::earth_rate = kNone (the M7b plan's Q10; tests/plugins/nesc_control_variant only)
+// subtracts nothing, and then refuses LATLON_NOT_MODELED only with 13.4's lateral offset, the one
+// path left that reads lat or lon (update_lateral_deviation).
 //
 // Signals (registered at init, held between exchanges; R13 excludes transport.* by construction):
 //   transport.peer.refusal                     | 1   | the last exchange's refused bits; 0 if none
@@ -76,6 +79,9 @@ struct Options {
   // false: the base point latches from the frame-0 exchange (decided). true: from the lateral
   // offset's frame (Q27's reported variant "the decided line through the position at 20 s").
   bool latch_at_offset_frame = false;
+  // kWgs84Rotating: the shipped peer's Earth rate (the M7 plan's Q4). kNone: none, for M7b PR 4's
+  // mirror and heading runs (the M7b plan's Q10, docs/plans/m7b-pr4-f16-symmetry.md section 2).
+  law::EarthRate earth_rate = law::EarthRate::kWgs84Rotating;
 };
 
 class NescControlPeer : public astra::Transport {
@@ -95,6 +101,11 @@ class NescControlPeer : public astra::Transport {
     if (peer.has("lateral_offset")) {
       read_lateral_offset(peer.at("lateral_offset"));
     }
+    // ADR-0029 Decision 2 refuses a flat Earth on the paths that read lat or lon. Under kNone the
+    // Earth rate reads neither, so only 13.4's lateral offset does (update_lateral_deviation).
+    refused_ = options_.earth_rate == law::EarthRate::kNone && !offset_.configured
+                   ? law::kRefusedStatusBits & ~ASTRA_ICD_STATUS_LATLON_NOT_MODELED
+                   : law::kRefusedStatusBits;
     reset();
     registry.add("transport.peer.refusal", &refusal_, "1");
     registry.add("transport.peer.equivalent_airspeed", &equivalent_airspeed_, "m/s");
@@ -129,7 +140,7 @@ class NescControlPeer : public astra::Transport {
     reply_.frame = request.frame;
     pending_ = seq;
 
-    std::uint32_t refused = law::refusal_bits(request);
+    std::uint32_t refused = law::refusal_bits(request, refused_);
     // 13.4's base point latches from the frame-0 exchange only (ADR-0029 Decisions 2 and 6): a
     // first exchange whose frame is not 0 is refused, and so is every later one while no base
     // point has latched (a refused frame 0 latches nothing). The reported variant that latches
@@ -152,7 +163,7 @@ class NescControlPeer : public astra::Transport {
     }
     update_lateral_deviation(request);
 
-    const law::Inputs in = law::inputs_from(request);
+    const law::Inputs in = law::inputs_from(request, options_.earth_rate);
     equivalent_airspeed_ = in.eas;
     const law::IcdCommands icd =
         law::to_icd(law::evaluate(in, commands_, trim_, law::Modes{}, references_));
@@ -364,6 +375,7 @@ class NescControlPeer : public astra::Transport {
   }
 
   Options options_;
+  std::uint32_t refused_ = law::kRefusedStatusBits;
   law::Trim trim_{};
   double trim_theta_ = 0.0;
   law::References references_{};
