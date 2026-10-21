@@ -1,0 +1,48 @@
+date: 2026-10-21T00:23:17-07:00 (start 2026-10-21T00:01:43-07:00)
+command: rm -rf build && ./scripts/check-full.sh
+base: fe922b0e08bbac5d818452283e1b7882a0e3f6d6
+head: def7d911558a26cea1734ecf69011d7f6a5857a9
+exit: 0
+duration: 1294 s
+purpose: M7b PR 4's full gate, after the second flight (docs/plans/m7b-pr4-f16-symmetry.md, sections 1 and 20)
+checkout: worktree m7b-pr4-f16-symmetry at def7d91, clean tree (0 uncommitted paths); `rm -rf build` first;
+  .venv existed (made earlier in this PR's sessions, untimed; `just venv` not rerun before the gate)
+against PR 3's gate on a459cd9 (1187 s): +107 s; against PR 2's gate on 0bbc4fa (1178 s): +116 s; against 1001 s:
+  +293 s
+per preset: CTest debug 111.05 s (838 tests; PR 3 111.01 s, 824), release 12.07 s (849; 11.96 s, 825),
+  static-plugins 230.01 s (840; 228.97 s, 826), asan 422.86 s (841; 427.26 s, 827): -3.21 s summed;
+  pytest 167.77 s (2160 passed, 5 skipped; PR 3 151.80 s, the same counts): +15.97 s, with no Python changed
+  by this PR. The other +94 s fall in the builds, tidy, pyright, the python build and the scans, which the
+  gate does not time separately.
+this PR's tests (F16Symmetry, per-test times summed, under ctest --parallel 32): debug 14 tests 5.70 s,
+  release 24 tests 2.85 s (the flights' slowest 0.64 s, the 13.4 shipped pair), static-plugins 14 tests 13.88 s,
+  asan 14 tests 19.53 s (slowest each EachHookAndDefectFliesWithoutAllocating: 3.22, 8.58 and 12.36 s).
+  Section 1 estimated about 6 s in release, and under 10 s per other preset: static-plugins and asan exceed
+  that estimate under the gate's load (asan's 14 took 8.6 s together, run alone at the first flight).
+load check before the timed run: loadavg 0.25 3.42 7.16; no build process, no pytest, no clangd; nproc 32
+load check after the timed run: loadavg 6.82 18.66 15.10 (the gate's own load decaying); no build process,
+  no pytest, no clangd
+
+docs-check: OK (25 Markdown files checked)
+embedded-standalone: OK
+hooks: 195 passed, 0 failed
+All checks passed!
+Test project <worktree>/build/debug
+100% tests passed, 0 tests failed out of 838
+Total Test time (real) = 111.05 sec
+Test project <worktree>/build/release
+100% tests passed, 0 tests failed out of 849
+Total Test time (real) =  12.07 sec
+Test project <worktree>/build/static-plugins
+100% tests passed, 0 tests failed out of 840
+Total Test time (real) = 230.01 sec
+Test project <worktree>/build/asan
+100% tests passed, 0 tests failed out of 841
+Total Test time (real) = 422.86 sec
+wallclock-scan: OK (67 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (67 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (67 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+wallclock-scan: OK (67 TUs scanned; allowlisted: embedded/hal/shm/hal_shm_wait.cpp, plugins/sim/transport/shm/shm_wait.cpp)
+0 errors, 0 warnings, 0 informations
+2160 passed, 5 skipped in 167.77s (0:02:47)
+check: OK

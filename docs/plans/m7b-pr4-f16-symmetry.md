@@ -206,6 +206,35 @@ after the first flight, in PR 3's §1 form:
 
 The full log stays outside git. Its trimmed summary is committed as `docs/reviews/evidence/<head>-gate-summary.log`.
 
+**Recorded 2026-10-21: the full gate on `def7d91`** (`docs/reviews/evidence/def7d91-gate-summary.log`).
+- **The run.** `rm -rf build && ./scripts/check-full.sh` from the clean worktree, in the background: exit 0 and
+  `check: OK`, in 1294 s. `.venv` existed, so `just venv` did not run.
+- **The load check.** Before the run, no build, pytest or clangd process was running, with loadavg 0.25 on 32
+  cores. After it, the same, with the gate's own load decaying.
+- **Against the bases:** +107 s against PR 3's 1187 s (`a459cd9`), +116 s against PR 2's 1178 s (`0bbc4fa`), and
+  +293 s against 1001 s.
+- **Per preset**, against PR 3's gate:
+
+  | Preset | CTest time | Tests | PR 3's gate |
+  |---|---|---|---|
+  | debug | 111.05 s | 838 | 111.01 s, 824 |
+  | release | 12.07 s | 849 | 11.96 s, 825 |
+  | static-plugins | 230.01 s | 840 | 228.97 s, 826 |
+  | asan | 422.86 s | 841 | 427.26 s, 827 |
+
+  Summed, CTest is −3.21 s. pytest took 167.77 s (2160 passed, 5 skipped) against 151.80 s with the same counts:
+  +15.97 s, with no Python changed by this PR. The other +94 s fall in the builds, tidy, pyright, the python build
+  and the scans, which the gate does not time separately.
+- **This PR's tests** (per-test times summed, under `--parallel 32`):
+  - release: 24 tests, 2.85 s, against the estimate of about 6 s (Joe accepted about 6 s under Q3);
+  - debug: 14 tests, 5.70 s;
+  - static-plugins: 14 tests, 13.88 s;
+  - asan: 14 tests, 19.53 s.
+
+  **Two presets missed the estimate.** The "under 10 s" estimate held in debug but not in static-plugins or asan,
+  under the gate's load. Run alone at the first flight, asan's 14 took 8.6 s together. The slowest in each
+  is `F16SymmetrySmoke.EachHookAndDefectFliesWithoutAllocating`.
+
 ## 2. What is built
 
 Code goes only where the brief names. There is no `core/`, `icd/`, `embedded/`, golden or tolerance change.
