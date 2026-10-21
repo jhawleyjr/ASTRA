@@ -1374,3 +1374,43 @@ misses as well, and it leaves the wrap control's failure three to four orders of
 compared channel. It is recorded as §9's deviation, beside the original registration. The test's only change is
 that floor (`floor_at_resolution`, with comments citing §9's deviation). This log stands as the record of the miss,
 and the rerun is the second flight (§20).
+
+## 20. The second flight (§9's deviation)
+
+**Recorded 2026-10-20, at `9116375`**, on a clean tree with one release build
+(`docs/reviews/evidence/9116375-f16-symmetry-second-flight.log`). Its only change from the first flight is §9's
+deviation: the floor in `floor_at_resolution`. The first flight's record (§19) stands.
+- `ctest --preset release -R F16Symmetry -N` listed 24 tests. The run exited 0: 24 of 24 passed, in 2.03 s.
+- **Every other registration is still met.** The nine mirror tests' printed output is identical, line for line,
+  to the first flight's, and the smokes and the probe pass as before.
+
+**The floors** (§9's deviation), as the test printed them from the base run, with F times each:
+
+| Channel | max \|x_base\| | Floor, ulp of it | F × floor |
+|---|---|---|---|
+| state u | 172.24 m/s | 2.842e-14 m/s | 4.768e-07 m/s |
+| state v | 12.200 m/s | 1.776e-15 m/s | 2.980e-08 m/s |
+| state w | 12.063 m/s | 1.776e-15 m/s | 2.980e-08 m/s |
+| state p | 3.0389 rad/s | 4.441e-16 rad/s | 7.451e-09 rad/s |
+| state q | 0.11436 rad/s | 1.388e-17 rad/s | 2.328e-10 rad/s |
+| state r | 0.22409 rad/s | 2.776e-17 rad/s | 4.657e-10 rad/s |
+| state N, rotated back | 5,122.0 m | 9.095e-13 m | 1.526e-05 m |
+| state E, rotated back | 459.31 m | 5.684e-14 m | 9.537e-07 m |
+| state altitude (−D) | 3,052.0 m | 4.547e-13 m | 7.629e-06 m |
+| request φ | 0.64670 rad | 1.110e-16 rad | 1.863e-09 rad |
+| request θ | 0.051063 rad | 6.939e-18 rad | 1.164e-10 rad |
+| request α | 0.070037 rad | 1.388e-17 rad | 2.328e-10 rad |
+| request β | 0.070813 rad | 1.388e-17 rad | 2.328e-10 rad |
+| request altitude | 3,052.0 m | 4.547e-13 m | 7.629e-06 m |
+| request ψ − ψ0, wrapped | 0.26022 rad | 5.551e-17 rad | 9.313e-10 rad |
+| reply elevator | 0.18049 rad | 2.776e-17 rad | 4.657e-10 rad |
+| reply aileron | 0.37525 rad | 5.551e-17 rad | 9.313e-10 rad |
+| reply rudder | 0.52060 rad | 1.110e-16 rad | 1.863e-09 rad |
+| reply throttle[0] and [1] | 0.17577 | 2.776e-17 | 4.657e-10 |
+
+**Heading invariance (§9) is met** under the deviation.
+- Both rotated runs stay within F·Y at every record of every channel. The worst ratio is 1.24e-4 (θ at 0.6 rad,
+  request 1568), the counterfactual's value.
+- **The wrap control (§10) fails as registered, as before.** The replay precondition holds, k\* = k† = exchange
+  2089, and the first differing record is reply 2089 in exactly {aileron, rudder}. After it, max |d|/(F·Y) is
+  3.26e7 in ψ − ψ0, 2.91e6 in N and 3.47e7 in E, against 10³.
