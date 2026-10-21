@@ -812,6 +812,35 @@ Also, F16Aero's check data (`aircraft/f16/tests/f16_checkdata.hpp`) and F16Contr
 origin/main -- aircraft/f16/tests` is empty, and they pass in every preset in the gate. A difference anywhere stops
 the PR and goes to Joe.
 
+**Recorded 2026-10-20** (`docs/reviews/evidence/m7b-pr4-r15/r15_before_after.log`; exit 0, "OK: every recorder,
+state stream and log object is byte-equal").
+- **Sequencing.** C2 is committed in two parts, C2a (the hooks and variants, `2000d74`) and C2b (the
+  F16Symmetry tests). C2b waits for Joe's decision on P-01 to P-04 (§18), so R15, which needs only the hooks,
+  ran at C2a.
+- **The two builds.** The "before" plugins were saved from `build/python` built at `eb8a167`, the plan's
+  critique-record commit, before any hook. The "after" plugins are `build/python` rebuilt at `2000d74`.
+- **The run.** It ran at `12d1b1e` (C2a plus this script), on a clean tree, with HEAD and status equal before the
+  first run and after the last.
+- **What changed between the builds.** `git diff eb8a167..HEAD -- core icd` is empty. `-- aircraft plugins`
+  lists only the three hooked headers.
+- **The swapped plugins.**
+  - aero: before `9297c9ea…7f68`, after `85e84ece…a4fe`;
+  - nesc_control: before `44db178d…6d49`, after `5a1fc6e0…8c28`.
+
+  Both pairs appear in each log's `/plugins`, so each pass ran the binary it names.
+- **The comparisons:**
+
+  | Run | Compared | Bytes | sha256 | Log objects |
+  |---|---|---|---|---|
+  | 13.3 | recorder | 4,152,536 | `d7c15d27…29ff` | 31, 0 differing |
+  | 13.4 | recorder | 8,304,536 | `6bbcc697…263c` | 31, 0 differing |
+  | Case 11, open loop | state stream | 25,920,144 | `724ffd60…f5a8` | 31, 0 differing |
+
+  Each is byte-equal. `git_describe` is `2000d74` in both passes of each, so one libastra_core build, as PR 3's
+  O11 reads it.
+- **F16Aero and F16Control:** `git diff origin/main -- aircraft/f16/tests` is empty, and `ctest --preset asan
+  -R 'F16Aero|F16Control'` passed 48 of 48 at C2a.
+
 ## 12. Smokes, pins, labels and the stop hook
 
 **`astra_f16_symmetry_tests`, every preset** (it links `alloc_counter.cpp`):
