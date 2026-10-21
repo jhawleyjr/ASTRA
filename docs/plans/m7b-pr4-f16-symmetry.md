@@ -9,8 +9,11 @@ Status: **approved by Joe, 2026-10-20, on his word.**
 - The Codex plan critique ran on 2026-10-20, with verdict rework. Its four findings, P-01 to P-04, were accepted.
   Joe's third decision (2026-10-20) accepted their resolutions with six conditions, each folded in below as a
   dated deviation ("Joe's decisions"; §18).
-- C1 (the pre-flight facts) and C2a (the hooks and the variants) are committed, and R15 passes (§11). Nothing of
-  the path under test has flown. C2b, the F16Symmetry tests, is written to this revision.
+- C1 (the pre-flight facts) and C2a (the hooks and the variants) are committed, and R15 passes (§11). C2b, the
+  F16Symmetry tests, is written to this revision (`a1c86ed`).
+- **The first flight ran on 2026-10-20 at `a1c86ed` (§19).** Every mirror pair and every control met its
+  registration. Heading invariance missed: both rotated runs exceed F·Y only where P's yardstick is exactly 0.
+  That is a nominal miss, and the PR stops for Joe's decision (§19). F, P and the bound are unchanged.
 - This file was moved (`mv`, before its first add) from the main checkout's plan-mode draft into the worktree as
   `docs/plans/m7b-pr4-f16-symmetry.md`. Nothing stays in the main checkout.
 
@@ -1257,3 +1260,67 @@ with six conditions. Each is folded in as a dated deviation:
 
 C1 ran before the decision, as §16 allowed, and none of the four touches it. C2b's tests are written to this
 revision.
+
+## 19. The first flight (§16, step 7)
+
+**Recorded 2026-10-20, at `a1c86ed`** (C2b), on a clean tree with one build per preset
+(`docs/reviews/evidence/a1c86ed-f16-symmetry-first-flight.log`).
+- `ctest --preset release -R F16Symmetry -N` listed 24 tests. The run exited 8: 23 of 24 passed, in 4.21 s.
+- The smokes passed 14 of 14 in debug and in static-plugins. The asan acceptance command (62 by `-N`) passed 62 of
+  62, exit 0, with the 14 F16Symmetry tests at 8.6 s together.
+
+**What met its registration:**
+- **The variant pairs** (§7). No record of any stream differs under the mask: 30,002 states and 3,001 exchanges
+  per run for 13.3, and 60,002 and 6,001 for 13.4. The prefix, the header counts and the guard held.
+- **The shipped pairs** (§8). The stage rebuild matched bit for bit at every frame of all four runs. Parts (a) to
+  (c) held at all 120,005 operands of each 13.3 run and all 240,005 of each 13.4 run, and (d) and (e) at all 3,001
+  and 6,001 exchanges: 0 part failures. The trajectory report and the aileron reversals (21 and 22 for 13.3, 22
+  and 23 for 13.4) are in the log.
+- **The Ω-only control:** its first differing record is reply 0, in exactly {aileron, rudder}.
+- **The tables-only and sign-drop controls:** each first differs at state 15,001 (S + 1), with p and r among the
+  fields.
+- **The doubled control,** both runs of both shapes. The first failure is part (c) at frame 0's stage-2 operand, in
+  ṗ and ṙ, then (c) at operands 3 and 4 and at state 1; no other part fails. The measured differences at that
+  operand are 169,566 ulps of ṗ and 33,778,928 ulps of ṙ, against the registered 1.70e5 and 3.38e7 (§10).
+- **The wrap control** (§10). The replay precondition held at every exchange. k\* = k† = exchange 2089 (frame
+  20,890), and the first record differing from the nominal run is reply 2089, in exactly {aileron, rudder}, the
+  replay's fields. After it, max |d|/(F·Y) is 3.26e7 in ψ − ψ0, 3.72e8 in N and 3.47e7 in E, against 10³.
+
+**What missed: heading invariance (§9).** This is a nominal miss, and it stops the PR for Joe.
+- Both rotated runs exceed F·Y only at records where Y is exactly 0. A post-flight diagnostic (the log's part 4: a
+  temporary, uncommitted, reporting-only edit, since restored) measured where:
+
+  | Run | Channel | Records with Y = 0 and d ≠ 0 | Largest d there |
+  |---|---|---|---|
+  | 0.6 rad | state u | 10,470 (Y is 0 all run) | 30 ulps |
+  | 0.6 rad | altitude, state and request | 11,547 and 1,156 (Y is 0 all run) | 7 ulps |
+  | 172.5° | state u | 4,181 (Y is 0 all run) | 8 ulps |
+  | 172.5° | altitude, state and request | 5,206 and 521 (Y is 0 all run) | 1 ulp |
+  | 172.5° | state w, request α | 5 (records 40 to 44) and 1 (request 4) | 1 ulp |
+
+- **Where Y > 0,** the largest ratio in either rotated run is 2.9e-4, about 2⁻¹².
+- **The stated cause.** P moves only the quaternion (Q12). Its eight runs never move u or the altitude by even one
+  ulp over the whole run, so Y is 0 in those channels throughout. In w and α, the rotated run's attitude roundoff
+  reached them a few records before P did. A zero yardstick demands bitwise equality, but the rotated runs carry
+  the per-frame rounding of a different attitude arithmetic. §9's estimate of F assumed that P excites every
+  compared direction at least 2⁻⁴ as strongly as the per-frame injection. In u and the altitude, P does not excite
+  them at all.
+- **Nothing is changed.** F, P, the compared quantities and the bound stand as registered, and the test stays
+  failing.
+
+**For Joe.** Each option is a dated deviation from §9, decided after the rotated runs have flown:
+1. **Floor the yardstick at one ulp of the base run's value:** Y′_c(k) = max(Y_c(k), ulp(x_base,c(k))). A channel P
+   does not excite is then held to F ulps of itself, the one ulp of initial injection that F's estimate counts
+   from.
+   - The diagnostic's counterfactual: the rotated runs' worst ratio would be 1.24e-4 (θ at 0.6 rad). The wrap
+     control's would be 2.9e6 in N, 3.3e7 in ψ − ψ0 and 3.5e7 in E, still above 10³.
+   - Its limit: in u and the altitude the check becomes a roundoff ceiling of 2²⁴ ulps (about 4.8e-7 m/s and
+     7.6e-6 m), not a measured sensitivity.
+2. **Extend P** with ±1 ulp of u and of the altitude, four more runs, so that Y measures those channels. The
+   early-record misses in w and α would still need option 1, or a start for each channel's comparison at the
+   first record where its Y is nonzero.
+3. **Record R13 as not met in u and the altitude,** keeping the bound in every other channel. That narrows the
+   comparison, which needs Joe's explicit authorization.
+
+**Recommended: option 1.** It is the smallest change, it follows F's own derivation, it covers the early-record
+misses as well, and it leaves the wrap control's failure three to four orders of magnitude above its 10³.
