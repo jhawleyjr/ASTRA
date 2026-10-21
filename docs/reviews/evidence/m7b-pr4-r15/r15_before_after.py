@@ -93,7 +93,7 @@ def fly(config_path: str, plugin_dir: Path, log: Path, kind: str) -> bytes:
         record()
         halt = None
         for _ in range(sim.frames):
-            halt = sim.step()
+            halt = sim.run(1)  # run(), unlike step(), drains the log's ring
             if halt:
                 break
             record()
@@ -104,23 +104,37 @@ def fly(config_path: str, plugin_dir: Path, log: Path, kind: str) -> bytes:
     return out
 
 
+def as_bytes(value: Any) -> bytes:
+    """A value's exact content: its dtype, shape and bytes for numbers, its text for strings (an
+    object array's own bytes are pointers, which differ between reads)."""
+    array = np.asarray(value)
+    if array.dtype.kind in "OSU":
+        items = [x.decode() if isinstance(x, bytes) else str(x) for x in array.ravel()]
+        return repr((array.shape, items)).encode()
+    return repr((array.dtype.str, array.shape)).encode() + array.tobytes()
+
+
 def objects(path: Path) -> dict[str, bytes]:
-    """Every attribute and dataset of an HDF5 file, as bytes, keyed by its path."""
+    """Every attribute and dataset of an HDF5 file, as exact content, keyed by its path."""
     found: dict[str, bytes] = {}
     with h5py.File(path, "r") as f:
 
         def visit(name: str, obj: Any) -> None:
             for key, value in obj.attrs.items():
-                found[f"{name}@{key}"] = np.asarray(value).tobytes()
+                found[f"{name}@{key}"] = as_bytes(value)
             if isinstance(obj, h5py.Dataset) and name != "plugins":
-                found[name] = (
-                    obj[()].tobytes() if obj.shape != () else np.asarray(obj[()]).tobytes()
-                )
+                found[name] = as_bytes(obj[()])
 
         for key, value in f.attrs.items():
-            found[f"/@{key}"] = np.asarray(value).tobytes()
+            found[f"/@{key}"] = as_bytes(value)
         f.visititems(visit)
     return found
+
+
+def root_attr(path: Path, key: str) -> str:
+    with h5py.File(path, "r") as f:
+        value = f.attrs[key]
+        return value.decode() if isinstance(value, bytes) else str(value)
 
 
 def plugin_rows(path: Path) -> tuple[list[tuple[Any, ...]], dict[str, str]]:
@@ -184,11 +198,13 @@ def main() -> int:
             differing = sorted(k for k in set(ob) | set(oa) if ob.get(k) != oa.get(k))
             rows_b, hashes_b = plugin_rows(logs["b"])
             rows_a, hashes_a = plugin_rows(logs["a"])
-            describe = oa.get("/@git_describe", b"").decode(errors="replace")
+            describes = [root_attr(logs[side], "git_describe") for side in ("b", "a")]
             print(
-                f"    log: {len(oa)} objects, {len(differing)} differing; git_describe"
-                f" {describe!r} in both: {ob.get('/@git_describe') == oa.get('/@git_describe')}"
+                f"    log: {len(oa)} objects, {len(differing)} differing {differing};"
+                f" git_describe {describes[0]!r} and {describes[1]!r}"
             )
+            if describes[0] != describes[1]:
+                failures.append(f"{label}'s git_describe differs: not one libastra_core build")
             for path in HOOKED_PATHS:
                 print(f"    /plugins {path}: sha256 before {hashes_b.get(path)}")
                 print(f"    {' ' * len(path)}           after  {hashes_a.get(path)}")
