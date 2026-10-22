@@ -1,17 +1,11 @@
 # STATE (written at /wrap as main reads it after the merge; ≤ 40 lines, never appended)
 
 ## Next step
-1. M0 to M7 are done (PLAN.md's M7 row). M7b (`docs/plans/m7b-closed-loop-oracles.md`): ADR-0034 and oracles
-   (a) to (c) (PRs 1 to 4) are in. Each next task starts from a new worktree off `origin/main`.
-2. Next, on Joe's go: M7b PR 5, the closeout (the M7b plan's row 5). It updates architecture §16's M7b row (still
-   *Planned*), names the autopilot peer in §4's tree and §10 unless #124's body records PR 3 did, checks PLAN.md's
-   M7b item only if every requirement holds, and runs `/wrap`'s docs step at repo scope. It also adds PLAN.md's
-   unscheduled item (Joe, 2026-10-21): "check-full.sh prints a wall time per step (each preset's build, tidy,
-   pyright, the python build, each CTest run, pytest, the scans), so a gate delta can be attributed; PR 4's +94 s
-   fell in untimed steps."
-3. M8 planning (M7's PR 13, the envelope item: ADR-0031, the M7 plan's row 13, Q16, R18) and M7's PR 3, the (M9)
-   rotation item: each on Joe's go; their order against M7b's closeout is his.
-4. Every new plugin under `plugins/` or `aircraft/` needs a key block before `just docs-check` passes, and a
+1. M0 to M7b are done (PLAN.md's M7 and M7b rows; architecture rev 17). Each next task starts from a new worktree
+   off `origin/main`.
+2. Next, each on Joe's go, in his order: M8 planning (M7's PR 13, the envelope item first: ADR-0031, the M7 plan's
+   row 13, Q16, R18), and M7's PR 3, the (M9) rotation item.
+3. Every new plugin under `plugins/` or `aircraft/` needs a key block before `just docs-check` passes, and a
    `just new-aircraft` copy needs `python3 -I -B scripts/config_keys.py` run (architecture §18 step 1); a new
    tracked config builds, or `test_config_keys.py` declares its refusal.
 
@@ -26,15 +20,16 @@
 - PLAN.md's (unscheduled) notional-transport rate-frame item (M7 PR 6a's D3 (B2)): measure before Joe decides.
 - Trim: `zero_inertial` the default, the F-16 configs `n_frame`; `n_frame` rates come from `lstsq`, so exact
   zeros need explicit projection (M7b's C-01). The F-16 bands gate from `Band::kFirstGatedSample`.
+- Gate time: 1294 s at M7b PR 4 (`def7d91`), +293 s against 1001 s; 94 s of PR 4's +107 s fell in untimed steps.
 - Lessons: a failed gate's full log keeps its per-head name (2026-10-10); a ctest `-R 'A\|B'` selects nothing
   (2026-10-11); a roundoff bound charges each step at its own result (2026-10-13); `is_sequence()` before
   iterating (2026-10-13); an exact recursion on a double dt outgrows Fraction, a no-slack bound is attained at a
   tie, and the stop hook runs `unit` tests at every turn end (2026-10-18); a yardstick reads 0 on a channel its
   perturbations never move by an ulp, so it needs a perturbation or a floor at their resolution (2026-10-20).
-- PLAN.md's items, each Joe's call: (unscheduled) the Codex review of M7 PR 6b's diff; `kJ2`'s source;
-  `disarm-goldens.sh`; the review record; the docs-check range (run `git diff --check <base>..HEAD` before
-  review); CI's docs-check paths; the equal-aspect canvas and the plotly.js floor; the non-scalar map key;
-  (M9) the ICD v2 Earth-rate item (ADR-0029 Decision 7); (M11) the frame-time benchmark maximum.
+- PLAN.md's items, each Joe's call: (unscheduled) per-step gate timing in `check-full.sh`; the Codex review of
+  M7 PR 6b's diff; `kJ2`'s source; `disarm-goldens.sh`; the review record; the docs-check range (run `git diff
+  --check <base>..HEAD` before review); CI's docs-check paths; the equal-aspect canvas and the plotly.js floor;
+  the non-scalar map key; (M9) the ICD v2 Earth-rate item (ADR-0029 Decision 7); (M11) the frame-time maximum.
 
 ## Honesty rules
 "A trace matched" is not "verified". Verified means the acceptance command ran and exited 0 in this session.

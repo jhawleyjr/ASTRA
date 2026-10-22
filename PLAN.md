@@ -593,13 +593,47 @@ takes them as a prefix.
     rotation item to M9, adds the PR 6b review item, and rewrites architecture §16's M7 row and note. It also
     sets §18's tutorial marker to unscheduled and §7, §12 and §15's envelope markers to M8 (rev 14). Plans:
     [milestone](docs/plans/m7-f16-nesc-oracle.md), [PR](docs/plans/m7-pr16-closeout.md). Packet: in the PR body.
-- [ ] **M7b Closed-loop oracles** — three in-house oracles, each gated in `just check`, in place of the
+- [x] **M7b Closed-loop oracles** — three in-house oracles, each gated in `just check`, in place of the
       verification M7 PR 11b, 12 and 15 would have drawn from the NESC closed-loop ensemble (two members with
       loose maneuver bands; Joe, 2026-10-13): an exact sampled-data closed-loop check on a linear plant
       through the exchange stage; the port pattern, proven on M4's autopilot by a sim-side in-process peer
       bitwise equal to `embedded/autopilot`; and mirror and heading symmetry of the F-16 under `F16_control`.
       Each has an independent reference, a bound pre-registered before its first run, and negative controls
-      that fail. Spec and plan: [plan](docs/plans/m7b-closed-loop-oracles.md).
+      that fail. Spec and plan: [plan](docs/plans/m7b-closed-loop-oracles.md). Evidence, by requirement. Each
+      summary is its PR's last gated candidate (`check-full.sh` exit 0, `check: OK`; CTest counts are
+      debug/release/static-plugins/asan, pytest counts with 5 skipped), the acceptance runs are in each PR
+      body, and the R-IDs are the plan's:
+      - ADR-0034, the in-house oracle rule: PR 1 (CTest 800/801/802/803, pytest 2110 passed —
+        [summary](docs/reviews/evidence/895cebe-gate-summary.log));
+      - oracle (a), the exact sampled-data check: PR 2 (R1 to R4; CTest 806/807/808/809, pytest 2135 passed —
+        [summary](docs/reviews/evidence/0bbc4fa-gate-summary.log)). Its
+        [first run](docs/reviews/evidence/1d7fb2c-sampled-data-first-run.log) holds F, L and C within their
+        bounds at N = 10, 3 and 1, and the four controls and the order control failing as registered;
+      - oracle (b), the port pattern: PR 3 (R5 to R9; CTest 824/825/826/827, pytest 2160 passed —
+        [summary](docs/reviews/evidence/a459cd9-gate-summary.log)). The
+        [flags](docs/reviews/evidence/6da7622-fp-flags.log) were stated before the
+        [comparison](docs/reviews/evidence/eab4adf-autopilot-peer-first-run.log): bitwise at both Dryden levels,
+        and each porting control breaking first at its registered record, inside M4's bands. R5's first run came
+        from the stop hook before the plan critique closed, a dated process deviation (PR 3's plan, §16); its
+        run of record is the comparison step's, and it changes nothing the row says;
+      - oracle (c), the F-16's symmetry: PR 4 (R10 to R15; CTest 838/849/840/841, pytest 2160 passed —
+        [summary](docs/reviews/evidence/def7d91-gate-summary.log)). The
+        [parity probe](docs/reviews/evidence/m7b-pr4-inventory/probe.log) passed in every preset before any
+        flight; R15's [before and after](docs/reviews/evidence/m7b-pr4-r15/r15_before_after.log) is byte-equal;
+        the [first flight](docs/reviews/evidence/a1c86ed-f16-symmetry-first-flight.log) holds the variant pairs
+        equal by value, the shipped pairs' decomposition and the five controls, and misses heading invariance;
+        the [second](docs/reviews/evidence/9116375-f16-symmetry-second-flight.log), with the floor below, holds
+        all 24.
+
+      The row's words changed in two dated deviations by Joe (ADR-0034 Decision 3). PR 2's: C's reference is
+      the exact recursion carried on a 2⁻⁴⁰⁰ grid, the grid's effect in C's bound, while F and L stay exact
+      (R2; PR 2's plan, §11). PR 4's: R12 is the evaluation-level decomposition by value, in place of a
+      modeling bound on the trajectory asymmetry, which is reported (PR 4's plan, §8); and R13's yardstick is
+      floored per channel at its own resolution, after the first flight's miss (§9, §19 and §20). R16 is each
+      summary above, with each PR's tier review in its body. Against 1001 s, PR 2's gate took +177 s, PR 3's
+      +186 s and PR 4's +293 s. PR 4's +107 s against PR 3's gate on `a459cd9` (1187 s) is CTest −3.2 s,
+      pytest +16.0 s and 94 s in steps the gate does not time (the unscheduled per-step timing item below).
+      PR 0 and PR 5 are Tier 0.
   - Planning (#121): M7b spec, plan and PR decomposition (PR 0 to 5), docs only. Joe approved it on 2026-10-15 with
     his answers to Q1 to Q12 and amendments 1 to 10. A Codex plan critique (C-01 to C-06) and its verification
     pass (N-01 to N-03) followed, and all nine findings are folded in. Plans:
@@ -636,6 +670,12 @@ takes them as a prefix.
     floored at its own resolution by a dated deviation after the first flight. Five controls fail as registered,
     and R10's libm parity probe passes in every preset. Plan: [plan](docs/plans/m7b-pr4-f16-symmetry.md). Packet:
     in the PR body.
+  - PR 5 (#126): M7b closeout, docs only. It checks M7b off with its evidence by requirement and the two dated
+    deviations, takes architecture §16's M7b row from planned to built with a note (rev 17), names the
+    autopilot peer and the test peers in §4 and §10, the F-16 in §4, and ADR-0029 Decision 8's order in §18's
+    step 5, points the three unscheduled M7 items at the proven pattern, and adds the per-step gate-timing
+    item. Plans: [milestone](docs/plans/m7b-closed-loop-oracles.md), [PR](docs/plans/m7b-pr5-closeout.md).
+    Packet: in the PR body.
 - [ ] **M8 Actuators and controller tuning** — a first-order lag and a nonlinear second-order actuator model
       with rate and position limits; autopilot gains loaded at startup; the tuning tool (spec-driven on the
       linear model, time-domain on the nonlinear sim, robustness across draws, gain schedules) with
@@ -807,11 +847,19 @@ takes them as a prefix.
       `transport` block, since replaying commands without the peer is a different feature. Not started.
 - [ ] (unscheduled) M7 PR 11b, the sim-side `F16_gnc` peer and cases 15 and 16: the NESC closed-loop ensemble
       is two members with loose maneuver bands; Joe, 2026-10-13. It carries the M7 plan's 11b obligation
-      (`rate_frame.py` on case 15).
+      (`rate_frame.py` on case 15). If scheduled, its law is a sim-side in-process peer beside `nesc_control`,
+      the first side of ADR-0029 Decision 8's order, and M7b's oracles are the model for an in-house check where
+      the ensemble's bands cannot discriminate (ADR-0034): oracle (c)'s mirror pairs for a lateral path
+      (`tests/physics/nesc/f16_symmetry.hpp`).
 - [ ] (unscheduled) M7 PR 12, the C++17 port of the NESC laws in `embedded/`: the NESC closed-loop ensemble is two
-      members with loose maneuver bands; Joe, 2026-10-13.
+      members with loose maneuver bands; Joe, 2026-10-13. If scheduled, it takes ADR-0029 Decision 8's own
+      order, `nesc_control` the reference and the port the newer side, under the criterion M7b PR 3 exercised
+      in the reverse order on M4's autopilot: bitwise on Decision 8's objects, both builds' floating-point flags
+      stated before the first comparison, and ulp-sized planted porting controls with pre-registered first
+      breaks (ADR-0034; `tests/python/test_autopilot_peer.py`).
 - [ ] (unscheduled) M7 PR 15, the tutorial from the F-16 path: the NESC closed-loop ensemble is two members with
-      loose maneuver bands; Joe, 2026-10-13.
+      loose maneuver bands; Joe, 2026-10-13. If scheduled, architecture §18's step 5 now states Decision 8's
+      order for a new law and M7b PR 3's reverse-order example, which the tutorial can walk.
 - [ ] (unscheduled) A Codex adversarial review of M7 PR 6b's `aircraft/f16` diff, `856fff0..c8f3128` (origin: M7
       closeout; Joe 2026-10-15, his call when). #113 merged at its commit 4 on Joe's decision of 2026-10-10, the
       accepted exception to the Tier 3 review and gate. Its only Codex pass was the plan critique, and PR 3c's
@@ -821,7 +869,8 @@ takes them as a prefix.
       non-rotating-Earth limitation (origin: M7 PR 1b; Joe 2026-10-09;
       [ADR-0029](docs/decisions/0029-sim-side-flight-software-peer.md), Decision 7). ICD v1 carries no Earth rate,
       so the peer forms ω_ie from the frame's latitude with Vol II's Ω, and it still subtracts Ω under a
-      non-rotating Earth. Not started.
+      non-rotating Earth. M7b PR 4's `Options::earth_rate` (`kNone`) drops that subtraction only in a test
+      variant (`tests/plugins/nesc_control_variant`); the shipped default is unchanged (M7b's R15). Not started.
 - [ ] (unscheduled) `.claude/hooks/disarm-goldens.sh` is a `SessionStart` hook with no matcher, so it also fires on
       compaction, and an armed oracle guard does not survive an auto-compact (origin: M7 PR 1b; Joe 2026-10-09;
       `docs/lessons.md` 2026-10-09). Joe decides whether it matches only `startup`, `resume` and `clear`, or keeps
@@ -841,6 +890,9 @@ takes them as a prefix.
       gate (origin: M7 PR 14; Joe 2026-10-12). The fix is the paths filter in `.github/workflows/check.yml` (its
       scope step's docs pattern), with `plugins/`, `aircraft/`, `scripts/config_keys.py` and `docs/reference/`
       added. It changes the gate, so it is a gate PR of its own. Not started.
+- [ ] (unscheduled) check-full.sh prints a wall time per step (each preset's build, tidy, pyright, the python build,
+      each CTest run, pytest, the scans), so a gate delta can be attributed; PR 4's +94 s fell in untimed steps.
+      (Origin: M7b PR 4's gate, #125's body; Joe 2026-10-21.) Not started.
 
 ## Future work
 
