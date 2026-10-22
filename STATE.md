@@ -5,10 +5,7 @@
    off `origin/main`.
 2. Next, each on Joe's go, in his order: M8 planning (M7's PR 13, the envelope item first: ADR-0031, the M7 plan's
    row 13, Q16, R18), and M7's PR 3, the (M9) rotation item.
-3. A new sim-side law follows ADR-0029 Decision 8's order (architecture §18 step 5): sim-side peer first, then the
-   port proven bitwise against it; an already accepted side is the reference, and every in-house oracle follows
-   ADR-0034 (reference, bound fixed before the first run, negative controls).
-4. Every new plugin under `plugins/` or `aircraft/` needs a key block before `just docs-check` passes, and a
+3. Every new plugin under `plugins/` or `aircraft/` needs a key block before `just docs-check` passes, and a
    `just new-aircraft` copy needs `python3 -I -B scripts/config_keys.py` run (architecture §18 step 1); a new
    tracked config builds, or `test_config_keys.py` declares its refusal.
 

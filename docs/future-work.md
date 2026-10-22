@@ -25,7 +25,7 @@ In this order; Joe accepted it as proposed, with the decisions listed after it.
   the open items on the mass product-of-inertia convention, trim's control names and ADR-0002's wording; at
   its closeout the §15 envelope monitors moved to M8 and Earth/gravity rotation consistency to M9 (Joe,
   2026-10-15).
-- **M7b Closed-loop oracles** (added by Joe, 2026-10-15): three in-house oracles under
+- **M7b Closed-loop oracles** (decided by Joe 2026-10-13, plan approved 2026-10-15): three in-house oracles under
   ADR-0034, in place of the verification M7's PR 11b, 12 and 15 would have drawn from the NESC closed-loop
   ensemble: an exact sampled-data check, the autopilot's sim-side peer bitwise equal to `embedded/autopilot`,
   and the F-16's mirror and heading symmetry. Closed out 2026-10-21.
